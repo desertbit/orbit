@@ -35,13 +35,13 @@ var (
 // ReadDecode reads the packet and decodes it into the value.
 // Ensure to pass a pointer value.
 func ReadDecode(
-	value interface{},
-	codec codec.Codec,
 	conn net.Conn,
 	maxPayloadSize int,
 	timeout time.Duration,
+	value interface{},
+	codec codec.Codec,
 ) (err error) {
-	payload, err := Read(conn, nil, maxPayloadSize, timeout)
+	payload, err := Read(conn, maxPayloadSize, timeout, nil)
 	if err != nil {
 		return
 	}
@@ -55,9 +55,9 @@ func ReadDecode(
 // is allocated.
 func Read(
 	conn net.Conn,
-	buffer []byte,
 	maxPayloadSize int,
 	timeout time.Duration,
+	buffer []byte,
 ) ([]byte, error) {
 	var (
 		err            error
@@ -112,26 +112,26 @@ func Read(
 
 // WriteEncode encodes the value and writes it to the connection.
 func WriteEncode(
-	value interface{},
-	codec codec.Codec,
 	conn net.Conn,
 	maxPayloadSize int,
 	timeout time.Duration,
+	value interface{},
+	codec codec.Codec,
 ) (err error) {
 	data, err := codec.Encode(value)
 	if err != nil {
 		return
 	}
 
-	return Write(conn, data, maxPayloadSize, timeout)
+	return Write(conn, maxPayloadSize, timeout, data)
 }
 
 // Write the packet data to the connection.
 func Write(
 	conn net.Conn,
-	data []byte,
 	maxPayloadSize int,
 	timeout time.Duration,
+	data []byte,
 ) (err error) {
 	// Set the write deadline.
 	err = conn.SetWriteDeadline(time.Now().Add(timeout))
