@@ -17,15 +17,14 @@
  */
 package control
 
-import "sync"
+import (
+	"github.com/desertbit/orbit/internal/utils"
+	"sync"
+)
 
 const (
 	chainIDLength = 10
 )
-
-//##################//
-//### Chain Type ###//
-//##################//
 
 type chainChan chan interface{}
 
@@ -47,7 +46,7 @@ func (c *chain) New() (id string, cc chainChan, err error) {
 	// Create a new ID and ensure it is unqiue.
 	var added bool
 	for {
-		id, err = randomString(chainIDLength)
+		id, err = utils.RandomString(chainIDLength)
 		if err != nil {
 			return
 		}

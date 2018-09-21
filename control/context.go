@@ -27,10 +27,6 @@ var (
 	ErrNoContextData = errors.New("no context data available to decode")
 )
 
-//####################//
-//### Conext Type ####//
-//####################//
-
 // A Context defines a function context.
 type Context struct {
 	// Data is the raw byte representation of the encoded context data.

@@ -45,12 +45,13 @@ var (
 )
 
 type Config struct {
-	Codec          codec.Codec
-	Logger         *log.Logger
-	MaxMessageSize int
-	CallTimeout    time.Duration
-	ReadTimeout    time.Duration
-	WriteTimeout   time.Duration
+	Codec           codec.Codec
+	Logger          *log.Logger
+	MaxMessageSize  int
+	CallTimeout     time.Duration
+	ReadTimeout     time.Duration
+	WriteTimeout    time.Duration
+	SendErrToCaller bool
 }
 
 func prepareConfig(c *Config) *Config {
