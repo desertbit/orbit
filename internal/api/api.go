@@ -26,3 +26,13 @@ const (
 type InitStream struct {
 	ID string
 }
+
+type ControlCall struct {
+	FuncID    string
+	ReturnKey string
+}
+
+type ControlCallReturn struct {
+	ReturnKey string
+	ReturnErr string
+}
