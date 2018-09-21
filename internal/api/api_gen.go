@@ -7,6 +7,238 @@ import (
 )
 
 // DecodeMsg implements msgp.Decodable
+func (z *ControlCall) DecodeMsg(dc *msgp.Reader) (err error) {
+	var field []byte
+	_ = field
+	var zb0001 uint32
+	zb0001, err = dc.ReadMapHeader()
+	if err != nil {
+		return
+	}
+	for zb0001 > 0 {
+		zb0001--
+		field, err = dc.ReadMapKeyPtr()
+		if err != nil {
+			return
+		}
+		switch msgp.UnsafeString(field) {
+		case "FuncID":
+			z.FuncID, err = dc.ReadString()
+			if err != nil {
+				return
+			}
+		case "ReturnKey":
+			z.ReturnKey, err = dc.ReadString()
+			if err != nil {
+				return
+			}
+		default:
+			err = dc.Skip()
+			if err != nil {
+				return
+			}
+		}
+	}
+	return
+}
+
+// EncodeMsg implements msgp.Encodable
+func (z ControlCall) EncodeMsg(en *msgp.Writer) (err error) {
+	// map header, size 2
+	// write "FuncID"
+	err = en.Append(0x82, 0xa6, 0x46, 0x75, 0x6e, 0x63, 0x49, 0x44)
+	if err != nil {
+		return
+	}
+	err = en.WriteString(z.FuncID)
+	if err != nil {
+		return
+	}
+	// write "ReturnKey"
+	err = en.Append(0xa9, 0x52, 0x65, 0x74, 0x75, 0x72, 0x6e, 0x4b, 0x65, 0x79)
+	if err != nil {
+		return
+	}
+	err = en.WriteString(z.ReturnKey)
+	if err != nil {
+		return
+	}
+	return
+}
+
+// MarshalMsg implements msgp.Marshaler
+func (z ControlCall) MarshalMsg(b []byte) (o []byte, err error) {
+	o = msgp.Require(b, z.Msgsize())
+	// map header, size 2
+	// string "FuncID"
+	o = append(o, 0x82, 0xa6, 0x46, 0x75, 0x6e, 0x63, 0x49, 0x44)
+	o = msgp.AppendString(o, z.FuncID)
+	// string "ReturnKey"
+	o = append(o, 0xa9, 0x52, 0x65, 0x74, 0x75, 0x72, 0x6e, 0x4b, 0x65, 0x79)
+	o = msgp.AppendString(o, z.ReturnKey)
+	return
+}
+
+// UnmarshalMsg implements msgp.Unmarshaler
+func (z *ControlCall) UnmarshalMsg(bts []byte) (o []byte, err error) {
+	var field []byte
+	_ = field
+	var zb0001 uint32
+	zb0001, bts, err = msgp.ReadMapHeaderBytes(bts)
+	if err != nil {
+		return
+	}
+	for zb0001 > 0 {
+		zb0001--
+		field, bts, err = msgp.ReadMapKeyZC(bts)
+		if err != nil {
+			return
+		}
+		switch msgp.UnsafeString(field) {
+		case "FuncID":
+			z.FuncID, bts, err = msgp.ReadStringBytes(bts)
+			if err != nil {
+				return
+			}
+		case "ReturnKey":
+			z.ReturnKey, bts, err = msgp.ReadStringBytes(bts)
+			if err != nil {
+				return
+			}
+		default:
+			bts, err = msgp.Skip(bts)
+			if err != nil {
+				return
+			}
+		}
+	}
+	o = bts
+	return
+}
+
+// Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
+func (z ControlCall) Msgsize() (s int) {
+	s = 1 + 7 + msgp.StringPrefixSize + len(z.FuncID) + 10 + msgp.StringPrefixSize + len(z.ReturnKey)
+	return
+}
+
+// DecodeMsg implements msgp.Decodable
+func (z *ControlCallReturn) DecodeMsg(dc *msgp.Reader) (err error) {
+	var field []byte
+	_ = field
+	var zb0001 uint32
+	zb0001, err = dc.ReadMapHeader()
+	if err != nil {
+		return
+	}
+	for zb0001 > 0 {
+		zb0001--
+		field, err = dc.ReadMapKeyPtr()
+		if err != nil {
+			return
+		}
+		switch msgp.UnsafeString(field) {
+		case "ReturnKey":
+			z.ReturnKey, err = dc.ReadString()
+			if err != nil {
+				return
+			}
+		case "ReturnErr":
+			z.ReturnErr, err = dc.ReadString()
+			if err != nil {
+				return
+			}
+		default:
+			err = dc.Skip()
+			if err != nil {
+				return
+			}
+		}
+	}
+	return
+}
+
+// EncodeMsg implements msgp.Encodable
+func (z ControlCallReturn) EncodeMsg(en *msgp.Writer) (err error) {
+	// map header, size 2
+	// write "ReturnKey"
+	err = en.Append(0x82, 0xa9, 0x52, 0x65, 0x74, 0x75, 0x72, 0x6e, 0x4b, 0x65, 0x79)
+	if err != nil {
+		return
+	}
+	err = en.WriteString(z.ReturnKey)
+	if err != nil {
+		return
+	}
+	// write "ReturnErr"
+	err = en.Append(0xa9, 0x52, 0x65, 0x74, 0x75, 0x72, 0x6e, 0x45, 0x72, 0x72)
+	if err != nil {
+		return
+	}
+	err = en.WriteString(z.ReturnErr)
+	if err != nil {
+		return
+	}
+	return
+}
+
+// MarshalMsg implements msgp.Marshaler
+func (z ControlCallReturn) MarshalMsg(b []byte) (o []byte, err error) {
+	o = msgp.Require(b, z.Msgsize())
+	// map header, size 2
+	// string "ReturnKey"
+	o = append(o, 0x82, 0xa9, 0x52, 0x65, 0x74, 0x75, 0x72, 0x6e, 0x4b, 0x65, 0x79)
+	o = msgp.AppendString(o, z.ReturnKey)
+	// string "ReturnErr"
+	o = append(o, 0xa9, 0x52, 0x65, 0x74, 0x75, 0x72, 0x6e, 0x45, 0x72, 0x72)
+	o = msgp.AppendString(o, z.ReturnErr)
+	return
+}
+
+// UnmarshalMsg implements msgp.Unmarshaler
+func (z *ControlCallReturn) UnmarshalMsg(bts []byte) (o []byte, err error) {
+	var field []byte
+	_ = field
+	var zb0001 uint32
+	zb0001, bts, err = msgp.ReadMapHeaderBytes(bts)
+	if err != nil {
+		return
+	}
+	for zb0001 > 0 {
+		zb0001--
+		field, bts, err = msgp.ReadMapKeyZC(bts)
+		if err != nil {
+			return
+		}
+		switch msgp.UnsafeString(field) {
+		case "ReturnKey":
+			z.ReturnKey, bts, err = msgp.ReadStringBytes(bts)
+			if err != nil {
+				return
+			}
+		case "ReturnErr":
+			z.ReturnErr, bts, err = msgp.ReadStringBytes(bts)
+			if err != nil {
+				return
+			}
+		default:
+			bts, err = msgp.Skip(bts)
+			if err != nil {
+				return
+			}
+		}
+	}
+	o = bts
+	return
+}
+
+// Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
+func (z ControlCallReturn) Msgsize() (s int) {
+	s = 1 + 10 + msgp.StringPrefixSize + len(z.ReturnKey) + 10 + msgp.StringPrefixSize + len(z.ReturnErr)
+	return
+}
+
+// DecodeMsg implements msgp.Decodable
 func (z *InitStream) DecodeMsg(dc *msgp.Reader) (err error) {
 	var field []byte
 	_ = field

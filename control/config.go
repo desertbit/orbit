@@ -18,11 +18,12 @@
 package control
 
 import (
-	"github.com/desertbit/orbit/codec"
-	"github.com/desertbit/orbit/codec/msgpack"
 	"log"
 	"os"
 	"time"
+
+	"github.com/desertbit/orbit/codec"
+	"github.com/desertbit/orbit/codec/msgpack"
 )
 
 const (
@@ -41,7 +42,7 @@ const (
 
 var (
 	defaultCodec  = msgpack.Codec
-	defaultLogger = log.New(os.Stderr, "orbit: ", 0)
+	defaultLogger = log.New(os.Stderr, "orbit: control: ", 0)
 )
 
 type Config struct {

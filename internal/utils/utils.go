@@ -20,11 +20,6 @@ package utils
 
 import (
 	"crypto/rand"
-	"encoding/binary"
-)
-
-var (
-	endian binary.ByteOrder = binary.BigEndian
 )
 
 // RandomString generates a random string.
