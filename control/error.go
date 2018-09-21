@@ -34,7 +34,7 @@ func (e errImpl) Code() int {
 
 type ErrorCode struct {
 	Code int
-	
+
 	err string
 }
 

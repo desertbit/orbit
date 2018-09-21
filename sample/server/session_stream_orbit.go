@@ -19,38 +19,40 @@
 package main
 
 import (
-	"github.com/desertbit/orbit"
+	"fmt"
 	"github.com/desertbit/orbit/sample/api"
-	"log"
+	"net"
+	"strings"
+	"time"
 )
 
-type Session struct {
-	*orbit.Session
-}
+const orbitASCII = `
+         ,MMM8&&&.
+    _...MMMMM88&&&&..._
+ .::'''MMMMM88&&&&&&'''::.
+::     MMMMM88&&&&&&     ::
+'::....MMMMM88&&&&&&....::'
+    ''''MMMMM88&&&&''''
+         'MMM8&&&'
+`
 
-func newSession(orbitSession *orbit.Session) (s *Session, err error) {
-	s = &Session{
-		Session: orbitSession,
+func handleOrbitStream(stream net.Conn) error {
+	// Ensure stream is closed
+	defer stream.Close()
+
+	orbitParts := strings.Split(orbitASCII, "\n")
+
+	for i := 0; i < len(orbitParts); i++ {
+		time.Sleep(500 * time.Millisecond)
+
+		n, err := stream.Write([]byte(orbitParts[i]))
+		if err != nil {
+			return fmt.Errorf("error writing to stream '%s': %v", api.ChannelIDOrbit, err)
+		}
+		if n != len(orbitParts[i]) {
+			return fmt.Errorf("error writing to stream '%s': could only write %d bytes, expected to write %d bytes", api.ChannelIDOrbit, n, len(orbitParts[i]))
+		}
 	}
 
-	// Always close the session on error.
-	defer func() {
-		if err != nil {
-			s.Close()
-		}
-	}()
-
-	s.OnNewStream(api.ChannelIDOrbit, handleOrbitStream)
-
-	// Signalize the session that initialization is done.
-	// Start accepting incoming channel streams.
-	s.Ready()
-
-	// Log if the session closes.
-	s.OnClose(func() error {
-		log.Println("session closed")
-		return nil
-	})
-
-	return
+	return nil
 }
