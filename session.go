@@ -179,7 +179,7 @@ func (s *Session) acceptStreamRoutine() {
 		stream, err := s.ys.Accept()
 		if err != nil {
 			if !s.IsClosed() && err != io.EOF {
-				s.logger.Printf("session: failed to accept stream: %v\n", err)
+				s.logger.Printf("session: failed to accept stream: %v", err)
 			}
 			return
 		}
@@ -205,7 +205,7 @@ func (s *Session) handleNewStreamRoutine() {
 		case stream := <-s.newStreamChan:
 			err := s.handleNewStream(stream)
 			if err != nil {
-				s.logger.Printf("session: failed to handle new stream: %v\n", err)
+				s.logger.Printf("session: failed to handle new stream: %v", err)
 			}
 		}
 	}

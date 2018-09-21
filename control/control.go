@@ -15,23 +15,26 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+
 package control
 
 import (
 	"errors"
 	"fmt"
-	"github.com/desertbit/closer"
-	"github.com/desertbit/orbit/internal/api"
-	"github.com/desertbit/orbit/packet"
 	"io"
 	"log"
 	"net"
 	"sync"
 	"time"
+
+	"github.com/desertbit/closer"
+	"github.com/desertbit/orbit/codec"
+	"github.com/desertbit/orbit/internal/api"
+	"github.com/desertbit/orbit/packet"
 )
 
 const (
-	callReturnCodeOk = 0
+	defaultErrorMessage = "method call failed"
 
 	typeCall       byte = 0
 	typeCallReturn byte = 1
@@ -62,6 +65,7 @@ type Control struct {
 	closer.Closer
 
 	config     *Config
+	codec      codec.Codec
 	logger     *log.Logger
 	conn       net.Conn
 	writeMutex sync.Mutex
@@ -84,6 +88,7 @@ func New(conn net.Conn, config *Config) *Control {
 	s := &Control{
 		Closer:    closer.New(),
 		config:    config,
+		codec:     config.Codec,
 		logger:    config.Logger,
 		conn:      conn,
 		funcMap:   make(map[string]Func),
@@ -215,7 +220,7 @@ func (s *Control) write(reqType byte, headerI interface{}, dataI interface{}) (e
 
 	// Marshal the payload data if present.
 	if dataI != nil {
-		payload, err = s.config.Codec.Encode(dataI)
+		payload, err = s.codec.Encode(dataI)
 		if err != nil {
 			return fmt.Errorf("encode: %v", err)
 		}
@@ -223,7 +228,7 @@ func (s *Control) write(reqType byte, headerI interface{}, dataI interface{}) (e
 
 	// Marshal the header data if present.
 	if headerI != nil {
-		header, err = s.config.Codec.Encode(headerI)
+		header, err = s.codec.Encode(headerI)
 		if err != nil {
 			return fmt.Errorf("encode header: %v", err)
 		}
@@ -232,20 +237,25 @@ func (s *Control) write(reqType byte, headerI interface{}, dataI interface{}) (e
 	s.writeMutex.Lock()
 	defer s.writeMutex.Unlock()
 
+	err = s.conn.SetWriteDeadline(time.Now().Add(s.config.WriteTimeout))
+	if err != nil {
+		return err
+	}
+
 	_, err = s.conn.Write([]byte{reqType})
 	if err != nil {
 		return err
 	}
 
 	if len(header) > 0 {
-		err = packet.Write(s.conn, s.config.MaxMessageSize, s.config.WriteTimeout, header)
+		err = packet.Write(s.conn, header, s.config.MaxMessageSize)
 		if err != nil {
 			return err
 		}
 	}
 
 	if len(payload) > 0 {
-		err = packet.Write(s.conn, s.config.MaxMessageSize, s.config.WriteTimeout, payload)
+		err = packet.Write(s.conn, payload, s.config.MaxMessageSize)
 		if err != nil {
 			return err
 		}
@@ -255,62 +265,67 @@ func (s *Control) write(reqType byte, headerI interface{}, dataI interface{}) (e
 }
 
 func (s *Control) readRoutine() {
-	// Catch panics.
-	defer func() {
-		if e := recover(); e != nil {
-			s.logger.Printf("control: read loop: catched panic: %v", e)
-		}
-	}()
-
 	// Close the socket on exit.
 	defer s.Close()
 
 	var (
-		bytesRead  int
-		reqTypeBuf = make([]byte, 1)
+		err                     error
+		n, bytesRead            int
+		reqType                 byte
+		reqTypeBuf              = make([]byte, 1)
+		headerData, payloadData []byte
 	)
 
-	for {
-		// Read the reqType from the stream
-		for bytesRead == 0 {
-			err := s.conn.SetReadDeadline(time.Now().Add(s.config.ReadTimeout))
-			if err != nil {
-				s.logger.Printf("control: setReadDeadline: %v", err)
-				return
-			}
+	// Log the error message if the connection is not closed.
+	defer func() {
+		if err != nil && err != io.EOF && !s.IsClosed() {
+			s.logger.Printf("control: read: %v", err)
+		}
+	}()
 
-			n, err := s.conn.Read(reqTypeBuf)
+	// Catch panics.
+	defer func() {
+		if e := recover(); e != nil {
+			err = fmt.Errorf("catched panic: %v", e)
+		}
+	}()
+
+	for {
+		// Set the read deadline for the message.
+		err = s.conn.SetReadDeadline(time.Now().Add(s.config.ReadTimeout))
+		if err != nil {
+			err = fmt.Errorf("setReadDeadline: %v", err)
+			return
+		}
+
+		// Read the reqType from the stream.
+		for bytesRead == 0 {
+			n, err = s.conn.Read(reqTypeBuf)
 			if err != nil {
-				// Log only if not closed.
-				if err != io.EOF && !s.IsClosed() {
-					s.logger.Printf("control: read: %v", err)
-				}
 				return
 			}
 			bytesRead += n
 		}
 
-		reqType := reqTypeBuf[0]
+		reqType = reqTypeBuf[0]
 
 		// Read the header from the stream.
-		headerData, err := packet.Read(s.conn, s.config.MaxMessageSize, s.config.ReadTimeout, nil)
+		headerData, err = packet.Read(s.conn, nil, s.config.MaxMessageSize)
 		if err != nil {
-			s.logger.Printf("control: read: %v", err)
 			return
 		}
 
 		// Read the payload from the stream.
-		payloadData, err := packet.Read(s.conn, s.config.MaxMessageSize, s.config.ReadTimeout, nil)
+		payloadData, err = packet.Read(s.conn, nil, s.config.MaxMessageSize)
 		if err != nil {
-			s.logger.Printf("control: read: %v", err)
 			return
 		}
 
 		// Handle the received message in a new goroutine.
 		go func() {
-			err := s.handleReceivedMessage(reqType, headerData, payloadData)
-			if err != nil {
-				s.logger.Printf("control: handleReceivedMessage: %v", err)
+			gerr := s.handleReceivedMessage(reqType, headerData, payloadData)
+			if gerr != nil {
+				s.logger.Printf("control: handleReceivedMessage: %v", gerr)
 			}
 		}()
 	}
@@ -340,7 +355,7 @@ func (s *Control) handleReceivedMessage(reqType byte, headerData, payloadData []
 
 func (s *Control) handleCallRequest(headerData, payloadData []byte) (err error) {
 	var header api.ControlCall
-	err = s.config.Codec.Decode(headerData, &header)
+	err = s.codec.Decode(headerData, &header)
 	if err != nil {
 		return fmt.Errorf("decode control call: %v", err)
 	}
@@ -366,13 +381,19 @@ func (s *Control) handleCallRequest(headerData, payloadData []byte) (err error) 
 
 	retData, retErr := f(ctx)
 	if retErr != nil {
-		s.logger.Printf("call request: handle error: %v", retErr)
+		s.logger.Printf("call request: id='%v': returned error: %v", header.FuncID, retErr)
+
 		// Decide what to send back to the caller.
 		if cErr, ok := retErr.(Error); ok {
 			code = cErr.Code()
 			msg = cErr.Msg()
 		} else if s.config.SendErrToCaller {
 			msg = retErr.Error()
+		}
+
+		// Ensure an error message is always set.
+		if msg == "" {
+			msg = defaultErrorMessage
 		}
 	}
 
@@ -397,15 +418,15 @@ func (s *Control) handleCallRequest(headerData, payloadData []byte) (err error) 
 
 func (s *Control) handleCallReturnRequest(headerData, payloadData []byte) (err error) {
 	var header api.ControlCallReturn
-	err = s.config.Codec.Decode(headerData, &header)
+	err = s.codec.Decode(headerData, &header)
 	if err != nil {
-		return fmt.Errorf("decode control call return: %v", err)
+		return fmt.Errorf("decode call return: %v", err)
 	}
 
 	// Get the channel by the key.
 	channel := s.funcChain.Get(header.Key)
 	if channel == nil {
-		return fmt.Errorf("conrol call return request failed (call timeout exceeded?)")
+		return fmt.Errorf("call return request failed (call timeout exceeded?)")
 	}
 
 	// Create a new context.
@@ -415,7 +436,7 @@ func (s *Control) handleCallReturnRequest(headerData, payloadData []byte) (err e
 	rData := retChainData{Context: ctx}
 
 	// Create a control.Error, if an error is present.
-	if header.Code != callReturnCodeOk {
+	if header.Msg != "" {
 		rData.Err = &ErrorCode{err: header.Msg, Code: header.Code}
 	}
 
@@ -435,7 +456,7 @@ func (s *Control) handleCallReturnRequest(headerData, payloadData []byte) (err e
 		case channel <- rData:
 			return nil
 		case <-timeout.C:
-			return fmt.Errorf("control call return request failed (call timeout exceeded?)")
+			return fmt.Errorf("call return request failed (call timeout exceeded?)")
 		}
 	}
 }

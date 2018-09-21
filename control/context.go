@@ -15,6 +15,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+
 package control
 
 import (
@@ -42,7 +43,7 @@ func newContext(ctrl *Control, data []byte) *Context {
 	}
 }
 
-// Socket returns the socket of the context.
+// Control returns the control of the context.
 func (c *Context) Control() *Control {
 	return c.ctrl
 }
@@ -57,7 +58,7 @@ func (c *Context) Decode(v interface{}) error {
 	}
 
 	// Decode the data.
-	err := c.ctrl.Codec.Decode(c.Data, v)
+	err := c.ctrl.codec.Decode(c.Data, v)
 	if err != nil {
 		return fmt.Errorf("decode: %v", err)
 	}
