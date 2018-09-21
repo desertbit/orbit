@@ -19,6 +19,7 @@
 package main
 
 import (
+	"github.com/desertbit/orbit/sample/api"
 	"net"
 	"time"
 
@@ -51,21 +52,18 @@ func NewSession(remoteAddr string) (s *Session, err error) {
 		}
 	}()
 
-	customChannel := NewCustomChannel("custom")
-
-	s.AddChannels(orbit.Channels{
-		customChannel,
-	})
+	// Open a new custom channel stream to the peer.
+	stream, err := s.OpenStream(api.ChannelIDOrbit)
+	if err != nil {
+		return
+	}
+	go streamOrbitRoutine(stream)
 
 	// Signalize the session that initialization is done.
 	// Start accepting incoming channel streams.
 	s.Ready()
 
-	// Open a new custom channel stream to the peer.
-	err = customChannel.Open()
-	if err != nil {
-		return
-	}
+
 
 	// TODO:
 	defer s.Close()
