@@ -139,7 +139,7 @@ func (s *Session) OpenStream(channel string) (stream net.Conn, err error) {
 		Channel: channel,
 	}
 
-	err = packet.WriteEncode(stream, acceptStreamMaxHeaderSize, openStreamWriteTimeout, &data, msgpack.Codec)
+	err = packet.WriteEncode(stream, &data, msgpack.Codec, acceptStreamMaxHeaderSize, openStreamWriteTimeout)
 	if err != nil {
 		return
 	}
@@ -228,7 +228,7 @@ func (s *Session) handleNewStream(stream net.Conn) (err error) {
 
 	// Decode the header data.
 	var data api.InitStream
-	err = packet.ReadDecode(stream, acceptStreamMaxHeaderSize, acceptStreamReadTimeout, &data, msgpack.Codec)
+	err = packet.ReadDecode(stream, &data, msgpack.Codec, acceptStreamMaxHeaderSize, acceptStreamReadTimeout)
 	if err != nil {
 		return fmt.Errorf("init stream header: %v", err)
 	}
