@@ -34,7 +34,7 @@ func handleStreamPacket(stream net.Conn) error {
 	// Output the data to the console.
 	fmt.Println(string(data))
 
-	// Wait a little bit to make output better readable.
+	// For better output readability.
 	time.Sleep(1*time.Second)
 
 	// Write a witty response.

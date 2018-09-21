@@ -46,7 +46,7 @@ func handleStreamRaw(stream net.Conn) error {
 	orbitParts := strings.Split(orbitASCII, "\n")
 
 	for i := 0; i < len(orbitParts); i++ {
-		// Wait a little bit to make the output better readable.
+		// For better output readability.
 		time.Sleep(500 * time.Millisecond)
 
 		// Set a write deadline.

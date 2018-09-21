@@ -17,12 +17,13 @@ const (
 // by using the packet pkg.
 func streamPacketRoutine(stream net.Conn, wg *sync.WaitGroup) {
 	defer func() {
+		// For better output readability.
 		fmt.Println("---------------------------")
 		stream.Close()
 		wg.Done()
 	}()
 
-	// Wait a little bit to make output better readable.
+	// For better output readability.
 	time.Sleep(1 * time.Second)
 
 	// Set a write deadline.
