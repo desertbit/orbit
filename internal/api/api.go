@@ -28,11 +28,12 @@ type InitStream struct {
 }
 
 type ControlCall struct {
-	FuncID    string
-	ReturnKey string
+	FuncID string
+	Key    string
 }
 
 type ControlCallReturn struct {
-	ReturnKey string
-	ReturnErr string
+	Key  string
+	Msg  string
+	Code int
 }

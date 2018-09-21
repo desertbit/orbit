@@ -31,6 +31,8 @@ import (
 )
 
 const (
+	callReturnCodeOk = 0
+
 	typeCall       byte = 0
 	typeCallReturn byte = 1
 )
@@ -97,7 +99,7 @@ func New(conn net.Conn, config *Config) *Control {
 // This should be only called once per socket.
 func (s *Control) Ready() {
 	// Start the service routines.
-	go s.readLoop()
+	go s.readRoutine()
 }
 
 // LocalAddr returns the local network address.
@@ -164,8 +166,8 @@ func (s *Control) CallTimeout(id string, data interface{}, timeout time.Duration
 
 	// Create the header.
 	header := &api.ControlCall{
-		FuncID:    id,
-		ReturnKey: key,
+		FuncID: id,
+		Key:    key,
 	}
 
 	// Write to the client.
@@ -252,19 +254,6 @@ func (s *Control) write(reqType byte, headerI interface{}, dataI interface{}) (e
 	return nil
 }
 
-func (s *Control) read(buf []byte) (int, error) {
-	// Reset the read deadline.
-	s.conn.SetReadDeadline(time.Now().Add(readTimeout))
-
-	// Read from the socket connection.
-	n, err := s.conn.Read(buf)
-	if err != nil {
-		return 0, err
-	}
-
-	return n, nil
-}
-
 func (s *Control) readRoutine() {
 	// Catch panics.
 	defer func() {
@@ -327,127 +316,6 @@ func (s *Control) readRoutine() {
 	}
 }
 
-func (s *Control) readLoop() {
-	// Catch panics.
-	defer func() {
-		if e := recover(); e != nil {
-			s.logger.Printf("control: read loop: catched panic: %v", e)
-		}
-	}()
-
-	// Close the socket on exit.
-	defer s.Close()
-
-	var err error
-	var n, bytesRead int
-
-	// Message Head.
-	headBuf := make([]byte, 8)
-	var headerLen16 uint16
-	var headerLen int
-	var payloadLen32 uint32
-	var payloadLen int
-
-	// Read loop.
-	for {
-		// Read the head from the stream.
-		bytesRead = 0
-		for bytesRead < 8 {
-			n, err = s.read(headBuf[bytesRead:])
-			if err != nil {
-				// Log only if not closed.
-				if err != io.EOF && !s.IsClosed() {
-					Log.Warningf("socket: read: %v", err)
-				}
-				return
-			}
-			bytesRead += n
-		}
-
-		// The first byte is the version field.
-		// Check if this protocol version matches.
-		if headBuf[0] != ProtocolVersion {
-			Log.Warningf("socket: read: invalid protocol version: %v != %v", ProtocolVersion, headBuf[0])
-			return
-		}
-
-		// Extract the head fields.
-		reqType := headBuf[1]
-
-		// Extract the header length.
-		headerLen16, err = bytesToUint16(headBuf[2:4])
-		if err != nil {
-			Log.Warningf("socket: read: failed to extract header length: %v", err)
-			return
-		}
-		headerLen = int(headerLen16)
-
-		// Check if the maximum header size is exceeded.
-		if headerLen > maxHeaderBufferSize {
-			Log.Warningf("socket: read: maximum header size exceeded")
-			return
-		}
-
-		// Extract the payload length.
-		payloadLen32, err = bytesToUint32(headBuf[4:8])
-		if err != nil {
-			Log.Warningf("socket: read: failed to extract payload length: %v", err)
-			return
-		}
-		payloadLen = int(payloadLen32)
-
-		// Check if the maximum payload size is exceeded.
-		if payloadLen > s.maxMessageSize {
-			Log.Warningf("socket: read: maximum message size exceeded")
-			return
-		}
-
-		// Read the header bytes from the stream.
-		var headerBuf []byte
-		if headerLen > 0 {
-			headerBuf = make([]byte, headerLen)
-			bytesRead = 0
-			for bytesRead < headerLen {
-				n, err = s.read(headerBuf[bytesRead:])
-				if err != nil {
-					// Log only if not closed.
-					if err != io.EOF && !s.IsClosed() {
-						Log.Warningf("socket: read: %v", err)
-					}
-					return
-				}
-				bytesRead += n
-			}
-		}
-
-		// Read the payload bytes from the stream.
-		var payloadBuf []byte
-		if payloadLen > 0 {
-			payloadBuf = make([]byte, payloadLen)
-			bytesRead = 0
-			for bytesRead < payloadLen {
-				n, err = s.read(payloadBuf[bytesRead:])
-				if err != nil {
-					// Log only if not closed.
-					if err != io.EOF && !s.IsClosed() {
-						Log.Warningf("socket: read: %v", err)
-					}
-					return
-				}
-				bytesRead += n
-			}
-		}
-
-		// Handle the received message in a new goroutine.
-		go func() {
-			err := s.handleReceivedMessage(reqType, headerBuf, payloadBuf)
-			if err != nil {
-				Log.Warningf("socket: %v", err)
-			}
-		}()
-	}
-}
-
 func (s *Control) handleReceivedMessage(reqType byte, headerData, payloadData []byte) (err error) {
 	// Catch panics.
 	defer func() {
@@ -455,8 +323,6 @@ func (s *Control) handleReceivedMessage(reqType byte, headerData, payloadData []
 			err = fmt.Errorf("catched panic: %v", e)
 		}
 	}()
-
-	// TODO: Reset call timeout?
 
 	// Check the request type.
 	switch reqType {
@@ -470,32 +336,6 @@ func (s *Control) handleReceivedMessage(reqType byte, headerData, payloadData []
 		err = fmt.Errorf("invalid request type: %v", reqType)
 	}
 	return
-}
-
-func (s *Control) handleReceivedMessage(reqType byte, headerBuf, payloadBuf []byte) (err error) {
-	// Catch panics.
-	defer func() {
-		if e := recover(); e != nil {
-			err = fmt.Errorf("catched panic: %v", e)
-		}
-	}()
-
-	// Reset the timeout, because data was successful read from the socket.
-	s.resetTimeout()
-
-	// Check the request type.
-	switch reqType {
-	case typeCall:
-		return s.handleCallRequest(headerBuf, payloadBuf)
-
-	case typeCallReturn:
-		return s.handleCallReturnRequest(headerBuf, payloadBuf)
-
-	default:
-		return fmt.Errorf("invalid request type: %v", reqType)
-	}
-
-	return nil
 }
 
 func (s *Control) handleCallRequest(headerData, payloadData []byte) (err error) {
@@ -514,78 +354,34 @@ func (s *Control) handleCallRequest(headerData, payloadData []byte) (err error) 
 
 	ctx := newContext(s, payloadData)
 
-	// TODO:
 	// Call the call hook if defined.
 	if s.callHook != nil {
 		s.callHook(s, header.FuncID, ctx)
 	}
 
-	retData, retErr := f(ctx)
+	var (
+		code int
+		msg  string
+	)
 
-	var retErrString string
+	retData, retErr := f(ctx)
 	if retErr != nil {
-		retErrString = retErr.Error()
+		s.logger.Printf("call request: handle error: %v", retErr)
+		// Decide what to send back to the caller.
+		if cErr, ok := retErr.(Error); ok {
+			code = cErr.Code()
+			msg = cErr.Msg()
+		} else if s.config.SendErrToCaller {
+			msg = retErr.Error()
+		}
 	}
 
 	retHeader := &api.ControlCallReturn{
-		ReturnKey: header.ReturnKey,
-		ReturnErr: retErrString,
+		Key:  header.Key,
+		Msg:  msg,
+		Code: code,
 	}
 
-	err = s.write(typeCallReturn, retHeader, retData)
-	if err != nil {
-		return fmt.Errorf("call request: send return request: %v", err)
-	}
-
-	// TODO:
-	// Call the error hook if defined.
-	if retErr != nil && s.errorHook != nil {
-		s.errorHook(s, header.FuncID, retErr)
-	}
-
-	return nil
-}
-
-func (s *Control) handleCallRequest(headerBuf, payloadBuf []byte) (err error) {
-	// Decode the header.
-	var header headerCall
-	err = s.Codec.Decode(headerBuf, &header)
-	if err != nil {
-		return fmt.Errorf("decode call header: %v", err)
-	}
-
-	// Obtain the function defined by the ID.
-	s.funcMapMutex.RLock()
-	f, ok := s.funcMap[header.FuncID]
-	s.funcMapMutex.RUnlock()
-	if !ok {
-		return fmt.Errorf("call request: requested function does not exists: id=%v", header.FuncID)
-	}
-
-	// Create a new context.
-	context := newContext(s, payloadBuf)
-
-	// Call the call hook if defined.
-	if s.callHook != nil {
-		s.callHook(s, header.FuncID, context)
-	}
-
-	// Call the function.
-	retData, retErr := f(context)
-
-	// Get the string representation of the error if present.
-	var retErrString string
-	if retErr != nil {
-		retErrString = retErr.Error()
-	}
-
-	// Create the return header.
-	retHeader := &headerCallReturn{
-		ReturnKey: header.ReturnKey,
-		ReturnErr: retErrString,
-	}
-
-	// Write to the client.
 	err = s.write(typeCallReturn, retHeader, retData)
 	if err != nil {
 		return fmt.Errorf("call request: send return request: %v", err)
@@ -606,25 +402,21 @@ func (s *Control) handleCallReturnRequest(headerData, payloadData []byte) (err e
 		return fmt.Errorf("decode control call return: %v", err)
 	}
 
-	// Get the channel by the return key.
-	channel := s.funcChain.Get(header.ReturnKey)
+	// Get the channel by the key.
+	channel := s.funcChain.Get(header.Key)
 	if channel == nil {
 		return fmt.Errorf("conrol call return request failed (call timeout exceeded?)")
-	}
-
-	// Create the error if present.
-	var retErr error
-	if len(header.ReturnErr) > 0 {
-		retErr = errors.New(header.ReturnErr)
 	}
 
 	// Create a new context.
 	ctx := newContext(s, payloadData)
 
 	// Create the channel data.
-	rData := retChainData{
-		Context: ctx,
-		Err:     retErr,
+	rData := retChainData{Context: ctx}
+
+	// Create a control.Error, if an error is present.
+	if header.Code != callReturnCodeOk {
+		rData.Err = &ErrorCode{err: header.Msg, Code: header.Code}
 	}
 
 	// Send the return data to the channel.
@@ -644,56 +436,6 @@ func (s *Control) handleCallReturnRequest(headerData, payloadData []byte) (err e
 			return nil
 		case <-timeout.C:
 			return fmt.Errorf("control call return request failed (call timeout exceeded?)")
-		}
-	}
-}
-
-func (s *Control) handleCallReturnRequest(headerBuf, payloadBuf []byte) (err error) {
-	// Decode the header.
-	var header headerCallReturn
-	err = s.Codec.Decode(headerBuf, &header)
-	if err != nil {
-		return fmt.Errorf("decode call return header: %v", err)
-	}
-
-	// Get the channel by the return key.
-	channel := s.funcChain.Get(header.ReturnKey)
-	if channel == nil {
-		return fmt.Errorf("call return request failed (call timeout exceeded?)")
-	}
-
-	// Create the error if present.
-	var retErr error
-	if len(header.ReturnErr) > 0 {
-		retErr = errors.New(header.ReturnErr)
-	}
-
-	// Create a new context.
-	context := newContext(s, payloadBuf)
-
-	// Create the channel data.
-	rData := retChainData{
-		Context: context,
-		Err:     retErr,
-	}
-
-	// Send the return data to the channel.
-	// Ensure that there is a receiving endpoint.
-	// Otherwise we would have a lost blocking goroutine.
-	select {
-	case channel <- rData:
-		return nil
-
-	default:
-		// Retry with a timeout.
-		timeout := time.NewTimer(time.Second)
-		defer timeout.Stop()
-
-		select {
-		case channel <- rData:
-			return nil
-		case <-timeout.C:
-			return fmt.Errorf("call return request failed (call timeout exceeded?)")
 		}
 	}
 }
