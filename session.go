@@ -57,7 +57,7 @@ type Session struct {
 	newStreamChan chan net.Conn
 
 	channelMapMutex sync.Mutex
-	channelMap      map[string]Channel
+	channelMap      map[string]func(net.Conn) error
 }
 
 func newSession(
@@ -72,7 +72,7 @@ func newSession(
 		conn:          conn,
 		ys:            ys,
 		newStreamChan: make(chan net.Conn, 2),
-		channelMap:    make(map[string]Channel),
+		channelMap:    make(map[string]func(net.Conn) error),
 	}
 	s.OnClose(conn.Close)
 	s.OnClose(ys.Close)
@@ -121,54 +121,22 @@ func (s *Session) RemoteAddr() net.Addr {
 	return s.conn.RemoteAddr()
 }
 
-// AddChannels registers new channels.
-// This method is thread-safe.
-func (s *Session) AddChannels(channels Channels) {
+// OnNewStream registers the given function to the specific channel.
+func (s *Session) OnNewStream(channel string, f func(net.Conn) error) {
 	s.channelMapMutex.Lock()
-	for _, c := range channels {
-		s.channelMap[c.ID()] = c
-	}
+	s.channelMap[channel] = f
 	s.channelMapMutex.Unlock()
-
-	// Call the init method.
-	for _, c := range channels {
-		c.Init(s)
-	}
-}
-
-// AddChannel registers a single new channel.
-// This method is thread-safe.
-func (s *Session) AddChannel(c Channel) {
-	s.channelMapMutex.Lock()
-	s.channelMap[c.ID()] = c
-	s.channelMapMutex.Unlock()
-
-	// Call the init method.
-	c.Init(s)
-}
-
-// Channel returns the channel specified by its ID.
-// Returns an error if the channel does not exists.
-func (s *Session) Channel(id string) (c Channel, err error) {
-	s.channelMapMutex.Lock()
-	c = s.channelMap[id]
-	s.channelMapMutex.Unlock()
-
-	if c == nil {
-		err = fmt.Errorf("channel does not exists: id='%v'", id)
-	}
-	return
 }
 
 // OpenStream opens a new stream with the given channel ID.
-func (s *Session) OpenStream(id string) (stream net.Conn, err error) {
+func (s *Session) OpenStream(channel string) (stream net.Conn, err error) {
 	stream, err = s.ys.Open()
 	if err != nil {
 		return
 	}
 
 	data := api.InitStream{
-		ID: id,
+		Channel: channel,
 	}
 
 	err = packet.WriteEncode(&data, msgpack.Codec, stream, acceptStreamMaxHeaderSize, openStreamWriteTimeout)
@@ -188,6 +156,17 @@ func (s *Session) OpenStream(id string) (stream net.Conn, err error) {
 //###############//
 //### Private ###//
 //###############//
+
+func (s *Session) getChannelFunc(channel string) (f func(net.Conn) error, err error) {
+	s.channelMapMutex.Lock()
+	f = s.channelMap[channel]
+	s.channelMapMutex.Unlock()
+
+	if f == nil {
+		err = fmt.Errorf("channel does not exists: '%v'", channel)
+	}
+	return
+}
 
 func (s *Session) acceptStreamRoutine() {
 	defer s.Close()
@@ -261,13 +240,13 @@ func (s *Session) handleNewStream(stream net.Conn) (err error) {
 	}
 
 	// Obtain the channel and handle the new stream.
-	c, err := s.Channel(data.ID)
+	f, err := s.getChannelFunc(data.Channel)
 	if err != nil {
 		return
 	}
-	err = c.AcceptStream(stream)
+	err = f(stream)
 	if err != nil {
-		return fmt.Errorf("id='%v': %v", data.ID, err)
+		return fmt.Errorf("channel='%v': %v", data.Channel, err)
 	}
 
 	return

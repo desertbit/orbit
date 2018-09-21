@@ -22,8 +22,8 @@ func (z *InitStream) DecodeMsg(dc *msgp.Reader) (err error) {
 			return
 		}
 		switch msgp.UnsafeString(field) {
-		case "ID":
-			z.ID, err = dc.ReadString()
+		case "Channel":
+			z.Channel, err = dc.ReadString()
 			if err != nil {
 				return
 			}
@@ -40,12 +40,12 @@ func (z *InitStream) DecodeMsg(dc *msgp.Reader) (err error) {
 // EncodeMsg implements msgp.Encodable
 func (z InitStream) EncodeMsg(en *msgp.Writer) (err error) {
 	// map header, size 1
-	// write "ID"
-	err = en.Append(0x81, 0xa2, 0x49, 0x44)
+	// write "Channel"
+	err = en.Append(0x81, 0xa7, 0x43, 0x68, 0x61, 0x6e, 0x6e, 0x65, 0x6c)
 	if err != nil {
 		return
 	}
-	err = en.WriteString(z.ID)
+	err = en.WriteString(z.Channel)
 	if err != nil {
 		return
 	}
@@ -56,9 +56,9 @@ func (z InitStream) EncodeMsg(en *msgp.Writer) (err error) {
 func (z InitStream) MarshalMsg(b []byte) (o []byte, err error) {
 	o = msgp.Require(b, z.Msgsize())
 	// map header, size 1
-	// string "ID"
-	o = append(o, 0x81, 0xa2, 0x49, 0x44)
-	o = msgp.AppendString(o, z.ID)
+	// string "Channel"
+	o = append(o, 0x81, 0xa7, 0x43, 0x68, 0x61, 0x6e, 0x6e, 0x65, 0x6c)
+	o = msgp.AppendString(o, z.Channel)
 	return
 }
 
@@ -78,8 +78,8 @@ func (z *InitStream) UnmarshalMsg(bts []byte) (o []byte, err error) {
 			return
 		}
 		switch msgp.UnsafeString(field) {
-		case "ID":
-			z.ID, bts, err = msgp.ReadStringBytes(bts)
+		case "Channel":
+			z.Channel, bts, err = msgp.ReadStringBytes(bts)
 			if err != nil {
 				return
 			}
@@ -96,6 +96,6 @@ func (z *InitStream) UnmarshalMsg(bts []byte) (o []byte, err error) {
 
 // Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
 func (z InitStream) Msgsize() (s int) {
-	s = 1 + 3 + msgp.StringPrefixSize + len(z.ID)
+	s = 1 + 8 + msgp.StringPrefixSize + len(z.Channel)
 	return
 }

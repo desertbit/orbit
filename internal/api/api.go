@@ -24,5 +24,5 @@ const (
 )
 
 type InitStream struct {
-	ID string
+	Channel string
 }
