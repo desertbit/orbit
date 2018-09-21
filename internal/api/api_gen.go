@@ -27,8 +27,8 @@ func (z *ControlCall) DecodeMsg(dc *msgp.Reader) (err error) {
 			if err != nil {
 				return
 			}
-		case "ReturnKey":
-			z.ReturnKey, err = dc.ReadString()
+		case "Key":
+			z.Key, err = dc.ReadString()
 			if err != nil {
 				return
 			}
@@ -54,12 +54,12 @@ func (z ControlCall) EncodeMsg(en *msgp.Writer) (err error) {
 	if err != nil {
 		return
 	}
-	// write "ReturnKey"
-	err = en.Append(0xa9, 0x52, 0x65, 0x74, 0x75, 0x72, 0x6e, 0x4b, 0x65, 0x79)
+	// write "Key"
+	err = en.Append(0xa3, 0x4b, 0x65, 0x79)
 	if err != nil {
 		return
 	}
-	err = en.WriteString(z.ReturnKey)
+	err = en.WriteString(z.Key)
 	if err != nil {
 		return
 	}
@@ -73,9 +73,9 @@ func (z ControlCall) MarshalMsg(b []byte) (o []byte, err error) {
 	// string "FuncID"
 	o = append(o, 0x82, 0xa6, 0x46, 0x75, 0x6e, 0x63, 0x49, 0x44)
 	o = msgp.AppendString(o, z.FuncID)
-	// string "ReturnKey"
-	o = append(o, 0xa9, 0x52, 0x65, 0x74, 0x75, 0x72, 0x6e, 0x4b, 0x65, 0x79)
-	o = msgp.AppendString(o, z.ReturnKey)
+	// string "Key"
+	o = append(o, 0xa3, 0x4b, 0x65, 0x79)
+	o = msgp.AppendString(o, z.Key)
 	return
 }
 
@@ -100,8 +100,8 @@ func (z *ControlCall) UnmarshalMsg(bts []byte) (o []byte, err error) {
 			if err != nil {
 				return
 			}
-		case "ReturnKey":
-			z.ReturnKey, bts, err = msgp.ReadStringBytes(bts)
+		case "Key":
+			z.Key, bts, err = msgp.ReadStringBytes(bts)
 			if err != nil {
 				return
 			}
@@ -118,7 +118,7 @@ func (z *ControlCall) UnmarshalMsg(bts []byte) (o []byte, err error) {
 
 // Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
 func (z ControlCall) Msgsize() (s int) {
-	s = 1 + 7 + msgp.StringPrefixSize + len(z.FuncID) + 10 + msgp.StringPrefixSize + len(z.ReturnKey)
+	s = 1 + 7 + msgp.StringPrefixSize + len(z.FuncID) + 4 + msgp.StringPrefixSize + len(z.Key)
 	return
 }
 
@@ -138,13 +138,18 @@ func (z *ControlCallReturn) DecodeMsg(dc *msgp.Reader) (err error) {
 			return
 		}
 		switch msgp.UnsafeString(field) {
-		case "ReturnKey":
-			z.ReturnKey, err = dc.ReadString()
+		case "Key":
+			z.Key, err = dc.ReadString()
 			if err != nil {
 				return
 			}
-		case "ReturnErr":
-			z.ReturnErr, err = dc.ReadString()
+		case "Msg":
+			z.Msg, err = dc.ReadString()
+			if err != nil {
+				return
+			}
+		case "Code":
+			z.Code, err = dc.ReadInt()
 			if err != nil {
 				return
 			}
@@ -160,22 +165,31 @@ func (z *ControlCallReturn) DecodeMsg(dc *msgp.Reader) (err error) {
 
 // EncodeMsg implements msgp.Encodable
 func (z ControlCallReturn) EncodeMsg(en *msgp.Writer) (err error) {
-	// map header, size 2
-	// write "ReturnKey"
-	err = en.Append(0x82, 0xa9, 0x52, 0x65, 0x74, 0x75, 0x72, 0x6e, 0x4b, 0x65, 0x79)
+	// map header, size 3
+	// write "Key"
+	err = en.Append(0x83, 0xa3, 0x4b, 0x65, 0x79)
 	if err != nil {
 		return
 	}
-	err = en.WriteString(z.ReturnKey)
+	err = en.WriteString(z.Key)
 	if err != nil {
 		return
 	}
-	// write "ReturnErr"
-	err = en.Append(0xa9, 0x52, 0x65, 0x74, 0x75, 0x72, 0x6e, 0x45, 0x72, 0x72)
+	// write "Msg"
+	err = en.Append(0xa3, 0x4d, 0x73, 0x67)
 	if err != nil {
 		return
 	}
-	err = en.WriteString(z.ReturnErr)
+	err = en.WriteString(z.Msg)
+	if err != nil {
+		return
+	}
+	// write "Code"
+	err = en.Append(0xa4, 0x43, 0x6f, 0x64, 0x65)
+	if err != nil {
+		return
+	}
+	err = en.WriteInt(z.Code)
 	if err != nil {
 		return
 	}
@@ -185,13 +199,16 @@ func (z ControlCallReturn) EncodeMsg(en *msgp.Writer) (err error) {
 // MarshalMsg implements msgp.Marshaler
 func (z ControlCallReturn) MarshalMsg(b []byte) (o []byte, err error) {
 	o = msgp.Require(b, z.Msgsize())
-	// map header, size 2
-	// string "ReturnKey"
-	o = append(o, 0x82, 0xa9, 0x52, 0x65, 0x74, 0x75, 0x72, 0x6e, 0x4b, 0x65, 0x79)
-	o = msgp.AppendString(o, z.ReturnKey)
-	// string "ReturnErr"
-	o = append(o, 0xa9, 0x52, 0x65, 0x74, 0x75, 0x72, 0x6e, 0x45, 0x72, 0x72)
-	o = msgp.AppendString(o, z.ReturnErr)
+	// map header, size 3
+	// string "Key"
+	o = append(o, 0x83, 0xa3, 0x4b, 0x65, 0x79)
+	o = msgp.AppendString(o, z.Key)
+	// string "Msg"
+	o = append(o, 0xa3, 0x4d, 0x73, 0x67)
+	o = msgp.AppendString(o, z.Msg)
+	// string "Code"
+	o = append(o, 0xa4, 0x43, 0x6f, 0x64, 0x65)
+	o = msgp.AppendInt(o, z.Code)
 	return
 }
 
@@ -211,13 +228,18 @@ func (z *ControlCallReturn) UnmarshalMsg(bts []byte) (o []byte, err error) {
 			return
 		}
 		switch msgp.UnsafeString(field) {
-		case "ReturnKey":
-			z.ReturnKey, bts, err = msgp.ReadStringBytes(bts)
+		case "Key":
+			z.Key, bts, err = msgp.ReadStringBytes(bts)
 			if err != nil {
 				return
 			}
-		case "ReturnErr":
-			z.ReturnErr, bts, err = msgp.ReadStringBytes(bts)
+		case "Msg":
+			z.Msg, bts, err = msgp.ReadStringBytes(bts)
+			if err != nil {
+				return
+			}
+		case "Code":
+			z.Code, bts, err = msgp.ReadIntBytes(bts)
 			if err != nil {
 				return
 			}
@@ -234,7 +256,7 @@ func (z *ControlCallReturn) UnmarshalMsg(bts []byte) (o []byte, err error) {
 
 // Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
 func (z ControlCallReturn) Msgsize() (s int) {
-	s = 1 + 10 + msgp.StringPrefixSize + len(z.ReturnKey) + 10 + msgp.StringPrefixSize + len(z.ReturnErr)
+	s = 1 + 4 + msgp.StringPrefixSize + len(z.Key) + 4 + msgp.StringPrefixSize + len(z.Msg) + 5 + msgp.IntSize
 	return
 }
 

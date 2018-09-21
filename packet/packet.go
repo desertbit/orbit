@@ -36,17 +36,33 @@ var (
 // Ensure to pass a pointer value.
 func ReadDecode(
 	conn net.Conn,
-	maxPayloadSize int,
-	timeout time.Duration,
 	value interface{},
 	codec codec.Codec,
+	maxPayloadSize int,
+	timeout time.Duration,
 ) (err error) {
-	payload, err := Read(conn, maxPayloadSize, timeout, nil)
+	payload, err := ReadTimeout(conn, nil, maxPayloadSize, timeout)
 	if err != nil {
 		return
 	}
 
 	return codec.Decode(payload, value)
+}
+
+// ReadTimeout same as Read, but sets the read deadline.
+func ReadTimeout(
+	conn net.Conn,
+	buffer []byte,
+	maxPayloadSize int,
+	timeout time.Duration,
+) ([]byte, error) {
+	// Set the timeout.
+	err := conn.SetReadDeadline(time.Now().Add(timeout))
+	if err != nil {
+		return nil, err
+	}
+
+	return Read(conn, buffer, maxPayloadSize)
 }
 
 // Read from the connection. Sets the read deadline to the timeout
@@ -55,21 +71,14 @@ func ReadDecode(
 // is allocated.
 func Read(
 	conn net.Conn,
-	maxPayloadSize int,
-	timeout time.Duration,
 	buffer []byte,
+	maxPayloadSize int,
 ) ([]byte, error) {
 	var (
 		err            error
 		n, bytesRead   int
 		payloadSizeBuf = make([]byte, 4)
 	)
-
-	// Set the timeout.
-	err = conn.SetReadDeadline(time.Now().Add(timeout))
-	if err != nil {
-		return nil, err
-	}
 
 	// Read the payload size from the stream.
 	for bytesRead < 4 {
@@ -113,25 +122,25 @@ func Read(
 // WriteEncode encodes the value and writes it to the connection.
 func WriteEncode(
 	conn net.Conn,
-	maxPayloadSize int,
-	timeout time.Duration,
 	value interface{},
 	codec codec.Codec,
+	maxPayloadSize int,
+	timeout time.Duration,
 ) (err error) {
 	data, err := codec.Encode(value)
 	if err != nil {
 		return
 	}
 
-	return Write(conn, maxPayloadSize, timeout, data)
+	return WriteTimeout(conn, data, maxPayloadSize, timeout)
 }
 
-// Write the packet data to the connection.
-func Write(
+// Write the packet data to the connection and set the write deadline.
+func WriteTimeout(
 	conn net.Conn,
+	data []byte,
 	maxPayloadSize int,
 	timeout time.Duration,
-	data []byte,
 ) (err error) {
 	// Set the write deadline.
 	err = conn.SetWriteDeadline(time.Now().Add(timeout))
@@ -139,6 +148,15 @@ func Write(
 		return
 	}
 
+	return Write(conn, data, maxPayloadSize)
+}
+
+// Write the packet data to the connection.
+func Write(
+	conn net.Conn,
+	data []byte,
+	maxPayloadSize int,
+) (err error) {
 	payloadLen := len(data)
 	if payloadLen == 0 {
 		return ErrInvalidPayloadSize

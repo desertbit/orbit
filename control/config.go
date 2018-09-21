@@ -15,6 +15,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+
 package control
 
 import (
@@ -42,7 +43,7 @@ const (
 
 var (
 	defaultCodec  = msgpack.Codec
-	defaultLogger = log.New(os.Stderr, "orbit: control: ", 0)
+	defaultLogger = log.New(os.Stderr, "orbit: ", 0)
 )
 
 type Config struct {

@@ -15,11 +15,13 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+
 package control
 
 import (
-	"github.com/desertbit/orbit/internal/utils"
 	"sync"
+
+	"github.com/desertbit/orbit/internal/utils"
 )
 
 const (
