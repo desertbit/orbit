@@ -201,6 +201,6 @@ func (e *Events) triggerEvent(ctx *control.Context) (v interface{}, err error) {
 
 	// Now inform all listeners that are interested in this event
 	for _, listener := range e.lsMap[data.ID].lMap {
-		listener.c
+		listener
 	}
 }

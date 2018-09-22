@@ -16,11 +16,13 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package control
+package events
 
 import (
 	"errors"
 	"fmt"
+
+	"github.com/desertbit/orbit/codec"
 )
 
 var (
@@ -28,24 +30,19 @@ var (
 	ErrNoContextData = errors.New("no context data available to decode")
 )
 
-// A Context defines a function context.
+// A Context defines an event context.
 type Context struct {
 	// Data is the raw byte representation of the encoded context data.
 	Data []byte
 
-	ctrl *Control
+	codec codec.Codec
 }
 
-func newContext(ctrl *Control, data []byte) *Context {
+func newContext(data []byte, codec codec.Codec) *Context {
 	return &Context{
-		ctrl: ctrl,
-		Data: data,
+		Data:  data,
+		codec: codec,
 	}
-}
-
-// Control returns the control of the context.
-func (c *Context) Control() *Control {
-	return c.ctrl
 }
 
 // Decode the context data to a custom value.
@@ -58,7 +55,7 @@ func (c *Context) Decode(v interface{}) error {
 	}
 
 	// Decode the data.
-	err := c.ctrl.config.Codec.Decode(c.Data, v)
+	err := c.codec.Decode(c.Data, v)
 	if err != nil {
 		return fmt.Errorf("decode: %v", err)
 	}

@@ -27,10 +27,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/desertbit/closer"
-	"github.com/desertbit/orbit/codec"
+	"github.com/desertbit/orbit/codec/msgpack"
 	"github.com/desertbit/orbit/internal/api"
 	"github.com/desertbit/orbit/packet"
+
+	"github.com/desertbit/closer"
 )
 
 const (
@@ -65,7 +66,6 @@ type Control struct {
 	closer.Closer
 
 	config     *Config
-	codec      codec.Codec
 	logger     *log.Logger
 	conn       net.Conn
 	writeMutex sync.Mutex
@@ -87,7 +87,6 @@ func New(conn net.Conn, config *Config) *Control {
 	s := &Control{
 		Closer:    closer.New(),
 		config:    config,
-		codec:     config.Codec,
 		logger:    config.Logger,
 		conn:      conn,
 		funcChain: newChain(),
@@ -229,12 +228,10 @@ type retChainData struct {
 func (s *Control) write(reqType byte, headerI interface{}, dataI interface{}) (err error) {
 	var header, payload []byte
 
-	// Marshal the header data if present.
-	if headerI != nil {
-		header, err = s.codec.Encode(headerI)
-		if err != nil {
-			return fmt.Errorf("encode header: %v", err)
-		}
+	// Marshal the header data.
+	header, err = msgpack.Codec.Encode(headerI)
+	if err != nil {
+		return fmt.Errorf("encode header: %v", err)
 	}
 
 	// Marshal the payload data if present
@@ -245,7 +242,7 @@ func (s *Control) write(reqType byte, headerI interface{}, dataI interface{}) (e
 			payload = v
 
 		default:
-			payload, err = s.codec.Encode(dataI)
+			payload, err = s.config.Codec.Encode(dataI)
 			if err != nil {
 				return fmt.Errorf("encode: %v", err)
 			}
@@ -265,17 +262,9 @@ func (s *Control) write(reqType byte, headerI interface{}, dataI interface{}) (e
 		return err
 	}
 
-	if len(header) == 0 {
-		header = []byte{0}
-	}
-
 	err = packet.Write(s.conn, header, s.config.MaxMessageSize)
 	if err != nil {
 		return err
-	}
-
-	if len(payload) == 0 {
-		payload = []byte{0}
 	}
 
 	err = packet.Write(s.conn, payload, s.config.MaxMessageSize)
@@ -291,24 +280,22 @@ func (s *Control) readRoutine() {
 	defer s.Close()
 
 	var (
-		err                     error
+		err                     error // TODO:
 		n, bytesRead            int
 		reqType                 byte
 		reqTypeBuf              = make([]byte, 1)
 		headerData, payloadData []byte
 	)
 
-	// Log the error message if the connection is not closed.
-	defer func() {
-		if err != nil && err != io.EOF && !s.IsClosed() {
-			s.logger.Printf("control: read: %v", err)
-		}
-	}()
-
-	// Catch panics.
+	// Catch panics. and log error messages.
 	defer func() {
 		if e := recover(); e != nil {
 			err = fmt.Errorf("catched panic: %v", e)
+		}
+
+		// Only log if not closed.
+		if err != nil && err != io.EOF && !s.IsClosed() {
+			s.logger.Printf("control: read: %v", err)
 		}
 	}()
 
@@ -382,7 +369,7 @@ func (s *Control) handleReceivedMessage(reqType byte, headerData, payloadData []
 
 func (s *Control) handleCallRequest(headerData, payloadData []byte) (err error) {
 	var header api.ControlCall
-	err = s.codec.Decode(headerData, &header)
+	err = msgpack.Codec.Decode(headerData, &header)
 	if err != nil {
 		return fmt.Errorf("decode control call: %v", err)
 	}
@@ -450,7 +437,7 @@ func (s *Control) handleCallRequest(headerData, payloadData []byte) (err error) 
 
 func (s *Control) handleCallReturnRequest(headerData, payloadData []byte) (err error) {
 	var header api.ControlCallReturn
-	err = s.codec.Decode(headerData, &header)
+	err = msgpack.Codec.Decode(headerData, &header)
 	if err != nil {
 		return fmt.Errorf("decode call return: %v", err)
 	}
