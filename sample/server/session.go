@@ -40,7 +40,8 @@ func newSession(orbitSession *orbit.Session) (s *Session, err error) {
 		}
 	}()
 
-	s.OnNewStream(api.ChannelIDOrbit, handleOrbitStream)
+	s.OnNewStream(api.ChannelIDRaw, handleStreamRaw)
+	s.OnNewStream(api.ChannelIDPacket, handleStreamPacket)
 
 	// Signalize the session that initialization is done.
 	// Start accepting incoming channel streams.

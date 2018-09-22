@@ -36,21 +36,32 @@ const orbitASCII = `
          'MMM8&&&'
 `
 
-func handleOrbitStream(stream net.Conn) error {
-	// Ensure stream is closed
+// handleStreamRaw is a showcase of the server side implementation of streaming on a
+// raw net.Conn without using any helpers.
+func handleStreamRaw(stream net.Conn) error {
+	// Ensure stream is closed.
 	defer stream.Close()
 
+	// Split the string, as we want to send one line at a time over the stream.
 	orbitParts := strings.Split(orbitASCII, "\n")
 
 	for i := 0; i < len(orbitParts); i++ {
+		// For better output readability.
 		time.Sleep(500 * time.Millisecond)
 
+		// Set a write deadline.
+		err := stream.SetWriteDeadline(time.Now().Add(5*time.Second))
+		if err != nil {
+			return fmt.Errorf("error setting write deadline to stream '%s': %v", api.ChannelIDRaw, err)
+		}
+
+		// Write one line directly onto the stream.
 		n, err := stream.Write([]byte(orbitParts[i]))
 		if err != nil {
-			return fmt.Errorf("error writing to stream '%s': %v", api.ChannelIDOrbit, err)
+			return fmt.Errorf("error writing to stream '%s': %v", api.ChannelIDRaw, err)
 		}
 		if n != len(orbitParts[i]) {
-			return fmt.Errorf("error writing to stream '%s': could only write %d bytes, expected to write %d bytes", api.ChannelIDOrbit, n, len(orbitParts[i]))
+			return fmt.Errorf("error writing to stream '%s': could only write %d bytes, expected to write %d bytes", api.ChannelIDRaw, n, len(orbitParts[i]))
 		}
 	}
 

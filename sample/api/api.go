@@ -19,5 +19,6 @@
 package api
 
 const (
-	ChannelIDOrbit = "orbit"
+	ChannelIDRaw = "raw"
+	ChannelIDPacket = "packet"
 )
