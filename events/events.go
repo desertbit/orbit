@@ -49,15 +49,14 @@ type Events struct {
 }
 
 func New(conn net.Conn, config *control.Config) (e *Events) {
+	ctrl := control.New(conn, config)
 	e = &Events{
-		Closer:   closer.New(),
-		ctrl:     control.New(conn, config),
+		Closer:   ctrl,
+		ctrl:     ctrl,
 		codec:    config.Codec,
 		eventMap: make(map[string]*Event),
 		lsMap:    make(map[string]*listeners),
 	}
-	e.OnClose(conn.Close)
-	e.OnClose(e.ctrl.Close)
 
 	e.ctrl.RegisterFuncs(control.Funcs{
 		setEvent:     e.setEvent,
