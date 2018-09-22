@@ -318,7 +318,7 @@ func (s *Control) readRoutine() {
 
 		reqType = reqTypeBuf[0]
 
-		err = s.conn.SetReadDeadline(s.config.ReadTimeout)
+		err = s.conn.SetReadDeadline(time.Now().Add(s.config.ReadTimeout))
 		if err != nil {
 			return
 		}

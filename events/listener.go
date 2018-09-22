@@ -18,19 +18,17 @@
 
 package events
 
-import "github.com/desertbit/orbit/control"
-
 const (
 	listenerDefaultChanSize = 16
 )
 
 type Listener struct {
-	C <-chan *control.Context
+	C <-chan *Context
 
 	ls *listeners
 
 	id uint64
-	c  chan *control.Context
+	c  chan *Context
 	once bool
 }
 
@@ -39,7 +37,7 @@ func newListener(ls *listeners, chanSize int, once bool) *Listener {
 		panic("invalid channel size for listener")
 	}
 
-	c := make(chan *control.Context, chanSize)
+	c := make(chan *Context, chanSize)
 	return &Listener{
 		C:  c,
 		ls: ls,

@@ -200,7 +200,15 @@ func (e *Events) triggerEvent(ctx *control.Context) (v interface{}, err error) {
 	}
 
 	// Now inform all listeners that are interested in this event
+	eventCtx := newContext(data.Data, e.codec)
 	for _, listener := range e.lsMap[data.ID].lMap {
-		listener
+		listener.c <- eventCtx
+
+		// If the listener only wants 1 event, remove him afterwards
+		if listener.once {
+			listener.Off()
+		}
 	}
+
+	return
 }

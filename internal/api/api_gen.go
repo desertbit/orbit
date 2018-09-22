@@ -7,55 +7,6 @@ import (
 )
 
 // DecodeMsg implements msgp.Decodable
-func (z *BindState) DecodeMsg(dc *msgp.Reader) (err error) {
-	{
-		var zb0001 int32
-		zb0001, err = dc.ReadInt32()
-		if err != nil {
-			return
-		}
-		(*z) = BindState(zb0001)
-	}
-	return
-}
-
-// EncodeMsg implements msgp.Encodable
-func (z BindState) EncodeMsg(en *msgp.Writer) (err error) {
-	err = en.WriteInt32(int32(z))
-	if err != nil {
-		return
-	}
-	return
-}
-
-// MarshalMsg implements msgp.Marshaler
-func (z BindState) MarshalMsg(b []byte) (o []byte, err error) {
-	o = msgp.Require(b, z.Msgsize())
-	o = msgp.AppendInt32(o, int32(z))
-	return
-}
-
-// UnmarshalMsg implements msgp.Unmarshaler
-func (z *BindState) UnmarshalMsg(bts []byte) (o []byte, err error) {
-	{
-		var zb0001 int32
-		zb0001, bts, err = msgp.ReadInt32Bytes(bts)
-		if err != nil {
-			return
-		}
-		(*z) = BindState(zb0001)
-	}
-	o = bts
-	return
-}
-
-// Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
-func (z BindState) Msgsize() (s int) {
-	s = msgp.Int32Size
-	return
-}
-
-// DecodeMsg implements msgp.Decodable
 func (z *ControlCall) DecodeMsg(dc *msgp.Reader) (err error) {
 	var field []byte
 	_ = field
@@ -424,14 +375,10 @@ func (z *SetEvent) DecodeMsg(dc *msgp.Reader) (err error) {
 			if err != nil {
 				return
 			}
-		case "State":
-			{
-				var zb0002 int32
-				zb0002, err = dc.ReadInt32()
-				if err != nil {
-					return
-				}
-				z.Active = BindState(zb0002)
+		case "Active":
+			z.Active, err = dc.ReadBool()
+			if err != nil {
+				return
 			}
 		default:
 			err = dc.Skip()
@@ -455,12 +402,12 @@ func (z SetEvent) EncodeMsg(en *msgp.Writer) (err error) {
 	if err != nil {
 		return
 	}
-	// write "State"
-	err = en.Append(0xa5, 0x53, 0x74, 0x61, 0x74, 0x65)
+	// write "Active"
+	err = en.Append(0xa6, 0x41, 0x63, 0x74, 0x69, 0x76, 0x65)
 	if err != nil {
 		return
 	}
-	err = en.WriteInt32(int32(z.Active))
+	err = en.WriteBool(z.Active)
 	if err != nil {
 		return
 	}
@@ -474,9 +421,9 @@ func (z SetEvent) MarshalMsg(b []byte) (o []byte, err error) {
 	// string "ID"
 	o = append(o, 0x82, 0xa2, 0x49, 0x44)
 	o = msgp.AppendString(o, z.ID)
-	// string "State"
-	o = append(o, 0xa5, 0x53, 0x74, 0x61, 0x74, 0x65)
-	o = msgp.AppendInt32(o, int32(z.Active))
+	// string "Active"
+	o = append(o, 0xa6, 0x41, 0x63, 0x74, 0x69, 0x76, 0x65)
+	o = msgp.AppendBool(o, z.Active)
 	return
 }
 
@@ -501,14 +448,10 @@ func (z *SetEvent) UnmarshalMsg(bts []byte) (o []byte, err error) {
 			if err != nil {
 				return
 			}
-		case "State":
-			{
-				var zb0002 int32
-				zb0002, bts, err = msgp.ReadInt32Bytes(bts)
-				if err != nil {
-					return
-				}
-				z.Active = BindState(zb0002)
+		case "Active":
+			z.Active, bts, err = msgp.ReadBoolBytes(bts)
+			if err != nil {
+				return
 			}
 		default:
 			bts, err = msgp.Skip(bts)
@@ -523,7 +466,7 @@ func (z *SetEvent) UnmarshalMsg(bts []byte) (o []byte, err error) {
 
 // Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
 func (z SetEvent) Msgsize() (s int) {
-	s = 1 + 3 + msgp.StringPrefixSize + len(z.ID) + 6 + msgp.Int32Size
+	s = 1 + 3 + msgp.StringPrefixSize + len(z.ID) + 7 + msgp.BoolSize
 	return
 }
 
@@ -548,6 +491,11 @@ func (z *TriggerEvent) DecodeMsg(dc *msgp.Reader) (err error) {
 			if err != nil {
 				return
 			}
+		case "Data":
+			z.Data, err = dc.ReadBytes(z.Data)
+			if err != nil {
+				return
+			}
 		default:
 			err = dc.Skip()
 			if err != nil {
@@ -559,10 +507,10 @@ func (z *TriggerEvent) DecodeMsg(dc *msgp.Reader) (err error) {
 }
 
 // EncodeMsg implements msgp.Encodable
-func (z TriggerEvent) EncodeMsg(en *msgp.Writer) (err error) {
-	// map header, size 1
+func (z *TriggerEvent) EncodeMsg(en *msgp.Writer) (err error) {
+	// map header, size 2
 	// write "ID"
-	err = en.Append(0x81, 0xa2, 0x49, 0x44)
+	err = en.Append(0x82, 0xa2, 0x49, 0x44)
 	if err != nil {
 		return
 	}
@@ -570,16 +518,28 @@ func (z TriggerEvent) EncodeMsg(en *msgp.Writer) (err error) {
 	if err != nil {
 		return
 	}
+	// write "Data"
+	err = en.Append(0xa4, 0x44, 0x61, 0x74, 0x61)
+	if err != nil {
+		return
+	}
+	err = en.WriteBytes(z.Data)
+	if err != nil {
+		return
+	}
 	return
 }
 
 // MarshalMsg implements msgp.Marshaler
-func (z TriggerEvent) MarshalMsg(b []byte) (o []byte, err error) {
+func (z *TriggerEvent) MarshalMsg(b []byte) (o []byte, err error) {
 	o = msgp.Require(b, z.Msgsize())
-	// map header, size 1
+	// map header, size 2
 	// string "ID"
-	o = append(o, 0x81, 0xa2, 0x49, 0x44)
+	o = append(o, 0x82, 0xa2, 0x49, 0x44)
 	o = msgp.AppendString(o, z.ID)
+	// string "Data"
+	o = append(o, 0xa4, 0x44, 0x61, 0x74, 0x61)
+	o = msgp.AppendBytes(o, z.Data)
 	return
 }
 
@@ -604,6 +564,11 @@ func (z *TriggerEvent) UnmarshalMsg(bts []byte) (o []byte, err error) {
 			if err != nil {
 				return
 			}
+		case "Data":
+			z.Data, bts, err = msgp.ReadBytesBytes(bts, z.Data)
+			if err != nil {
+				return
+			}
 		default:
 			bts, err = msgp.Skip(bts)
 			if err != nil {
@@ -616,7 +581,7 @@ func (z *TriggerEvent) UnmarshalMsg(bts []byte) (o []byte, err error) {
 }
 
 // Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
-func (z TriggerEvent) Msgsize() (s int) {
-	s = 1 + 3 + msgp.StringPrefixSize + len(z.ID)
+func (z *TriggerEvent) Msgsize() (s int) {
+	s = 1 + 3 + msgp.StringPrefixSize + len(z.ID) + 5 + msgp.BytesPrefixSize + len(z.Data)
 	return
 }
