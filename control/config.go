@@ -34,18 +34,22 @@ const (
 	// defaultCallTimeout specifies the default timeout for a call request.
 	defaultCallTimeout = 30 * time.Second
 
-	// defaultReadTimeout specifies ...
+	// defaultReadTimeout specifies the default timeout for reading from the connection.
 	defaultReadTimeout = 35 * time.Second
 
-	// defaultWriteTimeout
+	// defaultWriteTimeout specifies the default timeout for writing to the connection.
 	defaultWriteTimeout = 15 * time.Second
 )
 
 var (
+	// defaultCodec is the codec that is used by default, message pack currently.
 	defaultCodec  = msgpack.Codec
+
+	// defaultLogger is the logger that is used by default.
 	defaultLogger = log.New(os.Stderr, "orbit: ", 0)
 )
 
+// The Config type contains the possible configuration parameter of a Control.
 type Config struct {
 	Codec           codec.Codec
 	Logger          *log.Logger
@@ -56,6 +60,10 @@ type Config struct {
 	SendErrToCaller bool
 }
 
+// prepareConfig sets default values on the properties of
+// the given config, that are not set yet.
+// If a nil Config is provided, a new config is created
+// that consequently contains only default values.
 func prepareConfig(c *Config) *Config {
 	if c == nil {
 		c = &Config{}

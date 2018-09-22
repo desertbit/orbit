@@ -28,7 +28,7 @@ import (
 )
 
 var (
-	ErrInvalidPayloadSize     = errors.New("invalid payload size")
+	ErrPayloadEmpty           = errors.New("payload size was 0")
 	ErrMaxPayloadSizeExceeded = errors.New("max payload size exceeded")
 )
 
@@ -66,7 +66,7 @@ func ReadTimeout(
 }
 
 // Read from the connection. Sets the read deadline to the timeout
-// and returns the packet bytes. if buffer is set and is big enough to
+// and returns the packet bytes. If buffer is set and is big enough to
 // fit the packet, then the buffer is used. Otherwise a new buffer
 // is allocated.
 func Read(
@@ -96,7 +96,7 @@ func Read(
 	}
 	payloadLen := int(payloadLen32)
 	if payloadLen == 0 {
-		return nil, ErrInvalidPayloadSize
+		return nil, ErrPayloadEmpty
 	} else if payloadLen > maxPayloadSize {
 		return nil, ErrMaxPayloadSizeExceeded
 	}
@@ -162,7 +162,7 @@ func Write(
 ) (err error) {
 	payloadLen := len(data)
 	if payloadLen == 0 {
-		return ErrInvalidPayloadSize
+		return ErrPayloadEmpty
 	} else if payloadLen > maxPayloadSize {
 		return ErrMaxPayloadSizeExceeded
 	}

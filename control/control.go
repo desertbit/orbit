@@ -151,6 +151,7 @@ func (s *Control) RegisterFuncs(funcs Funcs) {
 	}
 }
 
+// TODO: Name not ideal
 // OneShot calls a remote function without a return request.
 func (s *Control) OneShot(id string, data interface{}) error {
 	header := &api.ControlCall{
@@ -226,7 +227,15 @@ type retChainData struct {
 }
 
 func (s *Control) write(reqType byte, headerI interface{}, dataI interface{}) (err error) {
-	var payload, header []byte
+	var header, payload []byte
+
+	// Marshal the header data if present.
+	if headerI != nil {
+		header, err = s.codec.Encode(headerI)
+		if err != nil {
+			return fmt.Errorf("encode header: %v", err)
+		}
+	}
 
 	// Marshal the payload data if present
 	// or use the direct byte slice if set.
@@ -243,14 +252,6 @@ func (s *Control) write(reqType byte, headerI interface{}, dataI interface{}) (e
 		}
 	}
 
-	// Marshal the header data if present.
-	if headerI != nil {
-		header, err = s.codec.Encode(headerI)
-		if err != nil {
-			return fmt.Errorf("encode header: %v", err)
-		}
-	}
-
 	s.writeMutex.Lock()
 	defer s.writeMutex.Unlock()
 
@@ -264,20 +265,22 @@ func (s *Control) write(reqType byte, headerI interface{}, dataI interface{}) (e
 		return err
 	}
 
-	// TODO: BUG!
-	if len(header) > 0 {
-		err = packet.Write(s.conn, header, s.config.MaxMessageSize)
-		if err != nil {
-			return err
-		}
+	if len(header) == 0 {
+		header = []byte{0}
 	}
 
-	// TODO: BUG!
-	if len(payload) > 0 {
-		err = packet.Write(s.conn, payload, s.config.MaxMessageSize)
-		if err != nil {
-			return err
-		}
+	err = packet.Write(s.conn, header, s.config.MaxMessageSize)
+	if err != nil {
+		return err
+	}
+
+	if len(payload) == 0 {
+		payload = []byte{0}
+	}
+
+	err = packet.Write(s.conn, payload, s.config.MaxMessageSize)
+	if err != nil {
+		return err
 	}
 
 	return nil
@@ -310,14 +313,14 @@ func (s *Control) readRoutine() {
 	}()
 
 	for {
-		// Set the read deadline for the message.
-		err = s.conn.SetReadDeadline(time.Now().Add(s.config.ReadTimeout))
+		// No timeout, as we need to wait here for any incoming request.
+		err = s.conn.SetReadDeadline(time.Time{})
 		if err != nil {
-			err = fmt.Errorf("setReadDeadline: %v", err)
 			return
 		}
 
 		// Read the reqType from the stream.
+		// Read in a loop, as Read could potentially return 0 read bytes.
 		for bytesRead == 0 {
 			n, err = s.conn.Read(reqTypeBuf)
 			if err != nil {
@@ -327,6 +330,11 @@ func (s *Control) readRoutine() {
 		}
 
 		reqType = reqTypeBuf[0]
+
+		err = s.conn.SetReadDeadline(s.config.ReadTimeout)
+		if err != nil {
+			return
+		}
 
 		// Read the header from the stream.
 		headerData, err = packet.Read(s.conn, nil, s.config.MaxMessageSize)
