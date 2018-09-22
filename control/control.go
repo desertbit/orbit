@@ -150,7 +150,6 @@ func (s *Control) RegisterFuncs(funcs Funcs) {
 	}
 }
 
-// TODO: Name not ideal
 // OneShot calls a remote function without a return request.
 func (s *Control) OneShot(id string, data interface{}) error {
 	header := &api.ControlCall{
@@ -279,8 +278,10 @@ func (s *Control) readRoutine() {
 	// Close the socket on exit.
 	defer s.Close()
 
+	// Warning: don't shadow the error.
+	// Otherwise the defered logging won't work!
 	var (
-		err                     error // TODO:
+		err                     error
 		n, bytesRead            int
 		reqType                 byte
 		reqTypeBuf              = make([]byte, 1)
