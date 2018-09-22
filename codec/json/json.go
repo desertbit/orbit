@@ -21,14 +21,14 @@ package json
 import "encoding/json"
 
 // Codec that encodes to and decodes from JSON.
-var Codec = jsonCodec{}
+var Codec = &jsonCodec{}
 
 type jsonCodec struct{}
 
-func (j jsonCodec) Encode(v interface{}) ([]byte, error) {
+func (j *jsonCodec) Encode(v interface{}) ([]byte, error) {
 	return json.Marshal(v)
 }
 
-func (j jsonCodec) Decode(b []byte, v interface{}) error {
+func (j *jsonCodec) Decode(b []byte, v interface{}) error {
 	return json.Unmarshal(b, v)
 }

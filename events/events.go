@@ -147,5 +147,6 @@ func (e *Events) callTriggerEvent(id string, data interface{}) error {
 	data := api.TriggerEvent{
 		ID: id,
 	}
+
 	return e.ctrl.OneShot("triggerEvent", &data)
 }

@@ -28,7 +28,6 @@ import (
 )
 
 var (
-	ErrPayloadEmpty           = errors.New("payload size was 0")
 	ErrMaxPayloadSizeExceeded = errors.New("max payload size exceeded")
 )
 
@@ -69,6 +68,7 @@ func ReadTimeout(
 // and returns the packet bytes. If buffer is set and is big enough to
 // fit the packet, then the buffer is used. Otherwise a new buffer
 // is allocated.
+// Returns a nil byte slice if no data was send.
 func Read(
 	conn net.Conn,
 	buffer []byte,
@@ -96,7 +96,7 @@ func Read(
 	}
 	payloadLen := int(payloadLen32)
 	if payloadLen == 0 {
-		return nil, ErrPayloadEmpty
+		return nil, nil
 	} else if payloadLen > maxPayloadSize {
 		return nil, ErrMaxPayloadSizeExceeded
 	}
@@ -161,9 +161,7 @@ func Write(
 	maxPayloadSize int,
 ) (err error) {
 	payloadLen := len(data)
-	if payloadLen == 0 {
-		return ErrPayloadEmpty
-	} else if payloadLen > maxPayloadSize {
+	if payloadLen > maxPayloadSize {
 		return ErrMaxPayloadSizeExceeded
 	}
 
@@ -174,10 +172,12 @@ func Write(
 		return
 	}
 
-	// Write the payload data.
-	_, err = conn.Write(data)
-	if err != nil {
-		return
+	// Write the payload data if present.
+	if payloadLen > 0 {
+		_, err = conn.Write(data)
+		if err != nil {
+			return
+		}
 	}
 
 	return
