@@ -15,7 +15,7 @@ const (
 // by using the packet pkg.
 func handleStreamPacket(stream net.Conn) error {
 	// Set the read deadline manually
-	err := stream.SetReadDeadline(time.Now().Add(10*time.Second))
+	err := stream.SetReadDeadline(time.Now().Add(10 * time.Second))
 	if err != nil {
 		return fmt.Errorf("error setting read deadline with packet: %v", err)
 	}
@@ -35,7 +35,7 @@ func handleStreamPacket(stream net.Conn) error {
 	fmt.Println(string(data))
 
 	// For better output readability.
-	time.Sleep(1*time.Second)
+	time.Sleep(1 * time.Second)
 
 	// Write a witty response.
 	// This time, we let packet set the timeout.

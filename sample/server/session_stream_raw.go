@@ -50,7 +50,7 @@ func handleStreamRaw(stream net.Conn) error {
 		time.Sleep(500 * time.Millisecond)
 
 		// Set a write deadline.
-		err := stream.SetWriteDeadline(time.Now().Add(5*time.Second))
+		err := stream.SetWriteDeadline(time.Now().Add(5 * time.Second))
 		if err != nil {
 			return fmt.Errorf("error setting write deadline to stream '%s': %v", api.ChannelIDRaw, err)
 		}

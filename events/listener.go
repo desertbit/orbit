@@ -19,33 +19,33 @@
 package events
 
 const (
-	listenerIDLen           = 16
 	listenerDefaultChanSize = 16
 )
 
 type Listener struct {
 	C <-chan *Context
 
-	e  *Event
-	id string
+	ls *listeners
+
+	id uint64
 	c  chan *Context
+	once bool
 }
 
-func newListener(e *Event, chanSize int) (*Listener, error) {
+func newListener(ls *listeners, chanSize int, once bool) *Listener {
 	if chanSize <= 0 {
-		return nil, ErrInvalidChanSize
+		panic("invalid channel size for listener")
 	}
 
 	c := make(chan *Context, chanSize)
-	l := &Listener{
-		C: c,
-		e: e,
-		c: c,
+	return &Listener{
+		C:  c,
+		ls: ls,
+		c:  c,
+		once: once,
 	}
-	return l, nil
 }
 
 func (l *Listener) Off() {
-	// TODO: Only remove once?!
-	l.e.removeListener(l.id)
+	l.ls.Remove(l.id)
 }

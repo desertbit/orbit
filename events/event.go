@@ -19,14 +19,13 @@
 package events
 
 import (
-	"sync/atomic"
-
-	"github.com/desertbit/orbit/internal/api"
+	"sync"
 )
 
 type Event struct {
 	id        string
-	bindState int32 // bind state of the peer.
+	active bool // bind state of the peer.
+	mutex sync.Mutex
 }
 
 func newEvent(id string) *Event {
@@ -35,10 +34,15 @@ func newEvent(id string) *Event {
 	}
 }
 
-func (e *Event) setBindState(s api.BindState) {
-	atomic.StoreInt32(&e.bindState)
+func (e *Event) SetActive(active bool) {
+	e.mutex.Lock()
+	e.active = active
+	e.mutex.Unlock()
 }
 
-func (e *Event) getBindState() api.BindState {
-	return atomic.LoadInt32(&e.bindState)
+func (e *Event) IsActive() (active bool) {
+	e.mutex.Lock()
+	active = e.active
+	e.mutex.Unlock()
+	return
 }
