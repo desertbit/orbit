@@ -70,10 +70,9 @@ type Control struct {
 	conn       net.Conn
 	writeMutex sync.Mutex
 
+	funcChain    *chain
 	funcMapMutex sync.RWMutex
 	funcMap      map[string]Func
-
-	funcChain *chain
 
 	callHook  CallHook
 	errorHook ErrorHook
@@ -91,8 +90,8 @@ func New(conn net.Conn, config *Config) *Control {
 		codec:     config.Codec,
 		logger:    config.Logger,
 		conn:      conn,
-		funcMap:   make(map[string]Func),
 		funcChain: newChain(),
+		funcMap:   make(map[string]Func),
 	}
 	s.OnClose(conn.Close)
 
@@ -152,15 +151,26 @@ func (s *Control) RegisterFuncs(funcs Funcs) {
 	}
 }
 
-func (s *Control) Call(id string, data interface{}) (*Context, error) {
-	return s.CallTimeout(id, data, s.config.CallTimeout)
+// OneShot calls a remote function without a return request.
+func (s *Control) OneShot(id string, data interface{}) error {
+	header := &api.ControlCall{
+		ID: id,
+	}
+
+	return s.write(typeCall, header, data)
 }
 
 // Call a remote function and wait for its result.
+// Pass a byte slice to skip encoding.
 // This method blocks until the remote socket function returns.
 // Returns ErrTimeout on a timeout.
 // Returns ErrClosed if the connection is closed.
 // This method is thread-safe.
+func (s *Control) Call(id string, data interface{}) (*Context, error) {
+	return s.CallTimeout(id, data, s.config.CallTimeout)
+}
+
+// CallTimeout sames as Call but with custom timeout.
 func (s *Control) CallTimeout(id string, data interface{}, timeout time.Duration) (ctx *Context, err error) {
 	// Create a new channel with its key.
 	key, channel, err := s.funcChain.New()
@@ -171,8 +181,8 @@ func (s *Control) CallTimeout(id string, data interface{}, timeout time.Duration
 
 	// Create the header.
 	header := &api.ControlCall{
-		FuncID: id,
-		Key:    key,
+		ID:  id,
+		Key: key,
 	}
 
 	// Write to the client.
@@ -218,11 +228,18 @@ type retChainData struct {
 func (s *Control) write(reqType byte, headerI interface{}, dataI interface{}) (err error) {
 	var payload, header []byte
 
-	// Marshal the payload data if present.
+	// Marshal the payload data if present
+	// or use the direct byte slice if set.
 	if dataI != nil {
-		payload, err = s.codec.Encode(dataI)
-		if err != nil {
-			return fmt.Errorf("encode: %v", err)
+		switch v := dataI.(type) {
+		case []byte:
+			payload = v
+
+		default:
+			payload, err = s.codec.Encode(dataI)
+			if err != nil {
+				return fmt.Errorf("encode: %v", err)
+			}
 		}
 	}
 
@@ -247,6 +264,7 @@ func (s *Control) write(reqType byte, headerI interface{}, dataI interface{}) (e
 		return err
 	}
 
+	// TODO: BUG!
 	if len(header) > 0 {
 		err = packet.Write(s.conn, header, s.config.MaxMessageSize)
 		if err != nil {
@@ -254,6 +272,7 @@ func (s *Control) write(reqType byte, headerI interface{}, dataI interface{}) (e
 		}
 	}
 
+	// TODO: BUG!
 	if len(payload) > 0 {
 		err = packet.Write(s.conn, payload, s.config.MaxMessageSize)
 		if err != nil {
@@ -361,17 +380,17 @@ func (s *Control) handleCallRequest(headerData, payloadData []byte) (err error) 
 	}
 
 	s.funcMapMutex.RLock()
-	f, ok := s.funcMap[header.FuncID]
+	f, ok := s.funcMap[header.ID]
 	s.funcMapMutex.RUnlock()
 	if !ok {
-		return fmt.Errorf("call request: requested function does not exist: id=%v", header.FuncID)
+		return fmt.Errorf("call request: requested function does not exist: id=%v", header.ID)
 	}
 
 	ctx := newContext(s, payloadData)
 
 	// Call the call hook if defined.
 	if s.callHook != nil {
-		s.callHook(s, header.FuncID, ctx)
+		s.callHook(s, header.ID, ctx)
 	}
 
 	var (
@@ -381,7 +400,7 @@ func (s *Control) handleCallRequest(headerData, payloadData []byte) (err error) 
 
 	retData, retErr := f(ctx)
 	if retErr != nil {
-		s.logger.Printf("call request: id='%v': returned error: %v", header.FuncID, retErr)
+		s.logger.Printf("call request: id='%v': returned error: %v", header.ID, retErr)
 
 		// Decide what to send back to the caller.
 		if cErr, ok := retErr.(Error); ok {
@@ -397,6 +416,11 @@ func (s *Control) handleCallRequest(headerData, payloadData []byte) (err error) 
 		}
 	}
 
+	// Skip the return if this is a oneshot call.
+	if header.Key == "" {
+		return nil
+	}
+
 	retHeader := &api.ControlCallReturn{
 		Key:  header.Key,
 		Msg:  msg,
@@ -410,7 +434,7 @@ func (s *Control) handleCallRequest(headerData, payloadData []byte) (err error) 
 
 	// Call the error hook if defined.
 	if retErr != nil && s.errorHook != nil {
-		s.errorHook(s, header.FuncID, retErr)
+		s.errorHook(s, header.ID, retErr)
 	}
 
 	return nil

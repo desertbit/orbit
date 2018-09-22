@@ -16,14 +16,29 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package orbit
+package events
 
-import "errors"
+import (
+	"sync/atomic"
 
-var (
-	ErrInvalidVersion        = errors.New("invalid version")
-	ErrAcceptStreamsDisabled = errors.New("accept streams disabled")
-
-	// ErrTimeout defines the error if the call timeout is reached.
-	ErrTimeout = errors.New("timeout")
+	"github.com/desertbit/orbit/internal/api"
 )
+
+type Event struct {
+	id        string
+	bindState int32 // bind state of the peer.
+}
+
+func newEvent(id string) *Event {
+	return &Event{
+		id: id,
+	}
+}
+
+func (e *Event) setBindState(s api.BindState) {
+	atomic.StoreInt32(&e.bindState)
+}
+
+func (e *Event) getBindState() api.BindState {
+	return atomic.LoadInt32(&e.bindState)
+}

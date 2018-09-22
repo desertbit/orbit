@@ -169,34 +169,27 @@ func (l *Server) handleConnection(conn net.Conn) (err error) {
 	// Add the new session to the active sessions map.
 	// If the ID is already present, then generate a new one.
 	var id string
-	err = func() (err error) {
+	for {
 		id, err = utils.RandomString(sessionIDLength)
 		if err != nil {
 			return
 		}
 
-		// Lock the mutex.
-		l.sessionsMutex.Lock()
-		defer l.sessionsMutex.Unlock()
+		added := func() bool {
+			l.sessionsMutex.Lock()
+			defer l.sessionsMutex.Unlock()
 
-		// Be sure that the ID is unique.
-		for {
-			if _, ok := l.sessions[id]; !ok {
-				break
+			if _, ok := l.sessions[id]; ok {
+				return false
 			}
 
-			id, err = utils.RandomString(sessionIDLength)
-			if err != nil {
-				return
-			}
+			s.SetID(id)
+			l.sessions[id] = s
+			return true
+		}()
+		if added {
+			break
 		}
-
-		s.SetID(id)
-		l.sessions[id] = s
-		return
-	}()
-	if err != nil {
-		return
 	}
 
 	// Remove the session from the active sessions map during close.

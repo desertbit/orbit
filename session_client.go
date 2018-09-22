@@ -70,6 +70,6 @@ func ClientSession(conn net.Conn, config *Config) (s *Session, err error) {
 		return
 	}
 
-	s = newSession(conn, ys, config)
+	s = newSession(conn, ys, config, true)
 	return
 }

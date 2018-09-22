@@ -16,51 +16,46 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package control
+package events
 
-import (
-	"sync"
+/*
+type Event struct {
+	id string
+	//filter func(ctx *Context)
 
-	"github.com/desertbit/orbit/internal/utils"
-)
-
-const (
-	chainIDLength = 16
-)
-
-type chainChan chan interface{}
-
-type chain struct {
-	chanMap        map[string]chainChan
-	chainChanMutex sync.Mutex
+	listenersMutex sync.Mutex
+	listeners      map[string]*Listener
 }
 
-func newChain() *chain {
-	return &chain{
-		chanMap: make(map[string]chainChan),
+func newEvent(id string) *Event {
+	return &Event{
+		id: id,
 	}
 }
 
-func (c *chain) New() (id string, cc chainChan, err error) {
-	// Create a new channel.
-	cc = make(chainChan)
+func (e *Event) On() (*Listener, error) {
+	l, err := newListener(e, defaultListenerChanSize)
+	if err != nil {
+		return nil, err
+	}
 
-	// Create a new ID and ensure it is unqiue.
+	// Create a new listener ID and ensure it is unqiue.
+	// Add it to the listeners map and set the ID.
 	for {
-		id, err = utils.RandomString(chainIDLength)
+		l.id, err = utils.RandomString(listenerIDLen)
 		if err != nil {
-			return
+			return nil, err
 		}
 
 		added := func() bool {
-			c.chainChanMutex.Lock()
-			defer c.chainChanMutex.Unlock()
+			e.listenersMutex.Lock()
+			defer e.listenersMutex.Unlock()
 
-			if _, ok := c.chanMap[id]; ok {
+			if _, ok := c.listeners[l.id]; ok {
 				return false
 			}
 
-			c.chanMap[id] = cc
+			c.listeners[l.id] = l
 			return true
 		}()
 		if added {
@@ -68,19 +63,12 @@ func (c *chain) New() (id string, cc chainChan, err error) {
 		}
 	}
 
-	return
+	return l, nil
 }
 
-// Returns nil if not found.
-func (c *chain) Get(id string) (cc chainChan) {
-	c.chainChanMutex.Lock()
-	cc = c.chanMap[id]
-	c.chainChanMutex.Unlock()
-	return
+func (e *Event) removeListener(id string) {
+	listenersMutex.Lock()
+	delete(e.listeners, id)
+	listenersMutex.Unlock()
 }
-
-func (c *chain) Delete(id string) {
-	c.chainChanMutex.Lock()
-	delete(c.chanMap, id)
-	c.chainChanMutex.Unlock()
-}
+*/

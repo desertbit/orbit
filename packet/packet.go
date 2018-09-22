@@ -102,8 +102,11 @@ func Read(
 	}
 
 	// Create a new buffer if the passed buffer is too small.
+	// Ensure the length fits.
 	if len(buffer) < payloadLen {
 		buffer = make([]byte, payloadLen)
+	} else if len(buffer) > payloadLen {
+		buffer = buffer[:payloadLen]
 	}
 
 	// Read the payload from the connection.

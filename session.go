@@ -48,11 +48,12 @@ type Session struct {
 	// Value is a custom value which can be set.
 	Value interface{}
 
-	config *Config
-	logger *log.Logger
-	conn   net.Conn
-	ys     *yamux.Session
-	id     string
+	config   *Config
+	logger   *log.Logger
+	conn     net.Conn
+	ys       *yamux.Session
+	isClient bool
+	id       string
 
 	newStreamChan chan net.Conn
 
@@ -64,6 +65,7 @@ func newSession(
 	conn net.Conn,
 	ys *yamux.Session,
 	config *Config,
+	isClient bool,
 ) (s *Session) {
 	s = &Session{
 		Closer:        closer.New(),
@@ -71,6 +73,7 @@ func newSession(
 		logger:        config.Logger,
 		conn:          conn,
 		ys:            ys,
+		isClient:      isClient,
 		newStreamChan: make(chan net.Conn, 2),
 		channelMap:    make(map[string]func(net.Conn) error),
 	}
@@ -111,6 +114,11 @@ func (s *Session) SetID(id string) {
 	s.id = id
 }
 
+// IsClient returns a boolean whenever this session is a client connection.
+func (s *Session) IsClient() bool {
+	return s.isClient
+}
+
 // LocalAddr returns the local network address.
 func (s *Session) LocalAddr() net.Addr {
 	return s.conn.LocalAddr()
@@ -130,6 +138,12 @@ func (s *Session) OnNewStream(channel string, f func(net.Conn) error) {
 
 // OpenStream opens a new stream with the given channel ID.
 func (s *Session) OpenStream(channel string) (stream net.Conn, err error) {
+	return s.OpenStreamTimeout(channel, openStreamWriteTimeout)
+}
+
+// OpenStreamTimeout opens a new stream with the given channel ID.
+// Expires after the timeout and returns ErrTimeout.
+func (s *Session) OpenStreamTimeout(channel string, timeout time.Duration) (stream net.Conn, err error) {
 	stream, err = s.ys.Open()
 	if err != nil {
 		return
@@ -139,8 +153,11 @@ func (s *Session) OpenStream(channel string) (stream net.Conn, err error) {
 		Channel: channel,
 	}
 
-	err = packet.WriteEncode(stream, &data, msgpack.Codec, acceptStreamMaxHeaderSize, openStreamWriteTimeout)
+	err = packet.WriteEncode(stream, &data, msgpack.Codec, acceptStreamMaxHeaderSize, timeout)
 	if err != nil {
+		if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+			err = ErrTimeout
+		}
 		return
 	}
 

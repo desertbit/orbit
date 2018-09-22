@@ -16,14 +16,11 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package orbit
+package events
 
 import "errors"
 
 var (
-	ErrInvalidVersion        = errors.New("invalid version")
-	ErrAcceptStreamsDisabled = errors.New("accept streams disabled")
-
-	// ErrTimeout defines the error if the call timeout is reached.
-	ErrTimeout = errors.New("timeout")
+	ErrEventNotFound   = errors.New("event not found")
+	ErrInvalidChanSize = errors.New("invalid chan size")
 )

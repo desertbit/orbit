@@ -16,14 +16,36 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package orbit
+package events
 
-import "errors"
-
-var (
-	ErrInvalidVersion        = errors.New("invalid version")
-	ErrAcceptStreamsDisabled = errors.New("accept streams disabled")
-
-	// ErrTimeout defines the error if the call timeout is reached.
-	ErrTimeout = errors.New("timeout")
+const (
+	listenerIDLen           = 16
+	listenerDefaultChanSize = 16
 )
+
+type Listener struct {
+	C <-chan *Context
+
+	e  *Event
+	id string
+	c  chan *Context
+}
+
+func newListener(e *Event, chanSize int) (*Listener, error) {
+	if chanSize <= 0 {
+		return nil, ErrInvalidChanSize
+	}
+
+	c := make(chan *Context, chanSize)
+	l := &Listener{
+		C: c,
+		e: e,
+		c: c,
+	}
+	return l, nil
+}
+
+func (l *Listener) Off() {
+	// TODO: Only remove once?!
+	l.e.removeListener(l.id)
+}
