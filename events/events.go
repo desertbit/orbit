@@ -96,12 +96,10 @@ func (e *Events) TriggerEvent(id string, data interface{}) (err error) {
 	return
 }
 
-// Returns ErrEventNotFound if the event does not exists on the peer's side.
 func (e *Events) OnEvent(id string) *Listener {
 	return e.addListener(id, listenerDefaultChanSize, false)
 }
 
-// Returns ErrEventNotFound if the event does not exists on the peer's side.
 func (e *Events) OnceEvent(id string) *Listener {
 	return e.addListener(id, listenerDefaultChanSize, true)
 }
