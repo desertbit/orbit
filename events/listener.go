@@ -18,34 +18,36 @@
 
 package events
 
+import "github.com/desertbit/orbit/control"
+
 const (
-	listenerIDLen           = 16
 	listenerDefaultChanSize = 16
 )
 
 type Listener struct {
-	C <-chan *Context
+	C <-chan *control.Context
 
-	e  *Event
-	id string
-	c  chan *Context
+	ls *listeners
+
+	id uint64
+	c  chan *control.Context
+	once bool
 }
 
-func newListener(e *Event, chanSize int) (*Listener, error) {
+func newListener(ls *listeners, chanSize int, once bool) *Listener {
 	if chanSize <= 0 {
-		return nil, ErrInvalidChanSize
+		panic("invalid channel size for listener")
 	}
 
-	c := make(chan *Context, chanSize)
-	l := &Listener{
-		C: c,
-		e: e,
-		c: c,
+	c := make(chan *control.Context, chanSize)
+	return &Listener{
+		C:  c,
+		ls: ls,
+		c:  c,
+		once: once,
 	}
-	return l, nil
 }
 
 func (l *Listener) Off() {
-	// TODO: Only remove once?!
-	l.e.removeListener(l.id)
+	l.ls.Remove(l.id)
 }

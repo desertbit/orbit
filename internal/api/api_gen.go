@@ -431,7 +431,7 @@ func (z *SetEvent) DecodeMsg(dc *msgp.Reader) (err error) {
 				if err != nil {
 					return
 				}
-				z.State = BindState(zb0002)
+				z.Active = BindState(zb0002)
 			}
 		default:
 			err = dc.Skip()
@@ -460,7 +460,7 @@ func (z SetEvent) EncodeMsg(en *msgp.Writer) (err error) {
 	if err != nil {
 		return
 	}
-	err = en.WriteInt32(int32(z.State))
+	err = en.WriteInt32(int32(z.Active))
 	if err != nil {
 		return
 	}
@@ -476,7 +476,7 @@ func (z SetEvent) MarshalMsg(b []byte) (o []byte, err error) {
 	o = msgp.AppendString(o, z.ID)
 	// string "State"
 	o = append(o, 0xa5, 0x53, 0x74, 0x61, 0x74, 0x65)
-	o = msgp.AppendInt32(o, int32(z.State))
+	o = msgp.AppendInt32(o, int32(z.Active))
 	return
 }
 
@@ -508,7 +508,7 @@ func (z *SetEvent) UnmarshalMsg(bts []byte) (o []byte, err error) {
 				if err != nil {
 					return
 				}
-				z.State = BindState(zb0002)
+				z.Active = BindState(zb0002)
 			}
 		default:
 			bts, err = msgp.Skip(bts)

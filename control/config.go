@@ -43,7 +43,7 @@ const (
 
 var (
 	// defaultCodec is the codec that is used by default, message pack currently.
-	defaultCodec  = msgpack.Codec
+	defaultCodec = msgpack.Codec
 
 	// defaultLogger is the logger that is used by default.
 	defaultLogger = log.New(os.Stderr, "orbit: ", 0)

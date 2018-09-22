@@ -23,14 +23,6 @@ const (
 	Version = 1
 )
 
-type BindState int32
-
-const (
-	StateOff  BindState = 0
-	StateOn   BindState = 1
-	StateOnce BindState = 2
-)
-
 type InitStream struct {
 	Channel string
 }
@@ -47,10 +39,11 @@ type ControlCallReturn struct {
 }
 
 type SetEvent struct {
-	ID    string
-	State BindState
+	ID     string
+	Active bool
 }
 
 type TriggerEvent struct {
 	ID string
+	Data []byte
 }

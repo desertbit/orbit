@@ -19,6 +19,7 @@
 package events
 
 import (
+	"github.com/desertbit/orbit/codec"
 	"net"
 	"sync"
 
@@ -27,26 +28,40 @@ import (
 	"github.com/desertbit/orbit/internal/api"
 )
 
+const (
+	setEvent     = "SetEvent"
+	triggerEvent = "TriggerEvent"
+)
+
 type Events struct {
 	closer.Closer
 
 	ctrl *control.Control
 
+	codec codec.Codec
+
+	// TODO: maybe rename to events...
 	eventMapMutex sync.Mutex
 	eventMap      map[string]*Event
+
+	lsMapMutex sync.Mutex
+	lsMap      map[string]*listeners
 }
 
 func New(conn net.Conn, config *control.Config) (e *Events) {
-	e = &Event{
-		Closer: closer.New(),
-		ctrl:   control.New(conn, config),
-		m:      make(map[string]*Event),
+	e = &Events{
+		Closer:   closer.New(),
+		ctrl:     control.New(conn, config),
+		codec:    config.Codec,
+		eventMap: make(map[string]*Event),
+		lsMap:    make(map[string]*listeners),
 	}
 	e.OnClose(conn.Close)
 	e.OnClose(e.ctrl.Close)
 
 	e.ctrl.RegisterFuncs(control.Funcs{
-		"setEvent": e.setEvent,
+		setEvent:     e.setEvent,
+		triggerEvent: e.triggerEvent,
 	})
 	e.ctrl.Ready()
 	return
@@ -55,9 +70,9 @@ func New(conn net.Conn, config *control.Config) (e *Events) {
 func (e *Events) RegisterEvent(id string) (event *Event) {
 	event = newEvent(id)
 
-	c.eventMapMutex.Lock()
-	c.eventMap[id] = event
-	c.eventMapMutex.Unlock()
+	e.eventMapMutex.Lock()
+	e.eventMap[id] = event
+	e.eventMapMutex.Unlock()
 	return
 }
 
@@ -72,35 +87,34 @@ func (e *Events) TriggerEvent(id string, data interface{}) (err error) {
 		return
 	}
 
-	switch event.getBindState() {
-	case api.StateOn:
-
+	if event.IsActive() {
+		err = e.callTriggerEvent(id, data)
+		if err != nil {
+			return
+		}
 	}
 
 	return
 }
 
 // Returns ErrEventNotFound if the event does not exists on the peer's side.
-func (e *Events) OnEvent(id string) (l Listener, err error) {
-	err = e.callSetEvent(id, api.StateOn)
-	// TODO:
-	return
+func (e *Events) OnEvent(id string) *Listener {
+	return e.addListener(id, listenerDefaultChanSize, false)
 }
 
 // Returns ErrEventNotFound if the event does not exists on the peer's side.
-func (e *Events) OnceEvent(id string) (l Listener, err error) {
-	err = e.callSetEvent(id, api.StateOnce)
-	return
+func (e *Events) OnceEvent(id string) *Listener {
+	return e.addListener(id, listenerDefaultChanSize, true)
 }
 
 //###############//
 //### Private ###//
 //###############//
 
-func (e *Events) getEvent(id string) (e *Event, err error) {
-	c.eventMapMutex.Lock()
-	e = c.eventMap[id]
-	c.eventMapMutex.Unlock()
+func (e *Events) getEvent(id string) (event *Event, err error) {
+	e.eventMapMutex.Lock()
+	event = e.eventMap[id]
+	e.eventMapMutex.Unlock()
 
 	if e == nil {
 		err = ErrEventNotFound
@@ -108,16 +122,39 @@ func (e *Events) getEvent(id string) (e *Event, err error) {
 	return
 }
 
-func (e *Events) callSetEvent(id string, state api.BindState) (err error) {
+func (e *Events) addListener(eventID string, chanSize int, once bool) (l *Listener) {
+	var (
+		ok bool
+		ls *listeners
+	)
+
+	e.lsMapMutex.Lock()
+	if ls, ok = e.lsMap[eventID]; !ok {
+		ls = newListeners(e.CloseChan(), e, eventID)
+		e.lsMap[eventID] = ls
+	}
+	e.lsMapMutex.Unlock()
+
+	l = newListener(ls, chanSize, once)
+
+	ls.Add(l)
+
+	// Ensure the event is triggered
+	e.lsMap[eventID].activeChan <- true
+
+	return
+}
+
+func (e *Events) callSetEvent(id string, active bool) (err error) {
 	data := api.SetEvent{
-		ID:    id,
-		State: state,
+		ID:     id,
+		Active: active,
 	}
 
 	// TODO: set timeout!
 	_, err = e.ctrl.Call("setEvent", &data)
 	if err != nil {
-		if cErr, ok := err.(*control.ErrorCode); ok && cErr.Code() == 2 {
+		if cErr, ok := err.(*control.ErrorCode); ok && cErr.Code == 2 {
 			err = ErrEventNotFound
 		}
 		return
@@ -139,13 +176,31 @@ func (e *Events) setEvent(c *control.Context) (interface{}, error) {
 		return nil, control.Err(err, "event does not exists", 2)
 	}
 
-	event.setBindState(data.State)
+	event.SetActive(data.Active)
 	return nil, nil
 }
 
 func (e *Events) callTriggerEvent(id string, data interface{}) error {
-	data := api.TriggerEvent{
-		ID: id,
+	dataBytes, err := e.codec.Encode(data)
+	if err != nil {
+		return err
 	}
-	return e.ctrl.OneShot("triggerEvent", &data)
+
+	return e.ctrl.OneShot(triggerEvent, &api.TriggerEvent{
+		ID: id,
+		Data: dataBytes,
+	})
+}
+
+func (e *Events) triggerEvent(ctx *control.Context) (v interface{}, err error) {
+	var data api.TriggerEvent
+	err = ctx.Decode(&data)
+	if err != nil {
+		return
+	}
+
+	// Now inform all listeners that are interested in this event
+	for _, listener := range e.lsMap[data.ID].lMap {
+		listener.c
+	}
 }
