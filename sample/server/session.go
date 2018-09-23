@@ -19,9 +19,13 @@
 package main
 
 import (
-	"github.com/desertbit/orbit"
-	"github.com/desertbit/orbit/sample/api"
+	"fmt"
 	"log"
+	"net"
+
+	"github.com/desertbit/orbit"
+	"github.com/desertbit/orbit/events"
+	"github.com/desertbit/orbit/sample/api"
 )
 
 type Session struct {
@@ -42,6 +46,19 @@ func newSession(orbitSession *orbit.Session) (s *Session, err error) {
 
 	s.OnNewStream(api.ChannelIDRaw, handleStreamRaw)
 	s.OnNewStream(api.ChannelIDPacket, handleStreamPacket)
+
+	s.OnNewStream("events", func(stream net.Conn) error {
+		events := events.New(stream, nil)
+		l := events.OnEvent("e")
+		data := <-l.C
+		fmt.Println(data.Data)
+		return nil
+	})
+
+	/*
+		s.NewControl("control", control.Funcs{
+			"takeAHugeDump": takeAHugeDump,
+		}, nil)*/
 
 	// Signalize the session that initialization is done.
 	// Start accepting incoming channel streams.

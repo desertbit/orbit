@@ -20,6 +20,7 @@ package packet
 
 import (
 	"errors"
+	"io"
 	"net"
 	"time"
 
@@ -70,7 +71,7 @@ func ReadTimeout(
 // is allocated.
 // Returns a nil byte slice if no data was send.
 func Read(
-	conn net.Conn,
+	conn io.Reader,
 	buffer []byte,
 	maxPayloadSize int,
 ) ([]byte, error) {
@@ -156,7 +157,7 @@ func WriteTimeout(
 
 // Write the packet data to the connection.
 func Write(
-	conn net.Conn,
+	conn io.Writer,
 	data []byte,
 	maxPayloadSize int,
 ) (err error) {

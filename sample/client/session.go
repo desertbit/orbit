@@ -19,10 +19,13 @@
 package main
 
 import (
+	"fmt"
+	"log"
 	"net"
 	"sync"
 	"time"
 
+	"github.com/desertbit/orbit/events"
 	"github.com/desertbit/orbit/sample/api"
 
 	"github.com/desertbit/orbit"
@@ -51,6 +54,23 @@ func NewSession(remoteAddr string) (s *Session, err error) {
 	defer func() {
 		if err != nil {
 			s.Close()
+		}
+	}()
+
+	// TODO:
+	eventStream, err := s.OpenStream("events")
+	if err != nil {
+		return
+	}
+	events := events.New(eventStream, nil)
+	events.RegisterEvent("e")
+
+	go func() {
+		time.Sleep(time.Second)
+		fmt.Println("trigger")
+		err = events.TriggerEvent("e", "hello world")
+		if err != nil {
+			log.Println(err) // TODO:
 		}
 	}()
 

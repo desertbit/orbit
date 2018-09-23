@@ -19,27 +19,47 @@
 package orbit
 
 import (
-	"fmt"
-	"net"
 	"time"
-
-	"github.com/desertbit/orbit/control"
 )
 
+const (
+	newControlStreamTimeout = 12 * time.Second
+)
+
+/*
 // TODO: Finish this.
 // Control registers a new control. This method blocks until
 // the control is connected and ready.
 // Returns ErrTimeout on timeout.
-func (s *Session) Control(
+func (s *Session) NewControl(
 	channel string,
 	funcs control.Funcs,
 	config *control.Config,
-	timeout time.Duration,
-) (ctrl *control.Control, err error) {
+) {
+	go func() {
+		err := s.openControl(channel, funcs, config)
+		if err != nil {
+			// TODO:
+			return
+		}
+	}()
+}
+
+func (s *Session) Control(channel string) (c *Control) {
+	s.controlsMutex.Lock()
+	c = s.controls[channel]
+	s.controlsMutex.Unlock()
+	return
+}
+
+func (s *Session) openControl(channel string,
+	funcs control.Funcs,
+	config *control.Config,
+) (err error) {
 	// Connect / wait for the stream connection.
 	var stream net.Conn
 	if s.isClient {
-		stream, err = s.OpenStreamTimeout(channel, timeout)
+		stream, err = s.OpenStreamTimeout(channel, newControlStreamTimeout)
 		if err != nil {
 			return
 		}
@@ -58,7 +78,7 @@ func (s *Session) Control(
 			return nil
 		})
 
-		timeoutTimer := time.NewTimer(timeout)
+		timeoutTimer := time.NewTimer(newControlStreamTimeout)
 		defer timeoutTimer.Stop()
 
 		select {
@@ -74,11 +94,12 @@ func (s *Session) Control(
 	// Close the control if the session closes.
 	go func() {
 		select {
-		case <-ctrl.CloseChan():
 		case <-s.CloseChan():
+		case <-ctrl.CloseChan():
 		}
 		ctrl.Close()
 	}()
 
 	return
 }
+*/

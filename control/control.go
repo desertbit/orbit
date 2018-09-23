@@ -97,6 +97,11 @@ func New(conn net.Conn, config *Config) *Control {
 	return s
 }
 
+// TODO:
+func (s *Control) Config() *Config {
+	return s.config
+}
+
 // Ready signalizes the Control that the initialization is done.
 // The socket starts reading from the underlying connection.
 // This should be only called once per socket.

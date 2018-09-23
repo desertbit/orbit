@@ -19,9 +19,10 @@
 package events
 
 import (
-	"github.com/desertbit/orbit/codec"
 	"net"
 	"sync"
+
+	"github.com/desertbit/orbit/codec"
 
 	"github.com/desertbit/closer"
 	"github.com/desertbit/orbit/control"
@@ -29,6 +30,7 @@ import (
 )
 
 const (
+	// TODO: add prefix
 	setEvent     = "SetEvent"
 	triggerEvent = "TriggerEvent"
 )
@@ -53,7 +55,7 @@ func New(conn net.Conn, config *control.Config) (e *Events) {
 	e = &Events{
 		Closer:   ctrl,
 		ctrl:     ctrl,
-		codec:    config.Codec,
+		codec:    ctrl.Config().Codec,
 		eventMap: make(map[string]*Event),
 		lsMap:    make(map[string]*listeners),
 	}
@@ -149,7 +151,7 @@ func (e *Events) callSetEvent(id string, active bool) (err error) {
 	}
 
 	// TODO: set timeout!
-	_, err = e.ctrl.Call("setEvent", &data)
+	_, err = e.ctrl.Call(setEvent, &data)
 	if err != nil {
 		if cErr, ok := err.(*control.ErrorCode); ok && cErr.Code == 2 {
 			err = ErrEventNotFound
@@ -184,7 +186,7 @@ func (e *Events) callTriggerEvent(id string, data interface{}) error {
 	}
 
 	return e.ctrl.OneShot(triggerEvent, &api.TriggerEvent{
-		ID: id,
+		ID:   id,
 		Data: dataBytes,
 	})
 }

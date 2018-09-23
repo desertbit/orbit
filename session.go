@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/desertbit/orbit/codec/msgpack"
+	"github.com/desertbit/orbit/control"
 	"github.com/desertbit/orbit/internal/api"
 	"github.com/desertbit/orbit/packet"
 
@@ -59,6 +60,9 @@ type Session struct {
 
 	channelMapMutex sync.Mutex
 	channelMap      map[string]func(net.Conn) error
+
+	controlsMutex sync.Mutex
+	controls      map[string]*control.Control
 }
 
 func newSession(
@@ -76,6 +80,7 @@ func newSession(
 		isClient:      isClient,
 		newStreamChan: make(chan net.Conn, 2),
 		channelMap:    make(map[string]func(net.Conn) error),
+		controls:      make(map[string]*control.Control),
 	}
 	s.OnClose(conn.Close)
 	s.OnClose(ys.Close)
