@@ -69,7 +69,12 @@ func (ls *listeners) Add(l *Listener) {
 
 func (ls *listeners) Remove(id uint64) {
 	ls.lMapMutex.Lock()
-	delete(ls.lMap, id)
+
+	if l, ok := ls.lMap[id]; ok {
+		// Ensure the listener closes his potential listen routine.
+		l.stop()
+		delete(ls.lMap, id)
+	}
 
 	// Deactivate the event if no listeners are left
 	if len(ls.lMap) == 0 {

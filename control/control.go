@@ -342,7 +342,7 @@ func (s *Control) readRoutine() {
 		if err != nil {
 			return
 		}
-		
+
 		// Handle the received message in a new goroutine.
 		go func() {
 			gerr := s.handleReceivedMessage(reqType, headerData, payloadData)
