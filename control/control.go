@@ -306,6 +306,8 @@ func (s *Control) readRoutine() {
 	}()
 
 	for {
+		bytesRead = 0
+
 		// No timeout, as we need to wait here for any incoming request.
 		err = s.conn.SetReadDeadline(time.Time{})
 		if err != nil {
@@ -340,7 +342,7 @@ func (s *Control) readRoutine() {
 		if err != nil {
 			return
 		}
-
+		
 		// Handle the received message in a new goroutine.
 		go func() {
 			gerr := s.handleReceivedMessage(reqType, headerData, payloadData)

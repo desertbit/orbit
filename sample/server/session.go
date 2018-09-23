@@ -51,7 +51,7 @@ func newSession(orbitSession *orbit.Session) (s *Session, err error) {
 		evs := events.New(stream, nil)
 		l := evs.OnEvent(api.HelloEvent)
 		data := <-l.C
-		fmt.Println(data.Data)
+		fmt.Println(string(data.Data))
 		return nil
 	})
 
