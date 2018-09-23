@@ -30,9 +30,11 @@ type Listener struct {
 	id uint64
 	c  chan *Context
 	once bool
+
+	closeChan <-chan struct{}
 }
 
-func newListener(ls *listeners, chanSize int, once bool) *Listener {
+func newListener(ls *listeners, chanSize int, once bool, closeChan <-chan struct{}) *Listener {
 	if chanSize <= 0 {
 		panic("invalid channel size for listener")
 	}
@@ -43,9 +45,34 @@ func newListener(ls *listeners, chanSize int, once bool) *Listener {
 		ls: ls,
 		c:  c,
 		once: once,
+		closeChan: closeChan,
 	}
 }
 
 func (l *Listener) Off() {
 	l.ls.Remove(l.id)
+}
+
+func (l *Listener) listenRoutine(f func(ctx *Context)) {
+	for {
+		select {
+		case <-l.closeChan:
+			return
+
+		case ctx, more := <-l.C:
+			if !more {
+				return
+			}
+
+			f(ctx)
+
+			if l.once {
+				return
+			}
+		}
+	}
+}
+
+func (l *Listener) stop() {
+	close(l.c)
 }

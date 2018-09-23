@@ -107,11 +107,31 @@ func (e *Events) TriggerEvent(id string, data interface{}) (err error) {
 }
 
 func (e *Events) OnEvent(id string) *Listener {
-	return e.addListener(id, defaultLsChanSize, false)
+	return e.addListener(id, defaultLsChanSize, false, nil)
+}
+
+func (e *Events) OnEventOpts(id string, channelSize int) *Listener {
+	return e.addListener(id, channelSize, false, nil)
+}
+
+func (e *Events) OnEventFunc(id string, f func(ctx *Context)) *Listener {
+	l := e.addListener(id, defaultLsChanSize, false, e.CloseChan())
+	go l.listenRoutine(f)
+	return l
 }
 
 func (e *Events) OnceEvent(id string) *Listener {
-	return e.addListener(id, defaultLsChanSize, true)
+	return e.addListener(id, defaultLsChanSize, true, nil)
+}
+
+func (e *Events) OnceEventOpts(id string, channelSize int) *Listener {
+	return e.addListener(id, channelSize, true, nil)
+}
+
+func (e *Events) OnceEventFunc(id string, f func(ctx *Context)) *Listener {
+	l := e.addListener(id, defaultLsChanSize, true, e.CloseChan())
+	go l.listenRoutine(f)
+	return l
 }
 
 //###############//
@@ -129,7 +149,7 @@ func (e *Events) getEvent(id string) (event *Event, err error) {
 	return
 }
 
-func (e *Events) addListener(eventID string, chanSize int, once bool) (l *Listener) {
+func (e *Events) addListener(eventID string, chanSize int, once bool, closeChan <-chan struct{}) (l *Listener) {
 	var (
 		ok bool
 		ls *listeners
@@ -142,12 +162,12 @@ func (e *Events) addListener(eventID string, chanSize int, once bool) (l *Listen
 	}
 	e.lsMapMutex.Unlock()
 
-	l = newListener(ls, chanSize, once)
+	l = newListener(ls, chanSize, once, closeChan)
 
 	ls.Add(l)
 
 	// Ensure the event is triggered
-	e.lsMap[eventID].activeChan <- true
+	ls.activeChan <- true
 
 	return
 }
@@ -204,16 +224,19 @@ func (e *Events) triggerEvent(ctx *control.Context) (v interface{}, err error) {
 		return
 	}
 
-	// Now inform all listeners that are interested in this event
+	// Now inform all listeners that are interested in this event.
 	eventCtx := newContext(data.Data, e.codec)
+
+	e.lsMapMutex.Lock()
 	for _, listener := range e.lsMap[data.ID].lMap {
 		listener.c <- eventCtx
 
-		// If the listener only wants 1 event, remove him afterwards
+		// If the listener only wants 1 event, remove him afterwards.
 		if listener.once {
 			listener.Off()
 		}
 	}
+	e.lsMapMutex.Unlock()
 
 	return
 }
