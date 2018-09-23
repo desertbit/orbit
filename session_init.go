@@ -103,9 +103,25 @@ func (s *Session) Init(opts *Init) (
 	s.startRoutines()
 
 	// Wait for all routines to finish.
-	wg.Wait()
+	waitChan := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(waitChan)
+	}()
 
-	// Handle the error if present.
+	// Wait for all goroutines or if an error occurs.
+	select {
+	case <-s.CloseChan():
+		err = ErrClosed
+		return
+
+	case err = <-errorChan:
+		return
+
+	case <-waitChan:
+	}
+
+	// Ensure, that really no error happened.
 	select {
 	case err = <-errorChan:
 		return
