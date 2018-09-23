@@ -26,4 +26,6 @@ var (
 
 	// ErrTimeout defines the error if the call timeout is reached.
 	ErrTimeout = errors.New("timeout")
+
+	ErrClosed = errors.New("closed")
 )

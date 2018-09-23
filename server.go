@@ -97,9 +97,9 @@ func (l *Server) NewSessionChan() <-chan *Session {
 	return l.newSessionChan
 }
 
-// GetSession obtains a session by its ID.
+// Session obtains a session by its ID.
 // Returns nil if not found.
-func (l *Server) GetSession(id string) (s *Session) {
+func (l *Server) Session(id string) (s *Session) {
 	l.sessionsMutex.RLock()
 	s = l.sessions[id]
 	l.sessionsMutex.RUnlock()

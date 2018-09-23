@@ -27,7 +27,6 @@ import (
 	"time"
 
 	"github.com/desertbit/orbit/codec/msgpack"
-	"github.com/desertbit/orbit/control"
 	"github.com/desertbit/orbit/internal/api"
 	"github.com/desertbit/orbit/packet"
 
@@ -36,12 +35,12 @@ import (
 )
 
 const (
-	handleNewStreamRoutines = 2
-
 	openStreamWriteTimeout    = 7 * time.Second
 	acceptStreamReadTimeout   = 7 * time.Second
 	acceptStreamMaxHeaderSize = 5 * 1024 // 5 KB
 )
+
+type AcceptStreamFunc func(net.Conn) error
 
 type Session struct {
 	closer.Closer
@@ -56,13 +55,8 @@ type Session struct {
 	isClient bool
 	id       string
 
-	newStreamChan chan net.Conn
-
-	channelMapMutex sync.Mutex
-	channelMap      map[string]func(net.Conn) error
-
-	controlsMutex sync.Mutex
-	controls      map[string]*control.Control
+	acceptStreamFuncsMutex sync.Mutex
+	acceptStreamFuncs      map[string]AcceptStreamFunc
 }
 
 func newSession(
@@ -72,15 +66,13 @@ func newSession(
 	isClient bool,
 ) (s *Session) {
 	s = &Session{
-		Closer:        closer.New(),
-		config:        config,
-		logger:        config.Logger,
-		conn:          conn,
-		ys:            ys,
-		isClient:      isClient,
-		newStreamChan: make(chan net.Conn, 2),
-		channelMap:    make(map[string]func(net.Conn) error),
-		controls:      make(map[string]*control.Control),
+		Closer:            closer.New(),
+		config:            config,
+		logger:            config.Logger,
+		conn:              conn,
+		ys:                ys,
+		isClient:          isClient,
+		acceptStreamFuncs: make(map[string]AcceptStreamFunc),
 	}
 	s.OnClose(conn.Close)
 	s.OnClose(ys.Close)
@@ -95,17 +87,6 @@ func newSession(
 	}()
 
 	return
-}
-
-// Ready signalizes the session that the initialization is done.
-// The session starts accepting new incoming channel streams.
-// This should be only called once per session!
-func (s *Session) Ready() {
-	// Start routines.
-	go s.acceptStreamRoutine()
-	for i := 0; i < handleNewStreamRoutines; i++ {
-		go s.handleNewStreamRoutine()
-	}
 }
 
 // ID returns the session ID.
@@ -134,11 +115,11 @@ func (s *Session) RemoteAddr() net.Addr {
 	return s.conn.RemoteAddr()
 }
 
-// OnNewStream registers the given function to the specific channel.
-func (s *Session) OnNewStream(channel string, f func(net.Conn) error) {
-	s.channelMapMutex.Lock()
-	s.channelMap[channel] = f
-	s.channelMapMutex.Unlock()
+// AcceptStream registers the given accept handler for the specific channel.
+func (s *Session) AcceptStream(channel string, f AcceptStreamFunc) {
+	s.acceptStreamFuncsMutex.Lock()
+	s.acceptStreamFuncs[channel] = f
+	s.acceptStreamFuncsMutex.Unlock()
 }
 
 // OpenStream opens a new stream with the given channel ID.
@@ -179,15 +160,21 @@ func (s *Session) OpenStreamTimeout(channel string, timeout time.Duration) (stre
 //### Private ###//
 //###############//
 
-func (s *Session) getChannelFunc(channel string) (f func(net.Conn) error, err error) {
-	s.channelMapMutex.Lock()
-	f = s.channelMap[channel]
-	s.channelMapMutex.Unlock()
+func (s *Session) getAcceptStreamFunc(channel string) (f AcceptStreamFunc, err error) {
+	s.acceptStreamFuncsMutex.Lock()
+	f = s.acceptStreamFuncs[channel]
+	s.acceptStreamFuncsMutex.Unlock()
 
 	if f == nil {
 		err = fmt.Errorf("channel does not exists: '%v'", channel)
 	}
 	return
+}
+
+// startRoutines signalizes the session that the initialization is done.
+// The session starts accepting new incoming channel streams.
+func (s *Session) startRoutines() {
+	go s.acceptStreamRoutine()
 }
 
 func (s *Session) acceptStreamRoutine() {
@@ -206,45 +193,26 @@ func (s *Session) acceptStreamRoutine() {
 			return
 		}
 
-		select {
-		case s.newStreamChan <- stream:
-		case <-s.CloseChan():
-			return
-		}
-	}
-}
-
-func (s *Session) handleNewStreamRoutine() {
-	defer s.Close()
-
-	sessionCloseChan := s.CloseChan()
-
-	for {
-		select {
-		case <-sessionCloseChan:
-			return
-
-		case stream := <-s.newStreamChan:
-			err := s.handleNewStream(stream)
-			if err != nil {
-				s.logger.Printf("session: failed to handle new stream: %v", err)
+		// Run this in a new goroutine.
+		go func() {
+			gerr := s.handleNewStream(stream)
+			if gerr != nil {
+				s.logger.Printf("session: failed to handle new stream: %v", gerr)
 			}
-		}
+		}()
 	}
 }
 
 func (s *Session) handleNewStream(stream net.Conn) (err error) {
-	// Close the stream on error.
 	defer func() {
-		if err != nil {
-			stream.Close()
-		}
-	}()
-
-	// Catch panics. Might be caused by the channel interface.
-	defer func() {
+		// Catch panics. Might be caused by the channel interface.
 		if e := recover(); e != nil {
 			err = fmt.Errorf("catched panic: %v", e)
+		}
+
+		// Close the stream on error.
+		if err != nil {
+			stream.Close()
 		}
 	}()
 
@@ -262,7 +230,7 @@ func (s *Session) handleNewStream(stream net.Conn) (err error) {
 	}
 
 	// Obtain the channel and handle the new stream.
-	f, err := s.getChannelFunc(data.Channel)
+	f, err := s.getAcceptStreamFunc(data.Channel)
 	if err != nil {
 		return
 	}
