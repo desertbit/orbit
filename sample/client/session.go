@@ -19,7 +19,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"net"
 	"sync"
@@ -57,28 +56,27 @@ func NewSession(remoteAddr string) (s *Session, err error) {
 		}
 	}()
 
-	// TODO:
-	eventStream, err := s.OpenStream("events")
-	if err != nil {
-		return
-	}
-	events := events.New(eventStream, nil)
-	events.RegisterEvent("e")
-
-	go func() {
-		time.Sleep(time.Second)
-		fmt.Println("trigger")
-		err = events.TriggerEvent("e", "hello world")
-		if err != nil {
-			log.Println(err) // TODO:
-		}
-	}()
-
 	wg := &sync.WaitGroup{}
 
 	// Signalize the session that initialization is done.
 	// Start accepting incoming channel streams.
 	s.Ready()
+
+	// TODO: Improve to real application
+	eventStream, err := s.OpenStream(api.ChannelIDEvent)
+	if err != nil {
+		return
+	}
+	evs := events.New(eventStream, nil)
+	evs.RegisterEvent(api.HelloEvent)
+
+	go func() {
+		time.Sleep(2 * time.Second)
+		err = evs.TriggerEvent(api.HelloEvent, "EVENT: hello world")
+		if err != nil {
+			log.Println(err)
+		}
+	}()
 
 	// Open a new custom stream to the peer.
 	streamRaw, err := s.OpenStream(api.ChannelIDRaw)

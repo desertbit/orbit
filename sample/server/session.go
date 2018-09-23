@@ -47,18 +47,13 @@ func newSession(orbitSession *orbit.Session) (s *Session, err error) {
 	s.OnNewStream(api.ChannelIDRaw, handleStreamRaw)
 	s.OnNewStream(api.ChannelIDPacket, handleStreamPacket)
 
-	s.OnNewStream("events", func(stream net.Conn) error {
-		events := events.New(stream, nil)
-		l := events.OnEvent("e")
+	s.OnNewStream(api.ChannelIDEvent, func(stream net.Conn) error {
+		evs := events.New(stream, nil)
+		l := evs.OnEvent(api.HelloEvent)
 		data := <-l.C
-		fmt.Println(data.Data)
+		fmt.Println(string(data.Data))
 		return nil
 	})
-
-	/*
-		s.NewControl("control", control.Funcs{
-			"takeAHugeDump": takeAHugeDump,
-		}, nil)*/
 
 	// Signalize the session that initialization is done.
 	// Start accepting incoming channel streams.

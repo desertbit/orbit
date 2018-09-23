@@ -34,13 +34,13 @@ func newEvent(id string) *Event {
 	}
 }
 
-func (e *Event) SetActive(active bool) {
+func (e *Event) setActive(active bool) {
 	e.mutex.Lock()
 	e.active = active
 	e.mutex.Unlock()
 }
 
-func (e *Event) IsActive() (active bool) {
+func (e *Event) isActive() (active bool) {
 	e.mutex.Lock()
 	active = e.active
 	e.mutex.Unlock()
