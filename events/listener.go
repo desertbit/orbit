@@ -19,7 +19,7 @@
 package events
 
 const (
-	listenerDefaultChanSize = 16
+	defaultLsChanSize = 16
 )
 
 type Listener struct {

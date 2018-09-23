@@ -22,5 +22,4 @@ import "errors"
 
 var (
 	ErrEventNotFound   = errors.New("event not found")
-	ErrInvalidChanSize = errors.New("invalid chan size")
 )

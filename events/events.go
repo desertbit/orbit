@@ -30,9 +30,9 @@ import (
 )
 
 const (
-	// TODO: add prefix
-	setEvent     = "SetEvent"
-	triggerEvent = "TriggerEvent"
+	prefix = "_Trigger_"
+	setEvent     = prefix + "SetEvent"
+	triggerEvent = prefix + "TriggerEvent"
 )
 
 type Events struct {
@@ -77,8 +77,16 @@ func (e *Events) RegisterEvent(id string) (event *Event) {
 	return
 }
 
-func (e *Events) RegisterEvents() {
-	// TODO:
+func (e *Events) RegisterEvents(ids []string) (events map[string]*Event) {
+	events = make(map[string]*Event, len(ids))
+
+	e.eventMapMutex.Lock()
+	for _, id := range ids {
+		events[id] = newEvent(id)
+	}
+	e.eventMapMutex.Unlock()
+
+	return
 }
 
 // Returns ErrEventNotFound if the event does not exists.
@@ -88,7 +96,7 @@ func (e *Events) TriggerEvent(id string, data interface{}) (err error) {
 		return
 	}
 
-	if event.IsActive() {
+	if event.isActive() {
 		err = e.callTriggerEvent(id, data)
 		if err != nil {
 			return
@@ -99,11 +107,11 @@ func (e *Events) TriggerEvent(id string, data interface{}) (err error) {
 }
 
 func (e *Events) OnEvent(id string) *Listener {
-	return e.addListener(id, listenerDefaultChanSize, false)
+	return e.addListener(id, defaultLsChanSize, false)
 }
 
 func (e *Events) OnceEvent(id string) *Listener {
-	return e.addListener(id, listenerDefaultChanSize, true)
+	return e.addListener(id, defaultLsChanSize, true)
 }
 
 //###############//
@@ -161,8 +169,6 @@ func (e *Events) callSetEvent(id string, active bool) (err error) {
 	return
 }
 
-// TODO: control rename to cmd
-
 func (e *Events) setEvent(c *control.Context) (interface{}, error) {
 	var data api.SetEvent
 	err := c.Decode(&data)
@@ -175,7 +181,7 @@ func (e *Events) setEvent(c *control.Context) (interface{}, error) {
 		return nil, control.Err(err, "event does not exists", 2)
 	}
 
-	event.SetActive(data.Active)
+	event.setActive(data.Active)
 	return nil, nil
 }
 

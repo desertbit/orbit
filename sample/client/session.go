@@ -19,10 +19,8 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"net"
-	"sync"
 	"time"
 
 	"github.com/desertbit/orbit/events"
@@ -57,48 +55,44 @@ func NewSession(remoteAddr string) (s *Session, err error) {
 		}
 	}()
 
-	// TODO:
-	eventStream, err := s.OpenStream("events")
+	// TODO: Improve to real application
+	eventStream, err := s.OpenStream(api.ChannelIDEvent)
 	if err != nil {
 		return
 	}
-	events := events.New(eventStream, nil)
-	events.RegisterEvent("e")
+	evs := events.New(eventStream, nil)
+	evs.RegisterEvent(api.HelloEvent)
 
-	go func() {
-		time.Sleep(time.Second)
-		fmt.Println("trigger")
-		err = events.TriggerEvent("e", "hello world")
-		if err != nil {
-			log.Println(err) // TODO:
-		}
-	}()
-
-	wg := &sync.WaitGroup{}
+	time.Sleep(time.Second)
+	err = evs.TriggerEvent(api.HelloEvent, "hello world")
+	if err != nil {
+		log.Println(err)
+	}
+	//wg := &sync.WaitGroup{}
 
 	// Signalize the session that initialization is done.
 	// Start accepting incoming channel streams.
 	s.Ready()
 
 	// Open a new custom stream to the peer.
-	streamRaw, err := s.OpenStream(api.ChannelIDRaw)
+	/*streamRaw, err := s.OpenStream(api.ChannelIDRaw)
 	if err != nil {
 		return
 	}
 	wg.Add(1)
 	go streamRawRoutine(streamRaw, wg)
 	// Wait for stream to close.
-	wg.Wait()
+	wg.Wait()*/
 
 	// Open a new custom stream to the peer.
-	streamPacket, err := s.OpenStream(api.ChannelIDPacket)
+	/*streamPacket, err := s.OpenStream(api.ChannelIDPacket)
 	if err != nil {
 		return
 	}
 	wg.Add(1)
 	go streamPacketRoutine(streamPacket, wg)
 	// Wait for stream to close.
-	wg.Wait()
+	wg.Wait()*/
 
 	s.Close()
 	time.Sleep(time.Second)
