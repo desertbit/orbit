@@ -21,7 +21,7 @@ package api
 const (
 	ChannelIDRaw    = "raw"
 	ChannelIDPacket = "packet"
-	ChannelIDEvent = "event"
+	ChannelIDEvent  = "event"
 
 	HelloEvent = "hello"
 )

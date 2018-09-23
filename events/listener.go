@@ -18,6 +18,8 @@
 
 package events
 
+import "sync"
+
 const (
 	defaultLsChanSize = 16
 )
@@ -27,9 +29,11 @@ type Listener struct {
 
 	ls *listeners
 
-	id uint64
-	c  chan *Context
+	id   uint64
 	once bool
+	c    chan *Context
+	cMutex sync.Mutex
+	cClosed bool
 
 	closeChan <-chan struct{}
 }
@@ -41,23 +45,43 @@ func newListener(ls *listeners, chanSize int, once bool, closeChan <-chan struct
 
 	c := make(chan *Context, chanSize)
 	return &Listener{
-		C:  c,
-		ls: ls,
-		c:  c,
-		once: once,
+		C:         c,
+		ls:        ls,
+		once:      once,
+		c:         c,
 		closeChan: closeChan,
 	}
 }
 
 func (l *Listener) Off() {
+	// Remove the listener from the listeners.
 	l.ls.Remove(l.id)
+
+	// Close the event channel. This ensures that any routines reading from
+	// it get a chance to drain remaining events from it.
+	l.cMutex.Lock()
+	close(l.c)
+	l.cClosed = true
+	l.cMutex.Unlock()
+}
+
+func (l *Listener) handleEvent(ctx *Context) {
+	l.cMutex.Lock()
+	if !l.cClosed {
+		l.c <- ctx
+	}
+	l.cMutex.Unlock()
+
+	if l.once {
+		l.Off()
+	}
 }
 
 func (l *Listener) listenRoutine(f func(ctx *Context)) {
 	for {
 		select {
 		case <-l.closeChan:
-			return
+			break
 
 		case ctx, more := <-l.C:
 			if !more {
@@ -65,14 +89,6 @@ func (l *Listener) listenRoutine(f func(ctx *Context)) {
 			}
 
 			f(ctx)
-
-			if l.once {
-				return
-			}
 		}
 	}
-}
-
-func (l *Listener) stop() {
-	close(l.c)
 }

@@ -160,17 +160,6 @@ func (s *Session) OpenStreamTimeout(channel string, timeout time.Duration) (stre
 //### Private ###//
 //###############//
 
-func (s *Session) getAcceptStreamFunc(channel string) (f AcceptStreamFunc, err error) {
-	s.acceptStreamFuncsMutex.Lock()
-	f = s.acceptStreamFuncs[channel]
-	s.acceptStreamFuncsMutex.Unlock()
-
-	if f == nil {
-		err = fmt.Errorf("channel does not exists: '%v'", channel)
-	}
-	return
-}
-
 // startRoutines signalizes the session that the initialization is done.
 // The session starts accepting new incoming channel streams.
 func (s *Session) startRoutines() {
@@ -239,5 +228,16 @@ func (s *Session) handleNewStream(stream net.Conn) (err error) {
 		return fmt.Errorf("channel='%v': %v", data.Channel, err)
 	}
 
+	return
+}
+
+func (s *Session) getAcceptStreamFunc(channel string) (f AcceptStreamFunc, err error) {
+	s.acceptStreamFuncsMutex.Lock()
+	f = s.acceptStreamFuncs[channel]
+	s.acceptStreamFuncsMutex.Unlock()
+
+	if f == nil {
+		err = fmt.Errorf("channel does not exists: '%v'", channel)
+	}
 	return
 }

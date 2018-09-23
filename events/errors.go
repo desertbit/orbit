@@ -21,5 +21,5 @@ package events
 import "errors"
 
 var (
-	ErrEventNotFound   = errors.New("event not found")
+	ErrEventNotFound = errors.New("event not found")
 )

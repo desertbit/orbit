@@ -23,9 +23,9 @@ import (
 )
 
 type Event struct {
-	id        string
+	id     string
 	active bool // bind state of the peer.
-	mutex sync.Mutex
+	mutex  sync.Mutex
 }
 
 func newEvent(id string) *Event {

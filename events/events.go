@@ -30,7 +30,7 @@ import (
 )
 
 const (
-	prefix = "_Trigger_"
+	prefix       = "_Trigger_"
 	setEvent     = prefix + "SetEvent"
 	triggerEvent = prefix + "TriggerEvent"
 )
@@ -224,19 +224,13 @@ func (e *Events) triggerEvent(ctx *control.Context) (v interface{}, err error) {
 		return
 	}
 
-	// Now inform all listeners that are interested in this event.
+	// Build the event context.
 	eventCtx := newContext(data.Data, e.codec)
 
-	e.lsMapMutex.Lock()
+	// Now inform all listeners that are interested in this event.
 	for _, listener := range e.lsMap[data.ID].lMap {
-		listener.c <- eventCtx
-
-		// If the listener only wants 1 event, remove him afterwards.
-		if listener.once {
-			listener.Off()
-		}
+		listener.handleEvent(eventCtx)
 	}
-	e.lsMapMutex.Unlock()
 
 	return
 }

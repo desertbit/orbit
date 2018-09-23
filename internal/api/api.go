@@ -44,6 +44,6 @@ type SetEvent struct {
 }
 
 type TriggerEvent struct {
-	ID string
+	ID   string
 	Data []byte
 }
