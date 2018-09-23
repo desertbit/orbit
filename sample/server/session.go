@@ -24,6 +24,7 @@ import (
 	"net"
 
 	"github.com/desertbit/orbit"
+	"github.com/desertbit/orbit/control"
 	"github.com/desertbit/orbit/events"
 	"github.com/desertbit/orbit/sample/api"
 )
@@ -44,26 +45,61 @@ func newSession(orbitSession *orbit.Session) (s *Session, err error) {
 		}
 	}()
 
-	s.OnNewStream(api.ChannelIDRaw, handleStreamRaw)
-	s.OnNewStream(api.ChannelIDPacket, handleStreamPacket)
-
-	s.OnNewStream(api.ChannelIDEvent, func(stream net.Conn) error {
-		evs := events.New(stream, nil)
-		l := evs.OnEvent(api.HelloEvent)
-		data := <-l.C
-		fmt.Println(string(data.Data))
-		return nil
-	})
-
-	// Signalize the session that initialization is done.
-	// Start accepting incoming channel streams.
-	s.Ready()
-
 	// Log if the session closes.
 	s.OnClose(func() error {
 		log.Println("session closed")
 		return nil
 	})
+
+	controls, err := s.Init(&orbit.Init{
+		AcceptStreams: orbit.InitAcceptStreams{
+			api.ChannelIDRaw:    handleStreamRaw,
+			api.ChannelIDPacket: handleStreamPacket,
+			api.ChannelIDEvent: func(stream net.Conn) error {
+				evs := events.New(stream, nil)
+				l := evs.OnEvent(api.HelloEvent)
+				data := <-l.C
+				fmt.Println(string(data.Data))
+				return nil
+			},
+		},
+		Controls: orbit.InitControls{
+			"control": {
+				Funcs: control.Funcs{
+					"takeAHugeDump": func(c *control.Context) (interface{}, error) {
+						fmt.Println("░░░░░░░░░░░█▀▀░░█░░░░░░")
+						fmt.Println("░░░░░░▄▀▀▀▀░░░░░█▄▄░░░░")
+						fmt.Println("░░░░░░█░█░░░░░░░░░░▐░░░")
+						fmt.Println("░░░░░░▐▐░░░░░░░░░▄░▐░░░")
+						fmt.Println("░░░░░░█░░░░░░░░▄▀▀░▐░░░")
+						fmt.Println("░░░░▄▀░░░░░░░░▐░▄▄▀░░░░")
+						fmt.Println("░░▄▀░░░▐░░░░░█▄▀░▐░░░░░")
+						fmt.Println("░░█░░░▐░░░░░░░░▄░█░░░░░")
+						fmt.Println("░░░█▄░░▀▄░░░░▄▀▐░█░░░░░")
+						fmt.Println("░░░█▐▀▀▀░▀▀▀▀░░▐░█░░░░░")
+						fmt.Println("░░▐█▐▄░░█░░░░░░▐░█▄▄░░░")
+						fmt.Println("░░░▀▀░▄███▄░░░▐▄▄▄▀░░░░")
+						return nil, nil
+					},
+				},
+				Config: nil, // Optional. Can be removed from here...
+			},
+		},
+		/*Events: {
+			"events": {
+				Events: {
+					"onDump": getChemicalsAndCleanup,
+				},
+				Config: nil, // Optional. Can be removed from here...
+			},
+		},*/
+	})
+	if err != nil {
+		return
+	}
+
+	ctrl := controls["control"]
+	ctrl.Ready()
 
 	return
 }

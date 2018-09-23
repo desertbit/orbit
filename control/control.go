@@ -280,7 +280,7 @@ func (s *Control) write(reqType byte, headerI interface{}, dataI interface{}) (e
 }
 
 func (s *Control) readRoutine() {
-	// Close the socket on exit.
+	// Close the control on exit.
 	defer s.Close()
 
 	// Warning: don't shadow the error.
@@ -342,7 +342,7 @@ func (s *Control) readRoutine() {
 		if err != nil {
 			return
 		}
-		
+
 		// Handle the received message in a new goroutine.
 		go func() {
 			gerr := s.handleReceivedMessage(reqType, headerData, payloadData)

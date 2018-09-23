@@ -19,6 +19,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net"
 	"sync"
@@ -58,9 +59,27 @@ func NewSession(remoteAddr string) (s *Session, err error) {
 
 	wg := &sync.WaitGroup{}
 
-	// Signalize the session that initialization is done.
-	// Start accepting incoming channel streams.
-	s.Ready()
+	controls, err := s.Init(&orbit.Init{
+		Controls: orbit.InitControls{
+			"control": {
+				Config: nil, // Optional. Can be removed from here...
+			},
+		},
+	})
+	if err != nil {
+		return
+	}
+
+	ctrl := controls["control"]
+	ctrl.Ready()
+
+	fmt.Print("requesting a huge dump...")
+	_, err = ctrl.Call("takeAHugeDump", nil)
+	if err != nil {
+		return
+	}
+	fmt.Println(" done!")
+	fmt.Println()
 
 	// TODO: Improve to real application
 	eventStream, err := s.OpenStream(api.ChannelIDEvent)

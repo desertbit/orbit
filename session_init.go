@@ -31,19 +31,22 @@ const (
 	openControlStreamTimeout = 12 * time.Second
 )
 
-type InitOpts struct {
-	AcceptStreams map[string]AcceptStreamFunc
+type InitAcceptStreams map[string]AcceptStreamFunc
 
-	Controls map[string]struct {
-		Funcs  control.Funcs
-		Config *control.Config
-	}
+type InitControls map[string]struct {
+	Funcs  control.Funcs
+	Config *control.Config
+}
+
+type Init struct {
+	AcceptStreams InitAcceptStreams
+	Controls      InitControls
 }
 
 // TODO: Add events.
-// Init initialized this session.
+// Init initialized this session. Pass nil to just start accepting streams.
 // Ready() must be called manually for all controls and events.
-func (s *Session) Init(opts *InitOpts) (
+func (s *Session) Init(opts *Init) (
 	controls map[string]*control.Control,
 	err error,
 ) {
@@ -54,9 +57,9 @@ func (s *Session) Init(opts *InitOpts) (
 		}
 	}()
 
-	// Ensure opts is set.
+	// Just start the routines if no options are passed.
 	if opts == nil {
-		err = fmt.Errorf("init options can not be nil ")
+		s.startRoutines()
 		return
 	}
 
