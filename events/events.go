@@ -30,9 +30,8 @@ import (
 )
 
 const (
-	prefix       = "_Trigger_"
-	setEvent     = prefix + "SetEvent"
-	triggerEvent = prefix + "TriggerEvent"
+	cmdSetEvent     = "SetEvent"
+	cmdTriggerEvent = "TriggerEvent"
 )
 
 type Events struct {
@@ -61,10 +60,22 @@ func New(conn net.Conn, config *control.Config) (e *Events) {
 	}
 
 	e.ctrl.RegisterFuncs(control.Funcs{
-		setEvent:     e.setEvent,
-		triggerEvent: e.triggerEvent,
+		cmdSetEvent:     e.setEvent,
+		cmdTriggerEvent: e.triggerEvent,
 	})
 	e.ctrl.Ready()
+	return
+}
+
+// Event returns the event for the given ID.Event
+func (e *Events) Event(id string) (event *Event, err error) {
+	e.eventMapMutex.Lock()
+	event = e.eventMap[id]
+	e.eventMapMutex.Unlock()
+
+	if e == nil {
+		err = ErrEventNotFound
+	}
 	return
 }
 
@@ -77,21 +88,16 @@ func (e *Events) RegisterEvent(id string) (event *Event) {
 	return
 }
 
-func (e *Events) RegisterEvents(ids []string) (events map[string]*Event) {
-	events = make(map[string]*Event, len(ids))
-
+func (e *Events) RegisterEvents(ids []string) {
 	e.eventMapMutex.Lock()
 	for _, id := range ids {
-		events[id] = newEvent(id)
+		e.eventMap[id] = newEvent(id)
 	}
 	e.eventMapMutex.Unlock()
-
-	return
 }
 
-// Returns ErrEventNotFound if the event does not exists.
 func (e *Events) TriggerEvent(id string, data interface{}) (err error) {
-	event, err := e.getEvent(id)
+	event, err := e.Event(id)
 	if err != nil {
 		return
 	}
@@ -138,23 +144,14 @@ func (e *Events) OnceEventFunc(id string, f func(ctx *Context)) *Listener {
 //### Private ###//
 //###############//
 
-func (e *Events) getEvent(id string) (event *Event, err error) {
-	e.eventMapMutex.Lock()
-	event = e.eventMap[id]
-	e.eventMapMutex.Unlock()
-
-	if e == nil {
-		err = ErrEventNotFound
-	}
-	return
-}
-
+// TODO: remove CloseChan
 func (e *Events) addListener(eventID string, chanSize int, once bool, closeChan <-chan struct{}) (l *Listener) {
 	var (
 		ok bool
 		ls *listeners
 	)
 
+	// TODO: CloseChan
 	e.lsMapMutex.Lock()
 	if ls, ok = e.lsMap[eventID]; !ok {
 		ls = newListeners(e.CloseChan(), e, eventID)
@@ -162,8 +159,9 @@ func (e *Events) addListener(eventID string, chanSize int, once bool, closeChan 
 	}
 	e.lsMapMutex.Unlock()
 
+	// TODO: CloseChan
+	// TODO: this combo shout be moved into a helper func.
 	l = newListener(ls, chanSize, once, closeChan)
-
 	ls.Add(l)
 
 	// Ensure the event is triggered
@@ -179,7 +177,7 @@ func (e *Events) callSetEvent(id string, active bool) (err error) {
 	}
 
 	// TODO: set timeout!
-	_, err = e.ctrl.Call(setEvent, &data)
+	_, err = e.ctrl.Call(cmdSetEvent, &data)
 	if err != nil {
 		if cErr, ok := err.(*control.ErrorCode); ok && cErr.Code == 2 {
 			err = ErrEventNotFound
@@ -196,7 +194,7 @@ func (e *Events) setEvent(c *control.Context) (interface{}, error) {
 		return nil, control.Err(err, "internal error", 1)
 	}
 
-	event, err := e.getEvent(data.ID)
+	event, err := e.Event(data.ID)
 	if err != nil {
 		return nil, control.Err(err, "event does not exists", 2)
 	}
@@ -211,7 +209,7 @@ func (e *Events) callTriggerEvent(id string, data interface{}) error {
 		return err
 	}
 
-	return e.ctrl.OneShot(triggerEvent, &api.TriggerEvent{
+	return e.ctrl.OneShot(cmdTriggerEvent, &api.TriggerEvent{
 		ID:   id,
 		Data: dataBytes,
 	})
@@ -227,6 +225,9 @@ func (e *Events) triggerEvent(ctx *control.Context) (v interface{}, err error) {
 	// Build the event context.
 	eventCtx := newContext(data.Data, e.codec)
 
+	// TODO: Lock
+	// TODO: what if the event is not present? This will panic!
+	// TODO: This should be expanded to several lines...
 	// Now inform all listeners that are interested in this event.
 	for _, listener := range e.lsMap[data.ID].lMap {
 		listener.handleEvent(eventCtx)

@@ -29,18 +29,19 @@ type Listener struct {
 
 	ls *listeners
 
-	id      uint64
+	id      uint64 // TODO: Remove. Because there is a mutex lock anyway
 	once    bool
 	c       chan *Context
-	cMutex  sync.Mutex
-	cClosed bool
+	cMutex  sync.Mutex // TODO: this should be the block entry guarding its children^^
+	cClosed bool       // TODO: remove
 
+	// TODO: remove
 	closeChan <-chan struct{}
 }
 
 func newListener(ls *listeners, chanSize int, once bool, closeChan <-chan struct{}) *Listener {
 	if chanSize <= 0 {
-		panic("invalid channel size for listener")
+		panic("orbit: event: invalid channel size for listener")
 	}
 
 	c := make(chan *Context, chanSize)
@@ -54,9 +55,12 @@ func newListener(ls *listeners, chanSize int, once bool, closeChan <-chan struct
 }
 
 func (l *Listener) Off() {
+	// TODO: Maybe signalize through a channel to single goroutine worker.
+	// TODO: use helper flag to ensure this listener get's switched off in this runtime context.
 	// Remove the listener from the listeners.
 	l.ls.Remove(l.id)
 
+	// TODO: Use closer. very similar...\
 	// Close the event channel. This ensures that any routines reading from
 	// it get a chance to drain remaining events from it.
 	l.cMutex.Lock()
@@ -66,6 +70,7 @@ func (l *Listener) Off() {
 }
 
 func (l *Listener) handleEvent(ctx *Context) {
+	// TODO: Use closer. very similar...
 	l.cMutex.Lock()
 	if !l.cClosed {
 		l.c <- ctx
@@ -77,6 +82,7 @@ func (l *Listener) handleEvent(ctx *Context) {
 	}
 }
 
+// TODO: remove this.
 func (l *Listener) listenRoutine(f func(ctx *Context)) {
 	for {
 		select {

@@ -28,7 +28,7 @@ type listeners struct {
 
 	idCount   uint64
 	lMap      map[uint64]*Listener
-	lMapMutex sync.Mutex
+	lMapMutex sync.Mutex // TODO:
 
 	activeChan chan bool
 }
@@ -55,12 +55,14 @@ func (ls *listeners) Add(l *Listener) {
 	// have been registered. Refactor in 25 years.
 	var id uint64
 
+	// TODO: Lock
+
 	for {
 		if _, ok := ls.lMap[id]; !ok {
 			break
 		}
 
-		id = atomic.AddUint64(&ls.idCount, 1)
+		id = atomic.AddUint64(&ls.idCount, 1) // TODO: remove
 	}
 
 	l.id = id
@@ -72,6 +74,7 @@ func (ls *listeners) Remove(id uint64) {
 
 	delete(ls.lMap, id)
 
+	// TODO: move to worker
 	// Deactivate the event if no listeners are left
 	if len(ls.lMap) == 0 {
 		ls.activeChan <- false
@@ -80,6 +83,7 @@ func (ls *listeners) Remove(id uint64) {
 	ls.lMapMutex.Unlock()
 }
 
+// TODO: release?
 func (ls *listeners) activeRoutine(closeChan <-chan struct{}) {
 	var (
 		err    error
