@@ -19,6 +19,7 @@
 package events
 
 import (
+	"errors"
 	"net"
 	"sync"
 
@@ -34,14 +35,16 @@ const (
 	cmdTriggerEvent = "TriggerEvent"
 )
 
+var (
+	ErrEventNotFound = errors.New("event not found")
+)
+
 type Events struct {
 	closer.Closer
 
-	ctrl *control.Control
-
+	ctrl  *control.Control
 	codec codec.Codec
 
-	// TODO: maybe rename to events...
 	eventMapMutex sync.Mutex
 	eventMap      map[string]*Event
 
@@ -79,6 +82,7 @@ func (e *Events) Event(id string) (event *Event, err error) {
 	return
 }
 
+// TODO: panic or log print event overwite.
 func (e *Events) RegisterEvent(id string) (event *Event) {
 	event = newEvent(id)
 
@@ -88,6 +92,7 @@ func (e *Events) RegisterEvent(id string) (event *Event) {
 	return
 }
 
+// TODO: panic or log print event overwite.
 func (e *Events) RegisterEvents(ids []string) {
 	e.eventMapMutex.Lock()
 	for _, id := range ids {
@@ -113,30 +118,30 @@ func (e *Events) TriggerEvent(id string, data interface{}) (err error) {
 }
 
 func (e *Events) OnEvent(id string) *Listener {
-	return e.addListener(id, defaultLsChanSize, false, nil)
+	return e.addListener(id, defaultLsChanSize, false)
 }
 
 func (e *Events) OnEventOpts(id string, channelSize int) *Listener {
-	return e.addListener(id, channelSize, false, nil)
+	return e.addListener(id, channelSize, false)
 }
 
 func (e *Events) OnEventFunc(id string, f func(ctx *Context)) *Listener {
-	l := e.addListener(id, defaultLsChanSize, false, e.CloseChan())
-	go l.listenRoutine(f)
+	l := e.addListener(id, defaultLsChanSize, false)
+	l.bindFunc(f)
 	return l
 }
 
 func (e *Events) OnceEvent(id string) *Listener {
-	return e.addListener(id, defaultLsChanSize, true, nil)
+	return e.addListener(id, defaultLsChanSize, true)
 }
 
 func (e *Events) OnceEventOpts(id string, channelSize int) *Listener {
-	return e.addListener(id, channelSize, true, nil)
+	return e.addListener(id, channelSize, true)
 }
 
 func (e *Events) OnceEventFunc(id string, f func(ctx *Context)) *Listener {
-	l := e.addListener(id, defaultLsChanSize, true, e.CloseChan())
-	go l.listenRoutine(f)
+	l := e.addListener(id, defaultLsChanSize, true)
+	l.bindFunc(f)
 	return l
 }
 
@@ -144,32 +149,24 @@ func (e *Events) OnceEventFunc(id string, f func(ctx *Context)) *Listener {
 //### Private ###//
 //###############//
 
-// TODO: remove CloseChan
-func (e *Events) addListener(eventID string, chanSize int, once bool, closeChan <-chan struct{}) (l *Listener) {
+func (e *Events) addListener(eventID string, chanSize int, once bool) (l *Listener) {
 	var (
 		ok bool
 		ls *listeners
 	)
 
-	// TODO: CloseChan
 	e.lsMapMutex.Lock()
 	if ls, ok = e.lsMap[eventID]; !ok {
-		ls = newListeners(e.CloseChan(), e, eventID)
+		ls = newListeners(e, eventID)
 		e.lsMap[eventID] = ls
 	}
 	e.lsMapMutex.Unlock()
 
-	// TODO: CloseChan
-	// TODO: this combo shout be moved into a helper func.
-	l = newListener(ls, chanSize, once, closeChan)
-	ls.Add(l)
-
-	// Ensure the event is triggered
-	ls.activeChan <- true
-
+	l = newListener(ls, chanSize, once)
 	return
 }
 
+// Bind to the remote peer's event and get updates.
 func (e *Events) callSetEvent(id string, active bool) (err error) {
 	data := api.SetEvent{
 		ID:     id,
@@ -187,6 +184,7 @@ func (e *Events) callSetEvent(id string, active bool) (err error) {
 	return
 }
 
+// Called if the remote peer wants to be informed about the given event.
 func (e *Events) setEvent(c *control.Context) (interface{}, error) {
 	var data api.SetEvent
 	err := c.Decode(&data)
@@ -203,6 +201,7 @@ func (e *Events) setEvent(c *control.Context) (interface{}, error) {
 	return nil, nil
 }
 
+// Call the listeners on the remote peer.
 func (e *Events) callTriggerEvent(id string, data interface{}) error {
 	dataBytes, err := e.codec.Encode(data)
 	if err != nil {
@@ -215,6 +214,7 @@ func (e *Events) callTriggerEvent(id string, data interface{}) error {
 	})
 }
 
+// Called if the remote peer's event has been triggered.
 func (e *Events) triggerEvent(ctx *control.Context) (v interface{}, err error) {
 	var data api.TriggerEvent
 	err = ctx.Decode(&data)
@@ -225,12 +225,15 @@ func (e *Events) triggerEvent(ctx *control.Context) (v interface{}, err error) {
 	// Build the event context.
 	eventCtx := newContext(data.Data, e.codec)
 
-	// TODO: Lock
-	// TODO: what if the event is not present? This will panic!
-	// TODO: This should be expanded to several lines...
-	// Now inform all listeners that are interested in this event.
-	for _, listener := range e.lsMap[data.ID].lMap {
-		listener.handleEvent(eventCtx)
+	// Obtain the listeners for the given event.
+	var ls *listeners
+	e.lsMapMutex.Lock()
+	ls = e.lsMap[data.ID]
+	e.lsMapMutex.Unlock()
+
+	// Trigger the event if defined.
+	if ls != nil {
+		ls.trigger(eventCtx)
 	}
 
 	return

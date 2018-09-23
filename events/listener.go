@@ -18,83 +18,94 @@
 
 package events
 
-import "sync"
+import "github.com/desertbit/closer"
 
 const (
 	defaultLsChanSize = 16
 )
 
 type Listener struct {
+	// C is filled up with the triggered events.
+	// Use OffChan() to stop your reading routine.
 	C <-chan *Context
+	c chan *Context
 
-	ls *listeners
+	id   uint64
+	once bool
+	ls   *listeners
 
-	id      uint64 // TODO: Remove. Because there is a mutex lock anyway
-	once    bool
-	c       chan *Context
-	cMutex  sync.Mutex // TODO: this should be the block entry guarding its children^^
-	cClosed bool       // TODO: remove
-
-	// TODO: remove
-	closeChan <-chan struct{}
+	closer closer.Closer
 }
 
-func newListener(ls *listeners, chanSize int, once bool, closeChan <-chan struct{}) *Listener {
+func newListener(ls *listeners, chanSize int, once bool) *Listener {
 	if chanSize <= 0 {
 		panic("orbit: event: invalid channel size for listener")
 	}
 
 	c := make(chan *Context, chanSize)
-	return &Listener{
-		C:         c,
-		ls:        ls,
-		once:      once,
-		c:         c,
-		closeChan: closeChan,
+	l := &Listener{
+		C:    c,
+		c:    c,
+		once: once,
+		ls:   ls,
 	}
+	l.closer = closer.New(l.onClose)
+
+	// Finally self-register.
+	ls.add(l)
+
+	return l
+}
+
+func (l *Listener) onClose() error {
+	// Remove the listener from the listeners.
+	l.ls.removeChan <- l.id
+	return nil
+}
+
+func (l *Listener) OffChan() <-chan struct{} {
+	return l.closer.CloseChan()
 }
 
 func (l *Listener) Off() {
-	// TODO: Maybe signalize through a channel to single goroutine worker.
-	// TODO: use helper flag to ensure this listener get's switched off in this runtime context.
-	// Remove the listener from the listeners.
-	l.ls.Remove(l.id)
-
-	// TODO: Use closer. very similar...\
-	// Close the event channel. This ensures that any routines reading from
-	// it get a chance to drain remaining events from it.
-	l.cMutex.Lock()
-	close(l.c)
-	l.cClosed = true
-	l.cMutex.Unlock()
+	l.closer.Close()
 }
 
-func (l *Listener) handleEvent(ctx *Context) {
-	// TODO: Use closer. very similar...
-	l.cMutex.Lock()
-	if !l.cClosed {
-		l.c <- ctx
+func (l *Listener) trigger(ctx *Context) {
+	if l.closer.IsClosed() {
+		return
 	}
-	l.cMutex.Unlock()
+
+	l.c <- ctx
 
 	if l.once {
 		l.Off()
 	}
 }
 
-// TODO: remove this.
-func (l *Listener) listenRoutine(f func(ctx *Context)) {
+func (l *Listener) bindFunc(f func(ctx *Context)) {
+	go l.callFuncRoutine(f)
+}
+
+func (l *Listener) callFuncRoutine(f func(ctx *Context)) {
+	// TODO: catch and log panic.
+
+	closeChan := l.closer.CloseChan()
+
 	for {
 		select {
-		case <-l.closeChan:
+		case <-l.ls.closeChan:
+			return
+		case <-closeChan:
 			return
 
-		case ctx, more := <-l.C:
-			if !more {
+		case ctx := <-l.C:
+			f(ctx)
+
+			if l.once {
+				l.Off()
 				return
 			}
-
-			f(ctx)
 		}
 	}
 }

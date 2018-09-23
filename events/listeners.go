@@ -19,87 +19,128 @@ package events
 
 import (
 	"sync"
-	"sync/atomic"
 )
 
 type listeners struct {
 	e       *Events
 	eventID string
 
-	idCount   uint64
+	lMapMutex sync.Mutex
 	lMap      map[uint64]*Listener
-	lMapMutex sync.Mutex // TODO:
+	idCount   uint64
 
 	activeChan chan bool
+	removeChan chan uint64
+	closeChan  <-chan struct{}
 }
 
-func newListeners(closeChan <-chan struct{}, e *Events, eventID string) *listeners {
+func newListeners(e *Events, eventID string) *listeners {
 	ls := &listeners{
 		e:          e,
 		eventID:    eventID,
 		lMap:       make(map[uint64]*Listener),
 		activeChan: make(chan bool, 1),
+		removeChan: make(chan uint64, 3),
+		closeChan:  e.CloseChan(),
 	}
 
 	// Start the active routine that takes care of switching
-	go ls.activeRoutine(closeChan)
+	go ls.activeRoutine()
 
 	return ls
 }
 
-func (ls *listeners) Add(l *Listener) {
+func (ls *listeners) add(l *Listener) {
 	// Create a new listener ID and ensure it is unqiue.
 	// Add it to the listeners map and set the ID.
 	//
 	// WARNING: Possible loop, if more than 2^64 listeners
 	// have been registered. Refactor in 25 years.
-	var id uint64
-
-	// TODO: Lock
+	ls.lMapMutex.Lock()
+	defer ls.lMapMutex.Unlock()
 
 	for {
-		if _, ok := ls.lMap[id]; !ok {
+		l.id = ls.idCount
+		ls.idCount++
+
+		if _, ok := ls.lMap[l.id]; !ok {
 			break
 		}
-
-		id = atomic.AddUint64(&ls.idCount, 1) // TODO: remove
 	}
 
-	l.id = id
-	ls.lMap[id] = l
+	ls.lMap[l.id] = l
+
+	// Activate the event.
+	ls.setActive(true)
 }
 
-func (ls *listeners) Remove(id uint64) {
+func (ls *listeners) trigger(ctx *Context) {
 	ls.lMapMutex.Lock()
-
-	delete(ls.lMap, id)
-
-	// TODO: move to worker
-	// Deactivate the event if no listeners are left
-	if len(ls.lMap) == 0 {
-		ls.activeChan <- false
+	for _, l := range ls.lMap {
+		l.trigger(ctx)
 	}
-
 	ls.lMapMutex.Unlock()
 }
 
-// TODO: release?
-func (ls *listeners) activeRoutine(closeChan <-chan struct{}) {
+func (ls *listeners) setActive(active bool) {
+	// Remove the oldest value if full.
+	// Never block!
+	select {
+	case ls.activeChan <- active:
+	default:
+		select {
+		case <-ls.activeChan:
+		default:
+		}
+
+		select {
+		case ls.activeChan <- active:
+		default:
+		}
+	}
+}
+
+func (ls *listeners) activeRoutine() {
+	// Set all events to off on exit.
+	defer func() {
+		ls.lMapMutex.Lock()
+		for _, l := range ls.lMap {
+			l.Off()
+		}
+		ls.lMapMutex.Unlock()
+	}()
+
 	var (
 		err    error
 		active bool
 	)
 
+Loop:
 	for {
 		select {
-		case <-closeChan:
+		case <-ls.closeChan:
 			return
 
-		case active = <-ls.activeChan:
+		case a := <-ls.activeChan:
+			// Only proceed, if the state changed.
+			if a == active {
+				continue Loop
+			}
+			active = a
+
 			err = ls.e.callSetEvent(ls.eventID, active)
 			if err != nil {
+				// TODO: log.
 				return
 			}
+
+		case id := <-ls.removeChan:
+			ls.lMapMutex.Lock()
+			delete(ls.lMap, id)
+			if len(ls.lMap) == 0 {
+				ls.setActive(false) // Deactivate the event if no listeners are left
+			}
+			ls.lMapMutex.Unlock()
 		}
 	}
 }
