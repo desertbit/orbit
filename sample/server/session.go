@@ -20,6 +20,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/desertbit/orbit/codec/msgpack"
 	"log"
 	"net"
 
@@ -59,7 +60,9 @@ func newSession(orbitSession *orbit.Session) (s *Session, err error) {
 				evs := events.New(stream, nil)
 				l := evs.OnEvent(api.HelloEvent)
 				data := <-l.C
-				fmt.Println(string(data.Data))
+				var s string
+				msgpack.Codec.Decode(data.Data, &s)
+				fmt.Println(s)
 				return nil
 			},
 		},
