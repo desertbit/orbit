@@ -24,10 +24,10 @@ import (
 	"sync"
 
 	"github.com/desertbit/orbit/codec"
-
-	"github.com/desertbit/closer"
 	"github.com/desertbit/orbit/control"
 	"github.com/desertbit/orbit/internal/api"
+
+	"github.com/desertbit/closer"
 )
 
 const (
