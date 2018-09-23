@@ -29,10 +29,10 @@ type Listener struct {
 
 	ls *listeners
 
-	id   uint64
-	once bool
-	c    chan *Context
-	cMutex sync.Mutex
+	id      uint64
+	once    bool
+	c       chan *Context
+	cMutex  sync.Mutex
 	cClosed bool
 
 	closeChan <-chan struct{}
