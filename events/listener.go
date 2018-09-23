@@ -81,7 +81,7 @@ func (l *Listener) listenRoutine(f func(ctx *Context)) {
 	for {
 		select {
 		case <-l.closeChan:
-			break
+			return
 
 		case ctx, more := <-l.C:
 			if !more {
