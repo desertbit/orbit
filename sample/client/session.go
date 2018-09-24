@@ -20,14 +20,10 @@
 package main
 
 import (
-	"fmt"
-	"log"
-	"net"
-	"sync"
-	"time"
-
-	"github.com/desertbit/orbit/events"
+	"github.com/desertbit/orbit/control"
 	"github.com/desertbit/orbit/sample/api"
+	"net"
+	"time"
 
 	"github.com/desertbit/orbit"
 )
@@ -58,12 +54,23 @@ func NewSession(remoteAddr string) (s *Session, err error) {
 		}
 	}()
 
-	wg := &sync.WaitGroup{}
-
-	controls, _, err := s.Init(&orbit.Init{
+	controls, evs, err := s.Init(&orbit.Init{
 		Controls: orbit.InitControls{
 			"control": {
+				Funcs: map[string]control.Func{
+
+				},
 				Config: nil, // Optional. Can be removed from here...
+			},
+		},
+		Events: orbit.InitEvents{
+			api.ChannelIDEvent: {
+				Events: []orbit.InitEvent{
+					{
+						ID: api.EventFilter,
+						Filter: filter,
+					},
+				},
 			},
 		},
 	})
@@ -74,49 +81,11 @@ func NewSession(remoteAddr string) (s *Session, err error) {
 	ctrl := controls["control"]
 	ctrl.Ready()
 
-	fmt.Print("requesting a huge dump...")
-	_, err = ctrl.Call("takeAHugeDump", nil)
-	if err != nil {
-		return
-	}
-	fmt.Println(" done!")
-	fmt.Println()
+	eventEvents := evs[api.ChannelIDEvent]
 
-	// TODO: Improve to real application
-	eventStream, err := s.OpenStream(api.ChannelIDEvent)
-	if err != nil {
-		return
-	}
-	evs := events.New(eventStream, nil)
-	evs.AddEvent(api.HelloEvent)
+	time.Sleep(time.Second)
 
-	go func() {
-		time.Sleep(2 * time.Second)
-		err = evs.TriggerEvent(api.HelloEvent, "EVENT: hello world")
-		if err != nil {
-			log.Println(err)
-		}
-	}()
-
-	// Open a new custom stream to the peer.
-	streamRaw, err := s.OpenStream(api.ChannelIDRaw)
-	if err != nil {
-		return
-	}
-	wg.Add(1)
-	go streamRawRoutine(streamRaw, wg)
-	// Wait for stream to close.
-	wg.Wait()
-
-	// Open a new custom stream to the peer.
-	streamPacket, err := s.OpenStream(api.ChannelIDPacket)
-	if err != nil {
-		return
-	}
-	wg.Add(1)
-	go streamPacketRoutine(streamPacket, wg)
-	// Wait for stream to close.
-	wg.Wait()
+	eventEvents.TriggerEvent(api.EventFilter, &api.EventData{ID: "5", Name: "Hello"})
 
 	s.Close()
 	time.Sleep(time.Second)

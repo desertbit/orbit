@@ -1,7 +1,7 @@
 /*
  *  ORBIT - Interlink Remote Applications
  *  Copyright (C) 2018  Roland Singer <roland.singer[at]desertbit.com>
- *  Copyright (C) 2018  Sebastian Borchers <sebastian.borchers[at]desertbit.com>
+ *  Copyright (C) 2018 Sebastian Borchers <sebastian.borchers[at].desertbit.com>
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -17,24 +17,4 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-//go:generate msgp
-package api
-
-const (
-	ChannelIDRaw    = "raw"
-	ChannelIDPacket = "packet"
-	ChannelIDEvent  = "event"
-
-	EventHello = "hello"
-	EventFilter = "filter"
-
-)
-
-type FilterData struct {
-	ID string
-}
-
-type EventData struct {
-	ID string
-	Name string
-}
+package main

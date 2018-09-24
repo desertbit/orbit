@@ -54,13 +54,13 @@ func newSession(orbitSession *orbit.Session) (s *Session, err error) {
 		return nil
 	})
 
-	controls, _, err := s.Init(&orbit.Init{
+	controls, ev, err := s.Init(&orbit.Init{
 		AcceptStreams: orbit.InitAcceptStreams{
 			api.ChannelIDRaw:    handleStreamRaw,
 			api.ChannelIDPacket: handleStreamPacket,
 			api.ChannelIDEvent: func(stream net.Conn) error {
 				evs := events.New(stream, nil)
-				l := evs.OnEvent(api.HelloEvent)
+				l := evs.OnEvent(api.EventHello)
 				data := <-l.C
 				var s string
 				msgpack.Codec.Decode(data.Data, &s)
@@ -90,14 +90,11 @@ func newSession(orbitSession *orbit.Session) (s *Session, err error) {
 				Config: nil, // Optional. Can be removed from here...
 			},
 		},
-		/*Events: {
-			"events": {
-				Events: {
-					"onDump": getChemicalsAndCleanup,
-				},
-				Config: nil, // Optional. Can be removed from here...
+		Events: orbit.InitEvents{
+			api.ChannelIDEvent: {
+				Config: nil,
 			},
-		},*/
+		},
 	})
 	if err != nil {
 		return
@@ -105,6 +102,25 @@ func newSession(orbitSession *orbit.Session) (s *Session, err error) {
 
 	ctrl := controls["control"]
 	ctrl.Ready()
+
+	eventEvents := ev[api.ChannelIDEvent]
+	eventEvents.Ready()
+
+	err = eventEvents.SetEventFilter(api.EventFilter, api.FilterData{ID: "5"})
+	if err != nil {
+		return
+	}
+
+	eventEvents.OnEventFunc(api.EventFilter, func(ctx *events.Context) {
+		var data api.EventData
+		err := ctx.Decode(&data)
+		if err != nil {
+			log.Printf("OnEventFunc: %v", err)
+			return
+		}
+
+		log.Printf("received event with id %s and name %s", data.ID, data.Name)
+	})
 
 	return
 }

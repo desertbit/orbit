@@ -1,7 +1,7 @@
 /*
  *  ORBIT - Interlink Remote Applications
  *  Copyright (C) 2018  Roland Singer <roland.singer[at]desertbit.com>
- *  Copyright (C) 2018  Sebastian Borchers <sebastian.borchers[at]desertbit.com>
+ *  Copyright (C) 2018 Sebastian Borchers <sebastian.borchers[at].desertbit.com>
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -17,24 +17,30 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-//go:generate msgp
-package api
+package main
 
-const (
-	ChannelIDRaw    = "raw"
-	ChannelIDPacket = "packet"
-	ChannelIDEvent  = "event"
-
-	EventHello = "hello"
-	EventFilter = "filter"
-
+import (
+	"github.com/desertbit/orbit/events"
+	"github.com/desertbit/orbit/sample/api"
+	"github.com/pkg/errors"
 )
 
-type FilterData struct {
-	ID string
-}
+func filter(ctx *events.Context) (f events.Filter, err error) {
+	var fData api.FilterData
+	err = ctx.Decode(&fData)
+	if err != nil {
+		return
+	}
 
-type EventData struct {
-	ID string
-	Name string
+	f = func(data interface{}) (conforms bool, err error) {
+		d, ok := data.(*api.EventData)
+		if !ok {
+			err = errors.New("could not cast to EventData")
+			return
+		}
+
+		conforms = d.ID == fData.ID
+		return
+	}
+	return
 }
