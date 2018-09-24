@@ -17,6 +17,27 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+
+/*
+Package packet provides convenience methods to read/write packets to a net.Conn.
+A selection of different functions are available to specify timeouts and to provide
+either raw bytes or custom values that are en-/decoded with custom codec.Codecs.
+
+Packets
+
+A packet is a very simple and efficient network data format used to transmit data over
+a network. It consists of two parts, a header and the payload.
+
+The header must be present and has a fixed size of 4 bytes. It only contains the size of
+the payload.
+
+The payload is of variable size (as indicated by the header) and is a stream of bytes.
+The maximum possible size is restricted by the available bytes for the header, and is
+therefore currently 2^32 - 1.
+
+In case an empty payload should be transmitted, the packet consists of solely a header
+with value 0.
+*/
 package packet
 
 import (
@@ -30,10 +51,12 @@ import (
 )
 
 var (
+	// Returned, if the size of a payload exceeds the maxPayloadSize.
 	ErrMaxPayloadSizeExceeded = errors.New("max payload size exceeded")
 )
 
-// ReadDecode reads the packet and decodes it into the value.
+// ReadDecode reads the packet from the connection using ReadTimeout()
+// and decodes it into the value, using the provided codec.
 // Ensure to pass a pointer value.
 func ReadDecode(
 	conn net.Conn,
@@ -42,15 +65,20 @@ func ReadDecode(
 	maxPayloadSize int,
 	timeout time.Duration,
 ) (err error) {
+	// Read the packet from the connection with a timeout.
 	payload, err := ReadTimeout(conn, nil, maxPayloadSize, timeout)
 	if err != nil {
 		return
 	}
 
+	// Decode it into the value using the codec.
 	return codec.Decode(payload, value)
 }
 
-// ReadTimeout same as Read, but sets the read deadline.
+// ReadTimeout performs the same task as Read(), but allows
+// to specify a timeout for reading from the connection.
+// If the deadline is not met, the read is terminated and a
+// net.Error with Timeout() == true is returned.
 func ReadTimeout(
 	conn net.Conn,
 	buffer []byte,
@@ -63,13 +91,16 @@ func ReadTimeout(
 		return nil, err
 	}
 
+	// Read the packet from the connection.
 	return Read(conn, buffer, maxPayloadSize)
 }
 
-// Read from the connection. Sets the read deadline to the timeout
-// and returns the packet bytes. If buffer is set and is big enough to
-// fit the packet, then the buffer is used. Otherwise a new buffer
-// is allocated.
+// Read reads a packet from the connection, without setting a timeout,
+// and returns the raw bytes of it.
+// A maximum size for the packet must be specified. If the packet's size
+// exceeds it, an ErrMaxPayloadSizeExceeded is returned.
+// If buffer is set and is big enough to fit the packet,
+// then the buffer is used. Otherwise a new buffer is allocated.
 // Returns an empty byte slice when no data was send.
 func Read(
 	conn io.Reader,
@@ -104,7 +135,7 @@ func Read(
 	}
 
 	// Create a new buffer if the passed buffer is too small.
-	// Ensure the length fits.
+	// Otherwise, ensure the length fits.
 	if len(buffer) < payloadLen {
 		buffer = make([]byte, payloadLen)
 	} else if len(buffer) > payloadLen {
@@ -124,7 +155,8 @@ func Read(
 	return buffer, nil
 }
 
-// WriteEncode encodes the value and writes it to the connection.
+// WriteEncode encodes the value using the provided codec
+// and writes it to the connection using WriteTimeout().
 func WriteEncode(
 	conn net.Conn,
 	value interface{},
@@ -132,15 +164,20 @@ func WriteEncode(
 	maxPayloadSize int,
 	timeout time.Duration,
 ) (err error) {
+	// Encode the value using the codec.
 	data, err := codec.Encode(value)
 	if err != nil {
 		return
 	}
 
+	// Write the data to the connection with a timeout.
 	return WriteTimeout(conn, data, maxPayloadSize, timeout)
 }
 
-// Write the packet data to the connection and set the write deadline.
+// WriteTimeout performs the same task as Write(), but allows
+// to specify a timeout for reading from the connection.
+// If the deadline is not met, the read is terminated and a
+// net.Error with Timeout() == true is returned.
 func WriteTimeout(
 	conn net.Conn,
 	data []byte,
@@ -153,10 +190,16 @@ func WriteTimeout(
 		return
 	}
 
+	// Write the packet to the connection.
 	return Write(conn, data, maxPayloadSize)
 }
 
-// Write the packet data to the connection.
+// Write writes the packet data to the connection, without
+// setting a timeout.
+// If data is empty, an empty packet is sent that consists of
+// a header with payload size 0 and no payload.
+// A maximum size for the packet must be specified. If the packet's size
+// exceeds it, an ErrMaxPayloadSizeExceeded is returned.
 func Write(
 	conn io.Writer,
 	data []byte,
