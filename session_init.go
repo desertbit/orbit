@@ -25,10 +25,11 @@ import (
 	"time"
 
 	"github.com/desertbit/orbit/control"
+	"github.com/desertbit/orbit/events"
 )
 
 const (
-	openControlStreamTimeout = 12 * time.Second
+	initOpenStreamTimeout = 12 * time.Second
 )
 
 type InitAcceptStreams map[string]AcceptStreamFunc
@@ -38,16 +39,21 @@ type InitControls map[string]struct {
 	Config *control.Config
 }
 
+type InitEvents map[string]struct {
+	Config *control.Config
+}
+
 type Init struct {
 	AcceptStreams InitAcceptStreams
 	Controls      InitControls
+	Events        InitEvents
 }
 
-// TODO: Add events.
 // Init initialized this session. Pass nil to just start accepting streams.
 // Ready() must be called manually for all controls and events.
 func (s *Session) Init(opts *Init) (
 	controls map[string]*control.Control,
+	ev map[string]*events.Events,
 	err error,
 ) {
 	// Always close the session on error.
@@ -94,7 +100,25 @@ func (s *Session) Init(opts *Init) (
 		s.openControl(
 			channel, c.Funcs, c.Config,
 			handleControl, handleErr,
-			&wg, openControlStreamTimeout,
+			&wg, initOpenStreamTimeout,
+		)
+	}
+
+	// Register and initialize the events.
+	var evMutex sync.Mutex
+	ev = make(map[string]*events.Events)
+
+	handleEvents := func(channel string, e *events.Events) {
+		evMutex.Lock()
+		ev[channel] = e
+		evMutex.Unlock()
+	}
+
+	for channel, e := range opts.Events {
+		s.openEvents(
+			channel, e.Config,
+			handleEvents, handleErr,
+			&wg, initOpenStreamTimeout,
 		)
 	}
 
@@ -204,5 +228,79 @@ func (s *Session) openControl(
 
 		// Finally send the ready control to the handler.
 		handleResult(channel, ctrl)
+	}()
+}
+
+func (s *Session) openEvents(
+	channel string,
+	config *control.Config,
+	handleResult func(channel string, e *events.Events),
+	handleErr func(err error),
+	wg *sync.WaitGroup,
+	timeout time.Duration,
+) {
+	var (
+		closeChan  = make(chan struct{})
+		streamChan = make(chan net.Conn)
+	)
+
+	if !s.isClient {
+		// This method must be called before startRoutines is called!
+		s.AcceptStream(channel, func(conn net.Conn) error {
+			select {
+			case <-closeChan:
+				conn.Close()
+				return fmt.Errorf("not waiting for stream: accept disabled")
+			case streamChan <- conn:
+			}
+			return nil
+		})
+	}
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		defer close(closeChan)
+
+		var stream net.Conn
+
+		if s.isClient {
+			var err error
+			stream, err = s.OpenStreamTimeout(channel, timeout)
+			if err != nil {
+				handleErr(err)
+				return
+			}
+		} else {
+			timeoutTimer := time.NewTimer(timeout)
+			defer timeoutTimer.Stop()
+
+			select {
+			case <-timeoutTimer.C:
+				handleErr(ErrTimeout)
+				return
+
+			case <-s.CloseChan():
+				handleErr(ErrClosed)
+				return
+
+			case stream = <-streamChan:
+			}
+		}
+
+		// Create the events.
+		e := events.New(stream, config)
+
+		// Close the events if the session closes.
+		go func() {
+			select {
+			case <-s.CloseChan():
+			case <-e.CloseChan():
+			}
+			e.Close()
+		}()
+
+		// Finally send the ready events to the handler.
+		handleResult(channel, e)
 	}()
 }

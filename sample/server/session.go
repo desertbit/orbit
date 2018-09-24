@@ -20,9 +20,10 @@ package main
 
 import (
 	"fmt"
-	"github.com/desertbit/orbit/codec/msgpack"
 	"log"
 	"net"
+
+	"github.com/desertbit/orbit/codec/msgpack"
 
 	"github.com/desertbit/orbit"
 	"github.com/desertbit/orbit/control"
@@ -52,7 +53,7 @@ func newSession(orbitSession *orbit.Session) (s *Session, err error) {
 		return nil
 	})
 
-	controls, err := s.Init(&orbit.Init{
+	controls, _, err := s.Init(&orbit.Init{
 		AcceptStreams: orbit.InitAcceptStreams{
 			api.ChannelIDRaw:    handleStreamRaw,
 			api.ChannelIDPacket: handleStreamPacket,
