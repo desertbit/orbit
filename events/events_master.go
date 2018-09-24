@@ -99,6 +99,23 @@ func (e *Events) addEvent(id string) (ev *Event) {
 	return
 }
 
+// Call the listeners on the remote peer.
+func (e *Events) callTriggerEvent(id string, data interface{}) error {
+	dataBytes, err := e.codec.Encode(data)
+	if err != nil {
+		return err
+	}
+
+	return e.ctrl.OneShot(cmdTriggerEvent, &api.TriggerEvent{
+		ID:   id,
+		Data: dataBytes,
+	})
+}
+
+//###############################################//
+//### Private - Callable from the remote Peer ###//
+//###############################################//
+
 // Called if the remote peer wants to be informed about the given event.
 func (e *Events) setEvent(c *control.Context) (interface{}, error) {
 	var data api.SetEvent
@@ -114,19 +131,6 @@ func (e *Events) setEvent(c *control.Context) (interface{}, error) {
 
 	event.setActive(data.Active)
 	return nil, nil
-}
-
-// Call the listeners on the remote peer.
-func (e *Events) callTriggerEvent(id string, data interface{}) error {
-	dataBytes, err := e.codec.Encode(data)
-	if err != nil {
-		return err
-	}
-
-	return e.ctrl.OneShot(cmdTriggerEvent, &api.TriggerEvent{
-		ID:   id,
-		Data: dataBytes,
-	})
 }
 
 // Called when the remote peer wants to set a filter on an event.

@@ -95,31 +95,6 @@ func (e *Events) callSetEvent(id string, active bool) (err error) {
 	return
 }
 
-// Called if the remote peer's event has been triggered.
-func (e *Events) triggerEvent(ctx *control.Context) (v interface{}, err error) {
-	var data api.TriggerEvent
-	err = ctx.Decode(&data)
-	if err != nil {
-		return
-	}
-
-	// Build the event context.
-	eventCtx := newContext(data.Data, e.codec)
-
-	// Obtain the listeners for the given event.
-	var ls *listeners
-	e.lsMapMutex.Lock()
-	ls = e.lsMap[data.ID]
-	e.lsMapMutex.Unlock()
-
-	// Trigger the event if defined.
-	if ls != nil {
-		ls.trigger(eventCtx)
-	}
-
-	return
-}
-
 // Set the filter on the remote peer's event.
 func (e *Events) callSetEventFilter(id string, data interface{}) (err error) {
 	dataBytes, err := e.codec.Encode(data)
@@ -140,6 +115,35 @@ func (e *Events) callSetEventFilter(id string, data interface{}) (err error) {
 			}
 		}
 		return
+	}
+
+	return
+}
+
+//###############################################//
+//### Private - Callable from the remote Peer ###//
+//###############################################//
+
+// Called if the remote peer's event has been triggered.
+func (e *Events) triggerEvent(ctx *control.Context) (v interface{}, err error) {
+	var data api.TriggerEvent
+	err = ctx.Decode(&data)
+	if err != nil {
+		return
+	}
+
+	// Build the event context.
+	eventCtx := newContext(data.Data, e.codec)
+
+	// Obtain the listeners for the given event.
+	var ls *listeners
+	e.lsMapMutex.Lock()
+	ls = e.lsMap[data.ID]
+	e.lsMapMutex.Unlock()
+
+	// Trigger the event if defined.
+	if ls != nil {
+		ls.trigger(eventCtx)
 	}
 
 	return
