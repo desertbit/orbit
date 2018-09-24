@@ -44,7 +44,7 @@ type Events struct {
 	logger *log.Logger
 
 	eventMapMutex sync.Mutex
-	eventMap      map[string]*Event
+	eventMap      map[string]*event
 
 	lsMapMutex sync.Mutex
 	lsMap      map[string]*listeners
@@ -57,7 +57,7 @@ func New(conn net.Conn, config *control.Config) (e *Events) {
 		ctrl:     ctrl,
 		codec:    ctrl.Codec(),
 		logger:   ctrl.Logger(),
-		eventMap: make(map[string]*Event),
+		eventMap: make(map[string]*event),
 		lsMap:    make(map[string]*listeners),
 	}
 

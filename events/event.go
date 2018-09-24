@@ -27,7 +27,7 @@ type Filter func(data interface{}) (conforms bool, err error)
 
 type FilterFunc func(ctx *Context) (f Filter, err error)
 
-type Event struct {
+type event struct {
 	id string
 
 	mutex      sync.Mutex
@@ -36,32 +36,32 @@ type Event struct {
 	filter     Filter
 }
 
-func newEvent(id string) *Event {
-	return &Event{
+func newEvent(id string) *event {
+	return &event{
 		id: id,
 	}
 }
 
-func (e *Event) setActive(active bool) {
+func (e *event) setActive(active bool) {
 	e.mutex.Lock()
 	e.active = active
 	e.mutex.Unlock()
 }
 
-func (e *Event) isActive() (active bool) {
+func (e *event) isActive() (active bool) {
 	e.mutex.Lock()
 	active = e.active
 	e.mutex.Unlock()
 	return
 }
 
-func (e *Event) setFilterFunc(filterFunc FilterFunc) {
+func (e *event) setFilterFunc(filterFunc FilterFunc) {
 	e.mutex.Lock()
 	e.filterFunc = filterFunc
 	e.mutex.Unlock()
 }
 
-func (e *Event) setFilter(ctx *Context) (err error) {
+func (e *event) setFilter(ctx *Context) (err error) {
 	e.mutex.Lock()
 	defer e.mutex.Unlock()
 
@@ -74,7 +74,7 @@ func (e *Event) setFilter(ctx *Context) (err error) {
 	return
 }
 
-func (e *Event) conformsToFilter(data interface{}) (conforms bool, err error) {
+func (e *event) conformsToFilter(data interface{}) (conforms bool, err error) {
 	e.mutex.Lock()
 	defer e.mutex.Unlock()
 

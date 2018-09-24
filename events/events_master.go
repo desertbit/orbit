@@ -73,7 +73,7 @@ func (e *Events) TriggerEvent(id string, data interface{}) (err error) {
 //### Private ###//
 //###############//
 
-func (e *Events) getEvent(id string) (event *Event, err error) {
+func (e *Events) getEvent(id string) (event *event, err error) {
 	e.eventMapMutex.Lock()
 	event = e.eventMap[id]
 	e.eventMapMutex.Unlock()
@@ -84,7 +84,7 @@ func (e *Events) getEvent(id string) (event *Event, err error) {
 	return
 }
 
-func (e *Events) addEvent(id string) (ev *Event) {
+func (e *Events) addEvent(id string) (ev *event) {
 	ev = newEvent(id)
 
 	e.eventMapMutex.Lock()
