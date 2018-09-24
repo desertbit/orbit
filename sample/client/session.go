@@ -59,7 +59,7 @@ func NewSession(remoteAddr string) (s *Session, err error) {
 
 	wg := &sync.WaitGroup{}
 
-	controls, err := s.Init(&orbit.Init{
+	controls, _, err := s.Init(&orbit.Init{
 		Controls: orbit.InitControls{
 			"control": {
 				Config: nil, // Optional. Can be removed from here...
