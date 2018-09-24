@@ -51,7 +51,7 @@ type InitEvent struct {
 }
 
 type InitROE struct {
-	Events  []InitEvent
+	Events []InitEvent
 	Config *roe.Config
 }
 
@@ -96,7 +96,7 @@ func (s *Session) Init(opts *Init) (
 // Ready() must be called manually for all controls and events.
 func (s *Session) InitMany(opts *InitMany) (
 	rocs map[string]*roc.ROC,
-	ev map[string]*roe.ROE,
+	roes map[string]*roe.ROE,
 	err error,
 ) {
 	// Always close the session on error.
@@ -149,11 +149,11 @@ func (s *Session) InitMany(opts *InitMany) (
 
 	// Register and initialize the events.
 	var evMutex sync.Mutex
-	ev = make(map[string]*roe.ROE)
+	roes = make(map[string]*roe.ROE)
 
 	handleEvents := func(channel string, e *roe.ROE) {
 		evMutex.Lock()
-		ev[channel] = e
+		roes[channel] = e
 		evMutex.Unlock()
 	}
 

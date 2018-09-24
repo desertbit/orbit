@@ -54,7 +54,7 @@ func newSession(orbitSession *orbit.Session) (s *Session, err error) {
 		return nil
 	})
 
-	rocs, roes, err := s.InitMany(&orbit.InitMany{
+	calls, events, err := s.Init(&orbit.Init{
 		AcceptStreams: orbit.InitAcceptStreams{
 			api.ChannelIDRaw:    handleStreamRaw,
 			api.ChannelIDPacket: handleStreamPacket,
@@ -68,8 +68,7 @@ func newSession(orbitSession *orbit.Session) (s *Session, err error) {
 				return nil
 			},
 		},
-		ROCs: orbit.InitROCs{
-			"roc": {
+		ROC: orbit.InitROC{
 				Funcs: roc.Funcs{
 					"takeAHugeDump": func(c *roc.Context) (interface{}, error) {
 						fmt.Println("░░░░░░░░░░░█▀▀░░█░░░░░░")
@@ -88,30 +87,24 @@ func newSession(orbitSession *orbit.Session) (s *Session, err error) {
 					},
 				},
 				Config: nil, // Optional. Can be removed from here...
-			},
 		},
-		ROEs: orbit.InitROEs{
-			api.ChannelIDEvent: {
-				Config: nil,
-			},
+		ROE: orbit.InitROE{
+			Config: nil,
 		},
 	})
 	if err != nil {
 		return
 	}
 
-	ctrl := rocs["roc"]
-	ctrl.Ready()
+	calls.Ready()
+	events.Ready()
 
-	eventEvents := roes[api.ChannelIDEvent]
-	eventEvents.Ready()
-
-	err = eventEvents.SetEventFilter(api.EventFilter, api.FilterData{ID: "5"})
+	err = events.SetEventFilter(api.EventFilter, api.FilterData{ID: "5"})
 	if err != nil {
 		return
 	}
 
-	eventEvents.OnEventFunc(api.EventFilter, func(ctx *roe.Context) {
+	events.OnEventFunc(api.EventFilter, func(ctx *roe.Context) {
 		var data api.EventData
 		err := ctx.Decode(&data)
 		if err != nil {

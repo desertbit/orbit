@@ -54,20 +54,16 @@ func NewSession(remoteAddr string) (s *Session, err error) {
 		}
 	}()
 
-	controls, evs, err := s.InitMany(&orbit.InitMany{
-		ROCs: orbit.InitROCs{
-			"roc": {
-				Funcs:  map[string]roc.Func{},
-				Config: nil, // Optional. Can be removed from here...
-			},
+	calls, events, err := s.Init(&orbit.Init{
+		ROC: orbit.InitROC{
+			Funcs:  map[string]roc.Func{},
+			Config: nil, // Optional. Can be removed from here...
 		},
-		ROEs: orbit.InitROEs{
-			api.ChannelIDEvent: {
-				Events: []orbit.InitEvent{
-					{
-						ID:     api.EventFilter,
-						Filter: filter,
-					},
+		ROE: orbit.InitROE{
+			Events: []orbit.InitEvent{
+				{
+					ID:     api.EventFilter,
+					Filter: filter,
 				},
 			},
 		},
@@ -76,15 +72,12 @@ func NewSession(remoteAddr string) (s *Session, err error) {
 		return
 	}
 
-	ctrl := controls["roc"]
-	ctrl.Ready()
-
-	eventEvents := evs[api.ChannelIDEvent]
-	eventEvents.Ready()
+	calls.Ready()
+	events.Ready()
 
 	time.Sleep(time.Second)
 
-	eventEvents.TriggerEvent(api.EventFilter, &api.EventData{ID: "5", Name: "Hello"})
+	events.TriggerEvent(api.EventFilter, &api.EventData{ID: "5", Name: "Hello"})
 
 	time.Sleep(time.Second)
 	s.Close()

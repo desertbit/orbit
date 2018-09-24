@@ -39,7 +39,7 @@ const (
 type ROE struct {
 	closer.Closer
 
-	ctrl   *roc.ROC
+	roc    *roc.ROC
 	codec  codec.Codec
 	logger *log.Logger
 
@@ -53,17 +53,17 @@ type ROE struct {
 func New(conn net.Conn, config *Config) (r *ROE) {
 	config = prepareConfig(config)
 
-	ctrl := roc.New(conn, config.roc)
+	c := roc.New(conn, config.roc)
 	r = &ROE{
-		Closer: ctrl,
-		ctrl:   ctrl,
-		codec:  ctrl.Codec(),
-		logger: ctrl.Logger(),
+		Closer: c,
+		roc:    c,
+		codec:  c.Codec(),
+		logger: c.Logger(),
 		events: make(map[string]*event),
 		lsMap:  make(map[string]*listeners),
 	}
 
-	r.ctrl.AddFuncs(roc.Funcs{
+	r.roc.AddFuncs(roc.Funcs{
 		cmdSetEvent:       r.setEvent,
 		cmdTriggerEvent:   r.triggerEvent,
 		cmdSetEventFilter: r.setEventFilter,
@@ -75,5 +75,5 @@ func New(conn net.Conn, config *Config) (r *ROE) {
 // ROEs can now be triggered.
 // This should be only called once.
 func (r *ROE) Ready() {
-	r.ctrl.Ready()
+	r.roc.Ready()
 }
