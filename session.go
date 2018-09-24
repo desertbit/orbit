@@ -40,6 +40,8 @@ const (
 	acceptStreamMaxHeaderSize = 5 * 1024 // 5 KB
 )
 
+type AuthFunc func(net.Conn) error
+
 type AcceptStreamFunc func(net.Conn) error
 
 type Session struct {

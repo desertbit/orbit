@@ -56,6 +56,20 @@ func ServerSession(conn net.Conn, config *Config) (s *Session, err error) {
 		return nil, ErrInvalidVersion
 	}
 
+	// Authenticate if required.
+	if config.AuthFunc != nil {
+		// Reset the deadlines.
+		err = conn.SetDeadline(time.Time{})
+		if err != nil {
+			return
+		}
+
+		err = config.AuthFunc(conn)
+		if err != nil {
+			return
+		}
+	}
+
 	// Reset the deadlines.
 	err = conn.SetDeadline(time.Time{})
 	if err != nil {

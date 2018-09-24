@@ -19,10 +19,11 @@
 package orbit
 
 import (
-	"github.com/desertbit/orbit/codec/msgpack"
 	"log"
 	"os"
 	"time"
+
+	"github.com/desertbit/orbit/codec/msgpack"
 
 	"github.com/desertbit/orbit/codec"
 )
@@ -48,6 +49,9 @@ type Config struct {
 	// Logger is used to pass in the logger to be used.
 	// Uses a default logger to os.Stderr.
 	Logger *log.Logger
+
+	// AuthFunc authenticates the session connection if defined.
+	AuthFunc AuthFunc
 }
 
 func prepareConfig(c *Config) *Config {
