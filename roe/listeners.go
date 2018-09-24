@@ -16,14 +16,14 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package events
+package roe
 
 import (
 	"sync"
 )
 
 type listeners struct {
-	e       *Events
+	e       *ROE
 	eventID string
 
 	lMapMutex sync.Mutex
@@ -35,7 +35,7 @@ type listeners struct {
 	closeChan  <-chan struct{}
 }
 
-func newListeners(e *Events, eventID string) *listeners {
+func newListeners(e *ROE, eventID string) *listeners {
 	ls := &listeners{
 		e:          e,
 		eventID:    eventID,

@@ -1,7 +1,7 @@
 /*
  *  ORBIT - Interlink Remote Applications
  *  Copyright (C) 2018  Roland Singer <roland.singer[at]desertbit.com>
- *  Copyright (C) 2018  Sebastian Borchers <sebastian.borchers[at]desertbit.com>
+ *  Copyright (C) 2018 Sebastian Borchers <sebastian.borchers[at].desertbit.com>
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -17,46 +17,18 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package control
+package roe
 
-type Error interface {
-	error
-	Msg() string
-	Code() int
+import "github.com/desertbit/orbit/roc"
+
+type Config struct {
+	roc *roc.Config
 }
 
-func Err(err error, msg string, code int) Error {
-	return errImpl{
-		err:  err,
-		msg:  msg,
-		code: code,
+func prepareConfig(c *Config) *Config {
+	if c == nil {
+		c = &Config{}
 	}
-}
 
-type errImpl struct {
-	err  error
-	msg  string
-	code int
-}
-
-func (e errImpl) Error() string {
-	return e.err.Error()
-}
-
-func (e errImpl) Msg() string {
-	return e.msg
-}
-
-func (e errImpl) Code() int {
-	return e.code
-}
-
-type ErrorCode struct {
-	Code int
-
-	err string
-}
-
-func (e ErrorCode) Error() string {
-	return e.err
+	return c
 }

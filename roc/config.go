@@ -17,7 +17,7 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package control
+package roc
 
 import (
 	"log"
@@ -50,7 +50,7 @@ var (
 	defaultLogger = log.New(os.Stderr, "orbit: ", 0)
 )
 
-// The Config type contains the possible configuration parameter of a Control.
+// The Config type contains the possible configuration parameter of a ROC.
 type Config struct {
 	Codec           codec.Codec
 	Logger          *log.Logger

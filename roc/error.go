@@ -17,39 +17,46 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-//go:generate msgp
-package api
+package roc
 
-const (
-	Version = 1
-)
-
-type InitStream struct {
-	Channel string
+type Error interface {
+	error
+	Msg() string
+	Code() int
 }
 
-type Call struct {
-	ID  string
-	Key string
+func Err(err error, msg string, code int) Error {
+	return errImpl{
+		err:  err,
+		msg:  msg,
+		code: code,
+	}
 }
 
-type CallReturn struct {
-	Key  string
-	Msg  string
+type errImpl struct {
+	err  error
+	msg  string
+	code int
+}
+
+func (e errImpl) Error() string {
+	return e.err.Error()
+}
+
+func (e errImpl) Msg() string {
+	return e.msg
+}
+
+func (e errImpl) Code() int {
+	return e.code
+}
+
+type ErrorCode struct {
 	Code int
+
+	err string
 }
 
-type SetEvent struct {
-	ID     string
-	Active bool
-}
-
-type TriggerEvent struct {
-	ID   string
-	Data []byte
-}
-
-type SetEventFilter struct {
-	ID   string
-	Data []byte
+func (e ErrorCode) Error() string {
+	return e.err
 }

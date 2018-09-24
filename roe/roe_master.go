@@ -17,37 +17,37 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package events
+package roe
 
 import (
-	"github.com/desertbit/orbit/control"
 	"github.com/desertbit/orbit/internal/api"
+	"github.com/desertbit/orbit/roc"
 )
 
-func (e *Events) AddEvent(id string) {
-	e.addEvent(id)
+func (r *ROE) AddEvent(id string) {
+	r.addEvent(id)
 }
 
-func (e *Events) AddEventFilter(id string, filterFunc FilterFunc) {
-	event := e.addEvent(id)
+func (r *ROE) AddEventFilter(id string, filterFunc FilterFunc) {
+	event := r.addEvent(id)
 	event.setFilterFunc(filterFunc)
 }
 
-func (e *Events) AddEvents(ids []string) {
-	e.eventMapMutex.Lock()
-	defer e.eventMapMutex.Unlock()
+func (r *ROE) AddEvents(ids []string) {
+	r.eventsMutex.Lock()
+	defer r.eventsMutex.Unlock()
 
 	for _, id := range ids {
 		// Log if the event is overwritten.
-		if _, ok := e.eventMap[id]; ok {
-			e.logger.Printf("event '%s' registered more than once", id)
+		if _, ok := r.events[id]; ok {
+			r.logger.Printf("event '%s' registered more than once", id)
 		}
-		e.eventMap[id] = newEvent(id)
+		r.events[id] = newEvent(id)
 	}
 }
 
-func (e *Events) TriggerEvent(id string, data interface{}) (err error) {
-	event, err := e.getEvent(id)
+func (r *ROE) TriggerEvent(id string, data interface{}) (err error) {
+	event, err := r.getEvent(id)
 	if err != nil {
 		return
 	}
@@ -60,7 +60,7 @@ func (e *Events) TriggerEvent(id string, data interface{}) (err error) {
 			return
 		}
 
-		err = e.callTriggerEvent(id, data)
+		err = r.callTriggerEvent(id, data)
 		if err != nil {
 			return
 		}
@@ -73,40 +73,40 @@ func (e *Events) TriggerEvent(id string, data interface{}) (err error) {
 //### Private ###//
 //###############//
 
-func (e *Events) getEvent(id string) (event *event, err error) {
-	e.eventMapMutex.Lock()
-	event = e.eventMap[id]
-	e.eventMapMutex.Unlock()
+func (r *ROE) getEvent(id string) (event *event, err error) {
+	r.eventsMutex.Lock()
+	event = r.events[id]
+	r.eventsMutex.Unlock()
 
-	if e == nil {
+	if r == nil {
 		err = ErrEventNotFound
 	}
 	return
 }
 
-func (e *Events) addEvent(id string) (ev *event) {
+func (r *ROE) addEvent(id string) (ev *event) {
 	ev = newEvent(id)
 
-	e.eventMapMutex.Lock()
-	defer e.eventMapMutex.Unlock()
+	r.eventsMutex.Lock()
+	defer r.eventsMutex.Unlock()
 
 	// Log if the event is overwritten.
-	if _, ok := e.eventMap[id]; ok {
-		e.logger.Printf("event '%s' registered more than once", id)
+	if _, ok := r.events[id]; ok {
+		r.logger.Printf("event '%s' registered more than once", id)
 	}
 
-	e.eventMap[id] = ev
+	r.events[id] = ev
 	return
 }
 
 // Call the listeners on the remote peer.
-func (e *Events) callTriggerEvent(id string, data interface{}) error {
-	dataBytes, err := e.codec.Encode(data)
+func (r *ROE) callTriggerEvent(id string, data interface{}) error {
+	dataBytes, err := r.codec.Encode(data)
 	if err != nil {
 		return err
 	}
 
-	return e.ctrl.OneShot(cmdTriggerEvent, &api.TriggerEvent{
+	return r.ctrl.OneShot(cmdTriggerEvent, &api.TriggerEvent{
 		ID:   id,
 		Data: dataBytes,
 	})
@@ -117,16 +117,16 @@ func (e *Events) callTriggerEvent(id string, data interface{}) error {
 //###############################################//
 
 // Called if the remote peer wants to be informed about the given event.
-func (e *Events) setEvent(c *control.Context) (interface{}, error) {
+func (r *ROE) setEvent(c *roc.Context) (interface{}, error) {
 	var data api.SetEvent
 	err := c.Decode(&data)
 	if err != nil {
-		return nil, control.Err(err, "internal error", 1)
+		return nil, roc.Err(err, "internal error", 1)
 	}
 
-	event, err := e.getEvent(data.ID)
+	event, err := r.getEvent(data.ID)
 	if err != nil {
-		return nil, control.Err(err, "event does not exists", 2)
+		return nil, roc.Err(err, "event does not exists", 2)
 	}
 
 	event.setActive(data.Active)
@@ -134,26 +134,26 @@ func (e *Events) setEvent(c *control.Context) (interface{}, error) {
 }
 
 // Called when the remote peer wants to set a filter on an event.
-func (e *Events) setEventFilter(ctx *control.Context) (v interface{}, err error) {
+func (r *ROE) setEventFilter(ctx *roc.Context) (v interface{}, err error) {
 	var data api.SetEventFilter
 	err = ctx.Decode(&data)
 	if err != nil {
-		err = control.Err(err, "internal error", 1)
+		err = roc.Err(err, "internal error", 1)
 		return
 	}
 
-	event, err := e.getEvent(data.ID)
+	event, err := r.getEvent(data.ID)
 	if err != nil {
-		err = control.Err(err, "event does not exists", 2)
+		err = roc.Err(err, "event does not exists", 2)
 		return
 	}
 
-	err = event.setFilter(newContext(data.Data, e.codec))
+	err = event.setFilter(newContext(data.Data, r.codec))
 	if err != nil {
 		if err == ErrFilterFuncUndefined {
-			err = control.Err(err, "filter not set", 3)
+			err = roc.Err(err, "filter not set", 3)
 		} else {
-			err = control.Err(err, "internal error", 1)
+			err = roc.Err(err, "internal error", 1)
 		}
 		return
 	}

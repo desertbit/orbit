@@ -20,7 +20,7 @@
 package main
 
 import (
-	"github.com/desertbit/orbit/control"
+	"github.com/desertbit/orbit/roc"
 	"github.com/desertbit/orbit/sample/api"
 	"net"
 	"time"
@@ -54,20 +54,18 @@ func NewSession(remoteAddr string) (s *Session, err error) {
 		}
 	}()
 
-	controls, evs, err := s.Init(&orbit.Init{
-		Controls: orbit.InitControls{
-			"control": {
-				Funcs: map[string]control.Func{
-
-				},
+	controls, evs, err := s.InitMany(&orbit.InitMany{
+		ROCs: orbit.InitROCs{
+			"roc": {
+				Funcs:  map[string]roc.Func{},
 				Config: nil, // Optional. Can be removed from here...
 			},
 		},
-		Events: orbit.InitEvents{
+		ROEs: orbit.InitROEs{
 			api.ChannelIDEvent: {
 				Events: []orbit.InitEvent{
 					{
-						ID: api.EventFilter,
+						ID:     api.EventFilter,
 						Filter: filter,
 					},
 				},
@@ -78,7 +76,7 @@ func NewSession(remoteAddr string) (s *Session, err error) {
 		return
 	}
 
-	ctrl := controls["control"]
+	ctrl := controls["roc"]
 	ctrl.Ready()
 
 	eventEvents := evs[api.ChannelIDEvent]

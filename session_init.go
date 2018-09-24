@@ -25,42 +25,78 @@ import (
 	"sync"
 	"time"
 
-	"github.com/desertbit/orbit/control"
-	"github.com/desertbit/orbit/events"
+	"github.com/desertbit/orbit/roc"
+	"github.com/desertbit/orbit/roe"
 )
 
 const (
 	initOpenStreamTimeout = 12 * time.Second
+
+	defaultInitROC = "roc"
+	defaultInitROE = "roe"
 )
 
 type InitAcceptStreams map[string]AcceptStreamFunc
 
-type InitControls map[string]struct {
-	Funcs  control.Funcs
-	Config *control.Config
+type InitROC struct {
+	Funcs  roc.Funcs
+	Config *roc.Config
 }
+
+type InitROCs map[string]InitROC
 
 type InitEvent struct {
 	ID     string
-	Filter events.FilterFunc
+	Filter roe.FilterFunc
 }
 
-type InitEvents map[string]struct {
-	Events []InitEvent
-	Config *control.Config
+type InitROE struct {
+	Events  []InitEvent
+	Config *roe.Config
 }
+
+type InitROEs map[string]InitROE
 
 type Init struct {
 	AcceptStreams InitAcceptStreams
-	Controls      InitControls
-	Events        InitEvents
+	ROC           InitROC
+	ROE           InitROE
 }
 
-// Init initialized this session. Pass nil to just start accepting streams.
-// Ready() must be called manually for all controls and events.
+type InitMany struct {
+	AcceptStreams InitAcceptStreams
+	ROCs          InitROCs
+	ROEs          InitROEs
+}
+
 func (s *Session) Init(opts *Init) (
-	controls map[string]*control.Control,
-	ev map[string]*events.Events,
+	roc *roc.ROC,
+	roe *roe.ROE,
+	err error,
+) {
+	rocs, roes, err := s.InitMany(&InitMany{
+		AcceptStreams: opts.AcceptStreams,
+		ROCs: map[string]InitROC{
+			defaultInitROC: opts.ROC,
+		},
+		ROEs: map[string]InitROE{
+			defaultInitROE: opts.ROE,
+		},
+	})
+	if err != nil {
+		return
+	}
+
+	roc = rocs[defaultInitROC]
+	roe = roes[defaultInitROE]
+	return
+}
+
+// InitMany initialized this session. Pass nil to just start accepting streams.
+// Ready() must be called manually for all controls and events.
+func (s *Session) InitMany(opts *InitMany) (
+	rocs map[string]*roc.ROC,
+	ev map[string]*roe.ROE,
 	err error,
 ) {
 	// Always close the session on error.
@@ -93,36 +129,36 @@ func (s *Session) Init(opts *Init) (
 		s.AcceptStream(channel, f)
 	}
 
-	// Register and initialize the controls.
-	var controlsMutex sync.Mutex
-	controls = make(map[string]*control.Control)
+	// Register and initialize the rocs.
+	var rocsMutex sync.Mutex
+	rocs = make(map[string]*roc.ROC)
 
-	handleControl := func(channel string, ctrl *control.Control) {
-		controlsMutex.Lock()
-		controls[channel] = ctrl
-		controlsMutex.Unlock()
+	handleROC := func(channel string, roc *roc.ROC) {
+		rocsMutex.Lock()
+		rocs[channel] = roc
+		rocsMutex.Unlock()
 	}
 
-	for channel, c := range opts.Controls {
-		s.openControl(
+	for channel, c := range opts.ROCs {
+		s.openROC(
 			channel, c.Funcs, c.Config,
-			handleControl, handleErr,
+			handleROC, handleErr,
 			&wg, initOpenStreamTimeout,
 		)
 	}
 
 	// Register and initialize the events.
 	var evMutex sync.Mutex
-	ev = make(map[string]*events.Events)
+	ev = make(map[string]*roe.ROE)
 
-	handleEvents := func(channel string, e *events.Events) {
+	handleEvents := func(channel string, e *roe.ROE) {
 		evMutex.Lock()
 		ev[channel] = e
 		evMutex.Unlock()
 	}
 
-	for channel, e := range opts.Events {
-		s.openEvents(
+	for channel, e := range opts.ROEs {
+		s.openROE(
 			channel,
 			e.Events, e.Config,
 			handleEvents, handleErr,
@@ -163,11 +199,11 @@ func (s *Session) Init(opts *Init) (
 	return
 }
 
-func (s *Session) openControl(
+func (s *Session) openROC(
 	channel string,
-	funcs control.Funcs,
-	config *control.Config,
-	handleResult func(channel string, ctrl *control.Control),
+	funcs roc.Funcs,
+	config *roc.Config,
+	handleResult func(channel string, roc *roc.ROC),
 	handleErr func(err error),
 	wg *sync.WaitGroup,
 	timeout time.Duration,
@@ -221,29 +257,29 @@ func (s *Session) openControl(
 			}
 		}
 
-		// Create the control.
-		ctrl := control.New(stream, config)
-		ctrl.AddFuncs(funcs)
+		// Create the ROC.
+		roc := roc.New(stream, config)
+		roc.AddFuncs(funcs)
 
-		// Close the control if the session closes.
+		// Close the ROC if the session closes.
 		go func() {
 			select {
 			case <-s.CloseChan():
-			case <-ctrl.CloseChan():
+			case <-roc.CloseChan():
 			}
-			ctrl.Close()
+			roc.Close()
 		}()
 
-		// Finally send the ready control to the handler.
-		handleResult(channel, ctrl)
+		// Finally send the ready ROC to the handler.
+		handleResult(channel, roc)
 	}()
 }
 
-func (s *Session) openEvents(
+func (s *Session) openROE(
 	channel string,
-	evs []InitEvent,
-	config *control.Config,
-	handleResult func(channel string, e *events.Events),
+	events []InitEvent,
+	config *roe.Config,
+	handleResult func(channel string, r *roe.ROE),
 	handleErr func(err error),
 	wg *sync.WaitGroup,
 	timeout time.Duration,
@@ -298,8 +334,8 @@ func (s *Session) openEvents(
 		}
 
 		// Create the events.
-		e := events.New(stream, config)
-		for _, ev := range evs {
+		e := roe.New(stream, config)
+		for _, ev := range events {
 			if ev.Filter == nil {
 				e.AddEvent(ev.ID)
 			} else {
