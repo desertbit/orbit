@@ -191,7 +191,7 @@ func (s *Session) openControl(
 
 		// Create the control.
 		ctrl := control.New(stream, config)
-		ctrl.RegisterFuncs(funcs)
+		ctrl.AddFuncs(funcs)
 
 		// Close the control if the session closes.
 		go func() {

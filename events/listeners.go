@@ -29,7 +29,7 @@ type listeners struct {
 	lMap      map[uint64]*Listener
 	idCount   uint64
 
-	activeChan chan bool
+	activeChan chan struct{}
 	removeChan chan uint64
 	closeChan  <-chan struct{}
 }
@@ -39,7 +39,7 @@ func newListeners(e *Events, eventID string) *listeners {
 		e:          e,
 		eventID:    eventID,
 		lMap:       make(map[uint64]*Listener),
-		activeChan: make(chan bool, 1),
+		activeChan: make(chan struct{}, 1),
 		removeChan: make(chan uint64, 3),
 		closeChan:  e.CloseChan(),
 	}
@@ -71,7 +71,7 @@ func (ls *listeners) add(l *Listener) {
 	ls.lMap[l.id] = l
 
 	// Activate the event.
-	ls.setActive(true)
+	ls.activateIfRequired()
 }
 
 func (ls *listeners) trigger(ctx *Context) {
@@ -82,11 +82,11 @@ func (ls *listeners) trigger(ctx *Context) {
 	ls.lMapMutex.Unlock()
 }
 
-func (ls *listeners) setActive(active bool) {
+func (ls *listeners) activateIfRequired() {
 	// Remove the oldest value if full.
 	// Never block!
 	select {
-	case ls.activeChan <- active:
+	case ls.activeChan <- struct{}{}:
 	default:
 		select {
 		case <-ls.activeChan:
@@ -94,7 +94,7 @@ func (ls *listeners) setActive(active bool) {
 		}
 
 		select {
-		case ls.activeChan <- active:
+		case ls.activeChan <- struct{}{}:
 		default:
 		}
 	}
@@ -111,8 +111,9 @@ func (ls *listeners) activeRoutine() {
 	}()
 
 	var (
-		err    error
-		active bool
+		err      error
+		activate bool
+		isActive bool
 	)
 
 Loop:
@@ -121,16 +122,20 @@ Loop:
 		case <-ls.closeChan:
 			return
 
-		case a := <-ls.activeChan:
+		case <-ls.activeChan:
+			ls.lMapMutex.Lock()
+			activate = len(ls.lMap) != 0
+			ls.lMapMutex.Unlock()
+
 			// Only proceed, if the state changed.
-			if a == active {
+			if isActive == activate {
 				continue Loop
 			}
-			active = a
+			isActive = activate
 
-			err = ls.e.callSetEvent(ls.eventID, active)
+			err = ls.e.callSetEvent(ls.eventID, isActive)
 			if err != nil {
-				// TODO: log.
+				ls.e.logger.Printf("listeners event '%s': callSetEvent error: %v", ls.eventID, err)
 				return
 			}
 
@@ -138,7 +143,7 @@ Loop:
 			ls.lMapMutex.Lock()
 			delete(ls.lMap, id)
 			if len(ls.lMap) == 0 {
-				ls.setActive(false) // Deactivate the event if no listeners are left
+				ls.activateIfRequired() // Deactivate the event if no listeners are left
 			}
 			ls.lMapMutex.Unlock()
 		}

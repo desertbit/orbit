@@ -87,7 +87,7 @@ func NewSession(remoteAddr string) (s *Session, err error) {
 		return
 	}
 	evs := events.New(eventStream, nil)
-	evs.RegisterEvent(api.HelloEvent)
+	evs.AddEvent(api.HelloEvent)
 
 	go func() {
 		time.Sleep(2 * time.Second)

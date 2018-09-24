@@ -47,3 +47,8 @@ type TriggerEvent struct {
 	ID   string
 	Data []byte
 }
+
+type SetEventFilter struct {
+	ID   string
+	Data []byte
+}

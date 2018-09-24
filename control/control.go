@@ -27,6 +27,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/desertbit/orbit/codec"
 	"github.com/desertbit/orbit/codec/msgpack"
 	"github.com/desertbit/orbit/internal/api"
 	"github.com/desertbit/orbit/packet"
@@ -50,16 +51,16 @@ var (
 )
 
 // Func defines a callable PAKT function.
-type Func func(c *Context) (data interface{}, err error)
+type Func func(ctx *Context) (data interface{}, err error)
 
 // Funcs defines a set of functions.
 type Funcs map[string]Func
 
 // CallHook defines the callback function.
-type CallHook func(s *Control, funcID string, c *Context)
+type CallHook func(c *Control, funcID string, ctx *Context)
 
 // ErrorHook defines the error callback function.
-type ErrorHook func(s *Control, funcID string, err error)
+type ErrorHook func(c *Control, funcID string, err error)
 
 // Control defines the PAKT socket implementation.
 type Control struct {
@@ -97,71 +98,74 @@ func New(conn net.Conn, config *Config) *Control {
 	return s
 }
 
-// TODO:
-func (s *Control) Config() *Config {
-	return s.config
+func (c *Control) Logger() *log.Logger {
+	return c.logger
+}
+
+func (c *Control) Codec() codec.Codec {
+	return c.config.Codec
 }
 
 // Ready signalizes the Control that the initialization is done.
 // The socket starts reading from the underlying connection.
 // This should be only called once per socket.
-func (s *Control) Ready() {
+func (c *Control) Ready() {
 	// Start the service routines.
-	go s.readRoutine()
+	go c.readRoutine()
 }
 
 // LocalAddr returns the local network address.
-func (s *Control) LocalAddr() net.Addr {
-	return s.conn.LocalAddr()
+func (c *Control) LocalAddr() net.Addr {
+	return c.conn.LocalAddr()
 }
 
 // RemoteAddr returns the remote network address.
-func (s *Control) RemoteAddr() net.Addr {
-	return s.conn.RemoteAddr()
+func (c *Control) RemoteAddr() net.Addr {
+	return c.conn.RemoteAddr()
 }
 
 // SetCallHook sets the call hook function which is triggered, if a local
 // remote callable function will be called. This hook can be used for logging purpose.
 // Only set this hook during initialization.
-func (s *Control) SetCallHook(h CallHook) {
-	s.callHook = h
+func (c *Control) SetCallHook(h CallHook) {
+	c.callHook = h
 }
 
 // SetErrorHook sets the error hook function which is triggered, if a local
 // remote callable function returns an error. This hook can be used for logging purpose.
 // Only set this hook during initialization.
-func (s *Control) SetErrorHook(h ErrorHook) {
-	s.errorHook = h
+func (c *Control) SetErrorHook(h ErrorHook) {
+	c.errorHook = h
 }
 
-// RegisterFunc registers a remote function.
+// AddFunc registers a remote function.
 // This method is thread-safe.
-func (s *Control) RegisterFunc(id string, f Func) {
-	s.funcMapMutex.Lock()
-	s.funcMap[id] = f
-	s.funcMapMutex.Unlock()
+func (c *Control) AddFunc(id string, f Func) {
+	c.funcMapMutex.Lock()
+	c.funcMap[id] = f
+	c.funcMapMutex.Unlock()
 }
 
-// RegisterFuncs registers a map of remote functions.
+// AddFuncs registers a map of remote functions.
 // This method is thread-safe.
-func (s *Control) RegisterFuncs(funcs Funcs) {
+func (c *Control) AddFuncs(funcs Funcs) {
 	// Lock the mutex.
-	s.funcMapMutex.Lock()
-	defer s.funcMapMutex.Unlock()
+	c.funcMapMutex.Lock()
+	defer c.funcMapMutex.Unlock()
 
 	// Iterate through the map and register the functions.
 	for id, f := range funcs {
-		s.funcMap[id] = f
+		c.funcMap[id] = f
 	}
 }
 
 // OneShot calls a remote function without a return request.
-func (s *Control) OneShot(id string, data interface{}) error {
+func (c *Control) OneShot(id string, data interface{}) error {
 	header := &api.ControlCall{
 		ID: id,
 	}
 
-	return s.write(typeCall, header, data)
+	return c.write(typeCall, header, data)
 }
 
 // Call a remote function and wait for its result.
@@ -170,18 +174,18 @@ func (s *Control) OneShot(id string, data interface{}) error {
 // Returns ErrTimeout on a timeout.
 // Returns ErrClosed if the connection is closed.
 // This method is thread-safe.
-func (s *Control) Call(id string, data interface{}) (*Context, error) {
-	return s.CallTimeout(id, data, s.config.CallTimeout)
+func (c *Control) Call(id string, data interface{}) (*Context, error) {
+	return c.CallTimeout(id, data, c.config.CallTimeout)
 }
 
 // CallTimeout sames as Call but with custom timeout.
-func (s *Control) CallTimeout(id string, data interface{}, timeout time.Duration) (ctx *Context, err error) {
+func (c *Control) CallTimeout(id string, data interface{}, timeout time.Duration) (ctx *Context, err error) {
 	// Create a new channel with its key.
-	key, channel, err := s.funcChain.New()
+	key, channel, err := c.funcChain.New()
 	if err != nil {
 		return
 	}
-	defer s.funcChain.Delete(key)
+	defer c.funcChain.Delete(key)
 
 	// Create the header.
 	header := &api.ControlCall{
@@ -190,7 +194,7 @@ func (s *Control) CallTimeout(id string, data interface{}, timeout time.Duration
 	}
 
 	// Write to the client.
-	err = s.write(typeCall, header, data)
+	err = c.write(typeCall, header, data)
 	if err != nil {
 		return
 	}
@@ -201,7 +205,7 @@ func (s *Control) CallTimeout(id string, data interface{}, timeout time.Duration
 
 	// Wait for a response.
 	select {
-	case <-s.CloseChan():
+	case <-c.CloseChan():
 		err = ErrClosed
 
 	case <-timeoutTimer.C:
@@ -229,7 +233,7 @@ type retChainData struct {
 	Err     error
 }
 
-func (s *Control) write(reqType byte, headerI interface{}, dataI interface{}) (err error) {
+func (c *Control) write(reqType byte, headerI interface{}, dataI interface{}) (err error) {
 	var header, payload []byte
 
 	// Marshal the header data.
@@ -246,32 +250,32 @@ func (s *Control) write(reqType byte, headerI interface{}, dataI interface{}) (e
 			payload = v
 
 		default:
-			payload, err = s.config.Codec.Encode(dataI)
+			payload, err = c.config.Codec.Encode(dataI)
 			if err != nil {
 				return fmt.Errorf("encode: %v", err)
 			}
 		}
 	}
 
-	s.writeMutex.Lock()
-	defer s.writeMutex.Unlock()
+	c.writeMutex.Lock()
+	defer c.writeMutex.Unlock()
 
-	err = s.conn.SetWriteDeadline(time.Now().Add(s.config.WriteTimeout))
+	err = c.conn.SetWriteDeadline(time.Now().Add(c.config.WriteTimeout))
 	if err != nil {
 		return err
 	}
 
-	_, err = s.conn.Write([]byte{reqType})
+	_, err = c.conn.Write([]byte{reqType})
 	if err != nil {
 		return err
 	}
 
-	err = packet.Write(s.conn, header, s.config.MaxMessageSize)
+	err = packet.Write(c.conn, header, c.config.MaxMessageSize)
 	if err != nil {
 		return err
 	}
 
-	err = packet.Write(s.conn, payload, s.config.MaxMessageSize)
+	err = packet.Write(c.conn, payload, c.config.MaxMessageSize)
 	if err != nil {
 		return err
 	}
@@ -279,9 +283,9 @@ func (s *Control) write(reqType byte, headerI interface{}, dataI interface{}) (e
 	return nil
 }
 
-func (s *Control) readRoutine() {
+func (c *Control) readRoutine() {
 	// Close the control on exit.
-	defer s.Close()
+	defer c.Close()
 
 	// Warning: don't shadow the error.
 	// Otherwise the defered logging won't work!
@@ -300,8 +304,8 @@ func (s *Control) readRoutine() {
 		}
 
 		// Only log if not closed.
-		if err != nil && err != io.EOF && !s.IsClosed() {
-			s.logger.Printf("control: read: %v", err)
+		if err != nil && err != io.EOF && !c.IsClosed() {
+			c.logger.Printf("control: read: %v", err)
 		}
 	}()
 
@@ -309,7 +313,7 @@ func (s *Control) readRoutine() {
 		bytesRead = 0
 
 		// No timeout, as we need to wait here for any incoming request.
-		err = s.conn.SetReadDeadline(time.Time{})
+		err = c.conn.SetReadDeadline(time.Time{})
 		if err != nil {
 			return
 		}
@@ -317,7 +321,7 @@ func (s *Control) readRoutine() {
 		// Read the reqType from the stream.
 		// Read in a loop, as Read could potentially return 0 read bytes.
 		for bytesRead == 0 {
-			n, err = s.conn.Read(reqTypeBuf)
+			n, err = c.conn.Read(reqTypeBuf)
 			if err != nil {
 				return
 			}
@@ -326,34 +330,34 @@ func (s *Control) readRoutine() {
 
 		reqType = reqTypeBuf[0]
 
-		err = s.conn.SetReadDeadline(time.Now().Add(s.config.ReadTimeout))
+		err = c.conn.SetReadDeadline(time.Now().Add(c.config.ReadTimeout))
 		if err != nil {
 			return
 		}
 
 		// Read the header from the stream.
-		headerData, err = packet.Read(s.conn, nil, s.config.MaxMessageSize)
+		headerData, err = packet.Read(c.conn, nil, c.config.MaxMessageSize)
 		if err != nil {
 			return
 		}
 
 		// Read the payload from the stream.
-		payloadData, err = packet.Read(s.conn, nil, s.config.MaxMessageSize)
+		payloadData, err = packet.Read(c.conn, nil, c.config.MaxMessageSize)
 		if err != nil {
 			return
 		}
 
 		// Handle the received message in a new goroutine.
 		go func() {
-			gerr := s.handleReceivedMessage(reqType, headerData, payloadData)
+			gerr := c.handleReceivedMessage(reqType, headerData, payloadData)
 			if gerr != nil {
-				s.logger.Printf("control: handleReceivedMessage: %v", gerr)
+				c.logger.Printf("control: handleReceivedMessage: %v", gerr)
 			}
 		}()
 	}
 }
 
-func (s *Control) handleReceivedMessage(reqType byte, headerData, payloadData []byte) (err error) {
+func (c *Control) handleReceivedMessage(reqType byte, headerData, payloadData []byte) (err error) {
 	// Catch panics.
 	defer func() {
 		if e := recover(); e != nil {
@@ -364,10 +368,10 @@ func (s *Control) handleReceivedMessage(reqType byte, headerData, payloadData []
 	// Check the request type.
 	switch reqType {
 	case typeCall:
-		err = s.handleCallRequest(headerData, payloadData)
+		err = c.handleCallRequest(headerData, payloadData)
 
 	case typeCallReturn:
-		err = s.handleCallReturnRequest(headerData, payloadData)
+		err = c.handleCallReturnRequest(headerData, payloadData)
 
 	default:
 		err = fmt.Errorf("invalid request type: %v", reqType)
@@ -375,25 +379,25 @@ func (s *Control) handleReceivedMessage(reqType byte, headerData, payloadData []
 	return
 }
 
-func (s *Control) handleCallRequest(headerData, payloadData []byte) (err error) {
+func (c *Control) handleCallRequest(headerData, payloadData []byte) (err error) {
 	var header api.ControlCall
 	err = msgpack.Codec.Decode(headerData, &header)
 	if err != nil {
 		return fmt.Errorf("decode control call: %v", err)
 	}
 
-	s.funcMapMutex.RLock()
-	f, ok := s.funcMap[header.ID]
-	s.funcMapMutex.RUnlock()
+	c.funcMapMutex.RLock()
+	f, ok := c.funcMap[header.ID]
+	c.funcMapMutex.RUnlock()
 	if !ok {
 		return fmt.Errorf("call request: requested function does not exist: id=%v", header.ID)
 	}
 
-	ctx := newContext(s, payloadData)
+	ctx := newContext(c, payloadData)
 
 	// Call the call hook if defined.
-	if s.callHook != nil {
-		s.callHook(s, header.ID, ctx)
+	if c.callHook != nil {
+		c.callHook(c, header.ID, ctx)
 	}
 
 	var (
@@ -403,13 +407,13 @@ func (s *Control) handleCallRequest(headerData, payloadData []byte) (err error) 
 
 	retData, retErr := f(ctx)
 	if retErr != nil {
-		s.logger.Printf("call request: id='%v': returned error: %v", header.ID, retErr)
+		c.logger.Printf("call request: id='%v': returned error: %v", header.ID, retErr)
 
 		// Decide what to send back to the caller.
 		if cErr, ok := retErr.(Error); ok {
 			code = cErr.Code()
 			msg = cErr.Msg()
-		} else if s.config.SendErrToCaller {
+		} else if c.config.SendErrToCaller {
 			msg = retErr.Error()
 		}
 
@@ -430,20 +434,20 @@ func (s *Control) handleCallRequest(headerData, payloadData []byte) (err error) 
 		Code: code,
 	}
 
-	err = s.write(typeCallReturn, retHeader, retData)
+	err = c.write(typeCallReturn, retHeader, retData)
 	if err != nil {
 		return fmt.Errorf("call request: send return request: %v", err)
 	}
 
 	// Call the error hook if defined.
-	if retErr != nil && s.errorHook != nil {
-		s.errorHook(s, header.ID, retErr)
+	if retErr != nil && c.errorHook != nil {
+		c.errorHook(c, header.ID, retErr)
 	}
 
 	return nil
 }
 
-func (s *Control) handleCallReturnRequest(headerData, payloadData []byte) (err error) {
+func (c *Control) handleCallReturnRequest(headerData, payloadData []byte) (err error) {
 	var header api.ControlCallReturn
 	err = msgpack.Codec.Decode(headerData, &header)
 	if err != nil {
@@ -451,13 +455,13 @@ func (s *Control) handleCallReturnRequest(headerData, payloadData []byte) (err e
 	}
 
 	// Get the channel by the key.
-	channel := s.funcChain.Get(header.Key)
+	channel := c.funcChain.Get(header.Key)
 	if channel == nil {
 		return fmt.Errorf("call return request failed (call timeout exceeded?)")
 	}
 
 	// Create a new context.
-	ctx := newContext(s, payloadData)
+	ctx := newContext(c, payloadData)
 
 	// Create the channel data.
 	rData := retChainData{Context: ctx}

@@ -19,7 +19,7 @@
 package events
 
 import (
-	"errors"
+	"log"
 	"net"
 	"sync"
 
@@ -31,19 +31,17 @@ import (
 )
 
 const (
-	cmdSetEvent     = "SetEvent"
-	cmdTriggerEvent = "TriggerEvent"
-)
-
-var (
-	ErrEventNotFound = errors.New("event not found")
+	cmdSetEvent       = "SetEvent"
+	cmdTriggerEvent   = "TriggerEvent"
+	cmdSetEventFilter = "SetEventFilter"
 )
 
 type Events struct {
 	closer.Closer
 
-	ctrl  *control.Control
-	codec codec.Codec
+	ctrl   *control.Control
+	codec  codec.Codec
+	logger *log.Logger
 
 	eventMapMutex sync.Mutex
 	eventMap      map[string]*Event
@@ -57,14 +55,16 @@ func New(conn net.Conn, config *control.Config) (e *Events) {
 	e = &Events{
 		Closer:   ctrl,
 		ctrl:     ctrl,
-		codec:    ctrl.Config().Codec,
+		codec:    ctrl.Codec(),
+		logger:   ctrl.Logger(),
 		eventMap: make(map[string]*Event),
 		lsMap:    make(map[string]*listeners),
 	}
 
-	e.ctrl.RegisterFuncs(control.Funcs{
-		cmdSetEvent:     e.setEvent,
-		cmdTriggerEvent: e.triggerEvent,
+	e.ctrl.AddFuncs(control.Funcs{
+		cmdSetEvent:       e.setEvent,
+		cmdTriggerEvent:   e.triggerEvent,
+		cmdSetEventFilter: e.setEventFilter,
 	})
 	e.ctrl.Ready()
 	return
@@ -82,23 +82,44 @@ func (e *Events) Event(id string) (event *Event, err error) {
 	return
 }
 
-// TODO: panic or log print event overwite.
-func (e *Events) RegisterEvent(id string) (event *Event) {
+func (e *Events) AddEvent(id string) (event *Event) {
 	event = newEvent(id)
 
 	e.eventMapMutex.Lock()
+	if _, ok := e.eventMap[id]; ok {
+		// Event is already defined
+		e.logger.Printf("event '%s' registered more than once", id)
+	}
 	e.eventMap[id] = event
 	e.eventMapMutex.Unlock()
 	return
 }
 
-// TODO: panic or log print event overwite.
-func (e *Events) RegisterEvents(ids []string) {
+func (e *Events) AddEventFilter(id string, filterFunc FilterFunc) (event *Event) {
+	event = e.AddEvent(id)
+	event.setFilterFunc(filterFunc)
+	return event
+}
+
+func (e *Events) AddEvents(ids []string) {
 	e.eventMapMutex.Lock()
 	for _, id := range ids {
+		if _, ok := e.eventMap[id]; ok {
+			// Event is already defined
+			e.logger.Printf("event '%s' registered more than once", id)
+		}
 		e.eventMap[id] = newEvent(id)
 	}
 	e.eventMapMutex.Unlock()
+}
+
+func (e *Events) SetEventFilter(id string, data interface{}) (err error) {
+	err = e.callSetEventFilter(id, data)
+	if err != nil {
+		return
+	}
+
+	return
 }
 
 func (e *Events) TriggerEvent(id string, data interface{}) (err error) {
@@ -108,6 +129,13 @@ func (e *Events) TriggerEvent(id string, data interface{}) (err error) {
 	}
 
 	if event.isActive() {
+		// Check if the event is filtered out
+		var conformsToFilter bool
+		conformsToFilter, err = event.conformsToFilter(data)
+		if err != nil || !conformsToFilter {
+			return
+		}
+
 		err = e.callTriggerEvent(id, data)
 		if err != nil {
 			return
@@ -173,7 +201,6 @@ func (e *Events) callSetEvent(id string, active bool) (err error) {
 		Active: active,
 	}
 
-	// TODO: set timeout!
 	_, err = e.ctrl.Call(cmdSetEvent, &data)
 	if err != nil {
 		if cErr, ok := err.(*control.ErrorCode); ok && cErr.Code == 2 {
@@ -234,6 +261,51 @@ func (e *Events) triggerEvent(ctx *control.Context) (v interface{}, err error) {
 	// Trigger the event if defined.
 	if ls != nil {
 		ls.trigger(eventCtx)
+	}
+
+	return
+}
+
+// Set the filter on the remote peer's event.
+func (e *Events) callSetEventFilter(id string, data interface{}) (err error) {
+	dataBytes, err := e.codec.Encode(data)
+	if err != nil {
+		return
+	}
+
+	_, err = e.ctrl.Call(cmdSetEventFilter, &api.SetEventFilter{
+		ID:   id,
+		Data: dataBytes,
+	})
+	if err != nil {
+		if cErr, ok := err.(*control.ErrorCode); ok && cErr.Code == 2 {
+			err = ErrEventNotFound
+		}
+		return
+	}
+
+	return
+}
+
+// Called when the remote peer wants to set a filter on an event.
+func (e *Events) setEventFilter(ctx *control.Context) (v interface{}, err error) {
+	var data api.SetEventFilter
+	err = ctx.Decode(&data)
+	if err != nil {
+		err = control.Err(err, "internal error", 1)
+		return
+	}
+
+	event, err := e.Event(data.ID)
+	if err != nil {
+		err = control.Err(err, "event does not exists", 2)
+		return
+	}
+
+	err = event.setFilter(newContext(data.Data, e.codec))
+	if err != nil {
+		err = control.Err(err, "internal error", 1)
+		return
 	}
 
 	return

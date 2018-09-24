@@ -88,7 +88,11 @@ func (l *Listener) bindFunc(f func(ctx *Context)) {
 }
 
 func (l *Listener) callFuncRoutine(f func(ctx *Context)) {
-	// TODO: catch and log panic.
+	defer func() {
+		if e := recover(); e != nil {
+			l.ls.e.logger.Printf("listener func routine panic: %v", e)
+		}
+	}()
 
 	closeChan := l.closer.CloseChan()
 
@@ -96,6 +100,7 @@ func (l *Listener) callFuncRoutine(f func(ctx *Context)) {
 		select {
 		case <-l.ls.closeChan:
 			return
+
 		case <-closeChan:
 			return
 
