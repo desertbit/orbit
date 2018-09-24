@@ -39,7 +39,13 @@ type InitControls map[string]struct {
 	Config *control.Config
 }
 
+type InitEvent struct {
+	ID string
+	Filter events.FilterFunc
+}
+
 type InitEvents map[string]struct {
+	Events []InitEvent
 	Config *control.Config
 }
 
@@ -116,7 +122,8 @@ func (s *Session) Init(opts *Init) (
 
 	for channel, e := range opts.Events {
 		s.openEvents(
-			channel, e.Config,
+			channel,
+			e.Events, e.Config,
 			handleEvents, handleErr,
 			&wg, initOpenStreamTimeout,
 		)
@@ -233,6 +240,7 @@ func (s *Session) openControl(
 
 func (s *Session) openEvents(
 	channel string,
+	evs []InitEvent,
 	config *control.Config,
 	handleResult func(channel string, e *events.Events),
 	handleErr func(err error),
@@ -290,6 +298,9 @@ func (s *Session) openEvents(
 
 		// Create the events.
 		e := events.New(stream, config)
+		for _, ev := range evs {
+			_ = e.AddEventFilter(ev.ID, ev.Filter)
+		}
 
 		// Close the events if the session closes.
 		go func() {
