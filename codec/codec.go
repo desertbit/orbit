@@ -17,12 +17,17 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-// Package codec contains sub-packages with different codecs that can be used
-// to encode/decode any entity to/from a byte stream.
+/*
+Package codec contains sub-packages with different codecs that can be used
+to encode/decode any entity to/from a byte stream.
+*/
 package codec
 
 // Codec represents a codec used to encode and decode entities.
 type Codec interface {
+	// Encode encodes the value to a byte slice.
 	Encode(v interface{}) ([]byte, error)
+
+	// Decode decodes the byte slice into the value.
 	Decode(b []byte, v interface{}) error
 }

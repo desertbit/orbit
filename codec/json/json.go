@@ -33,13 +33,13 @@ var Codec = &jsonCodec{}
 // to implement the codec.Codec interface using JSON.
 type jsonCodec struct{}
 
-// Encode the value to a json byte slice.
+// Implements the codec.Codec interface.
 // It uses the json.Marshal func.
 func (j *jsonCodec) Encode(v interface{}) ([]byte, error) {
 	return json.Marshal(v)
 }
 
-// Decode the byte slice to a value.
+// Implements the codec.Codec interface.
 // It uses the json.Unmarshal func.
 func (j *jsonCodec) Decode(b []byte, v interface{}) error {
 	return json.Unmarshal(b, v)

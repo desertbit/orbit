@@ -31,14 +31,14 @@ import (
 	"gopkg.in/vmihailenco/msgpack.v3"
 )
 
-// Codec that encodes to and decodes from MSGPack.
+// Codec that encodes to and decodes from msgpack.
 var Codec = &msgpackCodec{}
 
 // The msgpackCodec type is a private dummy struct used
 // to implement the codec.Codec interface using msgpack.
 type msgpackCodec struct{}
 
-// Encode the value to a msgpack byte slice.
+// Implements the codec.Codec interface.
 // It uses the faster msgp.Marshaler if implemented.
 func (mc *msgpackCodec) Encode(v interface{}) ([]byte, error) {
 	if d, ok := v.(msgp.Marshaler); ok {
@@ -48,7 +48,7 @@ func (mc *msgpackCodec) Encode(v interface{}) ([]byte, error) {
 	return msgpack.Marshal(v)
 }
 
-// Decode the byte slice to a value.
+// Implements the codec.Codec interface.
 // It uses the faster msgp.Unmarshaler if implemented.
 func (mc *msgpackCodec) Decode(b []byte, v interface{}) error {
 	if d, ok := v.(msgp.Unmarshaler); ok {
