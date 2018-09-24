@@ -17,21 +17,30 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+/*
+Package msgpack offers an implementation of the codec.Codec interface
+for the msgpack data format. It uses the faster
+"github.com/tinylib/msgp/msgp"'s Un-/Marshaler, if it is implemented
+on the entity. Otherwise, it falls back to using the Un-/Marshal funcs
+from the "gopkg.in/vmihailenco/msgpack.v3" package.
+*/
 package msgpack
 
 import (
 	"github.com/tinylib/msgp/msgp"
-	msgpack "gopkg.in/vmihailenco/msgpack.v3"
+	"gopkg.in/vmihailenco/msgpack.v3"
 )
 
 // Codec that encodes to and decodes from MSGPack.
 var Codec = &msgpackCodec{}
 
+// The msgpackCodec type is a private dummy struct used
+// to implement the codec.Codec interface using msgpack.
 type msgpackCodec struct{}
 
 // Encode the value to a msgpack byte slice.
 // It uses the faster msgp.Marshaler if implemented.
-func (c *msgpackCodec) Encode(v interface{}) ([]byte, error) {
+func (mc *msgpackCodec) Encode(v interface{}) ([]byte, error) {
 	if d, ok := v.(msgp.Marshaler); ok {
 		return d.MarshalMsg(nil)
 	}
@@ -41,7 +50,7 @@ func (c *msgpackCodec) Encode(v interface{}) ([]byte, error) {
 
 // Decode the byte slice to a value.
 // It uses the faster msgp.Unmarshaler if implemented.
-func (c *msgpackCodec) Decode(b []byte, v interface{}) error {
+func (mc *msgpackCodec) Decode(b []byte, v interface{}) error {
 	if d, ok := v.(msgp.Unmarshaler); ok {
 		_, err := d.UnmarshalMsg(b)
 		return err

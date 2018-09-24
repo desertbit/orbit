@@ -18,7 +18,7 @@
  */
 
 // Package codec contains sub-packages with different codecs that can be used
-// to encode and decode the Orbit messages.
+// to encode/decode any entity to/from a byte stream.
 package codec
 
 // Codec represents a codec used to encode and decode entities.

@@ -17,6 +17,11 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+/*
+Package json offers an implementation of the codec.Codec interface
+for the json data format. It uses the "encoding/json" pkg to en-/decode
+an entity to/from a byte slice.
+*/
 package json
 
 import "encoding/json"
@@ -24,12 +29,18 @@ import "encoding/json"
 // Codec that encodes to and decodes from JSON.
 var Codec = &jsonCodec{}
 
+// The jsonCodec type is a private dummy struct used
+// to implement the codec.Codec interface using JSON.
 type jsonCodec struct{}
 
+// Encode the value to a json byte slice.
+// It uses the json.Marshal func.
 func (j *jsonCodec) Encode(v interface{}) ([]byte, error) {
 	return json.Marshal(v)
 }
 
+// Decode the byte slice to a value.
+// It uses the json.Unmarshal func.
 func (j *jsonCodec) Decode(b []byte, v interface{}) error {
 	return json.Unmarshal(b, v)
 }
