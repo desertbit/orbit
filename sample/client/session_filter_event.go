@@ -20,9 +20,10 @@
 package main
 
 import (
-	"github.com/desertbit/orbit/signaler"
-	"github.com/desertbit/orbit/sample/api"
 	"github.com/pkg/errors"
+
+	"github.com/desertbit/orbit/sample/api"
+	"github.com/desertbit/orbit/signaler"
 )
 
 func filter(ctx *signaler.Context) (f signaler.Filter, err error) {
@@ -35,7 +36,7 @@ func filter(ctx *signaler.Context) (f signaler.Filter, err error) {
 	f = func(data interface{}) (conforms bool, err error) {
 		d, ok := data.(*api.SignalData)
 		if !ok {
-			err = errors.New("could not cast to EventData")
+			err = errors.New("could not cast to SignalData")
 			return
 		}
 
