@@ -17,7 +17,7 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package events
+package signaler
 
 import "github.com/desertbit/closer"
 
@@ -26,7 +26,7 @@ const (
 )
 
 type Listener struct {
-	// C is filled up with the triggered events.
+	// C is filled up with the triggered signaler.
 	// Use OffChan() to stop your reading routine.
 	C <-chan *Context
 	c chan *Context
@@ -40,7 +40,7 @@ type Listener struct {
 
 func newListener(ls *listeners, chanSize int, once bool) *Listener {
 	if chanSize <= 0 {
-		panic("orbit: event: invalid channel size for listener")
+		panic("orbit: signal: invalid channel size for listener")
 	}
 
 	c := make(chan *Context, chanSize)
@@ -91,7 +91,7 @@ func (l *Listener) bindFunc(f func(ctx *Context)) {
 func (l *Listener) callFuncRoutine(f func(ctx *Context)) {
 	defer func() {
 		if e := recover(); e != nil {
-			l.ls.e.logger.Printf("listener func routine panic: %v", e)
+			l.ls.s.logger.Printf("listener func routine panic: %v", e)
 		}
 	}()
 

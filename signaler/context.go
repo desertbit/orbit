@@ -17,7 +17,7 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package events
+package signaler
 
 import (
 	"errors"
@@ -31,7 +31,7 @@ var (
 	ErrNoContextData = errors.New("no context data available to decode")
 )
 
-// A Context defines an event context.
+// A Context defines an signal context.
 type Context struct {
 	// Data is the raw byte representation of the encoded context data.
 	Data []byte

@@ -20,12 +20,12 @@
 package main
 
 import (
-	"github.com/desertbit/orbit/events"
+	"github.com/desertbit/orbit/signaler"
 	"github.com/desertbit/orbit/sample/api"
 	"github.com/pkg/errors"
 )
 
-func filter(ctx *events.Context) (f events.Filter, err error) {
+func filter(ctx *signaler.Context) (f signaler.Filter, err error) {
 	var fData api.FilterData
 	err = ctx.Decode(&fData)
 	if err != nil {
@@ -33,7 +33,7 @@ func filter(ctx *events.Context) (f events.Filter, err error) {
 	}
 
 	f = func(data interface{}) (conforms bool, err error) {
-		d, ok := data.(*api.EventData)
+		d, ok := data.(*api.SignalData)
 		if !ok {
 			err = errors.New("could not cast to EventData")
 			return

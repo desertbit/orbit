@@ -54,39 +54,32 @@ func NewSession(remoteAddr string) (s *Session, err error) {
 		}
 	}()
 
-	controls, evs, err := s.Init(&orbit.Init{
-		Controls: orbit.InitControls{
-			"control": {
+	ctrl, sig, err := s.Init(&orbit.Init{
+		Control: orbit.InitControl{
 				Funcs: map[string]control.Func{
 
 				},
 				Config: nil, // Optional. Can be removed from here...
 			},
-		},
-		Events: orbit.InitEvents{
-			api.ChannelIDEvent: {
-				Events: []orbit.InitEvent{
+		Signaler: orbit.InitSignaler{
+				Signals: []orbit.InitSignal{
 					{
-						ID: api.EventFilter,
+						ID: api.SignalFilter,
 						Filter: filter,
 					},
 				},
-			},
 		},
 	})
 	if err != nil {
 		return
 	}
 
-	ctrl := controls["control"]
 	ctrl.Ready()
-
-	eventEvents := evs[api.ChannelIDEvent]
-	eventEvents.Ready()
+	sig.Ready()
 
 	time.Sleep(time.Second)
 
-	eventEvents.TriggerEvent(api.EventFilter, &api.EventData{ID: "5", Name: "Hello"})
+	sig.TriggerSignal(api.SignalFilter, &api.SignalData{ID: "5", Name: "Hello"})
 
 	time.Sleep(time.Second)
 	s.Close()

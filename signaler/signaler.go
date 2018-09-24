@@ -17,7 +17,7 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package events
+package signaler
 
 import (
 	"log"
@@ -31,47 +31,47 @@ import (
 )
 
 const (
-	cmdSetEvent       = "SetEvent"
-	cmdTriggerEvent   = "TriggerEvent"
-	cmdSetEventFilter = "SetEventFilter"
+	cmdSetSignal       = "SetSignal"
+	cmdTriggerSignal   = "TriggerSignal"
+	cmdSetSignalFilter = "SetSignalFilter"
 )
 
-type Events struct {
+type Signaler struct {
 	closer.Closer
 
 	ctrl   *control.Control
 	codec  codec.Codec
 	logger *log.Logger
 
-	eventMapMutex sync.Mutex
-	eventMap      map[string]*event
+	signalsMutex sync.Mutex
+	signals      map[string]*signal
 
 	lsMapMutex sync.Mutex
 	lsMap      map[string]*listeners
 }
 
-func New(conn net.Conn, config *control.Config) (e *Events) {
+func New(conn net.Conn, config *control.Config) (s *Signaler) {
 	ctrl := control.New(conn, config)
-	e = &Events{
-		Closer:   ctrl,
-		ctrl:     ctrl,
-		codec:    ctrl.Codec(),
-		logger:   ctrl.Logger(),
-		eventMap: make(map[string]*event),
-		lsMap:    make(map[string]*listeners),
+	s = &Signaler{
+		Closer:  ctrl,
+		ctrl:    ctrl,
+		codec:   ctrl.Codec(),
+		logger:  ctrl.Logger(),
+		signals: make(map[string]*signal),
+		lsMap:   make(map[string]*listeners),
 	}
 
-	e.ctrl.AddFuncs(control.Funcs{
-		cmdSetEvent:       e.setEvent,
-		cmdTriggerEvent:   e.triggerEvent,
-		cmdSetEventFilter: e.setEventFilter,
+	s.ctrl.AddFuncs(control.Funcs{
+		cmdSetSignal:       s.setSignal,
+		cmdTriggerSignal:   s.triggerSignal,
+		cmdSetSignalFilter: s.setSignalFilter,
 	})
 	return
 }
 
 // Ready signalizes that the initialization is done.
-// Events can now be triggered.
+// Signaler can now be triggered.
 // This should be only called once.
-func (e *Events) Ready() {
-	e.ctrl.Ready()
+func (s *Signaler) Ready() {
+	s.ctrl.Ready()
 }

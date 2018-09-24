@@ -39,17 +39,17 @@ type ControlCallReturn struct {
 	Code int
 }
 
-type SetEvent struct {
+type SetSignal struct {
 	ID     string
 	Active bool
 }
 
-type TriggerEvent struct {
+type TriggerSignal struct {
 	ID   string
 	Data []byte
 }
 
-type SetEventFilter struct {
+type SetSignalFilter struct {
 	ID   string
 	Data []byte
 }

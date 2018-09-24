@@ -355,7 +355,7 @@ func (z InitStream) Msgsize() (s int) {
 }
 
 // DecodeMsg implements msgp.Decodable
-func (z *SetEvent) DecodeMsg(dc *msgp.Reader) (err error) {
+func (z *SetSignal) DecodeMsg(dc *msgp.Reader) (err error) {
 	var field []byte
 	_ = field
 	var zb0001 uint32
@@ -391,7 +391,7 @@ func (z *SetEvent) DecodeMsg(dc *msgp.Reader) (err error) {
 }
 
 // EncodeMsg implements msgp.Encodable
-func (z SetEvent) EncodeMsg(en *msgp.Writer) (err error) {
+func (z SetSignal) EncodeMsg(en *msgp.Writer) (err error) {
 	// map header, size 2
 	// write "ID"
 	err = en.Append(0x82, 0xa2, 0x49, 0x44)
@@ -415,7 +415,7 @@ func (z SetEvent) EncodeMsg(en *msgp.Writer) (err error) {
 }
 
 // MarshalMsg implements msgp.Marshaler
-func (z SetEvent) MarshalMsg(b []byte) (o []byte, err error) {
+func (z SetSignal) MarshalMsg(b []byte) (o []byte, err error) {
 	o = msgp.Require(b, z.Msgsize())
 	// map header, size 2
 	// string "ID"
@@ -428,7 +428,7 @@ func (z SetEvent) MarshalMsg(b []byte) (o []byte, err error) {
 }
 
 // UnmarshalMsg implements msgp.Unmarshaler
-func (z *SetEvent) UnmarshalMsg(bts []byte) (o []byte, err error) {
+func (z *SetSignal) UnmarshalMsg(bts []byte) (o []byte, err error) {
 	var field []byte
 	_ = field
 	var zb0001 uint32
@@ -465,13 +465,13 @@ func (z *SetEvent) UnmarshalMsg(bts []byte) (o []byte, err error) {
 }
 
 // Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
-func (z SetEvent) Msgsize() (s int) {
+func (z SetSignal) Msgsize() (s int) {
 	s = 1 + 3 + msgp.StringPrefixSize + len(z.ID) + 7 + msgp.BoolSize
 	return
 }
 
 // DecodeMsg implements msgp.Decodable
-func (z *SetEventFilter) DecodeMsg(dc *msgp.Reader) (err error) {
+func (z *SetSignalFilter) DecodeMsg(dc *msgp.Reader) (err error) {
 	var field []byte
 	_ = field
 	var zb0001 uint32
@@ -507,7 +507,7 @@ func (z *SetEventFilter) DecodeMsg(dc *msgp.Reader) (err error) {
 }
 
 // EncodeMsg implements msgp.Encodable
-func (z *SetEventFilter) EncodeMsg(en *msgp.Writer) (err error) {
+func (z *SetSignalFilter) EncodeMsg(en *msgp.Writer) (err error) {
 	// map header, size 2
 	// write "ID"
 	err = en.Append(0x82, 0xa2, 0x49, 0x44)
@@ -531,7 +531,7 @@ func (z *SetEventFilter) EncodeMsg(en *msgp.Writer) (err error) {
 }
 
 // MarshalMsg implements msgp.Marshaler
-func (z *SetEventFilter) MarshalMsg(b []byte) (o []byte, err error) {
+func (z *SetSignalFilter) MarshalMsg(b []byte) (o []byte, err error) {
 	o = msgp.Require(b, z.Msgsize())
 	// map header, size 2
 	// string "ID"
@@ -544,7 +544,7 @@ func (z *SetEventFilter) MarshalMsg(b []byte) (o []byte, err error) {
 }
 
 // UnmarshalMsg implements msgp.Unmarshaler
-func (z *SetEventFilter) UnmarshalMsg(bts []byte) (o []byte, err error) {
+func (z *SetSignalFilter) UnmarshalMsg(bts []byte) (o []byte, err error) {
 	var field []byte
 	_ = field
 	var zb0001 uint32
@@ -581,13 +581,13 @@ func (z *SetEventFilter) UnmarshalMsg(bts []byte) (o []byte, err error) {
 }
 
 // Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
-func (z *SetEventFilter) Msgsize() (s int) {
+func (z *SetSignalFilter) Msgsize() (s int) {
 	s = 1 + 3 + msgp.StringPrefixSize + len(z.ID) + 5 + msgp.BytesPrefixSize + len(z.Data)
 	return
 }
 
 // DecodeMsg implements msgp.Decodable
-func (z *TriggerEvent) DecodeMsg(dc *msgp.Reader) (err error) {
+func (z *TriggerSignal) DecodeMsg(dc *msgp.Reader) (err error) {
 	var field []byte
 	_ = field
 	var zb0001 uint32
@@ -623,7 +623,7 @@ func (z *TriggerEvent) DecodeMsg(dc *msgp.Reader) (err error) {
 }
 
 // EncodeMsg implements msgp.Encodable
-func (z *TriggerEvent) EncodeMsg(en *msgp.Writer) (err error) {
+func (z *TriggerSignal) EncodeMsg(en *msgp.Writer) (err error) {
 	// map header, size 2
 	// write "ID"
 	err = en.Append(0x82, 0xa2, 0x49, 0x44)
@@ -647,7 +647,7 @@ func (z *TriggerEvent) EncodeMsg(en *msgp.Writer) (err error) {
 }
 
 // MarshalMsg implements msgp.Marshaler
-func (z *TriggerEvent) MarshalMsg(b []byte) (o []byte, err error) {
+func (z *TriggerSignal) MarshalMsg(b []byte) (o []byte, err error) {
 	o = msgp.Require(b, z.Msgsize())
 	// map header, size 2
 	// string "ID"
@@ -660,7 +660,7 @@ func (z *TriggerEvent) MarshalMsg(b []byte) (o []byte, err error) {
 }
 
 // UnmarshalMsg implements msgp.Unmarshaler
-func (z *TriggerEvent) UnmarshalMsg(bts []byte) (o []byte, err error) {
+func (z *TriggerSignal) UnmarshalMsg(bts []byte) (o []byte, err error) {
 	var field []byte
 	_ = field
 	var zb0001 uint32
@@ -697,7 +697,7 @@ func (z *TriggerEvent) UnmarshalMsg(bts []byte) (o []byte, err error) {
 }
 
 // Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
-func (z *TriggerEvent) Msgsize() (s int) {
+func (z *TriggerSignal) Msgsize() (s int) {
 	s = 1 + 3 + msgp.StringPrefixSize + len(z.ID) + 5 + msgp.BytesPrefixSize + len(z.Data)
 	return
 }

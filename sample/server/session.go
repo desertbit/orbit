@@ -28,7 +28,7 @@ import (
 
 	"github.com/desertbit/orbit"
 	"github.com/desertbit/orbit/control"
-	"github.com/desertbit/orbit/events"
+	"github.com/desertbit/orbit/signaler"
 	"github.com/desertbit/orbit/sample/api"
 )
 
@@ -54,13 +54,13 @@ func newSession(orbitSession *orbit.Session) (s *Session, err error) {
 		return nil
 	})
 
-	controls, ev, err := s.Init(&orbit.Init{
+	ctrl, sig, err := s.Init(&orbit.Init{
 		AcceptStreams: orbit.InitAcceptStreams{
 			api.ChannelIDRaw:    handleStreamRaw,
 			api.ChannelIDPacket: handleStreamPacket,
-			api.ChannelIDEvent: func(stream net.Conn) error {
-				evs := events.New(stream, nil)
-				l := evs.OnEvent(api.EventHello)
+			api.ChannelIDSignal: func(stream net.Conn) error {
+				evs := signaler.New(stream, nil)
+				l := evs.OnSignal(api.SignalHello)
 				data := <-l.C
 				var s string
 				msgpack.Codec.Decode(data.Data, &s)
@@ -68,8 +68,7 @@ func newSession(orbitSession *orbit.Session) (s *Session, err error) {
 				return nil
 			},
 		},
-		Controls: orbit.InitControls{
-			"control": {
+		Control: orbit.InitControl{
 				Funcs: control.Funcs{
 					"takeAHugeDump": func(c *control.Context) (interface{}, error) {
 						fmt.Println("░░░░░░░░░░░█▀▀░░█░░░░░░")
@@ -88,38 +87,32 @@ func newSession(orbitSession *orbit.Session) (s *Session, err error) {
 					},
 				},
 				Config: nil, // Optional. Can be removed from here...
-			},
 		},
-		Events: orbit.InitEvents{
-			api.ChannelIDEvent: {
+		Signaler: orbit.InitSignaler{
 				Config: nil,
-			},
 		},
 	})
 	if err != nil {
 		return
 	}
 
-	ctrl := controls["control"]
 	ctrl.Ready()
+	sig.Ready()
 
-	eventEvents := ev[api.ChannelIDEvent]
-	eventEvents.Ready()
-
-	err = eventEvents.SetEventFilter(api.EventFilter, api.FilterData{ID: "5"})
+	err = sig.SetSignalFilter(api.SignalFilter, api.FilterData{ID: "5"})
 	if err != nil {
 		return
 	}
 
-	eventEvents.OnEventFunc(api.EventFilter, func(ctx *events.Context) {
-		var data api.EventData
+	sig.OnSignalFunc(api.SignalFilter, func(ctx *signaler.Context) {
+		var data api.SignalData
 		err := ctx.Decode(&data)
 		if err != nil {
-			log.Printf("OnEventFunc: %v", err)
+			log.Printf("OnSignalFunc: %v", err)
 			return
 		}
 
-		log.Printf("received event with id %s and name %s", data.ID, data.Name)
+		log.Printf("received signal with id %s and name %s", data.ID, data.Name)
 	})
 
 	return

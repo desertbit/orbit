@@ -16,15 +16,15 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package events
+package signaler
 
 import (
 	"sync"
 )
 
 type listeners struct {
-	e       *Events
-	eventID string
+	s        *Signaler
+	signalID string
 
 	lMapMutex sync.Mutex
 	lMap      map[uint64]*Listener
@@ -35,10 +35,10 @@ type listeners struct {
 	closeChan  <-chan struct{}
 }
 
-func newListeners(e *Events, eventID string) *listeners {
+func newListeners(e *Signaler, signalID string) *listeners {
 	ls := &listeners{
-		e:          e,
-		eventID:    eventID,
+		s:          e,
+		signalID:   signalID,
 		lMap:       make(map[uint64]*Listener),
 		activeChan: make(chan struct{}, 1),
 		removeChan: make(chan uint64, 3),
@@ -71,7 +71,7 @@ func (ls *listeners) add(l *Listener) {
 
 	ls.lMap[l.id] = l
 
-	// Activate the event.
+	// Activate the signal.
 	ls.activateIfRequired()
 }
 
@@ -102,7 +102,7 @@ func (ls *listeners) activateIfRequired() {
 }
 
 func (ls *listeners) activeRoutine() {
-	// Set all events to off on exit.
+	// Set all signaler to off on exit.
 	defer func() {
 		ls.lMapMutex.Lock()
 		for _, l := range ls.lMap {
@@ -134,9 +134,9 @@ Loop:
 			}
 			isActive = activate
 
-			err = ls.e.callSetEvent(ls.eventID, isActive)
+			err = ls.s.callSetSignal(ls.signalID, isActive)
 			if err != nil {
-				ls.e.logger.Printf("listeners event '%s': callSetEvent error: %v", ls.eventID, err)
+				ls.s.logger.Printf("listeners signal '%s': callSetSignal error: %v", ls.signalID, err)
 				return
 			}
 
@@ -144,7 +144,7 @@ Loop:
 			ls.lMapMutex.Lock()
 			delete(ls.lMap, id)
 			if len(ls.lMap) == 0 {
-				ls.activateIfRequired() // Deactivate the event if no listeners are left
+				ls.activateIfRequired() // Deactivate the signal if no listeners are left
 			}
 			ls.lMapMutex.Unlock()
 		}

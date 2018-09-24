@@ -348,8 +348,8 @@ func BenchmarkDecodeInitStream(b *testing.B) {
 	}
 }
 
-func TestMarshalUnmarshalSetEvent(t *testing.T) {
-	v := SetEvent{}
+func TestMarshalUnmarshalSetSignal(t *testing.T) {
+	v := SetSignal{}
 	bts, err := v.MarshalMsg(nil)
 	if err != nil {
 		t.Fatal(err)
@@ -371,8 +371,8 @@ func TestMarshalUnmarshalSetEvent(t *testing.T) {
 	}
 }
 
-func BenchmarkMarshalMsgSetEvent(b *testing.B) {
-	v := SetEvent{}
+func BenchmarkMarshalMsgSetSignal(b *testing.B) {
+	v := SetSignal{}
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -380,8 +380,8 @@ func BenchmarkMarshalMsgSetEvent(b *testing.B) {
 	}
 }
 
-func BenchmarkAppendMsgSetEvent(b *testing.B) {
-	v := SetEvent{}
+func BenchmarkAppendMsgSetSignal(b *testing.B) {
+	v := SetSignal{}
 	bts := make([]byte, 0, v.Msgsize())
 	bts, _ = v.MarshalMsg(bts[0:0])
 	b.SetBytes(int64(len(bts)))
@@ -392,8 +392,8 @@ func BenchmarkAppendMsgSetEvent(b *testing.B) {
 	}
 }
 
-func BenchmarkUnmarshalSetEvent(b *testing.B) {
-	v := SetEvent{}
+func BenchmarkUnmarshalSetSignal(b *testing.B) {
+	v := SetSignal{}
 	bts, _ := v.MarshalMsg(nil)
 	b.ReportAllocs()
 	b.SetBytes(int64(len(bts)))
@@ -406,8 +406,8 @@ func BenchmarkUnmarshalSetEvent(b *testing.B) {
 	}
 }
 
-func TestEncodeDecodeSetEvent(t *testing.T) {
-	v := SetEvent{}
+func TestEncodeDecodeSetSignal(t *testing.T) {
+	v := SetSignal{}
 	var buf bytes.Buffer
 	msgp.Encode(&buf, &v)
 
@@ -416,7 +416,7 @@ func TestEncodeDecodeSetEvent(t *testing.T) {
 		t.Logf("WARNING: Msgsize() for %v is inaccurate", v)
 	}
 
-	vn := SetEvent{}
+	vn := SetSignal{}
 	err := msgp.Decode(&buf, &vn)
 	if err != nil {
 		t.Error(err)
@@ -430,8 +430,8 @@ func TestEncodeDecodeSetEvent(t *testing.T) {
 	}
 }
 
-func BenchmarkEncodeSetEvent(b *testing.B) {
-	v := SetEvent{}
+func BenchmarkEncodeSetSignal(b *testing.B) {
+	v := SetSignal{}
 	var buf bytes.Buffer
 	msgp.Encode(&buf, &v)
 	b.SetBytes(int64(buf.Len()))
@@ -444,8 +444,8 @@ func BenchmarkEncodeSetEvent(b *testing.B) {
 	en.Flush()
 }
 
-func BenchmarkDecodeSetEvent(b *testing.B) {
-	v := SetEvent{}
+func BenchmarkDecodeSetSignal(b *testing.B) {
+	v := SetSignal{}
 	var buf bytes.Buffer
 	msgp.Encode(&buf, &v)
 	b.SetBytes(int64(buf.Len()))
@@ -461,8 +461,8 @@ func BenchmarkDecodeSetEvent(b *testing.B) {
 	}
 }
 
-func TestMarshalUnmarshalSetEventFilter(t *testing.T) {
-	v := SetEventFilter{}
+func TestMarshalUnmarshalSetSignalFilter(t *testing.T) {
+	v := SetSignalFilter{}
 	bts, err := v.MarshalMsg(nil)
 	if err != nil {
 		t.Fatal(err)
@@ -484,8 +484,8 @@ func TestMarshalUnmarshalSetEventFilter(t *testing.T) {
 	}
 }
 
-func BenchmarkMarshalMsgSetEventFilter(b *testing.B) {
-	v := SetEventFilter{}
+func BenchmarkMarshalMsgSetSignalFilter(b *testing.B) {
+	v := SetSignalFilter{}
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -493,8 +493,8 @@ func BenchmarkMarshalMsgSetEventFilter(b *testing.B) {
 	}
 }
 
-func BenchmarkAppendMsgSetEventFilter(b *testing.B) {
-	v := SetEventFilter{}
+func BenchmarkAppendMsgSetSignalFilter(b *testing.B) {
+	v := SetSignalFilter{}
 	bts := make([]byte, 0, v.Msgsize())
 	bts, _ = v.MarshalMsg(bts[0:0])
 	b.SetBytes(int64(len(bts)))
@@ -505,8 +505,8 @@ func BenchmarkAppendMsgSetEventFilter(b *testing.B) {
 	}
 }
 
-func BenchmarkUnmarshalSetEventFilter(b *testing.B) {
-	v := SetEventFilter{}
+func BenchmarkUnmarshalSetSignalFilter(b *testing.B) {
+	v := SetSignalFilter{}
 	bts, _ := v.MarshalMsg(nil)
 	b.ReportAllocs()
 	b.SetBytes(int64(len(bts)))
@@ -519,8 +519,8 @@ func BenchmarkUnmarshalSetEventFilter(b *testing.B) {
 	}
 }
 
-func TestEncodeDecodeSetEventFilter(t *testing.T) {
-	v := SetEventFilter{}
+func TestEncodeDecodeSetSignalFilter(t *testing.T) {
+	v := SetSignalFilter{}
 	var buf bytes.Buffer
 	msgp.Encode(&buf, &v)
 
@@ -529,7 +529,7 @@ func TestEncodeDecodeSetEventFilter(t *testing.T) {
 		t.Logf("WARNING: Msgsize() for %v is inaccurate", v)
 	}
 
-	vn := SetEventFilter{}
+	vn := SetSignalFilter{}
 	err := msgp.Decode(&buf, &vn)
 	if err != nil {
 		t.Error(err)
@@ -543,8 +543,8 @@ func TestEncodeDecodeSetEventFilter(t *testing.T) {
 	}
 }
 
-func BenchmarkEncodeSetEventFilter(b *testing.B) {
-	v := SetEventFilter{}
+func BenchmarkEncodeSetSignalFilter(b *testing.B) {
+	v := SetSignalFilter{}
 	var buf bytes.Buffer
 	msgp.Encode(&buf, &v)
 	b.SetBytes(int64(buf.Len()))
@@ -557,8 +557,8 @@ func BenchmarkEncodeSetEventFilter(b *testing.B) {
 	en.Flush()
 }
 
-func BenchmarkDecodeSetEventFilter(b *testing.B) {
-	v := SetEventFilter{}
+func BenchmarkDecodeSetSignalFilter(b *testing.B) {
+	v := SetSignalFilter{}
 	var buf bytes.Buffer
 	msgp.Encode(&buf, &v)
 	b.SetBytes(int64(buf.Len()))
@@ -574,8 +574,8 @@ func BenchmarkDecodeSetEventFilter(b *testing.B) {
 	}
 }
 
-func TestMarshalUnmarshalTriggerEvent(t *testing.T) {
-	v := TriggerEvent{}
+func TestMarshalUnmarshalTriggerSignal(t *testing.T) {
+	v := TriggerSignal{}
 	bts, err := v.MarshalMsg(nil)
 	if err != nil {
 		t.Fatal(err)
@@ -597,8 +597,8 @@ func TestMarshalUnmarshalTriggerEvent(t *testing.T) {
 	}
 }
 
-func BenchmarkMarshalMsgTriggerEvent(b *testing.B) {
-	v := TriggerEvent{}
+func BenchmarkMarshalMsgTriggerSignal(b *testing.B) {
+	v := TriggerSignal{}
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -606,8 +606,8 @@ func BenchmarkMarshalMsgTriggerEvent(b *testing.B) {
 	}
 }
 
-func BenchmarkAppendMsgTriggerEvent(b *testing.B) {
-	v := TriggerEvent{}
+func BenchmarkAppendMsgTriggerSignal(b *testing.B) {
+	v := TriggerSignal{}
 	bts := make([]byte, 0, v.Msgsize())
 	bts, _ = v.MarshalMsg(bts[0:0])
 	b.SetBytes(int64(len(bts)))
@@ -618,8 +618,8 @@ func BenchmarkAppendMsgTriggerEvent(b *testing.B) {
 	}
 }
 
-func BenchmarkUnmarshalTriggerEvent(b *testing.B) {
-	v := TriggerEvent{}
+func BenchmarkUnmarshalTriggerSignal(b *testing.B) {
+	v := TriggerSignal{}
 	bts, _ := v.MarshalMsg(nil)
 	b.ReportAllocs()
 	b.SetBytes(int64(len(bts)))
@@ -632,8 +632,8 @@ func BenchmarkUnmarshalTriggerEvent(b *testing.B) {
 	}
 }
 
-func TestEncodeDecodeTriggerEvent(t *testing.T) {
-	v := TriggerEvent{}
+func TestEncodeDecodeTriggerSignal(t *testing.T) {
+	v := TriggerSignal{}
 	var buf bytes.Buffer
 	msgp.Encode(&buf, &v)
 
@@ -642,7 +642,7 @@ func TestEncodeDecodeTriggerEvent(t *testing.T) {
 		t.Logf("WARNING: Msgsize() for %v is inaccurate", v)
 	}
 
-	vn := TriggerEvent{}
+	vn := TriggerSignal{}
 	err := msgp.Decode(&buf, &vn)
 	if err != nil {
 		t.Error(err)
@@ -656,8 +656,8 @@ func TestEncodeDecodeTriggerEvent(t *testing.T) {
 	}
 }
 
-func BenchmarkEncodeTriggerEvent(b *testing.B) {
-	v := TriggerEvent{}
+func BenchmarkEncodeTriggerSignal(b *testing.B) {
+	v := TriggerSignal{}
 	var buf bytes.Buffer
 	msgp.Encode(&buf, &v)
 	b.SetBytes(int64(buf.Len()))
@@ -670,8 +670,8 @@ func BenchmarkEncodeTriggerEvent(b *testing.B) {
 	en.Flush()
 }
 
-func BenchmarkDecodeTriggerEvent(b *testing.B) {
-	v := TriggerEvent{}
+func BenchmarkDecodeTriggerSignal(b *testing.B) {
+	v := TriggerSignal{}
 	var buf bytes.Buffer
 	msgp.Encode(&buf, &v)
 	b.SetBytes(int64(buf.Len()))

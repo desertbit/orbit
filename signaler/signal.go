@@ -17,7 +17,7 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package events
+package signaler
 
 import (
 	"sync"
@@ -27,7 +27,7 @@ type Filter func(data interface{}) (conforms bool, err error)
 
 type FilterFunc func(ctx *Context) (f Filter, err error)
 
-type event struct {
+type signal struct {
 	id string
 
 	mutex      sync.Mutex
@@ -36,51 +36,51 @@ type event struct {
 	filter     Filter
 }
 
-func newEvent(id string) *event {
-	return &event{
+func newSignal(id string) *signal {
+	return &signal{
 		id: id,
 	}
 }
 
-func (e *event) setActive(active bool) {
-	e.mutex.Lock()
-	e.active = active
-	e.mutex.Unlock()
+func (s *signal) setActive(active bool) {
+	s.mutex.Lock()
+	s.active = active
+	s.mutex.Unlock()
 }
 
-func (e *event) isActive() (active bool) {
-	e.mutex.Lock()
-	active = e.active
-	e.mutex.Unlock()
+func (s *signal) isActive() (active bool) {
+	s.mutex.Lock()
+	active = s.active
+	s.mutex.Unlock()
 	return
 }
 
-func (e *event) setFilterFunc(filterFunc FilterFunc) {
-	e.mutex.Lock()
-	e.filterFunc = filterFunc
-	e.mutex.Unlock()
+func (s *signal) setFilterFunc(filterFunc FilterFunc) {
+	s.mutex.Lock()
+	s.filterFunc = filterFunc
+	s.mutex.Unlock()
 }
 
-func (e *event) setFilter(ctx *Context) (err error) {
-	e.mutex.Lock()
-	defer e.mutex.Unlock()
+func (s *signal) setFilter(ctx *Context) (err error) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 
-	if e.filterFunc == nil {
+	if s.filterFunc == nil {
 		err = ErrFilterFuncUndefined
 		return
 	}
 
-	e.filter, err = e.filterFunc(ctx)
+	s.filter, err = s.filterFunc(ctx)
 	return
 }
 
-func (e *event) conformsToFilter(data interface{}) (conforms bool, err error) {
-	e.mutex.Lock()
-	defer e.mutex.Unlock()
+func (s *signal) conformsToFilter(data interface{}) (conforms bool, err error) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 
-	if e.filter == nil {
+	if s.filter == nil {
 		return true, nil
 	}
 
-	return e.filter(data)
+	return s.filter(data)
 }

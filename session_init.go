@@ -26,41 +26,77 @@ import (
 	"time"
 
 	"github.com/desertbit/orbit/control"
-	"github.com/desertbit/orbit/events"
+	"github.com/desertbit/orbit/signaler"
 )
 
 const (
 	initOpenStreamTimeout = 12 * time.Second
+
+	defaultInitControl = "control"
+	defaultInitSignaler = "signaler"
 )
 
 type InitAcceptStreams map[string]AcceptStreamFunc
 
-type InitControls map[string]struct {
+type InitControl struct {
 	Funcs  control.Funcs
 	Config *control.Config
 }
 
-type InitEvent struct {
+type InitControls map[string]InitControl
+
+type InitSignal struct {
 	ID     string
-	Filter events.FilterFunc
+	Filter signaler.FilterFunc
 }
 
-type InitEvents map[string]struct {
-	Events []InitEvent
-	Config *control.Config
+type InitSignaler struct {
+	Signals []InitSignal
+	Config  *control.Config
 }
+
+type InitSignalers map[string]InitSignaler
 
 type Init struct {
 	AcceptStreams InitAcceptStreams
-	Controls      InitControls
-	Events        InitEvents
+	Control       InitControl
+	Signaler      InitSignaler
 }
 
-// Init initialized this session. Pass nil to just start accepting streams.
-// Ready() must be called manually for all controls and events.
+type InitMany struct {
+	AcceptStreams InitAcceptStreams
+	Controls      InitControls
+	Signalers     InitSignalers
+}
+
 func (s *Session) Init(opts *Init) (
+	control *control.Control,
+	signaler *signaler.Signaler,
+	err error,
+) {
+	controls, signalers, err := s.InitMany(&InitMany{
+		AcceptStreams: opts.AcceptStreams,
+		Controls: map[string]InitControl{
+			defaultInitControl: opts.Control,
+		},
+		Signalers: map[string]InitSignaler{
+			defaultInitSignaler: opts.Signaler,
+		},
+	})
+	if err != nil {
+		return
+	}
+
+	control = controls[defaultInitControl]
+	signaler = signalers[defaultInitSignaler]
+	return
+}
+
+// InitMany initialized this session. Pass nil to just start accepting streams.
+// Ready() must be called manually for all controls and signaler.
+func (s *Session) InitMany(opts *InitMany) (
 	controls map[string]*control.Control,
-	ev map[string]*events.Events,
+	signalers map[string]*signaler.Signaler,
 	err error,
 ) {
 	// Always close the session on error.
@@ -111,21 +147,21 @@ func (s *Session) Init(opts *Init) (
 		)
 	}
 
-	// Register and initialize the events.
-	var evMutex sync.Mutex
-	ev = make(map[string]*events.Events)
+	// Register and initialize the signaler.
+	var sigMutex sync.Mutex
+	signalers = make(map[string]*signaler.Signaler)
 
-	handleEvents := func(channel string, e *events.Events) {
-		evMutex.Lock()
-		ev[channel] = e
-		evMutex.Unlock()
+	handleSignals := func(channel string, s *signaler.Signaler) {
+		sigMutex.Lock()
+		signalers[channel] = s
+		sigMutex.Unlock()
 	}
 
-	for channel, e := range opts.Events {
-		s.openEvents(
+	for channel, sig := range opts.Signalers {
+		s.openSignals(
 			channel,
-			e.Events, e.Config,
-			handleEvents, handleErr,
+			sig.Signals, sig.Config,
+			handleSignals, handleErr,
 			&wg, initOpenStreamTimeout,
 		)
 	}
@@ -239,11 +275,11 @@ func (s *Session) openControl(
 	}()
 }
 
-func (s *Session) openEvents(
+func (s *Session) openSignals(
 	channel string,
-	evs []InitEvent,
+	signals []InitSignal,
 	config *control.Config,
-	handleResult func(channel string, e *events.Events),
+	handleResult func(channel string, e *signaler.Signaler),
 	handleErr func(err error),
 	wg *sync.WaitGroup,
 	timeout time.Duration,
@@ -297,26 +333,26 @@ func (s *Session) openEvents(
 			}
 		}
 
-		// Create the events.
-		e := events.New(stream, config)
-		for _, ev := range evs {
-			if ev.Filter == nil {
-				e.AddEvent(ev.ID)
+		// Create the signaler.
+		sgnl := signaler.New(stream, config)
+		for _, sig := range signals {
+			if sig.Filter == nil {
+				sgnl.AddSignal(sig.ID)
 			} else {
-				e.AddEventFilter(ev.ID, ev.Filter)
+				sgnl.AddSignalFilter(sig.ID, sig.Filter)
 			}
 		}
 
-		// Close the events if the session closes.
+		// Close the signaler if the session closes.
 		go func() {
 			select {
 			case <-s.CloseChan():
-			case <-e.CloseChan():
+			case <-sgnl.CloseChan():
 			}
-			e.Close()
+			sgnl.Close()
 		}()
 
-		// Finally send the ready events to the handler.
-		handleResult(channel, e)
+		// Finally send the ready signaler to the handler.
+		handleResult(channel, sgnl)
 	}()
 }
