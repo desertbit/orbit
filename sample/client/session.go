@@ -82,6 +82,7 @@ func NewSession(remoteAddr string) (s *Session, err error) {
 	ctrl.Ready()
 
 	eventEvents := evs[api.ChannelIDEvent]
+	eventEvents.Ready()
 
 	time.Sleep(time.Second)
 
