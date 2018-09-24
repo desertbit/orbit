@@ -1,6 +1,7 @@
 /*
  *  ORBIT - Interlink Remote Applications
- *  Copyright (C) 2016  Roland Singer <roland.singer[at]desertbit.com>
+ *  Copyright (C) 2018  Roland Singer <roland.singer[at]desertbit.com>
+ *  Copyright (C) 2018  Sebastian Borchers <sebastian.borchers@desertbit.com>
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
