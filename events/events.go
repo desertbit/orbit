@@ -114,13 +114,9 @@ func (e *Events) AddEvents(ids []string) {
 	e.eventMapMutex.Unlock()
 }
 
+// May return ErrFilterFuncUndefined and ErrEventNotFound.
 func (e *Events) SetEventFilter(id string, data interface{}) (err error) {
-	err = e.callSetEventFilter(id, data)
-	if err != nil {
-		return
-	}
-
-	return
+	return e.callSetEventFilter(id, data)
 }
 
 func (e *Events) TriggerEvent(id string, data interface{}) (err error) {
@@ -279,8 +275,12 @@ func (e *Events) callSetEventFilter(id string, data interface{}) (err error) {
 		Data: dataBytes,
 	})
 	if err != nil {
-		if cErr, ok := err.(*control.ErrorCode); ok && cErr.Code == 2 {
-			err = ErrEventNotFound
+		if cErr, ok := err.(*control.ErrorCode); ok {
+			if cErr.Code == 2 {
+				err = ErrEventNotFound
+			} else if cErr.Code == 3 {
+				err = ErrFilterFuncUndefined
+			}
 		}
 		return
 	}
@@ -305,7 +305,11 @@ func (e *Events) setEventFilter(ctx *control.Context) (v interface{}, err error)
 
 	err = event.setFilter(newContext(data.Data, e.codec))
 	if err != nil {
-		err = control.Err(err, "internal error", 1)
+		if err == ErrFilterFuncUndefined {
+			err = control.Err(err, "filter not set", 3)
+		} else {
+			err = control.Err(err, "internal error", 1)
+		}
 		return
 	}
 
