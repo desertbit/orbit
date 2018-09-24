@@ -88,8 +88,8 @@ func NewSession(remoteAddr string) (s *Session, err error) {
 
 	eventEvents.TriggerEvent(api.EventFilter, &api.EventData{ID: "5", Name: "Hello"})
 
-	s.Close()
 	time.Sleep(time.Second)
+	s.Close()
 
 	return
 }

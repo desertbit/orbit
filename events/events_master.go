@@ -38,7 +38,7 @@ func (e *Events) AddEvents(ids []string) {
 	defer e.eventMapMutex.Unlock()
 
 	for _, id := range ids {
-		// Log if the event is overwitten.
+		// Log if the event is overwritten.
 		if _, ok := e.eventMap[id]; ok {
 			e.logger.Printf("event '%s' registered more than once", id)
 		}
@@ -90,7 +90,7 @@ func (e *Events) addEvent(id string) (ev *event) {
 	e.eventMapMutex.Lock()
 	defer e.eventMapMutex.Unlock()
 
-	// Log if the event is overwitten.
+	// Log if the event is overwritten.
 	if _, ok := e.eventMap[id]; ok {
 		e.logger.Printf("event '%s' registered more than once", id)
 	}
