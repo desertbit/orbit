@@ -27,8 +27,8 @@ import (
 	"github.com/desertbit/orbit/codec/msgpack"
 
 	"github.com/desertbit/orbit"
-	"github.com/desertbit/orbit/roc"
-	"github.com/desertbit/orbit/roe"
+	"github.com/desertbit/orbit/control"
+	"github.com/desertbit/orbit/events"
 	"github.com/desertbit/orbit/sample/api"
 )
 
@@ -54,12 +54,12 @@ func newSession(orbitSession *orbit.Session) (s *Session, err error) {
 		return nil
 	})
 
-	rocs, roes, err := s.InitMany(&orbit.InitMany{
+	controls, ev, err := s.Init(&orbit.Init{
 		AcceptStreams: orbit.InitAcceptStreams{
 			api.ChannelIDRaw:    handleStreamRaw,
 			api.ChannelIDPacket: handleStreamPacket,
 			api.ChannelIDEvent: func(stream net.Conn) error {
-				evs := roe.New(stream, nil)
+				evs := events.New(stream, nil)
 				l := evs.OnEvent(api.EventHello)
 				data := <-l.C
 				var s string
@@ -68,10 +68,10 @@ func newSession(orbitSession *orbit.Session) (s *Session, err error) {
 				return nil
 			},
 		},
-		ROCs: orbit.InitROCs{
-			"roc": {
-				Funcs: roc.Funcs{
-					"takeAHugeDump": func(c *roc.Context) (interface{}, error) {
+		Controls: orbit.InitControls{
+			"control": {
+				Funcs: control.Funcs{
+					"takeAHugeDump": func(c *control.Context) (interface{}, error) {
 						fmt.Println("░░░░░░░░░░░█▀▀░░█░░░░░░")
 						fmt.Println("░░░░░░▄▀▀▀▀░░░░░█▄▄░░░░")
 						fmt.Println("░░░░░░█░█░░░░░░░░░░▐░░░")
@@ -90,7 +90,7 @@ func newSession(orbitSession *orbit.Session) (s *Session, err error) {
 				Config: nil, // Optional. Can be removed from here...
 			},
 		},
-		ROEs: orbit.InitROEs{
+		Events: orbit.InitEvents{
 			api.ChannelIDEvent: {
 				Config: nil,
 			},
@@ -100,10 +100,10 @@ func newSession(orbitSession *orbit.Session) (s *Session, err error) {
 		return
 	}
 
-	ctrl := rocs["roc"]
+	ctrl := controls["control"]
 	ctrl.Ready()
 
-	eventEvents := roes[api.ChannelIDEvent]
+	eventEvents := ev[api.ChannelIDEvent]
 	eventEvents.Ready()
 
 	err = eventEvents.SetEventFilter(api.EventFilter, api.FilterData{ID: "5"})
@@ -111,7 +111,7 @@ func newSession(orbitSession *orbit.Session) (s *Session, err error) {
 		return
 	}
 
-	eventEvents.OnEventFunc(api.EventFilter, func(ctx *roe.Context) {
+	eventEvents.OnEventFunc(api.EventFilter, func(ctx *events.Context) {
 		var data api.EventData
 		err := ctx.Decode(&data)
 		if err != nil {

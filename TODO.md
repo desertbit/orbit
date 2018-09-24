@@ -1,7 +1,6 @@
 ### General
 - server config and add workers option value
 - change license? at least for the examples?
-- test for races
 
 ### Samples
 - Rework completely

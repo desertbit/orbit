@@ -17,7 +17,7 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package roe
+package events
 
 import (
 	"log"
@@ -25,7 +25,7 @@ import (
 	"sync"
 
 	"github.com/desertbit/orbit/codec"
-	"github.com/desertbit/orbit/roc"
+	"github.com/desertbit/orbit/control"
 
 	"github.com/desertbit/closer"
 )
@@ -36,44 +36,42 @@ const (
 	cmdSetEventFilter = "SetEventFilter"
 )
 
-type ROE struct {
+type Events struct {
 	closer.Closer
 
-	ctrl   *roc.ROC
+	ctrl   *control.Control
 	codec  codec.Codec
 	logger *log.Logger
 
-	eventsMutex sync.Mutex
-	events      map[string]*event
+	eventMapMutex sync.Mutex
+	eventMap      map[string]*event
 
 	lsMapMutex sync.Mutex
 	lsMap      map[string]*listeners
 }
 
-func New(conn net.Conn, config *Config) (r *ROE) {
-	config = prepareConfig(config)
-
-	ctrl := roc.New(conn, config.roc)
-	r = &ROE{
-		Closer: ctrl,
-		ctrl:   ctrl,
-		codec:  ctrl.Codec(),
-		logger: ctrl.Logger(),
-		events: make(map[string]*event),
-		lsMap:  make(map[string]*listeners),
+func New(conn net.Conn, config *control.Config) (e *Events) {
+	ctrl := control.New(conn, config)
+	e = &Events{
+		Closer:   ctrl,
+		ctrl:     ctrl,
+		codec:    ctrl.Codec(),
+		logger:   ctrl.Logger(),
+		eventMap: make(map[string]*event),
+		lsMap:    make(map[string]*listeners),
 	}
 
-	r.ctrl.AddFuncs(roc.Funcs{
-		cmdSetEvent:       r.setEvent,
-		cmdTriggerEvent:   r.triggerEvent,
-		cmdSetEventFilter: r.setEventFilter,
+	e.ctrl.AddFuncs(control.Funcs{
+		cmdSetEvent:       e.setEvent,
+		cmdTriggerEvent:   e.triggerEvent,
+		cmdSetEventFilter: e.setEventFilter,
 	})
 	return
 }
 
 // Ready signalizes that the initialization is done.
-// ROEs can now be triggered.
+// Events can now be triggered.
 // This should be only called once.
-func (r *ROE) Ready() {
-	r.ctrl.Ready()
+func (e *Events) Ready() {
+	e.ctrl.Ready()
 }

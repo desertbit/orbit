@@ -7,7 +7,7 @@ import (
 )
 
 // DecodeMsg implements msgp.Decodable
-func (z *Call) DecodeMsg(dc *msgp.Reader) (err error) {
+func (z *ControlCall) DecodeMsg(dc *msgp.Reader) (err error) {
 	var field []byte
 	_ = field
 	var zb0001 uint32
@@ -43,7 +43,7 @@ func (z *Call) DecodeMsg(dc *msgp.Reader) (err error) {
 }
 
 // EncodeMsg implements msgp.Encodable
-func (z Call) EncodeMsg(en *msgp.Writer) (err error) {
+func (z ControlCall) EncodeMsg(en *msgp.Writer) (err error) {
 	// map header, size 2
 	// write "ID"
 	err = en.Append(0x82, 0xa2, 0x49, 0x44)
@@ -67,7 +67,7 @@ func (z Call) EncodeMsg(en *msgp.Writer) (err error) {
 }
 
 // MarshalMsg implements msgp.Marshaler
-func (z Call) MarshalMsg(b []byte) (o []byte, err error) {
+func (z ControlCall) MarshalMsg(b []byte) (o []byte, err error) {
 	o = msgp.Require(b, z.Msgsize())
 	// map header, size 2
 	// string "ID"
@@ -80,7 +80,7 @@ func (z Call) MarshalMsg(b []byte) (o []byte, err error) {
 }
 
 // UnmarshalMsg implements msgp.Unmarshaler
-func (z *Call) UnmarshalMsg(bts []byte) (o []byte, err error) {
+func (z *ControlCall) UnmarshalMsg(bts []byte) (o []byte, err error) {
 	var field []byte
 	_ = field
 	var zb0001 uint32
@@ -117,13 +117,13 @@ func (z *Call) UnmarshalMsg(bts []byte) (o []byte, err error) {
 }
 
 // Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
-func (z Call) Msgsize() (s int) {
+func (z ControlCall) Msgsize() (s int) {
 	s = 1 + 3 + msgp.StringPrefixSize + len(z.ID) + 4 + msgp.StringPrefixSize + len(z.Key)
 	return
 }
 
 // DecodeMsg implements msgp.Decodable
-func (z *CallReturn) DecodeMsg(dc *msgp.Reader) (err error) {
+func (z *ControlCallReturn) DecodeMsg(dc *msgp.Reader) (err error) {
 	var field []byte
 	_ = field
 	var zb0001 uint32
@@ -164,7 +164,7 @@ func (z *CallReturn) DecodeMsg(dc *msgp.Reader) (err error) {
 }
 
 // EncodeMsg implements msgp.Encodable
-func (z CallReturn) EncodeMsg(en *msgp.Writer) (err error) {
+func (z ControlCallReturn) EncodeMsg(en *msgp.Writer) (err error) {
 	// map header, size 3
 	// write "Key"
 	err = en.Append(0x83, 0xa3, 0x4b, 0x65, 0x79)
@@ -197,7 +197,7 @@ func (z CallReturn) EncodeMsg(en *msgp.Writer) (err error) {
 }
 
 // MarshalMsg implements msgp.Marshaler
-func (z CallReturn) MarshalMsg(b []byte) (o []byte, err error) {
+func (z ControlCallReturn) MarshalMsg(b []byte) (o []byte, err error) {
 	o = msgp.Require(b, z.Msgsize())
 	// map header, size 3
 	// string "Key"
@@ -213,7 +213,7 @@ func (z CallReturn) MarshalMsg(b []byte) (o []byte, err error) {
 }
 
 // UnmarshalMsg implements msgp.Unmarshaler
-func (z *CallReturn) UnmarshalMsg(bts []byte) (o []byte, err error) {
+func (z *ControlCallReturn) UnmarshalMsg(bts []byte) (o []byte, err error) {
 	var field []byte
 	_ = field
 	var zb0001 uint32
@@ -255,7 +255,7 @@ func (z *CallReturn) UnmarshalMsg(bts []byte) (o []byte, err error) {
 }
 
 // Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
-func (z CallReturn) Msgsize() (s int) {
+func (z ControlCallReturn) Msgsize() (s int) {
 	s = 1 + 4 + msgp.StringPrefixSize + len(z.Key) + 4 + msgp.StringPrefixSize + len(z.Msg) + 5 + msgp.IntSize
 	return
 }

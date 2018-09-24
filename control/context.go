@@ -17,7 +17,7 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package roc
+package control
 
 import (
 	"errors"
@@ -34,19 +34,19 @@ type Context struct {
 	// Data is the raw byte representation of the encoded context data.
 	Data []byte
 
-	roc *ROC
+	ctrl *Control
 }
 
-func newContext(roc *ROC, data []byte) *Context {
+func newContext(ctrl *Control, data []byte) *Context {
 	return &Context{
-		roc:  roc,
+		ctrl: ctrl,
 		Data: data,
 	}
 }
 
-// ROC returns the roc of the context.
-func (c *Context) ROC() *ROC {
-	return c.roc
+// Control returns the control of the context.
+func (c *Context) Control() *Control {
+	return c.ctrl
 }
 
 // Decode the context data to a custom value.
@@ -59,7 +59,7 @@ func (c *Context) Decode(v interface{}) error {
 	}
 
 	// Decode the data.
-	err := c.roc.config.Codec.Decode(c.Data, v)
+	err := c.ctrl.config.Codec.Decode(c.Data, v)
 	if err != nil {
 		return fmt.Errorf("decode: %v", err)
 	}

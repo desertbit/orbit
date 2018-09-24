@@ -28,12 +28,12 @@ type InitStream struct {
 	Channel string
 }
 
-type Call struct {
+type ControlCall struct {
 	ID  string
 	Key string
 }
 
-type CallReturn struct {
+type ControlCallReturn struct {
 	Key  string
 	Msg  string
 	Code int

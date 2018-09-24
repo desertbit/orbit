@@ -1,4 +1,4 @@
-package roe
+package events
 
 import "github.com/pkg/errors"
 

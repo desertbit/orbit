@@ -20,12 +20,12 @@
 package main
 
 import (
-	"github.com/desertbit/orbit/roe"
+	"github.com/desertbit/orbit/events"
 	"github.com/desertbit/orbit/sample/api"
 	"github.com/pkg/errors"
 )
 
-func filter(ctx *roe.Context) (f roe.Filter, err error) {
+func filter(ctx *events.Context) (f events.Filter, err error) {
 	var fData api.FilterData
 	err = ctx.Decode(&fData)
 	if err != nil {

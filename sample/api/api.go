@@ -25,8 +25,9 @@ const (
 	ChannelIDPacket = "packet"
 	ChannelIDEvent  = "event"
 
-	EventHello  = "hello"
+	EventHello = "hello"
 	EventFilter = "filter"
+
 )
 
 type FilterData struct {
@@ -34,6 +35,6 @@ type FilterData struct {
 }
 
 type EventData struct {
-	ID   string
+	ID string
 	Name string
 }

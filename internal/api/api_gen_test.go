@@ -9,8 +9,8 @@ import (
 	"github.com/tinylib/msgp/msgp"
 )
 
-func TestMarshalUnmarshalCall(t *testing.T) {
-	v := Call{}
+func TestMarshalUnmarshalControlCall(t *testing.T) {
+	v := ControlCall{}
 	bts, err := v.MarshalMsg(nil)
 	if err != nil {
 		t.Fatal(err)
@@ -32,8 +32,8 @@ func TestMarshalUnmarshalCall(t *testing.T) {
 	}
 }
 
-func BenchmarkMarshalMsgCall(b *testing.B) {
-	v := Call{}
+func BenchmarkMarshalMsgControlCall(b *testing.B) {
+	v := ControlCall{}
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -41,8 +41,8 @@ func BenchmarkMarshalMsgCall(b *testing.B) {
 	}
 }
 
-func BenchmarkAppendMsgCall(b *testing.B) {
-	v := Call{}
+func BenchmarkAppendMsgControlCall(b *testing.B) {
+	v := ControlCall{}
 	bts := make([]byte, 0, v.Msgsize())
 	bts, _ = v.MarshalMsg(bts[0:0])
 	b.SetBytes(int64(len(bts)))
@@ -53,8 +53,8 @@ func BenchmarkAppendMsgCall(b *testing.B) {
 	}
 }
 
-func BenchmarkUnmarshalCall(b *testing.B) {
-	v := Call{}
+func BenchmarkUnmarshalControlCall(b *testing.B) {
+	v := ControlCall{}
 	bts, _ := v.MarshalMsg(nil)
 	b.ReportAllocs()
 	b.SetBytes(int64(len(bts)))
@@ -67,8 +67,8 @@ func BenchmarkUnmarshalCall(b *testing.B) {
 	}
 }
 
-func TestEncodeDecodeCall(t *testing.T) {
-	v := Call{}
+func TestEncodeDecodeControlCall(t *testing.T) {
+	v := ControlCall{}
 	var buf bytes.Buffer
 	msgp.Encode(&buf, &v)
 
@@ -77,7 +77,7 @@ func TestEncodeDecodeCall(t *testing.T) {
 		t.Logf("WARNING: Msgsize() for %v is inaccurate", v)
 	}
 
-	vn := Call{}
+	vn := ControlCall{}
 	err := msgp.Decode(&buf, &vn)
 	if err != nil {
 		t.Error(err)
@@ -91,8 +91,8 @@ func TestEncodeDecodeCall(t *testing.T) {
 	}
 }
 
-func BenchmarkEncodeCall(b *testing.B) {
-	v := Call{}
+func BenchmarkEncodeControlCall(b *testing.B) {
+	v := ControlCall{}
 	var buf bytes.Buffer
 	msgp.Encode(&buf, &v)
 	b.SetBytes(int64(buf.Len()))
@@ -105,8 +105,8 @@ func BenchmarkEncodeCall(b *testing.B) {
 	en.Flush()
 }
 
-func BenchmarkDecodeCall(b *testing.B) {
-	v := Call{}
+func BenchmarkDecodeControlCall(b *testing.B) {
+	v := ControlCall{}
 	var buf bytes.Buffer
 	msgp.Encode(&buf, &v)
 	b.SetBytes(int64(buf.Len()))
@@ -122,8 +122,8 @@ func BenchmarkDecodeCall(b *testing.B) {
 	}
 }
 
-func TestMarshalUnmarshalCallReturn(t *testing.T) {
-	v := CallReturn{}
+func TestMarshalUnmarshalControlCallReturn(t *testing.T) {
+	v := ControlCallReturn{}
 	bts, err := v.MarshalMsg(nil)
 	if err != nil {
 		t.Fatal(err)
@@ -145,8 +145,8 @@ func TestMarshalUnmarshalCallReturn(t *testing.T) {
 	}
 }
 
-func BenchmarkMarshalMsgCallReturn(b *testing.B) {
-	v := CallReturn{}
+func BenchmarkMarshalMsgControlCallReturn(b *testing.B) {
+	v := ControlCallReturn{}
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -154,8 +154,8 @@ func BenchmarkMarshalMsgCallReturn(b *testing.B) {
 	}
 }
 
-func BenchmarkAppendMsgCallReturn(b *testing.B) {
-	v := CallReturn{}
+func BenchmarkAppendMsgControlCallReturn(b *testing.B) {
+	v := ControlCallReturn{}
 	bts := make([]byte, 0, v.Msgsize())
 	bts, _ = v.MarshalMsg(bts[0:0])
 	b.SetBytes(int64(len(bts)))
@@ -166,8 +166,8 @@ func BenchmarkAppendMsgCallReturn(b *testing.B) {
 	}
 }
 
-func BenchmarkUnmarshalCallReturn(b *testing.B) {
-	v := CallReturn{}
+func BenchmarkUnmarshalControlCallReturn(b *testing.B) {
+	v := ControlCallReturn{}
 	bts, _ := v.MarshalMsg(nil)
 	b.ReportAllocs()
 	b.SetBytes(int64(len(bts)))
@@ -180,8 +180,8 @@ func BenchmarkUnmarshalCallReturn(b *testing.B) {
 	}
 }
 
-func TestEncodeDecodeCallReturn(t *testing.T) {
-	v := CallReturn{}
+func TestEncodeDecodeControlCallReturn(t *testing.T) {
+	v := ControlCallReturn{}
 	var buf bytes.Buffer
 	msgp.Encode(&buf, &v)
 
@@ -190,7 +190,7 @@ func TestEncodeDecodeCallReturn(t *testing.T) {
 		t.Logf("WARNING: Msgsize() for %v is inaccurate", v)
 	}
 
-	vn := CallReturn{}
+	vn := ControlCallReturn{}
 	err := msgp.Decode(&buf, &vn)
 	if err != nil {
 		t.Error(err)
@@ -204,8 +204,8 @@ func TestEncodeDecodeCallReturn(t *testing.T) {
 	}
 }
 
-func BenchmarkEncodeCallReturn(b *testing.B) {
-	v := CallReturn{}
+func BenchmarkEncodeControlCallReturn(b *testing.B) {
+	v := ControlCallReturn{}
 	var buf bytes.Buffer
 	msgp.Encode(&buf, &v)
 	b.SetBytes(int64(buf.Len()))
@@ -218,8 +218,8 @@ func BenchmarkEncodeCallReturn(b *testing.B) {
 	en.Flush()
 }
 
-func BenchmarkDecodeCallReturn(b *testing.B) {
-	v := CallReturn{}
+func BenchmarkDecodeControlCallReturn(b *testing.B) {
+	v := ControlCallReturn{}
 	var buf bytes.Buffer
 	msgp.Encode(&buf, &v)
 	b.SetBytes(int64(buf.Len()))
