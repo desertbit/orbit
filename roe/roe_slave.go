@@ -85,7 +85,7 @@ func (r *ROE) callSetEvent(id string, active bool) (err error) {
 		Active: active,
 	}
 
-	_, err = r.roc.Call(cmdSetEvent, &data)
+	_, err = r.ctrl.Call(cmdSetEvent, &data)
 	if err != nil {
 		if cErr, ok := err.(*roc.ErrorCode); ok && cErr.Code == 2 {
 			err = ErrEventNotFound
@@ -102,7 +102,7 @@ func (r *ROE) callSetEventFilter(id string, data interface{}) (err error) {
 		return
 	}
 
-	_, err = r.roc.Call(cmdSetEventFilter, &api.SetEventFilter{
+	_, err = r.ctrl.Call(cmdSetEventFilter, &api.SetEventFilter{
 		ID:   id,
 		Data: dataBytes,
 	})

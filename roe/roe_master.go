@@ -106,7 +106,7 @@ func (r *ROE) callTriggerEvent(id string, data interface{}) error {
 		return err
 	}
 
-	return r.roc.OneShot(cmdTriggerEvent, &api.TriggerEvent{
+	return r.ctrl.OneShot(cmdTriggerEvent, &api.TriggerEvent{
 		ID:   id,
 		Data: dataBytes,
 	})
