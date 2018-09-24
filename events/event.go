@@ -30,12 +30,10 @@ type FilterFunc func(ctx *Context) (f Filter, err error)
 type Event struct {
 	id string
 
-	activeMutex sync.Mutex
-	active      bool // bind state of the peer.
-
-	filterMutex sync.Mutex
-	filterFunc  FilterFunc
-	filter      Filter
+	mutex      sync.Mutex
+	active     bool // bind state of the peer.
+	filterFunc FilterFunc
+	filter     Filter
 }
 
 func newEvent(id string) *Event {
@@ -45,48 +43,44 @@ func newEvent(id string) *Event {
 }
 
 func (e *Event) setActive(active bool) {
-	e.activeMutex.Lock()
+	e.mutex.Lock()
 	e.active = active
-	e.activeMutex.Unlock()
+	e.mutex.Unlock()
 }
 
 func (e *Event) isActive() (active bool) {
-	e.activeMutex.Lock()
+	e.mutex.Lock()
 	active = e.active
-	e.activeMutex.Unlock()
+	e.mutex.Unlock()
 	return
 }
 
 func (e *Event) setFilterFunc(filterFunc FilterFunc) {
-	e.filterMutex.Lock()
+	e.mutex.Lock()
 	e.filterFunc = filterFunc
-	e.filterMutex.Unlock()
+	e.mutex.Unlock()
 }
 
 func (e *Event) setFilter(ctx *Context) (err error) {
-	e.filterMutex.Lock()
-	defer e.filterMutex.Unlock()
+	e.mutex.Lock()
+	defer e.mutex.Unlock()
 
 	if e.filterFunc == nil {
-		err = errFilterFuncUndefined
+		err = ErrFilterFuncUndefined
 		return
 	}
 
 	e.filter, err = e.filterFunc(ctx)
-	if err != nil {
-		return
-	}
-
 	return
 }
 
 func (e *Event) conformsToFilter(data interface{}) (conforms bool, err error) {
-	e.filterMutex.Lock()
-	conforms, err = e.filter(data)
-	if err != nil {
-		return
-	}
-	e.filterMutex.Unlock()
+	e.mutex.Lock()
+	defer e.mutex.Unlock()
 
-	return
+	if e.filter == nil {
+		return true, nil
+	}
+
+	return e.filter(data)
 }

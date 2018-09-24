@@ -300,7 +300,11 @@ func (s *Session) openEvents(
 		// Create the events.
 		e := events.New(stream, config)
 		for _, ev := range evs {
-			_ = e.AddEventFilter(ev.ID, ev.Filter)
+			if ev.Filter == nil {
+				e.AddEvent(ev.ID)
+			} else {
+				e.AddEventFilter(ev.ID, ev.Filter)
+			}
 		}
 
 		// Close the events if the session closes.
