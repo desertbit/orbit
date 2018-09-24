@@ -70,7 +70,7 @@ func ReadTimeout(
 // and returns the packet bytes. If buffer is set and is big enough to
 // fit the packet, then the buffer is used. Otherwise a new buffer
 // is allocated.
-// Returns a nil byte slice if no data was send.
+// Returns an empty byte slice when no data was send.
 func Read(
 	conn io.Reader,
 	buffer []byte,
@@ -98,7 +98,7 @@ func Read(
 	}
 	payloadLen := int(payloadLen32)
 	if payloadLen == 0 {
-		return nil, nil
+		return []byte{}, nil
 	} else if payloadLen > maxPayloadSize {
 		return nil, ErrMaxPayloadSizeExceeded
 	}
