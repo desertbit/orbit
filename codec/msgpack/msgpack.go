@@ -19,10 +19,11 @@
 
 /*
 Package msgpack offers an implementation of the codec.Codec interface
-for the msgpack data format. It uses the faster
-github.com/tinylib/msgp/msgp  Un-/Marshaler, if it is implemented
-on the entity. Otherwise, it falls back to using the Un-/Marshal funcs
-from the gopkg.in/vmihailenco/msgpack.v3 package.
+for the msgpack data format.
+
+It uses the faster https://github.com/tinylib/msgp/msgp Un-/Marshaler,
+if it is implemented on the entity. Otherwise, it falls back to
+using the Un-/Marshal funcs from the https://gopkg.in/vmihailenco/msgpack.v3 package.
 */
 package msgpack
 
