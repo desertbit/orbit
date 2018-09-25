@@ -19,8 +19,8 @@
 
 /*
 Package json offers an implementation of the codec.Codec interface
-for the json data format. It uses the "encoding/json" pkg to en-/decode
-an entity to/from a byte slice.
+for the json data format. It uses the https://golang.org/pkg/encoding/json/
+pkg to en-/decode an entity to/from a byte slice.
 */
 package json
 
