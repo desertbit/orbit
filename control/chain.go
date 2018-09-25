@@ -32,8 +32,8 @@ const (
 type chainChan chan interface{}
 
 type chain struct {
-	chanMap        map[string]chainChan
-	chainChanMutex sync.Mutex
+	chanMapMutex sync.Mutex
+	chanMap      map[string]chainChan
 }
 
 func newChain() *chain {
@@ -54,8 +54,8 @@ func (c *chain) New() (id string, cc chainChan, err error) {
 		}
 
 		added := func() bool {
-			c.chainChanMutex.Lock()
-			defer c.chainChanMutex.Unlock()
+			c.chanMapMutex.Lock()
+			defer c.chanMapMutex.Unlock()
 
 			if _, ok := c.chanMap[id]; ok {
 				return false
@@ -74,14 +74,14 @@ func (c *chain) New() (id string, cc chainChan, err error) {
 
 // Returns nil if not found.
 func (c *chain) Get(id string) (cc chainChan) {
-	c.chainChanMutex.Lock()
+	c.chanMapMutex.Lock()
 	cc = c.chanMap[id]
-	c.chainChanMutex.Unlock()
+	c.chanMapMutex.Unlock()
 	return
 }
 
 func (c *chain) Delete(id string) {
-	c.chainChanMutex.Lock()
+	c.chanMapMutex.Lock()
 	delete(c.chanMap, id)
-	c.chainChanMutex.Unlock()
+	c.chanMapMutex.Unlock()
 }
