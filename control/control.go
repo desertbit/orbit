@@ -289,13 +289,11 @@ func (c *Control) readRoutine() {
 	defer c.Close()
 
 	// Warning: don't shadow the error.
-	// Otherwise the defered logging won't work!
+	// Otherwise the deferred logging won't work!
 	var (
-		err                     error
-		n, bytesRead            int
-		reqType                 byte
-		reqTypeBuf              = make([]byte, 1)
-		headerData, payloadData []byte
+		err          error
+		bytesRead, n int
+		reqTypeBuf   = make([]byte, 1)
 	)
 
 	// Catch panics. and log error messages.
@@ -311,7 +309,13 @@ func (c *Control) readRoutine() {
 	}()
 
 	for {
-		bytesRead = 0
+		// This variables must be redefined for each loop,
+		// because this data is used in the new goroutine.
+		// Otherwise there is a race and data gets corrupted.
+		var (
+			reqType                 byte
+			headerData, payloadData []byte
+		)
 
 		// No timeout, as we need to wait here for any incoming request.
 		err = c.conn.SetReadDeadline(time.Time{})
@@ -321,6 +325,7 @@ func (c *Control) readRoutine() {
 
 		// Read the reqType from the stream.
 		// Read in a loop, as Read could potentially return 0 read bytes.
+		bytesRead = 0
 		for bytesRead == 0 {
 			n, err = c.conn.Read(reqTypeBuf)
 			if err != nil {
