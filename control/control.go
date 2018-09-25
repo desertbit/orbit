@@ -458,7 +458,7 @@ func (c *Control) handleCallReturnRequest(headerData, payloadData []byte) (err e
 	// Get the channel by the key.
 	channel := c.funcChain.Get(header.Key)
 	if channel == nil {
-		return fmt.Errorf("call return request failed (call timeout exceeded?)")
+		return fmt.Errorf("return request failed: no return channel set (call timeout exceeded?)")
 	}
 
 	// Create a new context.
@@ -488,7 +488,7 @@ func (c *Control) handleCallReturnRequest(headerData, payloadData []byte) (err e
 		case channel <- rData:
 			return nil
 		case <-timeout.C:
-			return fmt.Errorf("call return request failed (call timeout exceeded?)")
+			return fmt.Errorf("return request failed (call timeout exceeded?)")
 		}
 	}
 }

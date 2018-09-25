@@ -20,10 +20,11 @@
 package main
 
 import (
-	"github.com/desertbit/orbit/control"
-	"github.com/desertbit/orbit/sample/api"
 	"net"
 	"time"
+
+	"github.com/desertbit/orbit/control"
+	"github.com/desertbit/orbit/sample/api"
 
 	"github.com/desertbit/orbit"
 )
@@ -56,18 +57,15 @@ func NewSession(remoteAddr string) (s *Session, err error) {
 
 	ctrl, sig, err := s.Init(&orbit.Init{
 		Control: orbit.InitControl{
-				Funcs: map[string]control.Func{
-
-				},
-				Config: nil, // Optional. Can be removed from here...
-			},
+			Funcs: map[string]control.Func{},
+		},
 		Signaler: orbit.InitSignaler{
-				Signals: []orbit.InitSignal{
-					{
-						ID: api.SignalFilter,
-						Filter: filter,
-					},
+			Signals: []orbit.InitSignal{
+				{
+					ID:     api.SignalFilter,
+					Filter: filter,
 				},
+			},
 		},
 	})
 	if err != nil {
