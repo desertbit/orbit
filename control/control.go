@@ -372,7 +372,7 @@ func (c *Control) handleReceivedMessage(reqType byte, headerData, payloadData []
 		err = c.handleCallRequest(headerData, payloadData)
 
 	case typeCallReturn:
-		err = c.handleCallReturnRequest(headerData, payloadData)
+		err = c.handleReturnRequest(headerData, payloadData)
 
 	default:
 		err = fmt.Errorf("invalid request type: %v", reqType)
@@ -429,7 +429,7 @@ func (c *Control) handleCallRequest(headerData, payloadData []byte) (err error) 
 		return nil
 	}
 
-	retHeader := &api.ControlCallReturn{
+	retHeader := &api.ControlReturn{
 		Key:  header.Key,
 		Msg:  msg,
 		Code: code,
@@ -448,8 +448,8 @@ func (c *Control) handleCallRequest(headerData, payloadData []byte) (err error) 
 	return nil
 }
 
-func (c *Control) handleCallReturnRequest(headerData, payloadData []byte) (err error) {
-	var header api.ControlCallReturn
+func (c *Control) handleReturnRequest(headerData, payloadData []byte) (err error) {
+	var header api.ControlReturn
 	err = msgpack.Codec.Decode(headerData, &header)
 	if err != nil {
 		return fmt.Errorf("decode call return: %v", err)

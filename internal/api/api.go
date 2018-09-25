@@ -33,7 +33,7 @@ type ControlCall struct {
 	Key string
 }
 
-type ControlCallReturn struct {
+type ControlReturn struct {
 	Key  string
 	Msg  string
 	Code int
