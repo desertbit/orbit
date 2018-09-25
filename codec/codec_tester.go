@@ -1,7 +1,7 @@
 /*
  *  ORBIT - Interlink Remote Applications
  *  Copyright (C) 2018  Roland Singer <roland.singer[at]desertbit.com>
- *  Copyright (C) 2018  Sebastian Borchers <sebastian.borchers[at]desertbit.com>
+ *  Copyright (C) 2018 Sebastian Borchers <sebastian.borchers[at].desertbit.com>
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -17,33 +17,26 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package internal
+package codec
 
 import (
 	"encoding/gob"
 	"reflect"
 	"testing"
-
-	"github.com/desertbit/orbit/codec"
 )
 
-type testStruct struct {
+type test struct {
 	Name string
 }
 
-// RoundtripTester is a test helper to test a Codec
-func RoundtripTester(t *testing.T, c codec.Codec, vals ...interface{}) {
-	var val, to interface{}
-	if len(vals) > 0 {
-		if len(vals) != 2 {
-			panic("Wrong number of vals, expected 2")
-		}
-		val = vals[0]
-		to = vals[1]
-	} else {
-		val = &testStruct{Name: "test"}
-		to = &testStruct{}
-	}
+// Tester is a test helper to test a Codec.
+// It encodes a test struct using the given codec and decodes
+// it into a second test struct afterwards.
+// It then uses the reflect pkg to check if both structs have
+// the exact same values.
+func Tester(t *testing.T, c Codec) {
+	val := &test{Name: "test"}
+	to := &test{}
 
 	encoded, err := c.Encode(val)
 	if err != nil {
@@ -59,5 +52,5 @@ func RoundtripTester(t *testing.T, c codec.Codec, vals ...interface{}) {
 }
 
 func init() {
-	gob.Register(&testStruct{})
+	gob.Register(&test{})
 }

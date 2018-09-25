@@ -20,11 +20,10 @@
 package msgpack
 
 import (
+	"github.com/desertbit/orbit/codec"
 	"testing"
-
-	"github.com/desertbit/orbit/codec/internal"
 )
 
 func TestMSGPack(t *testing.T) {
-	internal.RoundtripTester(t, Codec)
+	codec.Tester(t, Codec)
 }
