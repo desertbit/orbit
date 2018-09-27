@@ -21,8 +21,6 @@ package control
 
 import (
 	"sync"
-
-	"github.com/desertbit/orbit/internal/utils"
 )
 
 const (
@@ -33,54 +31,41 @@ type chainChan chan interface{}
 
 type chain struct {
 	chanMapMutex sync.Mutex
-	chanMap      map[string]chainChan
+	chanMap map[uint64]chainChan
+	idCount uint64
 }
 
 func newChain() *chain {
 	return &chain{
-		chanMap: make(map[string]chainChan),
+		chanMap: make(map[uint64]chainChan),
+		idCount: 1, // Set to 1 to leave 0 free for special purposes.
 	}
 }
 
-func (c *chain) New() (id string, cc chainChan, err error) {
-	// Create a new channel.
+func (c *chain) New() (id uint64, cc chainChan, err error) {
+	// Create new channel.
 	cc = make(chainChan)
 
-	// Create a new ID and ensure it is unqiue.
-	for {
-		id, err = utils.RandomString(chainIDLength)
-		if err != nil {
-			return
-		}
-
-		added := func() bool {
-			c.chanMapMutex.Lock()
-			defer c.chanMapMutex.Unlock()
-
-			if _, ok := c.chanMap[id]; ok {
-				return false
-			}
-
-			c.chanMap[id] = cc
-			return true
-		}()
-		if added {
-			break
-		}
-	}
-
+	c.chanMapMutex.Lock()
+	// Use the current id counter as new ID.
+	id = c.idCount
+	// Create next ID. Increment by 2 to avoid 0.
+	c.idCount += 2
+	// Assign channel to map with our ID.
+	c.chanMap[id] = cc
+	c.chanMapMutex.Unlock()
 	return
 }
 
 // Returns nil if not found.
-func (c *chain) Get(id string) (cc chainChan) {
+func (c *chain) Get(id uint64) (cc chainChan) {
 	c.chanMapMutex.Lock()
 	cc = c.chanMap[id]
 	c.chanMapMutex.Unlock()
 	return
 }
 
-func (c *chain) Delete(id string) {
+func (c *chain) Delete(id uint64) {
 	c.chanMapMutex.Lock()
 	delete(c.chanMap, id)
 	c.chanMapMutex.Unlock()

@@ -106,7 +106,7 @@ func (s *Signaler) callTriggerSignal(id string, data interface{}) error {
 		return err
 	}
 
-	return s.ctrl.OneShot(cmdTriggerSignal, &api.TriggerSignal{
+	return s.ctrl.CallAsync(cmdTriggerSignal, &api.TriggerSignal{
 		ID:   id,
 		Data: dataBytes,
 	})

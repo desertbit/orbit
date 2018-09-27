@@ -1,7 +1,7 @@
 /*
  *  ORBIT - Interlink Remote Applications
  *  Copyright (C) 2018  Roland Singer <roland.singer[at]desertbit.com>
- *  Copyright (C) 2018  Sebastian Borchers <sebastian.borchers[at]desertbit.com>
+ *  Copyright (C) 2018 Sebastian Borchers <sebastian.borchers[at].desertbit.com>
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -17,39 +17,49 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-//go:generate msgp
-package api
+package control
 
-const (
-	Version = 1
+import (
+	"sync"
+	"testing"
 )
 
-type InitStream struct {
-	Channel string
+func BenchmarkChain_New(b *testing.B) {
+	c := newChain()
+
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		_, _, err := c.New()
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
 }
 
-type ControlCall struct {
-	ID  string
-	Key uint64
-}
+func BenchmarkChain_NewConcurrent(b *testing.B) {
+	numberRoutines := 10
+	c := newChain()
 
-type ControlReturn struct {
-	Key  uint64
-	Msg  string
-	Code int
-}
+	wg := sync.WaitGroup{}
+	wg.Add(numberRoutines)
 
-type SetSignal struct {
-	ID     string
-	Active bool
-}
+	b.ReportAllocs()
 
-type TriggerSignal struct {
-	ID   string
-	Data []byte
-}
+	for n := 0; n < numberRoutines; n++ {
+		go func() {
+			for i := 0; i < b.N; i++ {
+				_, _, err := c.New()
+				if err != nil {
+					b.Fatal(err)
+				}
+			}
+			wg.Done()
+		}()
+		b.ResetTimer()
+	}
 
-type SetSignalFilter struct {
-	ID   string
-	Data []byte
+	b.ResetTimer()
+	wg.Wait()
 }
