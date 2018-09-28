@@ -1,6 +1,8 @@
 ### General
 - server config and add workers option value
 - change license? at least for the examples?
+- during session initialization reply with the version byte
+- use the orbit logger for the control and event package
 
 ### Samples
 - Rework completely
