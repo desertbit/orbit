@@ -108,6 +108,11 @@ func (s *Session) IsClient() bool {
 	return s.isClient
 }
 
+// IsServer returns a boolean whenever this session is a server connection.
+func (s *Session) IsServer() bool {
+	return !s.isClient
+}
+
 // LocalAddr returns the local network address.
 func (s *Session) LocalAddr() net.Addr {
 	return s.conn.LocalAddr()
