@@ -58,6 +58,7 @@ func ServerSession(conn net.Conn, config *Config) (s *Session, err error) {
 	}
 
 	// Authenticate if required.
+	var value interface{}
 	if config.AuthFunc != nil {
 		// Reset the deadlines.
 		err = conn.SetDeadline(time.Time{})
@@ -65,7 +66,7 @@ func ServerSession(conn net.Conn, config *Config) (s *Session, err error) {
 			return
 		}
 
-		err = config.AuthFunc(conn)
+		value, err = config.AuthFunc(conn)
 		if err != nil {
 			return
 		}
@@ -89,5 +90,6 @@ func ServerSession(conn net.Conn, config *Config) (s *Session, err error) {
 	}
 
 	s = newSession(conn, ys, config, false)
+	s.Value = value
 	return
 }
