@@ -23,11 +23,12 @@ import (
 	"sync"
 )
 
-const (
-	chainIDLength = 16
-)
-
 type chainChan chan interface{}
+
+type chainData struct {
+	Context *Context
+	Err     error
+}
 
 type chain struct {
 	chanMapMutex sync.Mutex
@@ -38,7 +39,6 @@ type chain struct {
 func newChain() *chain {
 	return &chain{
 		chanMap: make(map[uint64]chainChan),
-		idCount: 1, // Set to 1 to leave 0 free for special purposes.
 	}
 }
 
@@ -47,10 +47,13 @@ func (c *chain) New() (id uint64, cc chainChan, err error) {
 	cc = make(chainChan)
 
 	c.chanMapMutex.Lock()
+	// Create next ID.
+	c.idCount++
+	if c.idCount == 0 {
+		c.idCount++
+	}
 	// Use the current id counter as new ID.
 	id = c.idCount
-	// Create next ID. Increment by 2 to avoid 0.
-	c.idCount += 2
 	// Assign channel to map with our ID.
 	c.chanMap[id] = cc
 	c.chanMapMutex.Unlock()

@@ -28,7 +28,7 @@ func (z *ControlCall) DecodeMsg(dc *msgp.Reader) (err error) {
 				return
 			}
 		case "Key":
-			z.Key, err = dc.ReadString()
+			z.Key, err = dc.ReadUint64()
 			if err != nil {
 				return
 			}
@@ -59,7 +59,7 @@ func (z ControlCall) EncodeMsg(en *msgp.Writer) (err error) {
 	if err != nil {
 		return
 	}
-	err = en.WriteString(z.Key)
+	err = en.WriteUint64(z.Key)
 	if err != nil {
 		return
 	}
@@ -75,7 +75,7 @@ func (z ControlCall) MarshalMsg(b []byte) (o []byte, err error) {
 	o = msgp.AppendString(o, z.ID)
 	// string "Key"
 	o = append(o, 0xa3, 0x4b, 0x65, 0x79)
-	o = msgp.AppendString(o, z.Key)
+	o = msgp.AppendUint64(o, z.Key)
 	return
 }
 
@@ -101,7 +101,7 @@ func (z *ControlCall) UnmarshalMsg(bts []byte) (o []byte, err error) {
 				return
 			}
 		case "Key":
-			z.Key, bts, err = msgp.ReadStringBytes(bts)
+			z.Key, bts, err = msgp.ReadUint64Bytes(bts)
 			if err != nil {
 				return
 			}
@@ -118,7 +118,7 @@ func (z *ControlCall) UnmarshalMsg(bts []byte) (o []byte, err error) {
 
 // Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
 func (z ControlCall) Msgsize() (s int) {
-	s = 1 + 3 + msgp.StringPrefixSize + len(z.ID) + 4 + msgp.StringPrefixSize + len(z.Key)
+	s = 1 + 3 + msgp.StringPrefixSize + len(z.ID) + 4 + msgp.Uint64Size
 	return
 }
 
@@ -139,7 +139,7 @@ func (z *ControlReturn) DecodeMsg(dc *msgp.Reader) (err error) {
 		}
 		switch msgp.UnsafeString(field) {
 		case "Key":
-			z.Key, err = dc.ReadString()
+			z.Key, err = dc.ReadUint64()
 			if err != nil {
 				return
 			}
@@ -171,7 +171,7 @@ func (z ControlReturn) EncodeMsg(en *msgp.Writer) (err error) {
 	if err != nil {
 		return
 	}
-	err = en.WriteString(z.Key)
+	err = en.WriteUint64(z.Key)
 	if err != nil {
 		return
 	}
@@ -202,7 +202,7 @@ func (z ControlReturn) MarshalMsg(b []byte) (o []byte, err error) {
 	// map header, size 3
 	// string "Key"
 	o = append(o, 0x83, 0xa3, 0x4b, 0x65, 0x79)
-	o = msgp.AppendString(o, z.Key)
+	o = msgp.AppendUint64(o, z.Key)
 	// string "Msg"
 	o = append(o, 0xa3, 0x4d, 0x73, 0x67)
 	o = msgp.AppendString(o, z.Msg)
@@ -229,7 +229,7 @@ func (z *ControlReturn) UnmarshalMsg(bts []byte) (o []byte, err error) {
 		}
 		switch msgp.UnsafeString(field) {
 		case "Key":
-			z.Key, bts, err = msgp.ReadStringBytes(bts)
+			z.Key, bts, err = msgp.ReadUint64Bytes(bts)
 			if err != nil {
 				return
 			}
@@ -256,7 +256,7 @@ func (z *ControlReturn) UnmarshalMsg(bts []byte) (o []byte, err error) {
 
 // Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
 func (z ControlReturn) Msgsize() (s int) {
-	s = 1 + 4 + msgp.StringPrefixSize + len(z.Key) + 4 + msgp.StringPrefixSize + len(z.Msg) + 5 + msgp.IntSize
+	s = 1 + 4 + msgp.Uint64Size + 4 + msgp.StringPrefixSize + len(z.Msg) + 5 + msgp.IntSize
 	return
 }
 

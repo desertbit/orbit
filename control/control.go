@@ -251,7 +251,7 @@ func (c *Control) CallTimeout(id string, data interface{}, timeout time.Duration
 
 	case rDataI := <-channel:
 		// Assert the return data.
-		rData, ok := rDataI.(retChainData)
+		rData, ok := rDataI.(chainData)
 		if !ok {
 			return nil, fmt.Errorf("failed to assert return data")
 		}
@@ -278,11 +278,6 @@ func (c *Control) CallAsync(id string, data interface{}) error {
 //###############//
 //### Private ###//
 //###############//
-
-type retChainData struct {
-	Context *Context
-	Err     error
-}
 
 func (c *Control) write(reqType byte, headerI interface{}, dataI interface{}) (err error) {
 	var header, payload []byte
@@ -521,7 +516,7 @@ func (c *Control) handleReturnRequest(headerData, payloadData []byte) (err error
 	ctx := newContext(c, payloadData)
 
 	// Create the channel data.
-	rData := retChainData{Context: ctx}
+	rData := chainData{Context: ctx}
 
 	// Create a control.Error, if an error is present.
 	if header.Msg != "" {
