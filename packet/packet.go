@@ -17,7 +17,6 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-
 /*
 Package packet provides convenience methods to read/write packets to a net.Conn.
 A selection of different functions are available to specify timeouts and to provide

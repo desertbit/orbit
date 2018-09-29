@@ -27,13 +27,13 @@ type chainChan chan chainData
 
 type chainData struct {
 	Context *Context
-	Err     error
+	Err     *ErrorCode
 }
 
 type chain struct {
 	chanMapMutex sync.Mutex
-	chanMap map[uint64]chainChan
-	idCount uint64
+	chanMap      map[uint64]chainChan
+	idCount      uint64
 }
 
 func newChain() *chain {

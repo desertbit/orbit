@@ -32,7 +32,7 @@ import (
 const (
 	initOpenStreamTimeout = 12 * time.Second
 
-	defaultInitControl = "control"
+	defaultInitControl  = "control"
 	defaultInitSignaler = "signaler"
 )
 

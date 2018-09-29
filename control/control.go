@@ -19,19 +19,46 @@
 
 /*
 Package control provides an implementation of a simple network protocol that
-offers a RPC-like request/response mechanism.
-TODO: proper package description
-uses packet format
-automatic encoding
-a-/synchronous requests
+offers a RPC-like request/response mechanism between two peers.
 
-Questions:
- - maybe generalize the error handling for callReturn, so that the chainData
-   always contains an ErrorCode. In case no code has been defined by the client
-   or an internal error happened, offer one generic "Internal Code" that this
-   package already defines.
-   It would make it clearer for the user of the package how to handle errors
-   and would avoid type assertions to the error code stuff.
+Each peer can register functions on his control that the remote peer can
+then call, either synchronously with a response, or asynchronously.
+Making calls is possible by using the Call- methods defined in this package.
+
+A Control must be created once. Then it is advised to register all
+possible requests on it. If the configuration is done, the Ready()
+method must be called on it to start the routine that accepts incoming requests.
+
+Network Data Format
+
+Control uses the packet package (https://github.com/desertbit/orbit/packet)
+to send and receive data over the connection.
+
+Encoding
+
+Each packet's header is automatically encoded with the msgpack.Codec
+(https://github.com/desertbit/orbit/codec/msgpack). The payloads
+are encoded with the codec.Codec defined in its configuration file.
+In case the payload is already a slice of bytes, the encoding is skipped.
+
+Hooks
+
+The Control offers a call- and an errorHook. These are useful for
+logging purposes and similar tasks. Check out their documentation
+for further information on when exactly they are called.
+
+Error Handling
+
+On the 'server' side, each handler function registered to
+handle a certain request may return an error that satisfies the
+control.Error interface, to specifically determine, what the client
+receives as message and to specify error codes the client can react to.
+On the 'client' side, the Call- functions return (beside the usual errors
+that can happen) the ErrorCode struct that satisfies the standard
+error interface, but contains in addition the error code the server can
+set to indicate certain errors. Clients should therefore always check,
+whether the returned error is of type ErroCode, to handle certain errors
+appropriately.
 */
 package control
 
@@ -61,7 +88,7 @@ const (
 	defaultErrorMessage = "method call failed"
 
 	// The first byte send in a request to indicate a call to a remote function.
-	typeCall       byte = 0
+	typeCall byte = 0
 
 	// The first byte send in a request to indicate the response from a remote
 	// called function.
@@ -102,21 +129,29 @@ type Control struct {
 	closer.Closer
 
 	// Stores the configuration for the Control, such as timeouts, codecs, etc.
-	config     *Config
+	config *Config
 	// The logger used to log messages.
-	logger     *log.Logger
+	logger *log.Logger
 
 	// Synchronises write operations to the network connection.
 	connWriteMutex sync.Mutex
 	// The raw network connection that is used to send the requests over.
-	conn           net.Conn
+	conn net.Conn
 
-
+	// Contains a channel for each request that is used to deliver the
+	// response back to the correct calling function.
 	callRetChain *chain
+	// Synchronises the access to the handler function map.
 	funcMapMutex sync.RWMutex
-	funcMap      map[string]Func
+	// Stores the handler functions for the requests. The key to the map
+	// is the id of the request.
+	funcMap map[string]Func
 
-	callHook  CallHook
+	// Called for every incoming request. Can be useful for logging
+	// purposes or similar tasks.
+	callHook CallHook
+	// Called for every incoming request, if during the execution
+	// an error occurs. Can be useful for logging purposes or similar tasks.
 	errorHook ErrorHook
 }
 
@@ -229,7 +264,11 @@ func (c *Control) Call(id string, data interface{}) (*Context, error) {
 // Returns ErrClosed if the connection is closed.
 //
 // This method is thread-safe.
-func (c *Control) CallTimeout(id string, data interface{}, timeout time.Duration) (ctx *Context, err error) {
+func (c *Control) CallTimeout(
+	id string,
+	data interface{},
+	timeout time.Duration,
+) (ctx *Context, err error) {
 	// Create a new channel with its key. This will be used to send
 	// the data over that forms the response to the call.
 	key, channel, err := c.callRetChain.New()
@@ -492,19 +531,27 @@ func (c *Control) handleRequest(reqType byte, headerData, payloadData []byte) (e
 	return
 }
 
-// handleCall processes an incoming request with a request type 'typeCall'.
-// It first decodes the header, then retrieves from it the callID with which
-// the handler function that has been added for this call can be retrieved.
+// handleCall processes an incoming request with request type 'typeCall'.
+// It decodes the header and uses it to retrieve the correct handler
+// function for this request.
+// The handler function is then executed with the payload.
+// If no error occurs, the response is sent back to the caller.
+//
+// If defined, the call hook is called during the execution.
+// If defined, the error hook is called at the end, in case
+// an error occurred.
 //
 // This function is executed on the side of the receiver of a request,
 // the "server-side".
 func (c *Control) handleCall(headerData, payloadData []byte) (err error) {
+	// Decode the request header.
 	var header api.ControlCall
 	err = msgpack.Codec.Decode(headerData, &header)
 	if err != nil {
 		return fmt.Errorf("decode control call: %v", err)
 	}
 
+	// Retrieve the handler function for this request.
 	c.funcMapMutex.RLock()
 	f, ok := c.funcMap[header.ID]
 	c.funcMapMutex.RUnlock()
@@ -512,6 +559,7 @@ func (c *Control) handleCall(headerData, payloadData []byte) (err error) {
 		return fmt.Errorf("call request: requested function does not exist: id=%v", header.ID)
 	}
 
+	// Build the request context for the handler function.
 	ctx := newContext(c, payloadData)
 
 	// Call the call hook if defined.
@@ -524,6 +572,7 @@ func (c *Control) handleCall(headerData, payloadData []byte) (err error) {
 		msg  string
 	)
 
+	// Execute the handler function.
 	retData, retErr := f(ctx)
 	if retErr != nil {
 		c.logger.Printf("call request: id='%v': returned error: %v", header.ID, retErr)
@@ -547,17 +596,20 @@ func (c *Control) handleCall(headerData, payloadData []byte) (err error) {
 		return nil
 	}
 
+	// Build the header for the response.
 	retHeader := &api.ControlReturn{
 		Key:  header.Key,
 		Msg:  msg,
 		Code: code,
 	}
 
+	// Send the response back to the caller.
 	err = c.write(typeCallReturn, retHeader, retData)
 	if err != nil {
 		return fmt.Errorf("call request: send return request: %v", err)
 	}
 
+	// TODO: should error hook be called for async as well?
 	// Call the error hook if defined.
 	if retErr != nil && c.errorHook != nil {
 		c.errorHook(c, header.ID, retErr)
@@ -566,9 +618,17 @@ func (c *Control) handleCall(headerData, payloadData []byte) (err error) {
 	return nil
 }
 
+// handleCallReturn processes an incoming response with request type 'typeCallReturn'.
+// It decodes the header and uses it to retrieve the correct channel for this callReturn.
+// The response payload is then wrapped in a context and sent over the channel
+// back to the calling function that waits for it.
+// It can then deliver the response to the caller, which is the end of
+// one request-response cycle.
+//
 // This function is executed on the side of the receiver of a response,
 // the "client-side".
 func (c *Control) handleCallReturn(headerData, payloadData []byte) (err error) {
+	// Decode the header.
 	var header api.ControlReturn
 	err = msgpack.Codec.Decode(headerData, &header)
 	if err != nil {
@@ -587,7 +647,7 @@ func (c *Control) handleCallReturn(headerData, payloadData []byte) (err error) {
 	// Create the channel data.
 	rData := chainData{Context: ctx}
 
-	// Create a control.ErrorCode, if an error is present.
+	// Create an ErrorCode, if an error is present.
 	if header.Msg != "" {
 		rData.Err = &ErrorCode{err: header.Msg, Code: header.Code}
 	}

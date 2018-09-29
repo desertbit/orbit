@@ -28,8 +28,8 @@ import (
 
 	"github.com/desertbit/orbit"
 	"github.com/desertbit/orbit/control"
-	"github.com/desertbit/orbit/signaler"
 	"github.com/desertbit/orbit/sample/api"
+	"github.com/desertbit/orbit/signaler"
 )
 
 type Session struct {
@@ -69,27 +69,27 @@ func newSession(orbitSession *orbit.Session) (s *Session, err error) {
 			},
 		},
 		Control: orbit.InitControl{
-				Funcs: control.Funcs{
-					"takeAHugeDump": func(c *control.Context) (interface{}, error) {
-						fmt.Println("░░░░░░░░░░░█▀▀░░█░░░░░░")
-						fmt.Println("░░░░░░▄▀▀▀▀░░░░░█▄▄░░░░")
-						fmt.Println("░░░░░░█░█░░░░░░░░░░▐░░░")
-						fmt.Println("░░░░░░▐▐░░░░░░░░░▄░▐░░░")
-						fmt.Println("░░░░░░█░░░░░░░░▄▀▀░▐░░░")
-						fmt.Println("░░░░▄▀░░░░░░░░▐░▄▄▀░░░░")
-						fmt.Println("░░▄▀░░░▐░░░░░█▄▀░▐░░░░░")
-						fmt.Println("░░█░░░▐░░░░░░░░▄░█░░░░░")
-						fmt.Println("░░░█▄░░▀▄░░░░▄▀▐░█░░░░░")
-						fmt.Println("░░░█▐▀▀▀░▀▀▀▀░░▐░█░░░░░")
-						fmt.Println("░░▐█▐▄░░█░░░░░░▐░█▄▄░░░")
-						fmt.Println("░░░▀▀░▄███▄░░░▐▄▄▄▀░░░░")
-						return nil, nil
-					},
+			Funcs: control.Funcs{
+				"takeAHugeDump": func(c *control.Context) (interface{}, error) {
+					fmt.Println("░░░░░░░░░░░█▀▀░░█░░░░░░")
+					fmt.Println("░░░░░░▄▀▀▀▀░░░░░█▄▄░░░░")
+					fmt.Println("░░░░░░█░█░░░░░░░░░░▐░░░")
+					fmt.Println("░░░░░░▐▐░░░░░░░░░▄░▐░░░")
+					fmt.Println("░░░░░░█░░░░░░░░▄▀▀░▐░░░")
+					fmt.Println("░░░░▄▀░░░░░░░░▐░▄▄▀░░░░")
+					fmt.Println("░░▄▀░░░▐░░░░░█▄▀░▐░░░░░")
+					fmt.Println("░░█░░░▐░░░░░░░░▄░█░░░░░")
+					fmt.Println("░░░█▄░░▀▄░░░░▄▀▐░█░░░░░")
+					fmt.Println("░░░█▐▀▀▀░▀▀▀▀░░▐░█░░░░░")
+					fmt.Println("░░▐█▐▄░░█░░░░░░▐░█▄▄░░░")
+					fmt.Println("░░░▀▀░▄███▄░░░▐▄▄▄▀░░░░")
+					return nil, nil
 				},
-				Config: nil, // Optional. Can be removed from here...
+			},
+			Config: nil, // Optional. Can be removed from here...
 		},
 		Signaler: orbit.InitSignaler{
-				Config: nil,
+			Config: nil,
 		},
 	})
 	if err != nil {

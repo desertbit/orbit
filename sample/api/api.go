@@ -23,11 +23,10 @@ package api
 const (
 	ChannelIDRaw    = "raw"
 	ChannelIDPacket = "packet"
-	ChannelIDSignal  = "signal"
+	ChannelIDSignal = "signal"
 
-	SignalHello = "hello"
+	SignalHello  = "hello"
 	SignalFilter = "filter"
-
 )
 
 type FilterData struct {
@@ -35,6 +34,6 @@ type FilterData struct {
 }
 
 type SignalData struct {
-	ID string
+	ID   string
 	Name string
 }
