@@ -20,10 +20,18 @@
 /*
 Package control provides an implementation of a simple network protocol that
 offers a RPC-like request/response mechanism.
-
+TODO: proper package description
 uses packet format
 automatic encoding
 a-/synchronous requests
+
+Questions:
+ - maybe generalize the error handling for callReturn, so that the chainData
+   always contains an ErrorCode. In case no code has been defined by the client
+   or an internal error happened, offer one generic "Internal Code" that this
+   package already defines.
+   It would make it clearer for the user of the package how to handle errors
+   and would avoid type assertions to the error code stuff.
 */
 package control
 
@@ -64,11 +72,17 @@ var (
 	// ErrClosed defines the error if the socket connection is closed.
 	ErrClosed = errors.New("socket closed")
 
-	// ErrTimeout defines the error if the call timeout is reached.
-	ErrTimeout = errors.New("timeout")
+	// ErrCallTimeout defines the error if the call timeout is reached.
+	ErrCallTimeout = errors.New("call timeout")
+
+	// ErrWriteTimeout defines the error if a write operation's timeout is reached.
+	ErrWriteTimeout = errors.New("write timeout")
 )
 
 // The Func type defines a callable Control function.
+// If the returned error is not nil and implements the Error
+// interface of this package, the clients can react to
+// predefined error codes and act accordingly.
 type Func func(ctx *Context) (data interface{}, err error)
 
 // The Funcs type defines a set of callable Control functions.
@@ -211,12 +225,13 @@ func (c *Control) Call(id string, data interface{}) (*Context, error) {
 // This method blocks until the remote function sent back a response and returns the
 // Context of this response. It is therefore considered 'synchronous'.
 //
-// Returns ErrTimeout on a timeout.
+// Returns ErrCallTimeout on a timeout.
 // Returns ErrClosed if the connection is closed.
 //
 // This method is thread-safe.
 func (c *Control) CallTimeout(id string, data interface{}, timeout time.Duration) (ctx *Context, err error) {
-	// Create a new channel with its key.
+	// Create a new channel with its key. This will be used to send
+	// the data over that forms the response to the call.
 	key, channel, err := c.callRetChain.New()
 	if err != nil {
 		return
@@ -247,15 +262,9 @@ func (c *Control) CallTimeout(id string, data interface{}, timeout time.Duration
 
 	case <-timeoutTimer.C:
 		// Abort if the deadline is over.
-		err = ErrTimeout
+		err = ErrCallTimeout
 
-	case rDataI := <-channel:
-		// Assert the return data.
-		rData, ok := rDataI.(chainData)
-		if !ok {
-			return nil, fmt.Errorf("failed to assert return data")
-		}
-
+	case rData := <-channel:
 		ctx = rData.Context
 		err = rData.Err
 	}
@@ -264,6 +273,8 @@ func (c *Control) CallTimeout(id string, data interface{}, timeout time.Duration
 
 // CallAsync calls a remote function in an asynchronous fashion,
 // as it does not wait for a response of the peer.
+// It uses the default WriteTimeout from the config of the Control.
+// This method is thread-safe.
 func (c *Control) CallAsync(id string, data interface{}) error {
 	// Create the header, but without a key as we do not register a response
 	// handler for it.
@@ -279,6 +290,22 @@ func (c *Control) CallAsync(id string, data interface{}) error {
 //### Private ###//
 //###############//
 
+// write sends a packet to the remote peer that
+// consists of the given header and payload
+// data. The packet is preceded by one byte, which
+// indicates the type of request we are sending
+// (call or callReturn, see constants).
+//
+// Per specification of the packet format
+// (see https://github.com/desertbit/orbit/packet), the
+// header must always be present, while the payload is optional.
+//
+// Both header and payload are encoded, with the exception that,
+// if the payload is not nil and of type []byte, the encoding
+// of it is skipped.
+//
+// If the deadline is not met, the write is terminated and a
+// ErrWriteTimeout is returned.
 func (c *Control) write(reqType byte, headerI interface{}, dataI interface{}) (err error) {
 	var header, payload []byte
 
@@ -303,24 +330,38 @@ func (c *Control) write(reqType byte, headerI interface{}, dataI interface{}) (e
 		}
 	}
 
+	// Ensure only one write happens at a time.
 	c.connWriteMutex.Lock()
 	defer c.connWriteMutex.Unlock()
 
+	// Set the deadline when all write operations must be finished.
 	err = c.conn.SetWriteDeadline(time.Now().Add(c.config.WriteTimeout))
 	if err != nil {
 		return err
 	}
 
+	// In case the write timeouts, assign to it our ErrWriteTimeout variable.
+	defer func() {
+		if err != nil {
+			if nerr, ok := err.(net.Error); ok && nerr.Timeout() {
+				err = ErrWriteTimeout
+			}
+		}
+	}()
+
+	// Write the request type.
 	_, err = c.conn.Write([]byte{reqType})
 	if err != nil {
 		return err
 	}
 
+	// Write the header.
 	err = packet.Write(c.conn, header, c.config.MaxMessageSize)
 	if err != nil {
 		return err
 	}
 
+	// Write the payload.
 	err = packet.Write(c.conn, payload, c.config.MaxMessageSize)
 	if err != nil {
 		return err
@@ -329,6 +370,19 @@ func (c *Control) write(reqType byte, headerI interface{}, dataI interface{}) (e
 	return nil
 }
 
+// readRoutine listens on the control stream and reads the packets from it.
+// It expects each request to consist of one byte (the request type), followed
+// by a packet (see https://github.com/desertbit/orbit/packet), thus, a header
+// and optionally a payload.
+//
+// This function blocks in an endless loop, it should therefore run in its
+// own goroutine.
+//
+// It recovers from panics and logs errors with the configured logger of
+// the Control.
+//
+// If a request could be successfully read, it is passed to the
+// handleRequest() method to process it.
 func (c *Control) readRoutine() {
 	// Close the control on exit.
 	defer c.Close()
@@ -401,15 +455,22 @@ func (c *Control) readRoutine() {
 
 		// Handle the received message in a new goroutine.
 		go func() {
-			gerr := c.handleReceivedMessage(reqType, headerData, payloadData)
+			gerr := c.handleRequest(reqType, headerData, payloadData)
 			if gerr != nil {
-				c.logger.Printf("control: handleReceivedMessage: %v", gerr)
+				c.logger.Printf("control: handleRequest: %v", gerr)
 			}
 		}()
 	}
 }
 
-func (c *Control) handleReceivedMessage(reqType byte, headerData, payloadData []byte) (err error) {
+// handleRequest handles an incoming request read by the readRoutine() function
+// and decides how to proceed with it.
+// It does this based on the request type byte, which indicates right now only
+// whether the data must be processed as Call or CallReturn.
+//
+// Panics are recovered and wrapped in an error.
+// If the request type is unknown, an error is returned.
+func (c *Control) handleRequest(reqType byte, headerData, payloadData []byte) (err error) {
 	// Catch panics.
 	defer func() {
 		if e := recover(); e != nil {
@@ -420,10 +481,10 @@ func (c *Control) handleReceivedMessage(reqType byte, headerData, payloadData []
 	// Check the request type.
 	switch reqType {
 	case typeCall:
-		err = c.handleCallRequest(headerData, payloadData)
+		err = c.handleCall(headerData, payloadData)
 
 	case typeCallReturn:
-		err = c.handleReturnRequest(headerData, payloadData)
+		err = c.handleCallReturn(headerData, payloadData)
 
 	default:
 		err = fmt.Errorf("invalid request type: %v", reqType)
@@ -431,7 +492,13 @@ func (c *Control) handleReceivedMessage(reqType byte, headerData, payloadData []
 	return
 }
 
-func (c *Control) handleCallRequest(headerData, payloadData []byte) (err error) {
+// handleCall processes an incoming request with a request type 'typeCall'.
+// It first decodes the header, then retrieves from it the callID with which
+// the handler function that has been added for this call can be retrieved.
+//
+// This function is executed on the side of the receiver of a request,
+// the "server-side".
+func (c *Control) handleCall(headerData, payloadData []byte) (err error) {
 	var header api.ControlCall
 	err = msgpack.Codec.Decode(headerData, &header)
 	if err != nil {
@@ -475,7 +542,7 @@ func (c *Control) handleCallRequest(headerData, payloadData []byte) (err error) 
 		}
 	}
 
-	// Skip the return if this is a oneshot call.
+	// Skip the return if this is an asynchronous call.
 	if header.Key == 0 {
 		return nil
 	}
@@ -499,7 +566,9 @@ func (c *Control) handleCallRequest(headerData, payloadData []byte) (err error) 
 	return nil
 }
 
-func (c *Control) handleReturnRequest(headerData, payloadData []byte) (err error) {
+// This function is executed on the side of the receiver of a response,
+// the "client-side".
+func (c *Control) handleCallReturn(headerData, payloadData []byte) (err error) {
 	var header api.ControlReturn
 	err = msgpack.Codec.Decode(headerData, &header)
 	if err != nil {
@@ -518,7 +587,7 @@ func (c *Control) handleReturnRequest(headerData, payloadData []byte) (err error
 	// Create the channel data.
 	rData := chainData{Context: ctx}
 
-	// Create a control.Error, if an error is present.
+	// Create a control.ErrorCode, if an error is present.
 	if header.Msg != "" {
 		rData.Err = &ErrorCode{err: header.Msg, Code: header.Code}
 	}
@@ -531,6 +600,7 @@ func (c *Control) handleReturnRequest(headerData, payloadData []byte) (err error
 		return nil
 
 	default:
+		// TODO: Is this really necessary?
 		// Retry with a timeout.
 		timeout := time.NewTimer(time.Second)
 		defer timeout.Stop()

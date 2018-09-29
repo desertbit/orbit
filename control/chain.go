@@ -23,7 +23,7 @@ import (
 	"sync"
 )
 
-type chainChan chan interface{}
+type chainChan chan chainData
 
 type chainData struct {
 	Context *Context
