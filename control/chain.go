@@ -23,32 +23,59 @@ import (
 	"sync"
 )
 
+// The chainChan type is a channel used in the chain
+// that transports chainData.
 type chainChan chan chainData
 
+// The chainData type contains the Context of a Control
+// Call alongside an ErrorCode that describes the outcome
+// of this call.
 type chainData struct {
+	// The Context of a call.
 	Context *Context
+	// Contains the error message and an error code
+	// that the call may have produced.
 	Err     *ErrorCode
 }
 
+// The chain type contains a map of chainChan channels
+// and methods to create, get and delete such channels.
+// Typically, one Control uses one chain and creates
+// with it one channel per request/response pair.
+//
+// The channels are used to return the response data
+// to the calling function of the requester that
+// waits until data arrives on the channel.
 type chain struct {
+	// Synchronises the access to the channel map.
 	chanMapMutex sync.Mutex
+	// Stores the channels that are handled by this chain.
 	chanMap      map[uint64]chainChan
+	// A simple counter to create an unique key for new
+	// channels that is used to store them in the map.
 	idCount      uint64
 }
 
+// newChain creates a new chain.
 func newChain() *chain {
 	return &chain{
 		chanMap: make(map[uint64]chainChan),
 	}
 }
 
-func (c *chain) New() (id uint64, cc chainChan, err error) {
+// New creates a new channel, adds it to the chain and returns
+// the channel along with its id. The id can later be used
+// to retrieve or delete the channel from the chain.
+func (c *chain) New() (id uint64, cc chainChan) {
 	// Create new channel.
 	cc = make(chainChan)
 
 	c.chanMapMutex.Lock()
 	// Create next ID.
 	c.idCount++
+	// We avoid an id of 0, as we need this special value
+	// to indicate the absence of a channel in the control
+	// implementation.
 	if c.idCount == 0 {
 		c.idCount++
 	}
@@ -60,7 +87,8 @@ func (c *chain) New() (id uint64, cc chainChan, err error) {
 	return
 }
 
-// Returns nil if not found.
+// Get returns the channel with the given id.
+// Returns nil, if not found.
 func (c *chain) Get(id uint64) (cc chainChan) {
 	c.chanMapMutex.Lock()
 	cc = c.chanMap[id]
@@ -68,6 +96,8 @@ func (c *chain) Get(id uint64) (cc chainChan) {
 	return
 }
 
+// Delete deletes the channel with the given id from the chain.
+// If the id does not exist, this is a no-op.
 func (c *chain) Delete(id uint64) {
 	c.chanMapMutex.Lock()
 	delete(c.chanMap, id)

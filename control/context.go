@@ -29,14 +29,19 @@ var (
 	ErrNoContextData = errors.New("no context data available to decode")
 )
 
-// A Context defines a function context.
+// The Context type is a wrapper around the raw payload data of calls.
+// It offer a convenience method to decode the encoded data into an
+// interface.
 type Context struct {
 	// Data is the raw byte representation of the encoded context data.
 	Data []byte
 
+	// ctrl is a reference to the Control the call has been issued on.
 	ctrl *Control
 }
 
+// newContext creates a new Context from the given Control and the
+// payload data.
 func newContext(ctrl *Control, data []byte) *Context {
 	return &Context{
 		ctrl: ctrl,

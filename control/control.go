@@ -271,10 +271,7 @@ func (c *Control) CallTimeout(
 ) (ctx *Context, err error) {
 	// Create a new channel with its key. This will be used to send
 	// the data over that forms the response to the call.
-	key, channel, err := c.callRetChain.New()
-	if err != nil {
-		return
-	}
+	key, channel := c.callRetChain.New()
 	defer c.callRetChain.Delete(key)
 
 	// Create the header.
