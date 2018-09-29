@@ -53,17 +53,17 @@ var (
 // The Config type contains the possible configuration parameter of a Control.
 type Config struct {
 	// The codec.Codec that should be used to encode the payload of messages.
-	Codec           codec.Codec
+	Codec codec.Codec
 	// The log.logger to be used for writing log messages to.
-	Logger          *log.Logger
+	Logger *log.Logger
 	// The max size a message may have that is sent over the stream.
-	MaxMessageSize  int
+	MaxMessageSize int
 	// The maximum time a call may take to finish.
-	CallTimeout     time.Duration
+	CallTimeout time.Duration
 	// The maximum time it may take to read a packet from the stream.
-	ReadTimeout     time.Duration
+	ReadTimeout time.Duration
 	// The maximum time it may take to write a packet to the stream.
-	WriteTimeout    time.Duration
+	WriteTimeout time.Duration
 	// A flag that controls whether we sent errors that occur during the
 	// handling of calls back to the caller.
 	// Be cautious, in case you set this to true, as errors may contain

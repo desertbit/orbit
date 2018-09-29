@@ -35,7 +35,7 @@ type chainData struct {
 	Context *Context
 	// Contains the error message and an error code
 	// that the call may have produced.
-	Err     *ErrorCode
+	Err *ErrorCode
 }
 
 // The chain type contains a map of chainChan channels
@@ -50,10 +50,10 @@ type chain struct {
 	// Synchronises the access to the channel map.
 	chanMapMutex sync.Mutex
 	// Stores the channels that are handled by this chain.
-	chanMap      map[uint64]chainChan
+	chanMap map[uint64]chainChan
 	// A simple counter to create an unique key for new
 	// channels that is used to store them in the map.
-	idCount      uint64
+	idCount uint64
 }
 
 // newChain creates a new chain.
