@@ -140,12 +140,8 @@ func (s *Signaler) callTriggerSignal(id string, data interface{}) error {
 //###############################################//
 
 // setSignal is a control func that is callable from the remote peer.
-// It signals that the remote peer is either interested or not (anymore)
-// interested in the signal, based on the active flag in the request data.
-// It ensures that the signal's state reflects the wish of the remote peer,
-// meaning it is set to active, if the remote peer is interested, or, set
-// to inactive when the remote peer is not interested and if he was the last
-// one to be so.
+// It sets the state of the signal with the sent id to either active
+// or inactive. An inactive signal can not be triggered.
 func (s *Signaler) setSignal(ctx *control.Context) (interface{}, error) {
 	// Decode the data.
 	var data api.SetSignal
