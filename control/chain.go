@@ -47,8 +47,8 @@ type chainData struct {
 // to the calling function of the requester that
 // waits until data arrives on the channel.
 type chain struct {
-	// Synchronises the access to the channel map.
-	chanMapMutex sync.Mutex
+	// Synchronises the access to the channel map and the idCount.
+	chainMutex sync.Mutex
 	// Stores the channels that are handled by this chain.
 	chanMap map[uint64]chainChan
 	// A simple counter to create an unique key for new
@@ -70,7 +70,7 @@ func (c *chain) New() (id uint64, cc chainChan) {
 	// Create new channel.
 	cc = make(chainChan)
 
-	c.chanMapMutex.Lock()
+	c.chainMutex.Lock()
 	// Create next ID.
 	c.idCount++
 	// We avoid an id of 0, as we need this special value
@@ -83,23 +83,23 @@ func (c *chain) New() (id uint64, cc chainChan) {
 	id = c.idCount
 	// Assign channel to map with our ID.
 	c.chanMap[id] = cc
-	c.chanMapMutex.Unlock()
+	c.chainMutex.Unlock()
 	return
 }
 
 // Get returns the channel with the given id.
 // Returns nil, if not found.
 func (c *chain) Get(id uint64) (cc chainChan) {
-	c.chanMapMutex.Lock()
+	c.chainMutex.Lock()
 	cc = c.chanMap[id]
-	c.chanMapMutex.Unlock()
+	c.chainMutex.Unlock()
 	return
 }
 
 // Delete deletes the channel with the given id from the chain.
 // If the id does not exist, this is a no-op.
 func (c *chain) Delete(id uint64) {
-	c.chanMapMutex.Lock()
+	c.chainMutex.Lock()
 	delete(c.chanMap, id)
-	c.chanMapMutex.Unlock()
+	c.chainMutex.Unlock()
 }

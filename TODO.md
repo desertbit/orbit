@@ -3,6 +3,7 @@
 - change license? at least for the examples?
 - during session initialization reply with the version byte
 - use the orbit logger for the control and event package
+- global events
 
 ### Samples
 - Rework completely
