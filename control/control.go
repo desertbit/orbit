@@ -53,11 +53,12 @@ On the 'server' side, each handler function registered to
 handle a certain request may return an error that satisfies the
 control.Error interface, to specifically determine, what the client
 receives as message and to specify error codes the client can react to.
+
 On the 'client' side, the Call- functions return (beside the usual errors
 that can happen) the ErrorCode struct that satisfies the standard
 error interface, but contains in addition the error code the server can
 set to indicate certain errors. Clients should therefore always check,
-whether the returned error is of type ErroCode, to handle certain errors
+whether the returned error is of type ErrorCode, to handle certain errors
 appropriately.
 */
 package control
