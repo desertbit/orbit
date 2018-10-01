@@ -43,15 +43,15 @@ type signal struct {
 
 	// Synchronises the access to the active flag, the filter
 	// and filter func.
-	mutex      sync.Mutex
+	mutex sync.Mutex
 	// Whether this signal is currently active and can be triggered.
-	active     bool
+	active bool
 	// The filter func that produces the filter for the signal.
 	filterFunc FilterFunc
 	// The actual filter of the signal that is fed with the
 	// data of the trigger request and determines, if the
 	// signal is triggered or not.
-	filter     Filter
+	filter Filter
 }
 
 // newSignal returns a new signal with the given id.

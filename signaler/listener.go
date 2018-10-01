@@ -42,11 +42,11 @@ type Listener struct {
 	c chan *Context
 
 	// The id of this listener.
-	id   uint64
+	id uint64
 	// A flag whether we are interested in only exactly one trigger.
 	once bool
 	// A reference to the listeners type this listener is being handled by.
-	ls   *listeners
+	ls *listeners
 
 	// The closer that gets triggered if the listener should shutdown.
 	closer closer.Closer

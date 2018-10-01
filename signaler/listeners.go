@@ -28,7 +28,7 @@ import (
 // switches it to active, if at least one listener returns.
 type listeners struct {
 	// The signaler that manages the signals.
-	s        *Signaler
+	s *Signaler
 	// The id of the signal.
 	signalID string
 
@@ -37,10 +37,10 @@ type listeners struct {
 	lMapMutex sync.Mutex
 	// The listener types that are handled by this listeners.
 	// The key of the map is the id of the listener.
-	lMap      map[uint64]*Listener
+	lMap map[uint64]*Listener
 	// A counter that is used to produce new ids for new
 	// listeners.
-	idCount   uint64
+	idCount uint64
 
 	// This channel is used to manage the active state of the
 	// signal. Whenever a listener joins or leaves the listeners,
@@ -53,7 +53,7 @@ type listeners struct {
 	removeChan chan uint64
 	// This channel is the close channel of the signaler, which
 	// can trigger the shutdown of the listeners.
-	closeChan  <-chan struct{}
+	closeChan <-chan struct{}
 }
 
 // newListeners returns a new listeners for the given signalID and

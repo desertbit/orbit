@@ -65,7 +65,7 @@ const (
 	// The id for the control func that sets a signal.
 	cmdSetSignalState = "SetSignalState"
 	// The id for the control func that triggers a signal.
-	cmdTriggerSignal   = "TriggerSignal"
+	cmdTriggerSignal = "TriggerSignal"
 	// The id for the control func that sets a filter on the signal.
 	cmdSetSignalFilter = "SetSignalFilter"
 )
@@ -79,9 +79,9 @@ type Signaler struct {
 	closer.Closer
 
 	// The underlying control used to send the events on.
-	ctrl   *control.Control
+	ctrl *control.Control
 	// The codec used to encode the payloads of the signals.
-	codec  codec.Codec
+	codec codec.Codec
 	// The logger used to log messages to.
 	logger *log.Logger
 
@@ -89,14 +89,14 @@ type Signaler struct {
 	signalsMutex sync.Mutex
 	// Stores the signals that have been added to the signaler.
 	// The key is the id of the signal.
-	signals      map[string]*signal
+	signals map[string]*signal
 
 	// Synchronises the access to the listeners.
 	lsMapMutex sync.Mutex
 	// Stores the listeners for each signal. The key is the
 	// id of the respective signal the listeners are interested
 	// in.
-	lsMap      map[string]*listeners
+	lsMap map[string]*listeners
 }
 
 // New returns a new Signaler.
