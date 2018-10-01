@@ -17,6 +17,13 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+/*
+Package bytes offers convenience functions to convert bytes
+to and from unsigned integers, respecting a defined byte-order.
+
+The underlying byte order and conversion methods being used stem
+from the encoding/binary package.
+*/
 package bytes
 
 import (
@@ -24,20 +31,13 @@ import (
 	"errors"
 )
 
-//#################//
-//### Variables ###//
-//#################//
-
 var (
 	// Endian defines the byte order used for the encoding.
 	Endian binary.ByteOrder = binary.BigEndian
-
+	// ErrInvalidLen is an error indicating that a byte slice had invalid length
+	// for the conversion that should have been performed.
 	ErrInvalidLen = errors.New("invalid byte length")
 )
-
-//##############//
-//### Public ###//
-//##############//
 
 // ToUint16 encodes the byte slice to an uint16.
 func ToUint16(data []byte) (v uint16, err error) {

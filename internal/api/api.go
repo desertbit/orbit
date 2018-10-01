@@ -17,10 +17,15 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+/*
+Package api contains types that are internally used to send data via the
+control and signaler pkg.
+*/
 //go:generate msgp
 package api
 
 const (
+	// The version of the application.
 	Version = 1
 )
 

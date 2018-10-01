@@ -17,15 +17,22 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+/*
+Package utils is the common sin of every Go programmer, including functions that
+seem to be usable everywhere, but do not share the same functionality.
+*/
 package utils
 
 import (
 	"crypto/rand"
 )
 
-// RandomString generates a random string.
+// alphanum defines the possible characters for the RandomString() function.
+const alphanum = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+
+// RandomString generates a random string with len n using the crypto/rand RNG.
+// The returned string contains only chars defined in the alphanum constant.
 func RandomString(n int) (string, error) {
-	const alphanum = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 	var bytes = make([]byte, n)
 	_, err := rand.Read(bytes)
 	if err != nil {
