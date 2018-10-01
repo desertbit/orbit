@@ -30,11 +30,17 @@ import (
 )
 
 const (
+	// defaultKeepAliveInterval is the default keep alive interval that
+	// is passed to the yamux sessions.
 	defaultKeepAliveInterval = 30 * time.Second
 )
 
 var (
+	// defaultCodec is the default codec being used to encode/decode messages in orbit.
+	// Defaults to msgpack.
 	defaultCodec  = msgpack.Codec
+	// defaultLogger that is used to log messages to.
+	// Defaults to os.Stderr.
 	defaultLogger = log.New(os.Stderr, "orbit: ", 0)
 )
 
