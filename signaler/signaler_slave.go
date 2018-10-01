@@ -106,11 +106,11 @@ func (s *Signaler) addListener(id string, chanSize int, once bool) (l *Listener)
 	return
 }
 
-// callSetSignal calls the setSignal control func on the remote peer
+// callSetSignalState calls the setSignalState control func on the remote peer
 // for the signal with the given id and sets the state of the signal
 // to either active or inactive. An inactive signal can not be triggered.
 // Returns ErrSignalNotFound, if the signal does not exist.
-func (s *Signaler) callSetSignal(id string, active bool) (err error) {
+func (s *Signaler) callSetSignalState(id string, active bool) (err error) {
 	// Create the data.
 	data := api.SetSignal{
 		ID:     id,
@@ -118,7 +118,7 @@ func (s *Signaler) callSetSignal(id string, active bool) (err error) {
 	}
 
 	// Call the control func to set the signal's state.
-	_, err = s.ctrl.Call(cmdSetSignal, &data)
+	_, err = s.ctrl.Call(cmdSetSignalState, &data)
 	if err != nil {
 		if cErr, ok := err.(*control.ErrorCode); ok && cErr.Code == 2 {
 			err = ErrSignalNotFound

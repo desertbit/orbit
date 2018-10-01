@@ -27,11 +27,14 @@ import (
 )
 
 var (
-	// ErrNoContextData defines the error if no context data is available.
+	// ErrNoContextData is an error indicating that no context data is available.
 	ErrNoContextData = errors.New("no context data available to decode")
 )
 
-// A Context defines an signal context.
+// The Context type defines a signal context carrying the payload data
+// that has been sent in the trigger request.
+// It offers a convenience wrapper to the data, as it wraps its codec
+// and offers easy access to the decoded data.
 type Context struct {
 	// Data is the raw byte representation of the encoded context data.
 	Data []byte
@@ -39,6 +42,7 @@ type Context struct {
 	codec codec.Codec
 }
 
+// newContext creates a new context from the given data and its codec.
 func newContext(data []byte, codec codec.Codec) *Context {
 	return &Context{
 		Data:  data,
@@ -46,7 +50,7 @@ func newContext(data []byte, codec codec.Codec) *Context {
 	}
 }
 
-// Decode the context data to a custom value.
+// Decode decodes the context data to a custom value using the internal codec.
 // The value has to be passed as pointer.
 // Returns ErrNoContextData if there is no context data available to decode.
 func (c *Context) Decode(v interface{}) error {
@@ -55,7 +59,7 @@ func (c *Context) Decode(v interface{}) error {
 		return ErrNoContextData
 	}
 
-	// Decode the data.
+	// Decode the data into the value.
 	err := c.codec.Decode(c.Data, v)
 	if err != nil {
 		return fmt.Errorf("decode: %v", err)

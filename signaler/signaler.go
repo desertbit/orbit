@@ -63,7 +63,7 @@ import (
 
 const (
 	// The id for the control func that sets a signal.
-	cmdSetSignal       = "SetSignal"
+	cmdSetSignalState = "SetSignalState"
 	// The id for the control func that triggers a signal.
 	cmdTriggerSignal   = "TriggerSignal"
 	// The id for the control func that sets a filter on the signal.
@@ -115,7 +115,7 @@ func New(conn net.Conn, config *control.Config) (s *Signaler) {
 
 	// Add the functions needed for the signaling to the control.
 	s.ctrl.AddFuncs(control.Funcs{
-		cmdSetSignal:       s.setSignal,
+		cmdSetSignalState:  s.setSignalState,
 		cmdTriggerSignal:   s.triggerSignal,
 		cmdSetSignalFilter: s.setSignalFilter,
 	})

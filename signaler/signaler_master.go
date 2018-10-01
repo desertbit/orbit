@@ -139,10 +139,10 @@ func (s *Signaler) callTriggerSignal(id string, data interface{}) error {
 //### Private - Callable from the remote Peer ###//
 //###############################################//
 
-// setSignal is a control func that is callable from the remote peer.
+// setSignalState is a control func that is callable from the remote peer.
 // It sets the state of the signal with the sent id to either active
 // or inactive. An inactive signal can not be triggered.
-func (s *Signaler) setSignal(ctx *control.Context) (interface{}, error) {
+func (s *Signaler) setSignalState(ctx *control.Context) (interface{}, error) {
 	// Decode the data.
 	var data api.SetSignal
 	err := ctx.Decode(&data)
