@@ -294,7 +294,7 @@ func (c *Control) CallTimeout(
 	// Wait for a response.
 	select {
 	case <-c.CloseChan():
-		// Abort if the Control closes
+		// Abort if the Control closes.
 		err = ErrClosed
 
 	case <-timeoutTimer.C:
