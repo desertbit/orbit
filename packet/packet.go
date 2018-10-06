@@ -96,8 +96,11 @@ func ReadTimeout(
 
 // Read reads a packet from the connection, without setting a timeout,
 // and returns the raw bytes of it.
+//
 // A maximum size for the packet must be specified. If the packet's size
 // exceeds it, an ErrMaxPayloadSizeExceeded is returned.
+// A negative maxPayloadSize causes a panic.
+//
 // If buffer is set and is big enough to fit the packet,
 // then the buffer is used. Otherwise a new buffer is allocated.
 // Returns an empty byte slice when no data was send.
@@ -106,6 +109,11 @@ func Read(
 	buffer []byte,
 	maxPayloadSize int,
 ) ([]byte, error) {
+	// Check sanity of maxPayloadSize.
+	if maxPayloadSize < 0 {
+		panic("packet read: maxPayloadSize must be greater or equal than 0")
+	}
+
 	var (
 		err            error
 		n, bytesRead   int
@@ -195,15 +203,23 @@ func WriteTimeout(
 
 // Write writes the packet data to the connection, without
 // setting a timeout.
+//
 // If data is empty, an empty packet is sent that consists of
 // a header with payload size 0 and no payload.
+//
 // A maximum size for the packet must be specified. If the packet's size
 // exceeds it, an ErrMaxPayloadSizeExceeded is returned.
+// A negative maxPayloadSize causes a panic.
 func Write(
 	conn io.Writer,
 	data []byte,
 	maxPayloadSize int,
 ) (err error) {
+	// Check sanity of maxPayloadSize.
+	if maxPayloadSize < 0 {
+		panic("packet write: maxPayloadSize must be greater or equal than 0")
+	}
+
 	payloadLen := len(data)
 	if payloadLen > maxPayloadSize {
 		return ErrMaxPayloadSizeExceeded
