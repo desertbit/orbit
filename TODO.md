@@ -5,6 +5,7 @@
 - global events
 - finish documenting
 - clarify orbit/config.go, since Codec is never used and logger defaults to os.Stderr (should'nt that be zerolog?)
+- write tests
 
 ### Samples
 - Rework completely

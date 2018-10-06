@@ -28,7 +28,17 @@ import (
 	"github.com/hashicorp/yamux"
 )
 
+const (
+	// The time duration after which we timeout if the version byte could not
+	// be written to the stream.
+	streamVersionWriteTimeout = 7 * time.Second
+)
+
 // ClientSession is used to initialize a new client-side session.
+// A config can be provided, where every property of it that has not
+// been set will be initialized with a default value.
+// That makes it possible to overwrite only the interesting properties
+// for the caller.
 func ClientSession(conn net.Conn, config *Config) (s *Session, err error) {
 	// Always close the conn on error.
 	defer func() {
@@ -37,10 +47,11 @@ func ClientSession(conn net.Conn, config *Config) (s *Session, err error) {
 		}
 	}()
 
+	// Prepare the config with default values, where needed.
 	config = prepareConfig(config)
 
 	// Set a write timeout.
-	err = conn.SetWriteDeadline(time.Now().Add(7 * time.Second))
+	err = conn.SetWriteDeadline(time.Now().Add(streamVersionWriteTimeout))
 	if err != nil {
 		return
 	}
@@ -63,6 +74,7 @@ func ClientSession(conn net.Conn, config *Config) (s *Session, err error) {
 			return
 		}
 
+		// Call the auth func defined in the config.
 		value, err = config.AuthFunc(conn)
 		if err != nil {
 			return
@@ -81,12 +93,15 @@ func ClientSession(conn net.Conn, config *Config) (s *Session, err error) {
 	ysConfig.LogOutput = nil
 	ysConfig.KeepAliveInterval = config.KeepAliveInterval
 
+	// Create a new yamux client session.
 	ys, err := yamux.Client(conn, ysConfig)
 	if err != nil {
 		return
 	}
 
+	// Finally, create the orbit client session.
 	s = newSession(conn, ys, config, true)
+	// Save the arbitrary data from the auth func.
 	s.Value = value
 	return
 }

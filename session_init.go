@@ -246,7 +246,7 @@ func (s *Session) openControl(
 
 			select {
 			case <-timeoutTimer.C:
-				handleErr(ErrTimeout)
+				handleErr(ErrOpenTimeout)
 				return
 
 			case <-s.CloseChan():
@@ -322,7 +322,7 @@ func (s *Session) openSignals(
 
 			select {
 			case <-timeoutTimer.C:
-				handleErr(ErrTimeout)
+				handleErr(ErrOpenTimeout)
 				return
 
 			case <-s.CloseChan():

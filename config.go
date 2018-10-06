@@ -38,7 +38,7 @@ const (
 var (
 	// defaultCodec is the default codec being used to encode/decode messages in orbit.
 	// Defaults to msgpack.
-	defaultCodec  = msgpack.Codec
+	defaultCodec = msgpack.Codec
 	// defaultLogger that is used to log messages to.
 	// Defaults to os.Stderr.
 	defaultLogger = log.New(os.Stderr, "orbit: ", 0)
@@ -58,9 +58,15 @@ type Config struct {
 	Logger *log.Logger
 
 	// AuthFunc authenticates the session connection if defined.
+	// It gets called right after the version byte has been exchanged
+	// between client and server. Therefore, not much resources are wasted
+	// in case the authentication fails.
 	AuthFunc AuthFunc
 }
 
+// prepareConfig assigns default values to each property of the given config,
+// if it has not been set. If a nil config is provided, a new one is created.
+// The final config is returned.
 func prepareConfig(c *Config) *Config {
 	if c == nil {
 		c = &Config{}

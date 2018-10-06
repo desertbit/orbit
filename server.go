@@ -31,14 +31,25 @@ import (
 )
 
 const (
+	// The length of the randomly created session ids.
 	sessionIDLength = 20
-	serverWorkers   = 5
 
-	newConnChanSize    = 5
+	// The number of goroutines that handle incoming connections on the server.
+	serverWorkers = 5
+
+	// The size of the channel on which new connections are passed to the
+	// server workers.
+	// Should not be less than serverWorkers.
+	newConnChanSize = 5
+
+	// The size of the channel on which new server sessions are passed onto
+	// so that a user of this package can read them from it.
+	// Should not be less than serverWorkers.
 	newSessionChanSize = 5
 )
 
-// Server implements a simple orbit server.
+// Server implements a simple orbit server. It listens with serverWorkers many
+// routines for incoming connections.
 type Server struct {
 	closer.Closer
 
@@ -53,8 +64,14 @@ type Server struct {
 	newSessionChan chan *Session
 }
 
-// NewServer creates a new orbit listener server.
+// NewServer creates a new orbit server. A listener is required
+// the server will use to listen for incoming connections.
+// A config can be provided, where every property of it that has not
+// been set will be initialized with a default value.
+// That makes it possible to overwrite only the interesting properties
+// for the caller.
 func NewServer(ln net.Listener, config *Config) *Server {
+	// Prepare the config.
 	config = prepareConfig(config)
 
 	l := &Server{
@@ -68,6 +85,7 @@ func NewServer(ln net.Listener, config *Config) *Server {
 	}
 	l.OnClose(ln.Close)
 
+	// Start the workers that listen for incoming connections.
 	for w := 0; w < serverWorkers; w++ {
 		go l.handleConnectionLoop()
 	}
@@ -75,7 +93,8 @@ func NewServer(ln net.Listener, config *Config) *Server {
 	return l
 }
 
-// Listen for new socket connections.
+// Listen listens for new socket connections, which it passes to the
+// new connection channel that is read by the server workers.
 // This method is blocking.
 func (l *Server) Listen() error {
 	defer l.Close()
@@ -107,7 +126,7 @@ func (l *Server) Session(id string) (s *Session) {
 	return
 }
 
-// Sessions returns a list of all current connected sessions.
+// Sessions returns a list of all currently connected sessions.
 func (l *Server) Sessions() []*Session {
 	// Lock the mutex.
 	l.sessionsMutex.RLock()
@@ -130,6 +149,9 @@ func (l *Server) Sessions() []*Session {
 //### Private ###//
 //###############//
 
+// handleConnectionLoop reads in a loop from the new connection channel
+// and calls the handleConnection() function on each read connection.
+// Closes, when the server is closed.
 func (l *Server) handleConnectionLoop() {
 	closeChan := l.CloseChan()
 
@@ -147,6 +169,12 @@ func (l *Server) handleConnectionLoop() {
 	}
 }
 
+// handleConnection handles one new connection.
+// It creates a new server session and stores it in the sessions map.
+// It starts a routine that takes care of removing the session from said map
+// once it has been closed.
+// The session is finally passed to the new session channel.
+// This method recovers from panics.
 func (l *Server) handleConnection(conn net.Conn) (err error) {
 	// Catch panics.
 	defer func() {
@@ -155,6 +183,7 @@ func (l *Server) handleConnection(conn net.Conn) (err error) {
 		}
 	}()
 
+	// Create a new server session.
 	s, err := ServerSession(conn, l.config)
 	if err != nil {
 		return
@@ -209,7 +238,7 @@ func (l *Server) handleConnection(conn net.Conn) (err error) {
 		l.sessionsMutex.Unlock()
 	}()
 
-	// Finally pass the new seession to the channel.
+	// Finally pass the new session to the channel.
 	l.newSessionChan <- s
 
 	return
