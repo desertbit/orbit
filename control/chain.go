@@ -35,7 +35,7 @@ type chainData struct {
 	Context *Context
 	// Contains the error message and an error code
 	// that the call may have produced.
-	Err *ErrorCode
+	Err error
 }
 
 // The chain type contains a map of chainChan channels
