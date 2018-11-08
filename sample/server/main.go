@@ -20,19 +20,34 @@
 package main
 
 import (
+	"github.com/desertbit/orbit/sample/auth"
 	"log"
 )
 
 func main() {
-	s, err := NewServer("127.0.0.1:9876")
+	// WARNING: Just a showcase!
+	authHook := func(username string) (hash []byte, ok bool) {
+		if auth.SampleUsername != username {
+			return nil, false
+		}
+
+		return auth.SamplePasswordHash, true
+	}
+
+	s, err := NewServer("127.0.0.1:9876",  authHook)
 	if err != nil {
 		log.Fatalln(err)
 	}
 
 	// TODO: catch interrupts... and sleep
 
-	err = s.Listen()
-	if err != nil {
-		log.Fatalln(err)
-	}
+	// Start listening for incoming connections.
+	go func() {
+		err = s.Listen()
+		if err != nil {
+			log.Fatalln(err)
+		}
+	}()
+
+	<-s.CloseChan()
 }

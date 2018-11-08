@@ -26,11 +26,28 @@ const (
 	ChannelIDSignal = "signal"
 
 	SignalHello  = "hello"
+	SignalTimeBomb = "timeBomb"
 	SignalFilter = "filter"
 )
 
+type AuthRequest struct {
+	Username string
+	Pw       []byte
+}
+
+type AuthResponse struct {
+	Ok bool
+}
+
 type FilterData struct {
 	ID string
+}
+
+type TimeBombData struct {
+	Countdown int
+	DetonationForce int
+	HasDetonated bool
+	DetonationImage string
 }
 
 type SignalData struct {

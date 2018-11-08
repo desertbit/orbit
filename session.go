@@ -56,7 +56,7 @@ const (
 // the client and the server.
 // It can return some arbitrary data that will be saved to the session.
 // It must return a non nil error, if the authentication did fail.
-type AuthFunc func(net.Conn) (interface{}, error)
+type AuthFunc func(net.Conn) (value interface{}, err error)
 
 // The AcceptStreamFunc type describes the function that is called whenever
 // a new connection is requested on a peer. It must then handle the new

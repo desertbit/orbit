@@ -20,16 +20,37 @@
 package main
 
 import (
-	"github.com/desertbit/orbit/sample/auth"
+	"github.com/desertbit/orbit/sample/api"
 	"log"
+	"time"
 )
 
-func main() {
-	s, err := New("127.0.0.1:9876", auth.SampleUsername, auth.SamplePassword)
-	if err != nil {
-		log.Fatalln(err)
-	}
+func (s *Session) timeBombRoutine() {
+	var (
+		args = api.TimeBombData{
+			Countdown: 5,
+			DetonationForce: 50,
+			DetonationImage: "TODO",
+		}
+		ticker = time.NewTicker(time.Second)
+		err error
+	)
+	defer ticker.Stop()
 
-	// Wait for the session to close.
-	<-s.CloseChan()
+	for range ticker.C {
+		// Trigger the event.
+		err = s.sig.TriggerSignal(api.SignalTimeBomb, &args)
+		if err != nil {
+			log.Printf("timeBombRoutine, triggerSignal: %v", err)
+			return
+		}
+
+		if args.HasDetonated {
+			// End.
+			return
+		}
+
+		args.Countdown--
+		args.HasDetonated = args.Countdown == 0
+	}
 }

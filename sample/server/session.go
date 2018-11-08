@@ -34,6 +34,9 @@ import (
 
 type Session struct {
 	*orbit.Session
+
+	ctrl *control.Control
+	sig *signaler.Signaler
 }
 
 func newSession(orbitSession *orbit.Session) (s *Session, err error) {
@@ -54,7 +57,7 @@ func newSession(orbitSession *orbit.Session) (s *Session, err error) {
 		return nil
 	})
 
-	ctrl, sig, err := s.Init(&orbit.Init{
+	s.ctrl, s.sig, err = s.Init(&orbit.Init{
 		AcceptStreams: orbit.InitAcceptStreams{
 			api.ChannelIDRaw:    handleStreamRaw,
 			api.ChannelIDPacket: handleStreamPacket,
@@ -90,21 +93,26 @@ func newSession(orbitSession *orbit.Session) (s *Session, err error) {
 		},
 		Signaler: orbit.InitSignaler{
 			Config: nil,
+			Signals: []orbit.InitSignal{
+				{
+					ID: api.SignalTimeBomb,
+				},
+			},
 		},
 	})
 	if err != nil {
 		return
 	}
 
-	ctrl.Ready()
-	sig.Ready()
+	s.ctrl.Ready()
+	s.sig.Ready()
 
-	err = sig.SetSignalFilter(api.SignalFilter, api.FilterData{ID: "5"})
+	err = s.sig.SetSignalFilter(api.SignalFilter, api.FilterData{ID: "5"})
 	if err != nil {
 		return
 	}
 
-	sig.OnSignalFunc(api.SignalFilter, func(ctx *signaler.Context) {
+	s.sig.OnSignalFunc(api.SignalFilter, func(ctx *signaler.Context) {
 		var data api.SignalData
 		err := ctx.Decode(&data)
 		if err != nil {

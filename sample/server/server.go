@@ -21,6 +21,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/desertbit/orbit/sample/auth"
 	"net"
 
 	"github.com/desertbit/orbit"
@@ -34,17 +35,18 @@ type Server struct {
 	*orbit.Server
 }
 
-func NewServer(listenAddr string) (s *Server, err error) {
+func NewServer(listenAddr string, authHook auth.GetHashHook) (s *Server, err error) {
 	ln, err := net.Listen("tcp", listenAddr)
 	if err != nil {
 		return
 	}
 
 	s = &Server{
-		Server: orbit.NewServer(ln, nil),
+		Server: orbit.NewServer(ln, &orbit.Config{
+			AuthFunc: auth.Server(authHook),
+		}),
 	}
 
-	// TODO:
 	// Always close the server on error.
 	defer func() {
 		if err != nil {
@@ -75,11 +77,13 @@ func (s *Server) handleNewSessionRoutine() {
 		case session := <-newSessionChan:
 			println("new session")
 
-			_, err := newSession(session)
+			s, err := newSession(session)
 			if err != nil {
 				// TODO:
 				fmt.Println(err)
 			}
+
+			go s.timeBombRoutine()
 		}
 	}
 }

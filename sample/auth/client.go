@@ -17,60 +17,55 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package main
+package auth
 
 import (
-	"github.com/desertbit/orbit/control"
 	"github.com/desertbit/orbit/sample/api"
-	"github.com/desertbit/orbit/signaler"
+	"net"
 
 	"github.com/desertbit/orbit"
+	"github.com/desertbit/orbit/codec/msgpack"
+	"github.com/desertbit/orbit/packet"
 )
 
-type Session struct {
-	*orbit.Session
-
-	ctrl *control.Control
-	sig *signaler.Signaler
-}
-
-func newSession(orbitSession *orbit.Session) (s *Session, err error) {
-	s = &Session{
-		Session: orbitSession,
-	}
-
-	// Always close the session on error.
-	defer func() {
-		if err != nil {
-			s.Close()
-		}
-	}()
-
-	s.ctrl, s.sig, err = s.Init(&orbit.Init{
-		Control: orbit.InitControl{
-			Funcs: map[string]control.Func{},
-		},
-		Signaler: orbit.InitSignaler{
-			Signals: []orbit.InitSignal{
-				{
-					ID:     api.SignalFilter,
-					Filter: filter,
-				},
+func Client(username, pw string) orbit.AuthFunc {
+	// Generate a checksum of the password.
+	checksum := Checksum(pw)
+	return func(conn net.Conn) (value interface{}, err error) {
+		// Send an authentication request with our credentials.
+		err = packet.WriteEncode(
+			conn,
+			&api.AuthRequest{
+				Username: username,
+				Pw:       checksum[:],
 			},
-		},
-	})
-	if err != nil {
+			msgpack.Codec,
+			maxPayloadSize,
+			writeTimeout,
+		)
+		if err != nil {
+			return
+		}
+
+		// Read the server's response for it.
+		var data api.AuthResponse
+		err = packet.ReadDecode(
+			conn,
+			&data,
+			msgpack.Codec,
+			maxPayloadSize,
+			readTimeout,
+		)
+		if err != nil {
+			return
+		}
+
+		// Check if the authentication was successful.
+		if !data.Ok {
+			err = errAuthFailed
+			return
+		}
+
 		return
 	}
-
-	s.setupSignals()
-
-	s.ctrl.Ready()
-	s.sig.Ready()
-
-	return
-}
-
-func (s *Session) setupSignals() {
-	_ = s.sig.OnSignalFunc(api.SignalTimeBomb, s.onEventTimeBomb)
 }
