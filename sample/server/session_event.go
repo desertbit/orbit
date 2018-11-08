@@ -29,8 +29,7 @@ func (s *Session) timeBombRoutine() {
 	var (
 		args = api.TimeBombData{
 			Countdown: 5,
-			DetonationForce: 50,
-			DetonationImage: "TODO",
+			Gift:      asciiGift,
 		}
 		ticker = time.NewTicker(time.Second)
 		err error
@@ -50,7 +49,30 @@ func (s *Session) timeBombRoutine() {
 			return
 		}
 
+		if args.Gift != "" {
+			// Only send the gift once.
+			args.Gift = ""
+		}
+
 		args.Countdown--
 		args.HasDetonated = args.Countdown == 0
 	}
 }
+
+// Source: https://asciiart.website/index.php?art=holiday/christmas/other
+const asciiGift = `
+              .__.      .==========.
+            .(\\//).  .-[ for you! ]
+           .(\\()//)./  '=========='
+       .----(\)\/(/)----.
+       |     ///\\\     |
+       |    ///||\\\    |
+       |   //`+"`||||`"+`\\   |
+       |      ||||      |
+       |      ||||      |
+       |      ||||      |
+       |      ||||      |
+       |      ||||      |
+       |      ||||      |
+       '------====------'
+`

@@ -21,13 +21,15 @@
 package api
 
 const (
-	ChannelIDRaw    = "raw"
-	ChannelIDPacket = "packet"
-	ChannelIDSignal = "signal"
+	ChannelIDRaw    = "Raw"
+	ChannelIDPacket = "Packet"
+	ChannelIDSignal = "Signal"
 
-	SignalHello  = "hello"
-	SignalTimeBomb = "timeBomb"
-	SignalFilter = "filter"
+	ControlConnectedClientsCount = "ConnectedClientsCount"
+
+	SignalHello  = "Hello"
+	SignalTimeBomb = "TimeBomb"
+	SignalFilter = "Filter"
 )
 
 type AuthRequest struct {
@@ -39,15 +41,18 @@ type AuthResponse struct {
 	Ok bool
 }
 
+type ConnectedClientsCountRet struct {
+	Count int
+}
+
 type FilterData struct {
 	ID string
 }
 
 type TimeBombData struct {
-	Countdown int
-	DetonationForce int
-	HasDetonated bool
-	DetonationImage string
+	Countdown       int
+	HasDetonated    bool
+	Gift            string
 }
 
 type SignalData struct {

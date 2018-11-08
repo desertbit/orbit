@@ -53,7 +53,7 @@ func streamPacketRoutine(stream net.Conn, wg *sync.WaitGroup) {
 	}
 
 	// Write the first message to the server.
-	err = packet.Write(stream, []byte("hey server, ur mom gay"), maxPayloadSize)
+	err = packet.Write(stream, []byte("Packet 1: Hello, Server!"), maxPayloadSize)
 	if err != nil {
 		log.Printf("error writing to stream with packet: %v", err)
 		return

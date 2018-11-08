@@ -20,8 +20,16 @@
 package main
 
 import (
+	"fmt"
 	"github.com/desertbit/orbit/sample/auth"
+	"github.com/tcnksm/go-input"
 	"log"
+	"os"
+)
+
+const (
+	actionTimeBomb = "send a gift to all clients"
+	actionExit = "exit"
 )
 
 func main() {
@@ -49,5 +57,35 @@ func main() {
 		}
 	}()
 
-	<-s.CloseChan()
+	ui := &input.UI{
+		Reader: os.Stdin,
+		Writer: os.Stdout,
+	}
+
+	for {
+		action, err := ui.Select(
+			"What action should be performed?",
+			[]string{actionTimeBomb, actionExit},
+			&input.Options{
+				Default: actionTimeBomb,
+				Loop:    true,
+			},
+		)
+		if err != nil {
+			log.Printf("input error: %v\n", err)
+			return
+		}
+
+		switch action {
+		case actionTimeBomb:
+			sessions := s.Sessions()
+			for _, s := range sessions {
+				go s.timeBombRoutine()
+			}
+			fmt.Printf("sent %d gifts to our clients...\n", len(sessions))
+		case actionExit:
+			fmt.Println("bye!")
+			return
+		}
+	}
 }

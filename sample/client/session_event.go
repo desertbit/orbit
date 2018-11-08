@@ -26,6 +26,8 @@ import (
 	"log"
 )
 
+var receivedPresent bool
+
 func (s *Session) onEventTimeBomb(ctx *signaler.Context) {
 	var args api.TimeBombData
 	err := ctx.Decode(&args)
@@ -35,9 +37,46 @@ func (s *Session) onEventTimeBomb(ctx *signaler.Context) {
 	}
 
 	if args.HasDetonated {
-		fmt.Printf("Time bomb has detonated!\nDetonation Force was: %d\nImage of the destructed site: %s\n", args.DetonationForce, args.DetonationImage)
+		fmt.Println("Oh shit!")
+		fmt.Println(asciiExplosion)
+		receivedPresent = false
 		return
 	}
 
-	fmt.Printf("Time bomb is ticking! Countdouwn %d...\n", args.Countdown)
+	if !receivedPresent {
+		fmt.Println()
+		fmt.Println(args.Gift)
+		fmt.Println("Oh, a gift! Lovely!")
+		fmt.Println("What is that mysterious ticking noise? Kind of catchy...")
+		receivedPresent = true
+	}
+
+	fmt.Println("Tick...")
 }
+
+// Source: https://www.asciiart.eu/weapons/explosives
+const asciiExplosion = `
+                               ________________
+                          ____/ (  (    )   )  \___
+                         /( (  (  )   _    ))  )   )\
+                       ((     (   )(    )  )   (   )  )
+                     ((/  ( _(   )   (   _) ) (  () )  )
+                    ( (  ( (_)   ((    (   )  .((_ ) .  )_
+                   ( (  )    (      (  )    )   ) . ) (   )
+                  (  (   (  (   ) (  _  ( _) ).  ) . ) ) ( )
+                  ( (  (   ) (  )   (  ))     ) _)(   )  )  )
+                 ( (  ( \ ) (    (_  ( ) ( )  )   ) )  )) ( )
+                  (  (   (  (   (_ ( ) ( _    )  ) (  )  )   )
+                 ( (  ( (  (  )     (_  )  ) )  _)   ) _( ( )
+                  ((  (   )(    (     _    )   _) _(_ (  (_ )
+                   (_((__(_(__(( ( ( |  ) ) ) )_))__))_)___)
+                   ((__)        \\||lll|l||///          \_))
+                            (   /(/ (  )  ) )\   )
+                          (    ( ( ( | | ) ) )\   )
+                           (   /(| / ( )) ) ) )) )
+                         (     ( ((((_(|)_)))))     )
+                          (      ||\(|(|)|/||     )
+                        (        |(||(||)||||        )
+                          (     //|/l|||)|\\ \     )
+                        (/ / //  /|//||||\\  \ \  \ _)
+-------------------------------------------------------------------------------`

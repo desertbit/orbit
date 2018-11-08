@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"github.com/desertbit/orbit/sample/auth"
 	"net"
+	"sync"
 
 	"github.com/desertbit/orbit"
 )
@@ -33,6 +34,9 @@ const (
 
 type Server struct {
 	*orbit.Server
+
+	sessionsMutex sync.RWMutex
+	sessions []*Session
 }
 
 func NewServer(listenAddr string, authHook auth.GetHashHook) (s *Server, err error) {
@@ -75,15 +79,25 @@ func (s *Server) handleNewSessionRoutine() {
 			return
 
 		case session := <-newSessionChan:
-			println("new session")
-
-			s, err := newSession(session)
+			sess, err := newSession(s, session)
 			if err != nil {
-				// TODO:
-				fmt.Println(err)
+				fmt.Printf("handleNewSessionRoutine: %v\n", err)
 			}
 
-			go s.timeBombRoutine()
+			s.addSession(sess)
 		}
 	}
+}
+
+func (s *Server) addSession(session *Session) {
+	s.sessionsMutex.Lock()
+	s.sessions = append(s.sessions, session)
+	s.sessionsMutex.Unlock()
+}
+
+func (s *Server) Sessions() (sessions []*Session) {
+	s.sessionsMutex.RLock()
+	sessions = s.sessions
+	s.sessionsMutex.RUnlock()
+	return sessions
 }

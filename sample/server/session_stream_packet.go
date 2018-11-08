@@ -58,7 +58,7 @@ func handleStreamPacket(stream net.Conn) error {
 
 	// Write a witty response.
 	// This time, we let packet set the timeout.
-	err = packet.WriteTimeout(stream, []byte("no u!"), maxPayloadSize, 10*time.Second)
+	err = packet.WriteTimeout(stream, []byte("Packet 2: Hello, Client!"), maxPayloadSize, 10*time.Second)
 	if err != nil {
 		return fmt.Errorf("error writing to stream with packet: %v", err)
 	}

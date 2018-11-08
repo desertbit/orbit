@@ -35,13 +35,16 @@ import (
 type Session struct {
 	*orbit.Session
 
+	server *Server
+
 	ctrl *control.Control
 	sig *signaler.Signaler
 }
 
-func newSession(orbitSession *orbit.Session) (s *Session, err error) {
+func newSession(server *Server, orbitSession *orbit.Session) (s *Session, err error) {
 	s = &Session{
 		Session: orbitSession,
+		server: server,
 	}
 
 	// Always close the session on error.
@@ -53,7 +56,6 @@ func newSession(orbitSession *orbit.Session) (s *Session, err error) {
 
 	// Log if the session closes.
 	s.OnClose(func() error {
-		log.Println("session closed")
 		return nil
 	})
 
@@ -88,6 +90,7 @@ func newSession(orbitSession *orbit.Session) (s *Session, err error) {
 					fmt.Println("░░░▀▀░▄███▄░░░▐▄▄▄▀░░░░")
 					return nil, nil
 				},
+				api.ControlConnectedClientsCount: s.connectedClientsCount,
 			},
 			Config: nil, // Optional. Can be removed from here...
 		},
