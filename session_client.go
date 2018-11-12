@@ -92,6 +92,7 @@ func ClientSession(conn net.Conn, config *Config) (s *Session, err error) {
 	ysConfig.Logger = config.Logger
 	ysConfig.LogOutput = nil
 	ysConfig.KeepAliveInterval = config.KeepAliveInterval
+	ysConfig.EnableKeepAlive = true
 
 	// Create a new yamux client session.
 	ys, err := yamux.Client(conn, ysConfig)
