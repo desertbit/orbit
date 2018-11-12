@@ -48,6 +48,9 @@ const (
 
 	// The maximum size the initial data sent over a new stream may have.
 	acceptStreamMaxHeaderSize = 5 * 1024 // 5 KB
+
+	// The timeout for the connection flusher.
+	flushTimeout = 7 * time.Second
 )
 
 // The AuthFunc type describes the function that is used during the authentication

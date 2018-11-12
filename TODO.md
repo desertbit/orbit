@@ -9,6 +9,7 @@
 - think about adding all timeouts into the config.
 
 ### Samples
+- use go survey instead of go input
 - Rework completely
 - Add sample that uses control pkg
 - Add sample that uses signaler pkg (timebomb scenario, where countdown is signaled)

@@ -66,19 +66,9 @@ func ClientSession(conn net.Conn, config *Config) (s *Session, err error) {
 	}
 
 	// Authenticate if required.
-	var value interface{}
-	if config.AuthFunc != nil {
-		// Reset the deadlines.
-		err = conn.SetDeadline(time.Time{})
-		if err != nil {
-			return
-		}
-
-		// Call the auth func defined in the config.
-		value, err = config.AuthFunc(conn)
-		if err != nil {
-			return
-		}
+	value, err := authSession(conn, config)
+	if err != nil {
+		return
 	}
 
 	// Reset the deadlines.
