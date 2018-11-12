@@ -31,7 +31,7 @@ import (
 const (
 	// The time duration after which we timeout if the version byte could not
 	// be written to the stream.
-	streamVersionWriteTimeout = 7 * time.Second
+	streamVersionWriteTimeout = 15 * time.Second
 )
 
 // ClientSession is used to initialize a new client-side session.

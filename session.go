@@ -39,12 +39,12 @@ const (
 	// The time duration after which a new opened stream timeouts if the initial
 	// data could not be written to the stream.
 	// Used on the side that opens the stream.
-	openStreamWriteTimeout = 7 * time.Second
+	openStreamWriteTimeout = 15 * time.Second
 
 	// The time duration after which a new opened stream timeouts if the initial
 	// data could not be read from the stream.
 	// Used on the side that accepts the stream.
-	acceptStreamReadTimeout = 7 * time.Second
+	acceptStreamReadTimeout = 20 * time.Second
 
 	// The maximum size the initial data sent over a new stream may have.
 	acceptStreamMaxHeaderSize = 5 * 1024 // 5 KB

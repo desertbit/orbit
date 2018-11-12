@@ -31,7 +31,7 @@ import (
 const (
 	// The time duration after which we timeout if the version byte could
 	// not be written to the stream.
-	streamVersionReadTimeout = 7 * time.Second
+	streamVersionReadTimeout = 20 * time.Second
 )
 
 // ServerSession is used to initialize a new server-side session.

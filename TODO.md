@@ -6,6 +6,7 @@
 - finish documenting
 - clarify orbit/config.go, since Codec is never used and logger defaults to os.Stderr (should'nt that be zerolog?)
 - write tests
+- think about adding all timeouts into the config.
 
 ### Samples
 - Rework completely
