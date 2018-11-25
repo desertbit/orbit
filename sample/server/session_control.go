@@ -24,7 +24,25 @@ import (
 	"github.com/desertbit/orbit/sample/api"
 )
 
-func (s *Session) connectedClientsCount(ctx *control.Context) (v interface{}, err error) {
-	v = api.ConnectedClientsCountRet{Count: len(s.server.Sessions())}
+func (s *Session) ClientInfo() (info api.ClientInfoRet, err error) {
+	ctx, err := s.ctrl.Call(api.ControlClientInfo, nil)
+	if err != nil {
+		return
+	}
+
+	err = ctx.Decode(&info)
+	if err != nil {
+		return
+	}
+
+	return
+}
+
+func (s *Session) serverInfo(ctx *control.Context) (v interface{}, err error) {
+	v = api.ServerInfoRet{
+		RemoteAddr: s.RemoteAddr().String(),
+		Uptime: s.server.uptime,
+		ClientsCount: len(s.server.Sessions()),
+	}
 	return
 }

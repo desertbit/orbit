@@ -27,8 +27,8 @@ import (
 )
 
 const (
-	actionConnectedClients = "print number of connected clients"
-	actionExit = "exit"
+	actionServerInfo = "print info about the server"
+	actionExit       = "exit"
 )
 
 func main() {
@@ -42,9 +42,9 @@ func main() {
 		err = survey.AskOne(&survey.Select{
 			Message: "Which action do you want to perform?",
 			Options: []string{
-				actionConnectedClients, actionExit,
+				actionServerInfo, actionExit,
 			},
-			Default: actionConnectedClients,
+			Default: actionServerInfo,
 		}, &action, nil)
 		if err != nil {
 			log.Fatalln(err)
@@ -55,18 +55,14 @@ func main() {
 		}
 
 		switch action {
-		case actionConnectedClients:
-			count, err := s.ConnectedClientsCount()
+		case actionServerInfo:
+			info, err := s.ServerInfo()
 			if err != nil {
 				log.Println(err)
 				continue
 			}
 
-			if count == 1 {
-				fmt.Printf("Oh no! You are alone right now :(")
-			} else {
-				fmt.Printf("Currently, %d clients are connected with you :)", count-1)
-			}
+			fmt.Printf("Server is at: %v\nUp since: %v\nClients connected: %d", info.RemoteAddr, info.Uptime.String(), info.ClientsCount)
 		case actionExit:
 			_ = s.Close()
 			fmt.Println("bye!")

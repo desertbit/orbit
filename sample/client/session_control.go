@@ -19,20 +19,29 @@
 
 package main
 
-import "github.com/desertbit/orbit/sample/api"
+import (
+	"github.com/desertbit/orbit/control"
+	"github.com/desertbit/orbit/sample/api"
+)
 
-func (s *Session) ConnectedClientsCount() (count int, err error) {
-	ctx, err := s.ctrl.Call(api.ControlConnectedClientsCount, nil)
+func (s *Session) ServerInfo() (info api.ServerInfoRet, err error) {
+	ctx, err := s.ctrl.Call(api.ControlServerInfo, nil)
 	if err != nil {
 		return
 	}
 
-	var ret api.ConnectedClientsCountRet
-	err = ctx.Decode(&ret)
+	err = ctx.Decode(&info)
 	if err != nil {
 		return
 	}
 
-	count = ret.Count
+	return
+}
+
+func (s *Session) clientsInfo(context *control.Context) (v interface{}, err error) {
+	v = api.ClientInfoRet{
+		RemoteAddr: s.RemoteAddr().String(),
+		Uptime: s.uptime,
+	}
 	return
 }

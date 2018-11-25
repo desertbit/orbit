@@ -10,7 +10,6 @@
 ### Samples
 - use go survey instead of go input
 - Rework completely
-- Add sample that uses control pkg
 - Add sample that uses signaler pkg (timebomb scenario, where countdown is signaled)
 - Add "chatroom" example, where one client writes to console, and others receive event (multicast), needs global events pkg first 
 - Add sample that shows error handling

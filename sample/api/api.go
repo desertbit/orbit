@@ -20,12 +20,17 @@
 //go:generate msgp
 package api
 
+import (
+	"time"
+)
+
 const (
 	ChannelIDRaw    = "Raw"
 	ChannelIDPacket = "Packet"
 	ChannelIDSignal = "Signal"
 
-	ControlConnectedClientsCount = "ConnectedClientsCount"
+	ControlServerInfo = "ServerInfo"
+	ControlClientInfo = "ClientInfo"
 
 	SignalHello  = "Hello"
 	SignalTimeBomb = "TimeBomb"
@@ -41,8 +46,15 @@ type AuthResponse struct {
 	Ok bool
 }
 
-type ConnectedClientsCountRet struct {
-	Count int
+type ServerInfoRet struct {
+	RemoteAddr string
+	Uptime time.Time
+	ClientsCount int
+}
+
+type ClientInfoRet struct {
+	RemoteAddr string
+	Uptime time.Time
 }
 
 type FilterData struct {

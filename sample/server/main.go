@@ -27,6 +27,7 @@ import (
 )
 
 const (
+	actionPrintClientInfo = "print info about all clients"
 	actionTimeBomb = "send a gift to all clients"
 	actionExit = "exit"
 )
@@ -59,15 +60,26 @@ func main() {
 		err = survey.AskOne(&survey.Select{
 			Message: "Which action do you want to perform?",
 			Options: []string{
-				actionTimeBomb, actionExit,
+				actionPrintClientInfo, actionTimeBomb, actionExit,
 			},
-			Default: actionTimeBomb,
+			Default: actionPrintClientInfo,
 		}, &action, nil)
 		if err != nil {
 			log.Fatalln(err)
 		}
 
 		switch action {
+		case actionPrintClientInfo:
+			sessions := s.Sessions()
+
+			for _, session := range sessions {
+				info, err := session.ClientInfo()
+				if err != nil {
+					log.Fatalln(err)
+				}
+
+				fmt.Printf("client at %v is up since %v\n", info.RemoteAddr, info.Uptime.String())
+			}
 		case actionTimeBomb:
 			sessions := s.Sessions()
 			for _, s := range sessions {

@@ -24,6 +24,7 @@ import (
 	"github.com/desertbit/orbit/sample/auth"
 	"net"
 	"sync"
+	"time"
 
 	"github.com/desertbit/orbit"
 )
@@ -34,6 +35,8 @@ const (
 
 type Server struct {
 	*orbit.Server
+
+	uptime time.Time
 
 	sessionsMutex sync.RWMutex
 	sessions map[string]*Session
@@ -51,6 +54,7 @@ func NewServer(listenAddr string, authHook auth.GetHashHook) (s *Server, err err
 				AuthFunc: auth.Server(authHook),
 			},
 		}),
+		uptime: time.Now(),
 		sessions: make(map[string]*Session),
 	}
 

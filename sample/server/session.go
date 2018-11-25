@@ -90,7 +90,7 @@ func newSession(server *Server, orbitSession *orbit.Session) (s *Session, err er
 					fmt.Println("░░░▀▀░▄███▄░░░▐▄▄▄▀░░░░")
 					return nil, nil
 				},
-				api.ControlConnectedClientsCount: s.connectedClientsCount,
+				api.ControlServerInfo: s.serverInfo,
 			},
 			Config: nil, // Optional. Can be removed from here...
 		},

@@ -23,6 +23,7 @@ import (
 	"github.com/desertbit/orbit/control"
 	"github.com/desertbit/orbit/sample/api"
 	"github.com/desertbit/orbit/signaler"
+	"time"
 
 	"github.com/desertbit/orbit"
 )
@@ -32,11 +33,14 @@ type Session struct {
 
 	ctrl *control.Control
 	sig *signaler.Signaler
+
+	uptime time.Time
 }
 
 func newSession(orbitSession *orbit.Session) (s *Session, err error) {
 	s = &Session{
 		Session: orbitSession,
+		uptime: time.Now(),
 	}
 
 	// Always close the session on error.
@@ -48,7 +52,9 @@ func newSession(orbitSession *orbit.Session) (s *Session, err error) {
 
 	s.ctrl, s.sig, err = s.Init(&orbit.Init{
 		Control: orbit.InitControl{
-			Funcs: map[string]control.Func{},
+			Funcs: map[string]control.Func{
+				api.ControlClientInfo: s.clientsInfo,
+			},
 		},
 		Signaler: orbit.InitSignaler{
 			Signals: []orbit.InitSignal{
