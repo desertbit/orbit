@@ -7,6 +7,9 @@
 - write tests
 - think about adding all timeouts into the config.
 
+### Control
+- Some promise-like feature for CallAsync? Otherwise, signaler is always kind of the better alternative and CallAsync is not needed
+
 ### Samples
 - Rework completely
 - Add "chatroom" example, where one client writes to console, and others receive event (multicast), needs global events pkg first 

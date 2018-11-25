@@ -40,7 +40,7 @@ func (s *Session) ServerInfo() (info api.ServerInfoRet, err error) {
 
 func (s *Session) clientsInfo(context *control.Context) (v interface{}, err error) {
 	v = api.ClientInfoRet{
-		RemoteAddr: s.RemoteAddr().String(),
+		RemoteAddr: s.LocalAddr().String(),
 		Uptime: s.uptime,
 	}
 	return

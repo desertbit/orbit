@@ -59,6 +59,9 @@ func Flush(conn net.Conn, timeout time.Duration) (err error) {
 		return errors.New("flush byte is invalid")
 	}
 
+	// At this point, we can be sure that all previous data has been flushed
+	// and has reached the remote peer.
+
 	// Reset the deadlines.
 	return conn.SetDeadline(time.Time{})
 }

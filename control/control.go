@@ -124,8 +124,8 @@ type CallHook func(c *Control, funcID string, ctx *Context)
 // for every Func calley by the remote peer, that produces an error.
 type ErrorHook func(c *Control, funcID string, err error)
 
-// The Control type is the main struct that implements the network protocol
-// offered by this package.
+// The Control type is the main struct of this package
+// that is used to implement RPC.
 type Control struct {
 	closer.Closer
 
