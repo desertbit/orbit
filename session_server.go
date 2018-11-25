@@ -39,6 +39,11 @@ const (
 // been set will be initialized with a default value.
 // That makes it possible to overwrite only the interesting properties
 // for the caller.
+// When the connection has been established, the server waits for the
+// API version byte of the client. If the versions do not match, the
+// server immediately closes the connection.
+// As part of the session setup, the auth func of the config is called,
+// if it has been defined.
 func ServerSession(conn net.Conn, config *Config) (s *Session, err error) {
 	// Always close the conn on error.
 	defer func() {
@@ -94,6 +99,7 @@ func ServerSession(conn net.Conn, config *Config) (s *Session, err error) {
 
 	// Finally, create the orbit server session.
 	s = newSession(conn, ys, config, false)
+
 	// Save the arbitrary data from the auth func.
 	s.Value = value
 	return

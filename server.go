@@ -21,7 +21,6 @@ package orbit
 
 import (
 	"fmt"
-	"log"
 	"net"
 	"sync"
 
@@ -33,19 +32,6 @@ import (
 const (
 	// The length of the randomly created session ids.
 	sessionIDLength = 20
-
-	// The number of goroutines that handle incoming connections on the server.
-	serverWorkers = 5
-
-	// The size of the channel on which new connections are passed to the
-	// server workers.
-	// Should not be less than serverWorkers.
-	newConnChanSize = 5
-
-	// The size of the channel on which new server sessions are passed onto
-	// so that a user of this package can read them from it.
-	// Should not be less than serverWorkers.
-	newSessionChanSize = 5
 )
 
 // Server implements a simple orbit server. It listens with serverWorkers many
@@ -53,9 +39,8 @@ const (
 type Server struct {
 	closer.Closer
 
-	ln     net.Listener
-	logger *log.Logger
-	config *Config
+	ln   net.Listener
+	conf *ServerConfig
 
 	sessionsMutex sync.RWMutex
 	sessions      map[string]*Session
@@ -70,23 +55,22 @@ type Server struct {
 // been set will be initialized with a default value.
 // That makes it possible to overwrite only the interesting properties
 // for the caller.
-func NewServer(ln net.Listener, config *Config) *Server {
+func NewServer(ln net.Listener, config *ServerConfig) *Server {
 	// Prepare the config.
-	config = prepareConfig(config)
+	config = prepareServerConfig(config)
 
 	l := &Server{
 		Closer:         closer.New(),
 		ln:             ln,
-		logger:         config.Logger,
-		config:         config,
+		conf:           config,
 		sessions:       make(map[string]*Session),
-		newConnChan:    make(chan net.Conn, newConnChanSize),
-		newSessionChan: make(chan *Session, newSessionChanSize),
+		newConnChan:    make(chan net.Conn, config.NewConnChanSize),
+		newSessionChan: make(chan *Session, config.NewSessionChanSize),
 	}
 	l.OnClose(ln.Close)
 
 	// Start the workers that listen for incoming connections.
-	for w := 0; w < serverWorkers; w++ {
+	for w := 0; w < config.NewConnNumberWorkers; w++ {
 		go l.handleConnectionLoop()
 	}
 
@@ -163,7 +147,7 @@ func (l *Server) handleConnectionLoop() {
 		case conn := <-l.newConnChan:
 			err := l.handleConnection(conn)
 			if err != nil {
-				l.logger.Printf("server: handle new connection: %v\n", err)
+				l.conf.Logger.Printf("server: handle new connection: %v\n", err)
 			}
 		}
 	}
@@ -184,7 +168,7 @@ func (l *Server) handleConnection(conn net.Conn) (err error) {
 	}()
 
 	// Create a new server session.
-	s, err := ServerSession(conn, l.config)
+	s, err := ServerSession(conn, l.conf.Config)
 	if err != nil {
 		return
 	}
@@ -227,9 +211,12 @@ func (l *Server) handleConnection(conn net.Conn) (err error) {
 	go func() {
 		defer s.Close()
 
-		// Wait for the session to close.
+		// Wait for the session or server to close.
 		select {
 		case <-l.CloseChan():
+			// Speed up the closing process when the server closes
+			// by returning directly from here.
+			return
 		case <-s.CloseChan():
 		}
 
@@ -238,7 +225,7 @@ func (l *Server) handleConnection(conn net.Conn) (err error) {
 		l.sessionsMutex.Unlock()
 	}()
 
-	// Finally pass the new session to the channel.
+	// Finally, pass the new session to the channel.
 	l.newSessionChan <- s
 
 	return

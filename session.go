@@ -22,12 +22,10 @@ package orbit
 import (
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"sync"
 	"time"
 
-	"github.com/desertbit/orbit/codec/msgpack"
 	"github.com/desertbit/orbit/internal/api"
 	"github.com/desertbit/orbit/packet"
 
@@ -47,7 +45,7 @@ const (
 	acceptStreamReadTimeout = 20 * time.Second
 
 	// The maximum size the initial data sent over a new stream may have.
-	acceptStreamMaxHeaderSize = 5 * 1024 // 5 KB
+	acceptStreamMaxHeaderSize = 2 * 1024 // 2 KB
 
 	// The timeout for the connection flusher.
 	flushTimeout = 7 * time.Second
@@ -78,9 +76,7 @@ type Session struct {
 	Value interface{}
 
 	// The config of this session.
-	config *Config
-	// The logger used to log messages to.
-	logger *log.Logger
+	conf *Config
 	// The underlying connection to the remote peer.
 	conn net.Conn
 	// The underlying yamux session that is used to multiplex the stream.
@@ -111,8 +107,7 @@ func newSession(
 ) (s *Session) {
 	s = &Session{
 		Closer:            closer.New(),
-		config:            config,
-		logger:            config.Logger,
+		conf:              config,
 		conn:              conn,
 		ys:                ys,
 		isClient:          isClient,
@@ -121,7 +116,7 @@ func newSession(
 	s.OnClose(conn.Close)
 	s.OnClose(ys.Close)
 
-	// Close if the underlying connection or yamux session close,
+	// Close if the underlying connection or yamux session close.
 	go func() {
 		select {
 		case <-s.CloseChan():
@@ -193,7 +188,7 @@ func (s *Session) OpenStreamTimeout(channel string, timeout time.Duration) (stre
 	}
 
 	// Write the initial request to the stream.
-	err = packet.WriteEncode(stream, &data, msgpack.Codec, acceptStreamMaxHeaderSize, timeout)
+	err = packet.WriteEncode(stream, &data, s.conf.Codec, acceptStreamMaxHeaderSize, timeout)
 	if err != nil {
 		if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
 			err = ErrOpenTimeout
@@ -236,7 +231,7 @@ func (s *Session) acceptStreamRoutine() {
 		stream, err := s.ys.Accept()
 		if err != nil {
 			if !s.IsClosed() && err != io.EOF {
-				s.logger.Printf("session: failed to accept stream: %v", err)
+				s.conf.Logger.Printf("session: failed to accept stream: %v", err)
 			}
 			return
 		}
@@ -245,7 +240,7 @@ func (s *Session) acceptStreamRoutine() {
 		go func() {
 			gerr := s.handleNewStream(stream)
 			if gerr != nil {
-				s.logger.Printf("session: failed to handle new stream: %v", gerr)
+				s.conf.Logger.Printf("session: failed to handle new stream: %v", gerr)
 			}
 		}()
 	}
@@ -271,7 +266,13 @@ func (s *Session) handleNewStream(stream net.Conn) (err error) {
 
 	// Read the initial data from the stream.
 	var data api.InitStream
-	err = packet.ReadDecode(stream, &data, msgpack.Codec, acceptStreamMaxHeaderSize, acceptStreamReadTimeout)
+	err = packet.ReadDecode(
+		stream,
+		&data,
+		s.conf.Codec,
+		acceptStreamMaxHeaderSize,
+		acceptStreamReadTimeout,
+	)
 	if err != nil {
 		return fmt.Errorf("init stream header: %v", err)
 	}
@@ -282,7 +283,7 @@ func (s *Session) handleNewStream(stream net.Conn) (err error) {
 		return
 	}
 
-	// Obtain the accept stream func
+	// Obtain the accept stream func.
 	f, err := s.getAcceptStreamFunc(data.Channel)
 	if err != nil {
 		return

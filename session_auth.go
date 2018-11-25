@@ -26,6 +26,12 @@ import (
 	"github.com/desertbit/orbit/internal/flusher"
 )
 
+// authSession calls the authentication func defined in the given config.
+// If no such func has been defined, it returns immediately.
+// This is a convenience func that ensures the connection is flushed,
+// even if the authentication fails. That ensures that errors can be
+// handled appropriately on each peer's side.
+// Can be called for both the server and client side.
 func authSession(conn net.Conn, config *Config) (v interface{}, err error) {
 	// Skip if no authentication hook is defined.
 	if config.AuthFunc == nil {
@@ -34,7 +40,7 @@ func authSession(conn net.Conn, config *Config) (v interface{}, err error) {
 
 	// Always flush the connection on defer.
 	// Otherwise authentication errors might not be send
-	// to the peer, because the connection is closed to fast.
+	// to the peer, because the connection is closed too fast.
 	defer func() {
 		derr := flusher.Flush(conn, flushTimeout)
 		if err == nil {

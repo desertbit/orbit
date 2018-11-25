@@ -81,7 +81,7 @@ func (c *chain) New() (id uint64, cc chainChan) {
 	}
 	// Use the current id counter as new ID.
 	id = c.idCount
-	// Assign channel to map with our ID.
+	// Assign the channel to the map with our ID.
 	c.chanMap[id] = cc
 	c.chainMutex.Unlock()
 	return

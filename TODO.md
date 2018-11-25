@@ -1,10 +1,9 @@
 ### General
-- server config and add workers option value
 - change license? at least for the examples?
 - use the orbit logger for the control and event package
 - global events
 - finish documenting
-- clarify orbit/config.go, since Codec is never used and logger defaults to os.Stderr (should'nt that be zerolog?)
+- clarify orbit/config.go, since logger defaults to os.Stderr (shouldn't that be zerolog?)
 - write tests
 - think about adding all timeouts into the config.
 

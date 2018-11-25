@@ -21,10 +21,9 @@ package main
 
 import (
 	"fmt"
+	"github.com/AlecAivazis/survey"
 	"github.com/desertbit/orbit/sample/auth"
-	"github.com/tcnksm/go-input"
 	"log"
-	"os"
 )
 
 const (
@@ -47,8 +46,6 @@ func main() {
 		log.Fatalln(err)
 	}
 
-	// TODO: catch interrupts... and sleep
-
 	// Start listening for incoming connections.
 	go func() {
 		err = s.Listen()
@@ -57,23 +54,17 @@ func main() {
 		}
 	}()
 
-	ui := &input.UI{
-		Reader: os.Stdin,
-		Writer: os.Stdout,
-	}
-
+	var action string
 	for {
-		action, err := ui.Select(
-			"What action should be performed?",
-			[]string{actionTimeBomb, actionExit},
-			&input.Options{
-				Default: actionTimeBomb,
-				Loop:    true,
+		err = survey.AskOne(&survey.Select{
+			Message: "Which action do you want to perform?",
+			Options: []string{
+				actionTimeBomb, actionExit,
 			},
-		)
+			Default: actionTimeBomb,
+		}, &action, nil)
 		if err != nil {
-			log.Printf("input error: %v\n", err)
-			return
+			log.Fatalln(err)
 		}
 
 		switch action {
@@ -84,8 +75,12 @@ func main() {
 			}
 			fmt.Printf("sent %d gifts to our clients...\n", len(sessions))
 		case actionExit:
+			_ = s.Close()
 			fmt.Println("bye!")
 			return
 		}
+
+		fmt.Println()
+		fmt.Println()
 	}
 }

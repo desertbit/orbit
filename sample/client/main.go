@@ -20,8 +20,15 @@
 package main
 
 import (
+	"fmt"
+	"github.com/AlecAivazis/survey"
 	"github.com/desertbit/orbit/sample/auth"
 	"log"
+)
+
+const (
+	actionConnectedClients = "print number of connected clients"
+	actionExit = "exit"
 )
 
 func main() {
@@ -30,6 +37,42 @@ func main() {
 		log.Fatalln(err)
 	}
 
-	// Wait for the session to close.
-	<-s.CloseChan()
+	var action string
+	for {
+		err = survey.AskOne(&survey.Select{
+			Message: "Which action do you want to perform?",
+			Options: []string{
+				actionConnectedClients, actionExit,
+			},
+			Default: actionConnectedClients,
+		}, &action, nil)
+		if err != nil {
+			log.Fatalln(err)
+		}
+
+		if s.IsClosed() {
+			return
+		}
+
+		switch action {
+		case actionConnectedClients:
+			count, err := s.ConnectedClientsCount()
+			if err != nil {
+				log.Println(err)
+				continue
+			}
+
+			if count == 1 {
+				fmt.Printf("Oh no! You are alone right now :(")
+			} else {
+				fmt.Printf("Currently, %d clients are connected with you :)", count-1)
+			}
+		case actionExit:
+			_ = s.Close()
+			fmt.Println("bye!")
+			return
+		}
+		fmt.Println()
+		fmt.Println()
+	}
 }

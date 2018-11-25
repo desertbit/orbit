@@ -36,7 +36,7 @@ type Server struct {
 	*orbit.Server
 
 	sessionsMutex sync.RWMutex
-	sessions []*Session
+	sessions map[string]*Session
 }
 
 func NewServer(listenAddr string, authHook auth.GetHashHook) (s *Server, err error) {
@@ -46,9 +46,12 @@ func NewServer(listenAddr string, authHook auth.GetHashHook) (s *Server, err err
 	}
 
 	s = &Server{
-		Server: orbit.NewServer(ln, &orbit.Config{
-			AuthFunc: auth.Server(authHook),
+		Server: orbit.NewServer(ln, &orbit.ServerConfig{
+			Config: &orbit.Config{
+				AuthFunc: auth.Server(authHook),
+			},
 		}),
+		sessions: make(map[string]*Session),
 	}
 
 	// Always close the server on error.
@@ -85,19 +88,36 @@ func (s *Server) handleNewSessionRoutine() {
 			}
 
 			s.addSession(sess)
+
+			// Once the session closes, remove it from the sessions map.
+			sess.OnClose(func() error {
+				s.removeSession(sess)
+				return nil
+			})
 		}
 	}
 }
 
 func (s *Server) addSession(session *Session) {
 	s.sessionsMutex.Lock()
-	s.sessions = append(s.sessions, session)
+	s.sessions[session.ID()] = session
+	s.sessionsMutex.Unlock()
+}
+
+func (s *Server) removeSession(session *Session) {
+	s.sessionsMutex.Lock()
+	delete(s.sessions, session.ID())
 	s.sessionsMutex.Unlock()
 }
 
 func (s *Server) Sessions() (sessions []*Session) {
 	s.sessionsMutex.RLock()
-	sessions = s.sessions
+	sessions = make([]*Session, len(s.sessions))
+	i := 0
+	for _, sn := range s.sessions {
+		sessions[i] = sn
+		i++
+	}
 	s.sessionsMutex.RUnlock()
 	return sessions
 }
