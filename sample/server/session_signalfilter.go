@@ -18,3 +18,30 @@
  */
 
 package main
+
+import (
+	"github.com/desertbit/orbit/sample/api"
+	"github.com/desertbit/orbit/signaler"
+)
+
+func (s *Session) SendNewsletter(subject, msg string) (err error) {
+	err = s.sig.TriggerSignal(api.SignalNewsletter, &api.NewsletterSignalData{
+		Subject: subject,
+		Msg: msg,
+	})
+	return
+}
+
+func (s *Session) newsletterFilter(ctx *signaler.Context) (f signaler.Filter, err error) {
+	var fData api.NewsletterFilterData
+	err = ctx.Decode(&fData)
+	if err != nil {
+		return
+	}
+
+	f = func(data interface{}) (conforms bool, err error) {
+		conforms = fData.Subscribe
+		return
+	}
+	return
+}

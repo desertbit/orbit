@@ -32,9 +32,9 @@ const (
 	ControlServerInfo = "ServerInfo"
 	ControlClientInfo = "ClientInfo"
 
-	SignalHello  = "Hello"
-	SignalTimeBomb = "TimeBomb"
-	SignalFilter = "Filter"
+	SignalHello      = "Hello"
+	SignalTimeBomb   = "TimeBomb"
+	SignalNewsletter = "Newsletter"
 )
 
 type AuthRequest struct {
@@ -57,17 +57,17 @@ type ClientInfoRet struct {
 	Uptime time.Time
 }
 
-type FilterData struct {
-	ID string
-}
-
 type TimeBombData struct {
 	Countdown       int
 	HasDetonated    bool
 	Gift            string
 }
 
-type SignalData struct {
-	ID   string
-	Name string
+type NewsletterFilterData struct {
+	Subscribe bool
+}
+
+type NewsletterSignalData struct {
+	Subject string
+	Msg string
 }

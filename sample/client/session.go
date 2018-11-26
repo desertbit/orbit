@@ -58,10 +58,7 @@ func newSession(orbitSession *orbit.Session) (s *Session, err error) {
 		},
 		Signaler: orbit.InitSignaler{
 			Signals: []orbit.InitSignal{
-				{
-					ID:     api.SignalFilter,
-					Filter: filter,
-				},
+
 			},
 		},
 	})
@@ -79,4 +76,5 @@ func newSession(orbitSession *orbit.Session) (s *Session, err error) {
 
 func (s *Session) setupSignals() {
 	_ = s.sig.OnSignalFunc(api.SignalTimeBomb, s.onEventTimeBomb)
+	_ = s.sig.OnSignalFunc(api.SignalNewsletter, s.onNewsletter)
 }

@@ -21,7 +21,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"net"
 
 	"github.com/desertbit/orbit/codec/msgpack"
@@ -100,6 +99,10 @@ func newSession(server *Server, orbitSession *orbit.Session) (s *Session, err er
 				{
 					ID: api.SignalTimeBomb,
 				},
+				{
+					ID:     api.SignalNewsletter,
+					Filter: s.newsletterFilter,
+				},
 			},
 		},
 	})
@@ -109,22 +112,6 @@ func newSession(server *Server, orbitSession *orbit.Session) (s *Session, err er
 
 	s.ctrl.Ready()
 	s.sig.Ready()
-
-	err = s.sig.SetSignalFilter(api.SignalFilter, api.FilterData{ID: "5"})
-	if err != nil {
-		return
-	}
-
-	s.sig.OnSignalFunc(api.SignalFilter, func(ctx *signaler.Context) {
-		var data api.SignalData
-		err := ctx.Decode(&data)
-		if err != nil {
-			log.Printf("OnSignalFunc: %v", err)
-			return
-		}
-
-		log.Printf("received signal with id %s and name %s", data.ID, data.Name)
-	})
 
 	return
 }

@@ -333,7 +333,7 @@ func (z ClientInfoRet) Msgsize() (s int) {
 }
 
 // DecodeMsg implements msgp.Decodable
-func (z *FilterData) DecodeMsg(dc *msgp.Reader) (err error) {
+func (z *NewsletterFilterData) DecodeMsg(dc *msgp.Reader) (err error) {
 	var field []byte
 	_ = field
 	var zb0001 uint32
@@ -348,8 +348,8 @@ func (z *FilterData) DecodeMsg(dc *msgp.Reader) (err error) {
 			return
 		}
 		switch msgp.UnsafeString(field) {
-		case "ID":
-			z.ID, err = dc.ReadString()
+		case "Subscribe":
+			z.Subscribe, err = dc.ReadBool()
 			if err != nil {
 				return
 			}
@@ -364,14 +364,14 @@ func (z *FilterData) DecodeMsg(dc *msgp.Reader) (err error) {
 }
 
 // EncodeMsg implements msgp.Encodable
-func (z FilterData) EncodeMsg(en *msgp.Writer) (err error) {
+func (z NewsletterFilterData) EncodeMsg(en *msgp.Writer) (err error) {
 	// map header, size 1
-	// write "ID"
-	err = en.Append(0x81, 0xa2, 0x49, 0x44)
+	// write "Subscribe"
+	err = en.Append(0x81, 0xa9, 0x53, 0x75, 0x62, 0x73, 0x63, 0x72, 0x69, 0x62, 0x65)
 	if err != nil {
 		return
 	}
-	err = en.WriteString(z.ID)
+	err = en.WriteBool(z.Subscribe)
 	if err != nil {
 		return
 	}
@@ -379,17 +379,17 @@ func (z FilterData) EncodeMsg(en *msgp.Writer) (err error) {
 }
 
 // MarshalMsg implements msgp.Marshaler
-func (z FilterData) MarshalMsg(b []byte) (o []byte, err error) {
+func (z NewsletterFilterData) MarshalMsg(b []byte) (o []byte, err error) {
 	o = msgp.Require(b, z.Msgsize())
 	// map header, size 1
-	// string "ID"
-	o = append(o, 0x81, 0xa2, 0x49, 0x44)
-	o = msgp.AppendString(o, z.ID)
+	// string "Subscribe"
+	o = append(o, 0x81, 0xa9, 0x53, 0x75, 0x62, 0x73, 0x63, 0x72, 0x69, 0x62, 0x65)
+	o = msgp.AppendBool(o, z.Subscribe)
 	return
 }
 
 // UnmarshalMsg implements msgp.Unmarshaler
-func (z *FilterData) UnmarshalMsg(bts []byte) (o []byte, err error) {
+func (z *NewsletterFilterData) UnmarshalMsg(bts []byte) (o []byte, err error) {
 	var field []byte
 	_ = field
 	var zb0001 uint32
@@ -404,8 +404,8 @@ func (z *FilterData) UnmarshalMsg(bts []byte) (o []byte, err error) {
 			return
 		}
 		switch msgp.UnsafeString(field) {
-		case "ID":
-			z.ID, bts, err = msgp.ReadStringBytes(bts)
+		case "Subscribe":
+			z.Subscribe, bts, err = msgp.ReadBoolBytes(bts)
 			if err != nil {
 				return
 			}
@@ -421,8 +421,124 @@ func (z *FilterData) UnmarshalMsg(bts []byte) (o []byte, err error) {
 }
 
 // Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
-func (z FilterData) Msgsize() (s int) {
-	s = 1 + 3 + msgp.StringPrefixSize + len(z.ID)
+func (z NewsletterFilterData) Msgsize() (s int) {
+	s = 1 + 10 + msgp.BoolSize
+	return
+}
+
+// DecodeMsg implements msgp.Decodable
+func (z *NewsletterSignalData) DecodeMsg(dc *msgp.Reader) (err error) {
+	var field []byte
+	_ = field
+	var zb0001 uint32
+	zb0001, err = dc.ReadMapHeader()
+	if err != nil {
+		return
+	}
+	for zb0001 > 0 {
+		zb0001--
+		field, err = dc.ReadMapKeyPtr()
+		if err != nil {
+			return
+		}
+		switch msgp.UnsafeString(field) {
+		case "Subject":
+			z.Subject, err = dc.ReadString()
+			if err != nil {
+				return
+			}
+		case "Msg":
+			z.Msg, err = dc.ReadString()
+			if err != nil {
+				return
+			}
+		default:
+			err = dc.Skip()
+			if err != nil {
+				return
+			}
+		}
+	}
+	return
+}
+
+// EncodeMsg implements msgp.Encodable
+func (z NewsletterSignalData) EncodeMsg(en *msgp.Writer) (err error) {
+	// map header, size 2
+	// write "Subject"
+	err = en.Append(0x82, 0xa7, 0x53, 0x75, 0x62, 0x6a, 0x65, 0x63, 0x74)
+	if err != nil {
+		return
+	}
+	err = en.WriteString(z.Subject)
+	if err != nil {
+		return
+	}
+	// write "Msg"
+	err = en.Append(0xa3, 0x4d, 0x73, 0x67)
+	if err != nil {
+		return
+	}
+	err = en.WriteString(z.Msg)
+	if err != nil {
+		return
+	}
+	return
+}
+
+// MarshalMsg implements msgp.Marshaler
+func (z NewsletterSignalData) MarshalMsg(b []byte) (o []byte, err error) {
+	o = msgp.Require(b, z.Msgsize())
+	// map header, size 2
+	// string "Subject"
+	o = append(o, 0x82, 0xa7, 0x53, 0x75, 0x62, 0x6a, 0x65, 0x63, 0x74)
+	o = msgp.AppendString(o, z.Subject)
+	// string "Msg"
+	o = append(o, 0xa3, 0x4d, 0x73, 0x67)
+	o = msgp.AppendString(o, z.Msg)
+	return
+}
+
+// UnmarshalMsg implements msgp.Unmarshaler
+func (z *NewsletterSignalData) UnmarshalMsg(bts []byte) (o []byte, err error) {
+	var field []byte
+	_ = field
+	var zb0001 uint32
+	zb0001, bts, err = msgp.ReadMapHeaderBytes(bts)
+	if err != nil {
+		return
+	}
+	for zb0001 > 0 {
+		zb0001--
+		field, bts, err = msgp.ReadMapKeyZC(bts)
+		if err != nil {
+			return
+		}
+		switch msgp.UnsafeString(field) {
+		case "Subject":
+			z.Subject, bts, err = msgp.ReadStringBytes(bts)
+			if err != nil {
+				return
+			}
+		case "Msg":
+			z.Msg, bts, err = msgp.ReadStringBytes(bts)
+			if err != nil {
+				return
+			}
+		default:
+			bts, err = msgp.Skip(bts)
+			if err != nil {
+				return
+			}
+		}
+	}
+	o = bts
+	return
+}
+
+// Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
+func (z NewsletterSignalData) Msgsize() (s int) {
+	s = 1 + 8 + msgp.StringPrefixSize + len(z.Subject) + 4 + msgp.StringPrefixSize + len(z.Msg)
 	return
 }
 
@@ -561,122 +677,6 @@ func (z *ServerInfoRet) UnmarshalMsg(bts []byte) (o []byte, err error) {
 // Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
 func (z ServerInfoRet) Msgsize() (s int) {
 	s = 1 + 11 + msgp.StringPrefixSize + len(z.RemoteAddr) + 7 + msgp.TimeSize + 13 + msgp.IntSize
-	return
-}
-
-// DecodeMsg implements msgp.Decodable
-func (z *SignalData) DecodeMsg(dc *msgp.Reader) (err error) {
-	var field []byte
-	_ = field
-	var zb0001 uint32
-	zb0001, err = dc.ReadMapHeader()
-	if err != nil {
-		return
-	}
-	for zb0001 > 0 {
-		zb0001--
-		field, err = dc.ReadMapKeyPtr()
-		if err != nil {
-			return
-		}
-		switch msgp.UnsafeString(field) {
-		case "ID":
-			z.ID, err = dc.ReadString()
-			if err != nil {
-				return
-			}
-		case "Name":
-			z.Name, err = dc.ReadString()
-			if err != nil {
-				return
-			}
-		default:
-			err = dc.Skip()
-			if err != nil {
-				return
-			}
-		}
-	}
-	return
-}
-
-// EncodeMsg implements msgp.Encodable
-func (z SignalData) EncodeMsg(en *msgp.Writer) (err error) {
-	// map header, size 2
-	// write "ID"
-	err = en.Append(0x82, 0xa2, 0x49, 0x44)
-	if err != nil {
-		return
-	}
-	err = en.WriteString(z.ID)
-	if err != nil {
-		return
-	}
-	// write "Name"
-	err = en.Append(0xa4, 0x4e, 0x61, 0x6d, 0x65)
-	if err != nil {
-		return
-	}
-	err = en.WriteString(z.Name)
-	if err != nil {
-		return
-	}
-	return
-}
-
-// MarshalMsg implements msgp.Marshaler
-func (z SignalData) MarshalMsg(b []byte) (o []byte, err error) {
-	o = msgp.Require(b, z.Msgsize())
-	// map header, size 2
-	// string "ID"
-	o = append(o, 0x82, 0xa2, 0x49, 0x44)
-	o = msgp.AppendString(o, z.ID)
-	// string "Name"
-	o = append(o, 0xa4, 0x4e, 0x61, 0x6d, 0x65)
-	o = msgp.AppendString(o, z.Name)
-	return
-}
-
-// UnmarshalMsg implements msgp.Unmarshaler
-func (z *SignalData) UnmarshalMsg(bts []byte) (o []byte, err error) {
-	var field []byte
-	_ = field
-	var zb0001 uint32
-	zb0001, bts, err = msgp.ReadMapHeaderBytes(bts)
-	if err != nil {
-		return
-	}
-	for zb0001 > 0 {
-		zb0001--
-		field, bts, err = msgp.ReadMapKeyZC(bts)
-		if err != nil {
-			return
-		}
-		switch msgp.UnsafeString(field) {
-		case "ID":
-			z.ID, bts, err = msgp.ReadStringBytes(bts)
-			if err != nil {
-				return
-			}
-		case "Name":
-			z.Name, bts, err = msgp.ReadStringBytes(bts)
-			if err != nil {
-				return
-			}
-		default:
-			bts, err = msgp.Skip(bts)
-			if err != nil {
-				return
-			}
-		}
-	}
-	o = bts
-	return
-}
-
-// Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
-func (z SignalData) Msgsize() (s int) {
-	s = 1 + 3 + msgp.StringPrefixSize + len(z.ID) + 5 + msgp.StringPrefixSize + len(z.Name)
 	return
 }
 

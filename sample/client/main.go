@@ -22,12 +22,15 @@ package main
 import (
 	"fmt"
 	"github.com/AlecAivazis/survey"
+	"github.com/desertbit/orbit/sample/api"
 	"github.com/desertbit/orbit/sample/auth"
 	"log"
 )
 
 const (
 	actionServerInfo = "print info about the server"
+	actionSubscribeToNewsletter = "subscribe to newsletter"
+	actionUnsubscribeToNewsletter = "unsubscribe from newsletter"
 	actionExit       = "exit"
 )
 
@@ -37,13 +40,33 @@ func main() {
 		log.Fatalln(err)
 	}
 
-	var action string
+	// Per default, we do not want to subscribe to the newsletter
+	err = s.sig.SetSignalFilter(api.SignalNewsletter, api.NewsletterFilterData{
+		Subscribe: false,
+	})
+	if err != nil {
+		return
+	}
+
+	var (
+		action string
+		isSubscribed bool
+		options []string
+	)
 	for {
+		if isSubscribed {
+			options = []string{
+				actionServerInfo, actionUnsubscribeToNewsletter, actionExit,
+			}
+		} else {
+			options = []string{
+				actionServerInfo, actionSubscribeToNewsletter, actionExit,
+			}
+		}
+
 		err = survey.AskOne(&survey.Select{
 			Message: "Which action do you want to perform?",
-			Options: []string{
-				actionServerInfo, actionExit,
-			},
+			Options: options,
 			Default: actionServerInfo,
 		}, &action, nil)
 		if err != nil {
@@ -63,6 +86,21 @@ func main() {
 			}
 
 			fmt.Printf("Server is at: %v\nUp since: %v\nClients connected: %d", info.RemoteAddr, info.Uptime.String(), info.ClientsCount)
+		case actionSubscribeToNewsletter:
+			fallthrough
+		case actionUnsubscribeToNewsletter:
+			isSubscribed = !isSubscribed
+			err = s.sig.SetSignalFilter(api.SignalNewsletter, api.NewsletterFilterData{
+				Subscribe: isSubscribed,
+			})
+			if err != nil {
+				return
+			}
+			if isSubscribed {
+				fmt.Print("subscribed to newsletter!")
+			} else {
+				fmt.Print("unsubscribed from newsletter!")
+			}
 		case actionExit:
 			_ = s.Close()
 			fmt.Println("bye!")

@@ -29,6 +29,7 @@ import (
 const (
 	actionPrintClientInfo = "print info about all clients"
 	actionTimeBomb = "send a gift to all clients"
+	actionSendNewsletter = "send newsletter to subscribed clients"
 	actionExit = "exit"
 )
 
@@ -60,7 +61,7 @@ func main() {
 		err = survey.AskOne(&survey.Select{
 			Message: "Which action do you want to perform?",
 			Options: []string{
-				actionPrintClientInfo, actionTimeBomb, actionExit,
+				actionPrintClientInfo, actionTimeBomb, actionSendNewsletter, actionExit,
 			},
 			Default: actionPrintClientInfo,
 		}, &action, nil)
@@ -81,11 +82,26 @@ func main() {
 				fmt.Printf("client at %v is up since %v\n", info.RemoteAddr, info.Uptime.String())
 			}
 		case actionTimeBomb:
+			// TODO: replace with global events
 			sessions := s.Sessions()
 			for _, s := range sessions {
 				go s.timeBombRoutine()
 			}
 			fmt.Printf("sent %d gifts to our clients...\n", len(sessions))
+
+		case actionSendNewsletter:
+			// TODO: replace with global events
+			sessions := s.Sessions()
+			for _, s := range sessions {
+				err = s.SendNewsletter(
+					"Weekly Newsletter!",
+					"Dear client,\nThank you for subscribing to our weekly newsletter!\nThis weeks special news: the golang orbit package! Never has networking been easier and faster!\nCheck it out: https://github.com/desertbit/orbit/\n\nYour faithful server.",
+				)
+				if err != nil {
+					log.Fatalln(err)
+				}
+			}
+			fmt.Print("sent out newsletter...")
 		case actionExit:
 			_ = s.Close()
 			fmt.Println("bye!")

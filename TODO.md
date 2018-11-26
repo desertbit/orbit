@@ -5,10 +5,6 @@
 - finish documenting
 - clarify orbit/config.go, since logger defaults to os.Stderr (shouldn't that be zerolog?)
 - write tests
-- think about adding all timeouts into the config.
-
-### Control
-- Some promise-like feature for CallAsync? Otherwise, signaler is always kind of the better alternative and CallAsync is not needed
 
 ### Samples
 - Rework completely

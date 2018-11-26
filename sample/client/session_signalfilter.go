@@ -20,28 +20,20 @@
 package main
 
 import (
-	"github.com/pkg/errors"
-
+	"fmt"
 	"github.com/desertbit/orbit/sample/api"
 	"github.com/desertbit/orbit/signaler"
+	"log"
 )
 
-func filter(ctx *signaler.Context) (f signaler.Filter, err error) {
-	var fData api.FilterData
-	err = ctx.Decode(&fData)
+func (s *Session) onNewsletter(ctx *signaler.Context) {
+	var data api.NewsletterSignalData
+	err := ctx.Decode(&data)
 	if err != nil {
+		log.Printf("OnSignalFunc: %v", err)
 		return
 	}
 
-	f = func(data interface{}) (conforms bool, err error) {
-		d, ok := data.(*api.SignalData)
-		if !ok {
-			err = errors.New("could not cast to SignalData")
-			return
-		}
-
-		conforms = d.ID == fData.ID
-		return
-	}
-	return
+	fmt.Printf("received newsletter!\nSubject: %s\nMessage: %s\n\n", data.Subject, data.Msg)
 }
+
