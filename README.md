@@ -93,7 +93,7 @@ if err != nil {
     return
 }
 ```
-In order to receive a result, the signaler package can be used, by triggering a signal that carries the response. Check out the next section for an example.
+TODO
 
 ### Signaler - Events
 TODO
