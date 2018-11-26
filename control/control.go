@@ -360,34 +360,6 @@ func (c *Control) CallAsyncTimeout(
 //### Private ###//
 //###############//
 
-func (c *Control) waitForResponse(
-	timeout time.Duration,
-	channel chainChan,
-) (ctx *Context, err error) {
-	// Create the timeout.
-	timeoutTimer := time.NewTimer(timeout)
-
-	// Wait for a response.
-	select {
-	case <-c.CloseChan():
-		// Abort if the Control closes.
-		err = ErrClosed
-
-	case <-timeoutTimer.C:
-		// Abort if the deadline is over.
-		err = ErrCallTimeout
-
-	case rData := <-channel:
-		// Response has arrived.
-		ctx = rData.Context
-		err = rData.Err
-	}
-
-	// Stop the timeout.
-	_ = timeoutTimer.Stop()
-	return
-}
-
 // write sends a packet to the remote peer that
 // consists of the given header and payload
 // data. The packet is preceded by one byte, which
@@ -466,6 +438,38 @@ func (c *Control) write(reqType byte, headerI interface{}, dataI interface{}) (e
 	}
 
 	return nil
+}
+
+// waitForResponse waits for a response on the given chainChan channel.
+// Returns ErrClosed, if the control is closed before the response arrives.
+// Returns ErrCallTimeout, if the given timeout is exceeded
+// before the response arrives.
+func (c *Control) waitForResponse(
+	timeout time.Duration,
+	channel chainChan,
+) (ctx *Context, err error) {
+	// Create the timeout.
+	timeoutTimer := time.NewTimer(timeout)
+
+	// Wait for a response.
+	select {
+	case <-c.CloseChan():
+		// Abort if the Control closes.
+		err = ErrClosed
+
+	case <-timeoutTimer.C:
+		// Abort if the deadline is over.
+		err = ErrCallTimeout
+
+	case rData := <-channel:
+		// Response has arrived.
+		ctx = rData.Context
+		err = rData.Err
+	}
+
+	// Stop the timeout.
+	_ = timeoutTimer.Stop()
+	return
 }
 
 // readRoutine listens on the control stream and reads the packets from it.
