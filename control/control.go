@@ -287,9 +287,85 @@ func (c *Control) CallTimeout(
 		return
 	}
 
+	// Wait, until the response has arrived, and return its result.
+	return c.waitForResponse(timeout, channel)
+}
+
+// CallOneWay calls a remote function, but the remote peer will not send
+// back a response and this func will immediately return, as soon as
+// the data has been written to the connection.
+func (c *Control) CallOneWay(id string, data interface{}) error {
+	return c.CallAsync(id, data, nil)
+}
+
+// CallAsync calls a remote function in an asynchronous fashion, as the
+// response will be awaited in a new goroutine and passed to the given callback.
+// It uses the default CallTimeout from the config of the Control.
+// This method is thread-safe.
+func (c *Control) CallAsync(
+	id string,
+	data interface{},
+	callback func(data interface{}, err error),
+) error {
+	return c.CallAsyncTimeout(id, data, c.config.CallTimeout, callback)
+}
+
+// CallAsync calls a remote function in an asynchronous fashion, as the
+// response will be awaited in a new goroutine and passed to the given callback.
+// This method is thread-safe.
+func (c *Control) CallAsyncTimeout(
+	id string,
+	data interface{},
+	timeout time.Duration,
+	callback func(data interface{}, err error),
+) error {
+	var (
+		key uint64
+		channel chainChan
+	)
+
+	// If a callback has been defined, create a channel that will be used to send
+	// the data over that forms the response to the call.
+	if callback != nil {
+		key, channel = c.callRetChain.New()
+	}
+
+	// Create the header.
+	header := &api.ControlCall{
+		ID: id,
+		Key: key,
+	}
+
+	// Send the request.
+	err := c.write(typeCall, header, data)
+	if err != nil {
+		return err
+	}
+
+	// No response awaited, quit since it is a one way call.
+	if callback == nil {
+		return nil
+	}
+
+	// Wait for the response, but in an new routine.
+	go func() {
+		ctx, err := c.waitForResponse(timeout, channel)
+		callback(ctx.Data, err)
+	}()
+
+	return nil
+}
+
+//###############//
+//### Private ###//
+//###############//
+
+func (c *Control) waitForResponse(
+	timeout time.Duration,
+	channel chainChan,
+) (ctx *Context, err error) {
 	// Create the timeout.
 	timeoutTimer := time.NewTimer(timeout)
-	defer timeoutTimer.Stop()
 
 	// Wait for a response.
 	select {
@@ -302,30 +378,15 @@ func (c *Control) CallTimeout(
 		err = ErrCallTimeout
 
 	case rData := <-channel:
+		// Response has arrived.
 		ctx = rData.Context
 		err = rData.Err
 	}
+
+	// Stop the timeout.
+	_ = timeoutTimer.Stop()
 	return
 }
-
-// CallAsync calls a remote function in an asynchronous fashion,
-// as it does not wait for a response of the peer.
-// It uses the default WriteTimeout from the config of the Control.
-// This method is thread-safe.
-func (c *Control) CallAsync(id string, data interface{}) error {
-	// Create the header, but without a key as we do not register a response
-	// handler for it.
-	header := &api.ControlCall{
-		ID: id,
-	}
-
-	// Send the request.
-	return c.write(typeCall, header, data)
-}
-
-//###############//
-//### Private ###//
-//###############//
 
 // write sends a packet to the remote peer that
 // consists of the given header and payload

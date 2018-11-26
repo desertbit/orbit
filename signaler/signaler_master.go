@@ -129,7 +129,7 @@ func (s *Signaler) callTriggerSignal(id string, data interface{}) error {
 	}
 
 	// Trigger the signal in a non-blocking way.
-	return s.ctrl.CallAsync(cmdTriggerSignal, &api.TriggerSignal{
+	return s.ctrl.CallOneWay(cmdTriggerSignal, &api.TriggerSignal{
 		ID:   id,
 		Data: dataBytes,
 	})
