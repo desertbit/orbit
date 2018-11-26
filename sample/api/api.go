@@ -25,7 +25,7 @@ import (
 )
 
 const (
-	ChannelIDRaw    = "Raw"
+	ChannelOrbit    = "Orbit"
 	ChannelIDPacket = "Packet"
 	ChannelIDSignal = "Signal"
 

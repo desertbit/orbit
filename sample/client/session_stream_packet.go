@@ -32,13 +32,14 @@ const (
 	maxPayloadSize = 10 * 1024 // 10KB
 )
 
+// TODO: consider removal
 // streamPacketRoutine is a showcase of the client side implementation of streaming data
 // by using the packet pkg.
 func streamPacketRoutine(stream net.Conn, wg *sync.WaitGroup) {
 	defer func() {
 		// For better output readability.
 		fmt.Println("---------------------------")
-		stream.Close()
+		_ = stream.Close()
 		wg.Done()
 	}()
 

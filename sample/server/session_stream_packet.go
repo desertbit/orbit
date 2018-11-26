@@ -30,6 +30,7 @@ const (
 	maxPayloadSize = 10 * 1024 // KB
 )
 
+// TODO: consider removal
 // handleStreamPacket is a showcase of the server side implementation of streaming data
 // by using the packet pkg.
 func handleStreamPacket(stream net.Conn) error {

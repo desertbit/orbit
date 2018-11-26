@@ -20,11 +20,6 @@
 package main
 
 import (
-	"fmt"
-	"net"
-
-	"github.com/desertbit/orbit/codec/msgpack"
-
 	"github.com/desertbit/orbit"
 	"github.com/desertbit/orbit/control"
 	"github.com/desertbit/orbit/sample/api"
@@ -60,38 +55,12 @@ func newSession(server *Server, orbitSession *orbit.Session) (s *Session, err er
 
 	s.ctrl, s.sig, err = s.Init(&orbit.Init{
 		AcceptStreams: orbit.InitAcceptStreams{
-			api.ChannelIDRaw:    handleStreamRaw,
-			api.ChannelIDPacket: handleStreamPacket,
-			api.ChannelIDSignal: func(stream net.Conn) error {
-				evs := signaler.New(stream, nil)
-				l := evs.OnSignal(api.SignalHello)
-				data := <-l.C
-				var s string
-				msgpack.Codec.Decode(data.Data, &s)
-				fmt.Println(s)
-				return nil
-			},
+			api.ChannelOrbit: handleStreamOrbit,
 		},
 		Control: orbit.InitControl{
 			Funcs: control.Funcs{
-				"takeAHugeDump": func(c *control.Context) (interface{}, error) {
-					fmt.Println("░░░░░░░░░░░█▀▀░░█░░░░░░")
-					fmt.Println("░░░░░░▄▀▀▀▀░░░░░█▄▄░░░░")
-					fmt.Println("░░░░░░█░█░░░░░░░░░░▐░░░")
-					fmt.Println("░░░░░░▐▐░░░░░░░░░▄░▐░░░")
-					fmt.Println("░░░░░░█░░░░░░░░▄▀▀░▐░░░")
-					fmt.Println("░░░░▄▀░░░░░░░░▐░▄▄▀░░░░")
-					fmt.Println("░░▄▀░░░▐░░░░░█▄▀░▐░░░░░")
-					fmt.Println("░░█░░░▐░░░░░░░░▄░█░░░░░")
-					fmt.Println("░░░█▄░░▀▄░░░░▄▀▐░█░░░░░")
-					fmt.Println("░░░█▐▀▀▀░▀▀▀▀░░▐░█░░░░░")
-					fmt.Println("░░▐█▐▄░░█░░░░░░▐░█▄▄░░░")
-					fmt.Println("░░░▀▀░▄███▄░░░▐▄▄▄▀░░░░")
-					return nil, nil
-				},
 				api.ControlServerInfo: s.serverInfo,
 			},
-			Config: nil, // Optional. Can be removed from here...
 		},
 		Signaler: orbit.InitSignaler{
 			Config: nil,

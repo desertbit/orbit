@@ -23,20 +23,17 @@ import (
 	"fmt"
 	"github.com/desertbit/orbit/sample/api"
 	"io"
-	"log"
 	"net"
-	"sync"
 	"time"
 )
 
 // streamRawRoutine is a showcase of the client side implementation of streaming on a
 // raw net.Conn without using any helpers.
-func streamRawRoutine(stream net.Conn, wg *sync.WaitGroup) {
+func (s *Session) readStreamOrbit(stream net.Conn) {
 	defer func() {
 		// For better output readability.
 		fmt.Println("---------------------------")
-		stream.Close()
-		wg.Done()
+		_ = stream.Close()
 	}()
 
 	var (
@@ -49,7 +46,7 @@ func streamRawRoutine(stream net.Conn, wg *sync.WaitGroup) {
 		// Set a read timeout.
 		err = stream.SetReadDeadline(time.Now().Add(5 * time.Second))
 		if err != nil {
-			log.Printf("error reading from stream '%s': could not set read deadline", api.ChannelIDRaw)
+			fmt.Printf("error reading from stream '%s': could not set read deadline", api.ChannelOrbit)
 			return
 		}
 
@@ -57,12 +54,12 @@ func streamRawRoutine(stream net.Conn, wg *sync.WaitGroup) {
 		n, err = stream.Read(buf)
 		if err != nil {
 			if err != io.EOF {
-				log.Printf("error reading from stream '%s': %v", api.ChannelIDRaw, err)
+				fmt.Printf("error reading from stream '%s': %v", api.ChannelOrbit, err)
 			}
 			return
 		}
 		if n == 0 {
-			log.Printf("error reading from stream '%s': no data read", api.ChannelIDRaw)
+			fmt.Printf("error reading from stream '%s': no data read", api.ChannelOrbit)
 			return
 		}
 

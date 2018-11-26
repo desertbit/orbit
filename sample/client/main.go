@@ -28,6 +28,7 @@ import (
 )
 
 const (
+	actionOrbit = "show me the orbit"
 	actionServerInfo = "print info about the server"
 	actionSubscribeToNewsletter = "subscribe to newsletter"
 	actionUnsubscribeToNewsletter = "unsubscribe from newsletter"
@@ -56,18 +57,18 @@ func main() {
 	for {
 		if isSubscribed {
 			options = []string{
-				actionServerInfo, actionUnsubscribeToNewsletter, actionExit,
+				actionOrbit, actionServerInfo, actionUnsubscribeToNewsletter, actionExit,
 			}
 		} else {
 			options = []string{
-				actionServerInfo, actionSubscribeToNewsletter, actionExit,
+				actionOrbit, actionServerInfo, actionSubscribeToNewsletter, actionExit,
 			}
 		}
 
 		err = survey.AskOne(&survey.Select{
 			Message: "Which action do you want to perform?",
 			Options: options,
-			Default: actionServerInfo,
+			Default: actionOrbit,
 		}, &action, nil)
 		if err != nil {
 			log.Fatalln(err)
@@ -78,6 +79,13 @@ func main() {
 		}
 
 		switch action {
+		case actionOrbit:
+			stream, err := s.OpenStream(api.ChannelOrbit)
+			if err != nil {
+				log.Fatalln(err)
+			}
+
+			go s.readStreamOrbit(stream)
 		case actionServerInfo:
 			info, err := s.ServerInfo()
 			if err != nil {

@@ -38,9 +38,9 @@ const orbitASCII = `
          'MMM8&&&'
 `
 
-// handleStreamRaw is a showcase of the server side implementation of streaming on a
+// handleStreamOrbit is a showcase of the server side implementation of streaming on a
 // raw net.Conn without using any helpers.
-func handleStreamRaw(stream net.Conn) error {
+func handleStreamOrbit(stream net.Conn) error {
 	// Ensure stream is closed.
 	defer stream.Close()
 
@@ -54,16 +54,16 @@ func handleStreamRaw(stream net.Conn) error {
 		// Set a write deadline.
 		err := stream.SetWriteDeadline(time.Now().Add(5 * time.Second))
 		if err != nil {
-			return fmt.Errorf("error setting write deadline to stream '%s': %v", api.ChannelIDRaw, err)
+			return fmt.Errorf("error setting write deadline to stream '%s': %v", api.ChannelOrbit, err)
 		}
 
 		// Write one line directly onto the stream.
 		n, err := stream.Write([]byte(orbitParts[i]))
 		if err != nil {
-			return fmt.Errorf("error writing to stream '%s': %v", api.ChannelIDRaw, err)
+			return fmt.Errorf("error writing to stream '%s': %v", api.ChannelOrbit, err)
 		}
 		if n != len(orbitParts[i]) {
-			return fmt.Errorf("error writing to stream '%s': could only write %d bytes, expected to write %d bytes", api.ChannelIDRaw, n, len(orbitParts[i]))
+			return fmt.Errorf("error writing to stream '%s': could only write %d bytes, expected to write %d bytes", api.ChannelOrbit, n, len(orbitParts[i]))
 		}
 	}
 
