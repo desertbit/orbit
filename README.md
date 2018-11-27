@@ -132,7 +132,7 @@ func Action2() error {
     )
 }
 ```
-Inside the callback, you receive the response (or an error) and can handle it the same way is with the synchronous call.
+Inside the callback, you receive the response (or an error) and can handle it the same way as with the synchronous call.
 
 ### Signaler - Events
 TODO

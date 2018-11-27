@@ -30,45 +30,71 @@ import (
 )
 
 const (
+	// Timeout for the opening of streams in the Init funcs.
 	initOpenStreamTimeout = 20 * time.Second
 
+	// Default key for the single control created inside the Init() func.
 	defaultInitControl  = "control"
+	// Default key for the single signaler created inside the Init() func.
 	defaultInitSignaler = "signaler"
 )
 
+// The InitAcceptStreams type is a map of AcceptStreamFunc, where the key
+// is the id of the stream and the value the func that is used to accept it.
 type InitAcceptStreams map[string]AcceptStreamFunc
 
+// The InitControl type is used to initialize one control. It contains
+// the functions that the remote peer can call and a config.
 type InitControl struct {
 	Funcs  control.Funcs
 	Config *control.Config
 }
 
+// The InitControls type is a map, where the key is the id of a control
+// and the value the associated InitControl.
 type InitControls map[string]InitControl
 
+// The InitSignal type is used to initialize one signal. It contains
+// the id of the signal and a filter for it.
 type InitSignal struct {
 	ID     string
 	Filter signaler.FilterFunc
 }
 
+// The InitSignaler type is used to initialize one signaler. It contains
+// the signals that can be triggered and a config.
 type InitSignaler struct {
 	Signals []InitSignal
 	Config  *control.Config
 }
 
+// The InitSignalers type is a map, where the key is the id of a signaler
+// and the value the associated InitSignaler.
 type InitSignalers map[string]InitSignaler
 
+// The Init type is used during the initialization of the orbit session
+// and contains the definition to accept streams and define exactly
+// one control and one signaler.
 type Init struct {
 	AcceptStreams InitAcceptStreams
 	Control       InitControl
 	Signaler      InitSignaler
 }
 
+// The Init type is used during the initialization of the orbit session
+// and contains the definition to accept streams and define many
+// controls and many signalers.
 type InitMany struct {
 	AcceptStreams InitAcceptStreams
 	Controls      InitControls
 	Signalers     InitSignalers
 }
 
+// Init initializes the session by using InitMany(), but only defining one
+// control and one signaler.
+// If no more than one control/signaler are needed, this is the more convenient
+// method to call.
+// Ready() must be called manually for the control and signaler afterwards.
 func (s *Session) Init(opts *Init) (
 	control *control.Control,
 	signaler *signaler.Signaler,
@@ -92,8 +118,8 @@ func (s *Session) Init(opts *Init) (
 	return
 }
 
-// InitMany initialized this session. Pass nil to just start accepting streams.
-// Ready() must be called manually for all controls and signaler.
+// InitMany initializes this session. Pass nil to just start accepting streams.
+// Ready() must be called manually for all controls and signaler afterwards.
 func (s *Session) InitMany(opts *InitMany) (
 	controls map[string]*control.Control,
 	signalers map[string]*signaler.Signaler,
