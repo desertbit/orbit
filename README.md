@@ -10,7 +10,7 @@ Orbit generally does not expect you to use a strict client-server architecture. 
 
 - Session-based
 - Multiplexed connections with multiple channel streams and Keep-Alive (using [yamux](https://github.com/hashicorp/yamux))
-- Plugable custom codecs for encoding and decoding (defaulting to MessagePack using [msgpack](https://github.com/msgpack/msgpack]))
+- Plugable custom codecs for encoding and decoding (defaulting to MessagePack using [msgpack](https://github.com/msgpack/msgpack))
 - Use raw tcp streams to implement your own protocols, and/or
   - Use the control package for RPC-like approaches
   - Use efficient signals for event-based approaches
@@ -46,54 +46,93 @@ To use a custom initialization, check out the source code of the `InitMany` func
 ##### Synchronous Call
 To make a synchronous call, simply trigger a call on _peer1_ to _peer2_ and then wait for the incoming response.
 ```go
-// Call
-ctx, err := s.ctrl.Call(api.Action1, &api.Action1Args{
-	ID: 28
-})
-if err != nil {
-    return
+type Action1Args struct {
+    ID int
 }
 
-// Response
-var response api.Action1Ret
-err = ctx.Decode(&response)
-if err != nil {
-    return
+type Action1Ret struct {
+    SomeData string
 }
 
-print(response.SomeData)
+func Action1() (data string, err error) {
+    // Call
+    ctx, err := s.ctrl.Call("Action1", &Action1Args{
+        ID: 28
+    })
+    if err != nil {
+        return
+    }
+    
+    // Response
+    var response api.Action1Ret
+    err = ctx.Decode(&response)
+    if err != nil {
+        return
+    }
+    
+    data = response.SomeData
+    return 
+}
 ```
 
 _peer2_ might handle this call like this:
 ```go
 func handleAction1(ctx *control.Context) (v interface{}, err error) {
-	var args api.Action1Args
-	err = ctx.Decode(&args)
-	if err != nil {
-		return
-	}
-	
-	// handle the request ...
-	
-	v = &api.Action1Ret{
-		SomeData: someData,
-	}
-	return
+    var args Action1Args
+    err = ctx.Decode(&args)
+    if err != nil {
+        return
+    }
+    
+    // handle the request ...
+    
+    v = &Action1Ret{
+        SomeData: someData,
+    }
+    return
 }
 ```
 Note, that the `handleAction1` func of _peer2_ must have been added to the control of _peer2_ for the correct key. Check out the [Control Setup](#Setup) to see how to do this
 
 ##### Asynchronous Call
+An asynchronous call is very similar to its synchronous counterpart. 
 ```go
+type Action2Args struct {
+    ID int
+}
+
+type Action2Ret struct {
+    SomeData string
+}
+
 // Call Async
-ctx, err := s.ctrl.CallAsync(api.Action2, &api.Action2Args{
-	ID: 28
-})
-if err != nil {
-    return
+func Action2() error {
+    callback := func(data interface{}, err error) {
+        if err != nil {
+            log.Fatal(err)
+        }
+        
+        // Response
+        var response Action2Ret
+        err = ctx.Decode(&response)
+        if err != nil {
+            return
+        }
+        
+        // handle data...
+        println(response.SomeData)
+    }
+    
+    return s.ctrl.CallAsync(
+        "Action2", 
+        &Action2Args{
+            ID: 28,
+        }, 
+        callback,
+    )
 }
 ```
-TODO
+Inside the callback, you receive the response (or an error) and can handle it the same way is with the synchronous call.
 
 ### Signaler - Events
 TODO
