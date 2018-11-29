@@ -33,8 +33,6 @@ func TestControl_Call(t *testing.T) {
 	defer func() {
 		checkErr(t, "close ctrl1: %v", ctrl1.Close())
 		checkErr(t, "close ctrl2: %v", ctrl2.Close())
-		checkErr(t, "close peer1: %v", peer1.Close())
-		checkErr(t, "close peer2: %v", peer2.Close())
 	}()
 
 	id := "test"
