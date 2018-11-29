@@ -27,6 +27,9 @@ import (
 var (
 	// ErrNoContextData defines the error if no context data is available.
 	ErrNoContextData = errors.New("no context data available to decode")
+	// ErrNoCodecAvailable defines the error if no codec is available on the control
+	// and the Decode() method was called.
+	ErrNoCodecAvailable = errors.New("no codec set on control")
 )
 
 // The Context type is a wrapper around the raw payload data of calls.
@@ -61,6 +64,11 @@ func (c *Context) Decode(v interface{}) error {
 	// Check if no data was passed.
 	if len(c.Data) == 0 {
 		return ErrNoContextData
+	}
+
+	// Check if a codec is set.
+	if c.ctrl.config.Codec == nil {
+		return ErrNoCodecAvailable
 	}
 
 	// Decode the data.

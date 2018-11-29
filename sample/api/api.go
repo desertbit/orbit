@@ -26,13 +26,10 @@ import (
 
 const (
 	ChannelOrbit    = "Orbit"
-	ChannelIDPacket = "Packet"
-	ChannelIDSignal = "Signal"
 
 	ControlServerInfo = "ServerInfo"
 	ControlClientInfo = "ClientInfo"
 
-	SignalHello      = "Hello"
 	SignalTimeBomb   = "TimeBomb"
 	SignalNewsletter = "Newsletter"
 )
