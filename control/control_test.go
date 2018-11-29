@@ -22,30 +22,46 @@ package control_test
 import (
 	"fmt"
 	"github.com/desertbit/orbit/control"
+	"log"
 	"net"
 	"os"
 	"testing"
 	"time"
 )
 
+var (
+	ctrl1, ctrl2 *control.Control
+)
+
 func TestMain(m *testing.M) {
 	// Setup
+	peer1, peer2 := net.Pipe()
+
+	ctrl1 = control.New(peer1, &control.Config{SendErrToCaller: true})
+	ctrl2 = control.New(peer2, &control.Config{SendErrToCaller: true})
+
+	ctrl1.Ready()
+	ctrl2.Ready()
+
 	// Run
 	code := m.Run()
+
 	// Teardown
+	err := ctrl1.Close()
+	if err != nil {
+		log.Fatalf("ctrl1 close: %v", err)
+	}
+	err = ctrl2.Close()
+	if err != nil {
+		log.Fatalf("ctrl2 close: %v", err)
+	}
+
+	// Exit
 	os.Exit(code)
 }
 
 func TestControl_Call(t *testing.T) {
 	t.Parallel()
-
-	peer1, peer2 := net.Pipe()
-	ctrl1 := control.New(peer1, &control.Config{SendErrToCaller: true})
-	ctrl2 := control.New(peer2, &control.Config{SendErrToCaller: true})
-	defer func() {
-		checkErr(t, "close ctrl1: %v", ctrl1.Close())
-		checkErr(t, "close ctrl2: %v", ctrl2.Close())
-	}()
 
 	input := "args"
 	output := "ret"
@@ -70,9 +86,6 @@ func TestControl_Call(t *testing.T) {
 	ctrl1.AddFunc(call, f)
 	ctrl2.AddFunc(call, f)
 
-	ctrl1.Ready()
-	ctrl2.Ready()
-
 	var ret string
 
 	ctx, err := ctrl1.Call(call, input)
@@ -88,14 +101,6 @@ func TestControl_Call(t *testing.T) {
 
 func TestControl_CallTimeout(t *testing.T) {
 	t.Parallel()
-
-	peer1, peer2 := net.Pipe()
-	ctrl1 := control.New(peer1, &control.Config{SendErrToCaller: true})
-	ctrl2 := control.New(peer2, &control.Config{SendErrToCaller: true})
-	defer func() {
-		checkErr(t, "close ctrl1: %v", ctrl1.Close())
-		checkErr(t, "close ctrl2: %v", ctrl2.Close())
-	}()
 
 	input := "args"
 	output := "ret"
@@ -121,12 +126,9 @@ func TestControl_CallTimeout(t *testing.T) {
 		return
 	}
 
-	const call = "call"
+	const call = "callTimeout"
 	ctrl1.AddFunc(call, fTimout)
 	ctrl2.AddFunc(call, f)
-
-	ctrl1.Ready()
-	ctrl2.Ready()
 
 	var ret string
 
@@ -143,14 +145,6 @@ func TestControl_CallTimeout(t *testing.T) {
 
 func TestControl_CallOneWay(t *testing.T) {
 	t.Parallel()
-
-	peer1, peer2 := net.Pipe()
-	ctrl1 := control.New(peer1, &control.Config{SendErrToCaller: true})
-	ctrl2 := control.New(peer2, &control.Config{SendErrToCaller: true})
-	defer func() {
-		checkErr(t, "close ctrl1: %v", ctrl1.Close())
-		checkErr(t, "close ctrl2: %v", ctrl2.Close())
-	}()
 
 	input := "args"
 
@@ -169,12 +163,9 @@ func TestControl_CallOneWay(t *testing.T) {
 		return
 	}
 
-	const call = "call"
+	const call = "callOneWay"
 	ctrl1.AddFunc(call, f)
 	ctrl2.AddFunc(call, f)
-
-	ctrl1.Ready()
-	ctrl2.Ready()
 
 	err := ctrl1.CallOneWay(call, input)
 	checkErr(t, "call 1: %v", err)
