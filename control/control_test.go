@@ -22,47 +22,33 @@ package control_test
 import (
 	"fmt"
 	"github.com/desertbit/orbit/control"
-	"log"
 	"net"
 	"os"
 	"testing"
-)
-
-const (
-	Call = "Call"
-)
-
-var (
-	peer1, peer2 net.Conn
-	ctrl1, ctrl2 *control.Control
+	"time"
 )
 
 func TestMain(m *testing.M) {
 	// Setup
-	peer1, peer2 = net.Pipe()
-	ctrl1 = control.New(peer1, &control.Config{SendErrToCaller: true})
-	ctrl2 = control.New(peer2, &control.Config{SendErrToCaller: true})
-
 	// Run
 	code := m.Run()
-
 	// Teardown
-	err := ctrl1.Close()
-	if err != nil {
-		log.Fatalf("close ctrl1: %v", err)
-	}
-	err = ctrl2.Close()
-	if err != nil {
-		log.Fatalf("close ctrl2: %v", err)
-	}
-
 	os.Exit(code)
 }
 
 func TestControl_Call(t *testing.T) {
+	t.Parallel()
+
+	peer1, peer2 := net.Pipe()
+	ctrl1 := control.New(peer1, &control.Config{SendErrToCaller: true})
+	ctrl2 := control.New(peer2, &control.Config{SendErrToCaller: true})
+	defer func() {
+		checkErr(t, "close ctrl1: %v", ctrl1.Close())
+		checkErr(t, "close ctrl2: %v", ctrl2.Close())
+	}()
+
 	input := "args"
 	output := "ret"
-	var ret string
 
 	f := func(ctx *control.Context) (data interface{}, err error) {
 		var args string
@@ -80,21 +66,121 @@ func TestControl_Call(t *testing.T) {
 		return output, nil
 	}
 
-	ctrl1.AddFunc(Call, f)
-	ctrl2.AddFunc(Call, f)
+	const call = "call"
+	ctrl1.AddFunc(call, f)
+	ctrl2.AddFunc(call, f)
 
 	ctrl1.Ready()
 	ctrl2.Ready()
 
-	ctx, err := ctrl1.Call(Call, input)
+	var ret string
+
+	ctx, err := ctrl1.Call(call, input)
 	checkErr(t, "call 1: %v", err)
 	checkErr(t, "decode ret 1: %v", ctx.Decode(&ret))
 	assert(t, ret == output, "decoded ret 1: expected '%v', got '%v'", output, ret)
 
-	ctx, err = ctrl2.Call(Call, input)
+	ctx, err = ctrl2.Call(call, input)
 	checkErr(t, "call 2: %v", err)
 	checkErr(t, "decode ret 2: %v", ctx.Decode(&ret))
 	assert(t, ret == output, "decoded ret 2: expected '%v', got '%v'", output, ret)
+}
+
+func TestControl_CallTimeout(t *testing.T) {
+	t.Parallel()
+
+	peer1, peer2 := net.Pipe()
+	ctrl1 := control.New(peer1, &control.Config{SendErrToCaller: true})
+	ctrl2 := control.New(peer2, &control.Config{SendErrToCaller: true})
+	defer func() {
+		checkErr(t, "close ctrl1: %v", ctrl1.Close())
+		checkErr(t, "close ctrl2: %v", ctrl2.Close())
+	}()
+
+	input := "args"
+	output := "ret"
+
+	f := func(ctx *control.Context) (data interface{}, err error) {
+		var args string
+		err = ctx.Decode(&args)
+		if err != nil {
+			err = fmt.Errorf("decode args: %v", err)
+			return
+		}
+
+		if args != input {
+			err = fmt.Errorf("decoded args: expected '%v', got '%v'", input, args)
+			return
+		}
+
+		return output, nil
+	}
+	// Exceed timeout.
+	fTimout := func(ctx *control.Context) (data interface{}, err error) {
+		time.Sleep(1*time.Second)
+		return
+	}
+
+	const call = "call"
+	ctrl1.AddFunc(call, fTimout)
+	ctrl2.AddFunc(call, f)
+
+	ctrl1.Ready()
+	ctrl2.Ready()
+
+	var ret string
+
+	// Timeout not exceeded.
+	ctx, err := ctrl1.CallTimeout(call, input, 500*time.Millisecond)
+	checkErr(t, "call 1: %v", err)
+	checkErr(t, "decode ret 1: %v", ctx.Decode(&ret))
+	assert(t, ret == output, "decoded ret 1: expected '%v', got '%v'", output, ret)
+
+	// Timeout exceeded.
+	ctx, err = ctrl2.CallTimeout(call, input, 500*time.Millisecond)
+	assert(t, err == control.ErrCallTimeout, "call 2: expected '%v', got '%v'", control.ErrCallTimeout, err)
+}
+
+func TestControl_CallOneWay(t *testing.T) {
+	t.Parallel()
+
+	peer1, peer2 := net.Pipe()
+	ctrl1 := control.New(peer1, &control.Config{SendErrToCaller: true})
+	ctrl2 := control.New(peer2, &control.Config{SendErrToCaller: true})
+	defer func() {
+		checkErr(t, "close ctrl1: %v", ctrl1.Close())
+		checkErr(t, "close ctrl2: %v", ctrl2.Close())
+	}()
+
+	input := "args"
+
+	f := func(ctx *control.Context) (data interface{}, err error) {
+		var args string
+		err = ctx.Decode(&args)
+		if err != nil {
+			err = fmt.Errorf("decode args: %v", err)
+			return
+		}
+
+		if args != input {
+			err = fmt.Errorf("decoded args: expected '%v', got '%v'", input, args)
+			return
+		}
+		return
+	}
+
+	const call = "call"
+	ctrl1.AddFunc(call, f)
+	ctrl2.AddFunc(call, f)
+
+	ctrl1.Ready()
+	ctrl2.Ready()
+
+	err := ctrl1.CallOneWay(call, input)
+	checkErr(t, "call 1: %v", err)
+
+	err = ctrl2.CallOneWay(call, input)
+	checkErr(t, "call 2: %v", err)
 }
 
 func assert(t *testing.T, condition bool, fmt string, args ...interface{}) {
