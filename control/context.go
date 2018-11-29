@@ -59,7 +59,8 @@ func (c *Context) Control() *Control {
 
 // Decode the context data to a custom value.
 // The value has to be passed as pointer.
-// Returns ErrNoContextData if there is no context data available to decode.
+// Returns ErrNoContextData, if there is no context data available to decode.
+// Returns ErrNoCodecAvailable, if there is no codec defined on the control.
 func (c *Context) Decode(v interface{}) error {
 	// Check if no data was passed.
 	if len(c.Data) == 0 {
