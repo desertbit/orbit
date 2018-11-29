@@ -294,6 +294,8 @@ func (c *Control) CallTimeout(
 // CallOneWay calls a remote function, but the remote peer will not send
 // back a response and this func will immediately return, as soon as
 // the data has been written to the connection.
+//
+// This method is thread-safe.
 func (c *Control) CallOneWay(id string, data interface{}) error {
 	return c.CallAsync(id, data, nil)
 }
@@ -301,6 +303,7 @@ func (c *Control) CallOneWay(id string, data interface{}) error {
 // CallAsync calls a remote function in an asynchronous fashion, as the
 // response will be awaited in a new goroutine and passed to the given callback.
 // It uses the default CallTimeout from the config of the Control.
+//
 // This method is thread-safe.
 func (c *Control) CallAsync(
 	id string,
@@ -312,6 +315,7 @@ func (c *Control) CallAsync(
 
 // CallAsync calls a remote function in an asynchronous fashion, as the
 // response will be awaited in a new goroutine and passed to the given callback.
+//
 // This method is thread-safe.
 func (c *Control) CallAsyncTimeout(
 	id string,
