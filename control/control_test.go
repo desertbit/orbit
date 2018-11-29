@@ -22,73 +22,84 @@ package control_test
 import (
 	"fmt"
 	"github.com/desertbit/orbit/control"
+	"log"
 	"net"
+	"os"
 	"testing"
 )
 
-func TestControl_Call(t *testing.T) {
-	peer1, peer2 := net.Pipe()
-	ctrl1 := control.New(peer1, &control.Config{SendErrToCaller: true})
-	ctrl2 := control.New(peer2, &control.Config{SendErrToCaller: true})
-	defer func() {
-		checkErr(t, "close ctrl1: %v", ctrl1.Close())
-		checkErr(t, "close ctrl2: %v", ctrl2.Close())
-	}()
+const (
+	Call = "Call"
+)
 
-	id := "test"
+var (
+	peer1, peer2 net.Conn
+	ctrl1, ctrl2 *control.Control
+)
+
+func TestMain(m *testing.M) {
+	// Setup
+	peer1, peer2 = net.Pipe()
+	ctrl1 = control.New(peer1, &control.Config{SendErrToCaller: true})
+	ctrl2 = control.New(peer2, &control.Config{SendErrToCaller: true})
+
+	// Run
+	code := m.Run()
+
+	// Teardown
+	err := ctrl1.Close()
+	if err != nil {
+		log.Fatalf("close ctrl1: %v", err)
+	}
+	err = ctrl2.Close()
+	if err != nil {
+		log.Fatalf("close ctrl2: %v", err)
+	}
+
+	os.Exit(code)
+}
+
+func TestControl_Call(t *testing.T) {
 	input := "args"
 	output := "ret"
 	var ret string
 
-	ctrl1.AddFunc(id, func(ctx *control.Context) (data interface{}, err error) {
+	f := func(ctx *control.Context) (data interface{}, err error) {
 		var args string
 		err = ctx.Decode(&args)
 		if err != nil {
-			err = fmt.Errorf("decode args 1: %v", err)
+			err = fmt.Errorf("decode args: %v", err)
 			return
 		}
 
 		if args != input {
-			err = fmt.Errorf("decoded args 1: expected '%v', got '%v'", input, args)
+			err = fmt.Errorf("decoded args: expected '%v', got '%v'", input, args)
 			return
 		}
 
 		return output, nil
-	})
+	}
 
-	ctrl2.AddFunc(id, func(ctx *control.Context) (data interface{}, err error) {
-		var args string
-		err = ctx.Decode(&args)
-		if err != nil {
-			err = fmt.Errorf("decode args 2: %v", err)
-			return
-		}
-
-		if args != input {
-			err = fmt.Errorf("decoded args 2: expected '%v', got '%v'", input, args)
-			return
-		}
-
-		return output, nil
-	})
+	ctrl1.AddFunc(Call, f)
+	ctrl2.AddFunc(Call, f)
 
 	ctrl1.Ready()
 	ctrl2.Ready()
 
-	ctx, err := ctrl1.Call(id, input)
+	ctx, err := ctrl1.Call(Call, input)
 	checkErr(t, "call 1: %v", err)
 	checkErr(t, "decode ret 1: %v", ctx.Decode(&ret))
+	assert(t, ret == output, "decoded ret 1: expected '%v', got '%v'", output, ret)
 
-	if ret != output {
-		t.Fatalf("decoded ret 1: expected '%v', got '%v'", output, ret)
-	}
-
-	ctx, err = ctrl2.Call(id, input)
+	ctx, err = ctrl2.Call(Call, input)
 	checkErr(t, "call 2: %v", err)
 	checkErr(t, "decode ret 2: %v", ctx.Decode(&ret))
+	assert(t, ret == output, "decoded ret 2: expected '%v', got '%v'", output, ret)
+}
 
-	if ret != output {
-		t.Fatalf("decoded ret 2: expected '%v', got '%v'", output, ret)
+func assert(t *testing.T, condition bool, fmt string, args ...interface{}) {
+	if !condition {
+		t.Fatalf(fmt, args...)
 	}
 }
 
