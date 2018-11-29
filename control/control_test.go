@@ -31,15 +31,16 @@ func TestControl_Call(t *testing.T) {
 	ctrl1 := control.New(peer1, &control.Config{SendErrToCaller: true})
 	ctrl2 := control.New(peer2, &control.Config{SendErrToCaller: true})
 	defer func() {
-		_ = ctrl1.Close()
-		_ = ctrl2.Close()
-		_ = peer1.Close()
-		_ = peer2.Close()
+		checkErr(t, "close ctrl1: %v", ctrl1.Close())
+		checkErr(t, "close ctrl2: %v", ctrl2.Close())
+		checkErr(t, "close peer1: %v", peer1.Close())
+		checkErr(t, "close peer2: %v", peer2.Close())
 	}()
 
 	id := "test"
 	input := "args"
 	output := "ret"
+	var ret string
 
 	ctrl1.AddFunc(id, func(ctx *control.Context) (data interface{}, err error) {
 		var args string
@@ -77,31 +78,24 @@ func TestControl_Call(t *testing.T) {
 	ctrl2.Ready()
 
 	ctx, err := ctrl1.Call(id, input)
-	if err != nil {
-		t.Fatalf("call: %v", err)
-	}
-
-	var ret string
-	err = ctx.Decode(&ret)
-	if err != nil {
-		t.Fatalf("decode ret 1: %v", err)
-	}
+	checkErr(t, "call 1: %v", err)
+	checkErr(t, "decode ret 1: %v", ctx.Decode(&ret))
 
 	if ret != output {
 		t.Fatalf("decoded ret 1: expected '%v', got '%v'", output, ret)
 	}
 
 	ctx, err = ctrl2.Call(id, input)
-	if err != nil {
-		t.Fatalf("call: %v", err)
-	}
-
-	err = ctx.Decode(&ret)
-	if err != nil {
-		t.Fatalf("decode ret 2: %v", err)
-	}
+	checkErr(t, "call 2: %v", err)
+	checkErr(t, "decode ret 2: %v", ctx.Decode(&ret))
 
 	if ret != output {
 		t.Fatalf("decoded ret 2: expected '%v', got '%v'", output, ret)
+	}
+}
+
+func checkErr(t *testing.T, fmt string, err error) {
+	if err != nil {
+		t.Fatalf(fmt, err)
 	}
 }
