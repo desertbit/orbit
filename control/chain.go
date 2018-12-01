@@ -63,10 +63,10 @@ func newChain() *chain {
 	}
 }
 
-// New creates a new channel, adds it to the chain and returns
+// new creates a new channel, adds it to the chain and returns
 // the channel along with its id. The id can later be used
 // to retrieve or delete the channel from the chain.
-func (c *chain) New() (id uint64, cc chainChan) {
+func (c *chain) new() (id uint64, cc chainChan) {
 	// Create new channel.
 	cc = make(chainChan)
 
@@ -87,18 +87,18 @@ func (c *chain) New() (id uint64, cc chainChan) {
 	return
 }
 
-// Get returns the channel with the given id.
+// get returns the channel with the given id.
 // Returns nil, if not found.
-func (c *chain) Get(id uint64) (cc chainChan) {
+func (c *chain) get(id uint64) (cc chainChan) {
 	c.mutex.Lock()
 	cc = c.chanMap[id]
 	c.mutex.Unlock()
 	return
 }
 
-// Delete deletes the channel with the given id from the chain.
+// delete deletes the channel with the given id from the chain.
 // If the id does not exist, this is a no-op.
-func (c *chain) Delete(id uint64) {
+func (c *chain) delete(id uint64) {
 	c.mutex.Lock()
 	delete(c.chanMap, id)
 	c.mutex.Unlock()

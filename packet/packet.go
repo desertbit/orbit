@@ -43,6 +43,7 @@ import (
 	"errors"
 	"io"
 	"net"
+	"strconv"
 	"time"
 
 	"github.com/desertbit/orbit/codec"
@@ -138,7 +139,7 @@ func Read(
 	if payloadLen == 0 {
 		return []byte{}, nil
 	} else if payloadLen > maxPayloadSize {
-		return nil, ErrMaxPayloadSizeExceeded
+		return nil, errors.New(strconv.Itoa(payloadLen))//ErrMaxPayloadSizeExceeded
 	}
 
 	// Create a new buffer if the passed buffer is too small.

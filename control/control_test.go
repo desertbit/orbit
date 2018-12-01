@@ -22,6 +22,7 @@ package control_test
 import (
 	"fmt"
 	"github.com/desertbit/orbit/control"
+	"github.com/desertbit/orbit/packet"
 	"github.com/pkg/errors"
 	"log"
 	"net"
@@ -387,6 +388,76 @@ func TestControl_Error_And_Hooks(t *testing.T) {
 	checkErr(t, "callhook: %v", <-callHookChan)
 	err = <-errHookChan
 	assert(t, err.Error() == errMsg, "wrong hook error; expected '%s', got '%v'", errMsg, err)
+}
+
+func TestControl_ReadWriteTimeout(t *testing.T) {
+	t.Parallel()
+
+	// We need our own controls here to overwrite the config.
+	peer1, peer2 := net.Pipe()
+	// Set ridiculous timeouts to safely trigger them.
+	ctrl1 := control.New(peer1, nil)
+	ctrl2 := control.New(peer2, &control.Config{
+		WriteTimeout: time.Nanosecond,
+		//ReadTimeout: time.Nanosecond,
+	})
+	defer func() {
+		_ = ctrl1.Close()
+		_ = ctrl2.Close()
+	}()
+
+	const call = "callReadWriteTimeout"
+
+	ctrl1.Ready()
+	ctrl2.Ready()
+
+	ctrl1.AddFunc(call, func(ctx *control.Context) (data interface{}, err error) {
+		time.Sleep(time.Microsecond)
+		return
+	})
+
+	// Trigger a write timeout during Call.
+	_, err := ctrl2.Call(call, "Hello this is a test case")
+	assert(t, err == control.ErrWriteTimeout, "wrong error 1; expected '%v', got '%v'", control.ErrWriteTimeout, err)
+
+	// Trigger a write timeout during CallAsync.
+	err = ctrl2.CallAsync(call, "Hello this is a test case", nil)
+	assert(t, err == control.ErrWriteTimeout, "wrong error 2; expected '%v', got '%v'", control.ErrWriteTimeout, err)
+}
+
+func TestControl_MaxMessageSize(t *testing.T) {
+	t.Parallel()
+
+	// We need our own controls here to overwrite the config.
+	peer1, peer2 := net.Pipe()
+	ctrl1 := control.New(peer1, nil)
+	config2 := &control.Config{}
+	ctrl2 := control.New(peer2, config2)
+	defer func() {
+		_ = ctrl1.Close()
+		_ = ctrl2.Close()
+	}()
+
+	const call = "callMaxMessageSize"
+
+	ctrl1.Ready()
+	ctrl2.Ready()
+
+	ctrl1.AddFunc(call, func(ctx *control.Context) (data interface{}, err error) {
+		return
+	})
+
+	// We set the message size at this point so small, that the header should
+	// fail to be sent.
+	/*config2.MaxMessageSize = 1
+	_, err := ctrl2.Call(call, nil)
+	assert(t, err == packet.ErrMaxPayloadSizeExceeded, "wrong error; expected '%v', got '%v'", packet.ErrMaxPayloadSizeExceeded, err)*/
+
+	// Now, set the MaxMessageSize to a value, that allows our header, but
+	// is too small for the payload.
+	config2.MaxMessageSize = 511
+	_, err := ctrl2.Call(call, make([]byte, 512))
+	assert(t, err == packet.ErrMaxPayloadSizeExceeded, "wrong error; expected '%v', got '%v'", packet.ErrMaxPayloadSizeExceeded, err)
 }
 
 func assert(t *testing.T, condition bool, fmt string, args ...interface{}) {

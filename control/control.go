@@ -66,16 +66,15 @@ package control
 import (
 	"errors"
 	"fmt"
+	"github.com/desertbit/orbit/codec"
+	"github.com/desertbit/orbit/codec/msgpack"
+	"github.com/desertbit/orbit/internal/api"
+	"github.com/desertbit/orbit/packet"
 	"io"
 	"log"
 	"net"
 	"sync"
 	"time"
-
-	"github.com/desertbit/orbit/codec"
-	"github.com/desertbit/orbit/codec/msgpack"
-	"github.com/desertbit/orbit/internal/api"
-	"github.com/desertbit/orbit/packet"
 
 	"github.com/desertbit/closer"
 )
@@ -272,8 +271,8 @@ func (c *Control) CallTimeout(
 ) (ctx *Context, err error) {
 	// Create a new channel with its key. This will be used to send
 	// the data over that forms the response to the call.
-	key, channel := c.callRetChain.New()
-	defer c.callRetChain.Delete(key)
+	key, channel := c.callRetChain.new()
+	defer c.callRetChain.delete(key)
 
 	// Create the header.
 	header := &api.ControlCall{
@@ -334,7 +333,7 @@ func (c *Control) CallAsyncTimeout(
 	// If a callback has been defined, create a channel that will be used to send
 	// the data over that forms the response to the call.
 	if callback != nil {
-		key, channel = c.callRetChain.New()
+		key, channel = c.callRetChain.new()
 	}
 
 	// Create the header.
@@ -378,8 +377,9 @@ func (c *Control) CallAsyncTimeout(
 // if the payload is not nil and of type []byte, the encoding
 // of it is skipped.
 //
-// If the deadline is not met, the write is terminated and a
-// ErrWriteTimeout is returned.
+// Returns ErrWriteTimeout, if the deadline of the write is not met.
+// Returns packet.ErrMaxPayloadSizeExceeded, if either the header
+// or the payload exceed the MaxMessageSize defined in the config.
 func (c *Control) write(reqType byte, headerI interface{}, dataI interface{}) (err error) {
 	var header, payload []byte
 
@@ -677,7 +677,6 @@ func (c *Control) handleCall(headerData, payloadData []byte) (err error) {
 		return fmt.Errorf("call request: send return request: %v", err)
 	}
 
-	// TODO: should error hook be called for async as well?
 	// Call the error hook if defined.
 	if retErr != nil && c.errorHook != nil {
 		c.errorHook(c, header.ID, retErr)
@@ -704,7 +703,7 @@ func (c *Control) handleCallReturn(headerData, payloadData []byte) (err error) {
 	}
 
 	// Get the channel by the key.
-	channel := c.callRetChain.Get(header.Key)
+	channel := c.callRetChain.get(header.Key)
 	if channel == nil {
 		return fmt.Errorf("return request failed: no return channel set (call timeout exceeded?)")
 	}

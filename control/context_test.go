@@ -27,6 +27,8 @@ import (
 )
 
 func TestContext_Control(t *testing.T) {
+	const call = "callControl"
+
 	peer1, peer2 := net.Pipe()
 	ctrl1 := control.New(peer1, &control.Config{SendErrToCaller: true})
 	ctrl2 := control.New(peer2, nil)
@@ -37,14 +39,14 @@ func TestContext_Control(t *testing.T) {
 	ctrl1.Ready()
 	ctrl2.Ready()
 
-	ctrl1.AddFunc("test", func(ctx *control.Context) (data interface{}, err error) {
+	ctrl1.AddFunc(call, func(ctx *control.Context) (data interface{}, err error) {
 		// Check, if the Control is correctly set.
 		if ctx.Control() != ctrl1 {
 			err = errors.New("control was not set to the expected control")
 		}
 		return
 	})
-	ctrl2.AddFunc("test", func(ctx *control.Context) (data interface{}, err error) {
+	ctrl2.AddFunc(call, func(ctx *control.Context) (data interface{}, err error) {
 		// Check, if the Control is correctly set.
 		if ctx.Control() != ctrl2 {
 			err = errors.New("control was not set to the expected control")
@@ -52,18 +54,20 @@ func TestContext_Control(t *testing.T) {
 		return
 	})
 
-	_, err := ctrl1.Call("test", nil)
+	_, err := ctrl1.Call(call, nil)
 	if err != nil {
 		t.Fatal("call 1", err)
 	}
 
-	_, err = ctrl2.Call("test", nil)
+	_, err = ctrl2.Call(call, nil)
 	if err != nil {
 		t.Fatal("call 2", err)
 	}
 }
 
 func TestContext_Decode(t *testing.T) {
+	const call = "callDecode"
+
 	peer1, peer2 := net.Pipe()
 	ctrl1 := control.New(peer1, &control.Config{SendErrToCaller: true})
 	ctrl2 := control.New(peer2, nil)
@@ -74,18 +78,18 @@ func TestContext_Decode(t *testing.T) {
 	ctrl1.Ready()
 	ctrl2.Ready()
 
-	ctrl1.AddFunc("test", func(ctx *control.Context) (data interface{}, err error) {
+	ctrl1.AddFunc(call, func(ctx *control.Context) (data interface{}, err error) {
 		var test string
 		err = ctx.Decode(&test)
 		return
 	})
 
-	_, err := ctrl2.Call("test", nil)
+	_, err := ctrl2.Call(call, nil)
 	if err.Error() != control.ErrNoContextData.Error() {
 		t.Fatalf("expected err '%v', got '%v'", control.ErrNoContextData, err)
 	}
 
-	_, err = ctrl2.Call("test", []byte{54, 51, 50, 1, 5, 2})
+	_, err = ctrl2.Call(call, []byte{54, 51, 50, 1, 5, 2})
 	if err == nil {
 		t.Fatal("expected decode to fail")
 	}
