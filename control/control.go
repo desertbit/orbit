@@ -308,7 +308,7 @@ func (c *Control) CallOneWay(id string, data interface{}) error {
 func (c *Control) CallAsync(
 	id string,
 	data interface{},
-	callback func(data interface{}, err error),
+	callback func(ctx *Context, err error),
 ) error {
 	return c.CallAsyncTimeout(id, data, c.config.CallTimeout, callback)
 }
@@ -316,12 +316,15 @@ func (c *Control) CallAsync(
 // CallAsync calls a remote function in an asynchronous fashion, as the
 // response will be awaited in a new goroutine and passed to the given callback.
 //
+// The response will be awaited in a new goroutine. The given callback will
+// receive an ErrCallTimeout error, should the timeout be exceeded.
+//
 // This method is thread-safe.
 func (c *Control) CallAsyncTimeout(
 	id string,
 	data interface{},
 	timeout time.Duration,
-	callback func(data interface{}, err error),
+	callback func(ctx *Context, err error),
 ) error {
 	var (
 		key uint64
@@ -352,10 +355,7 @@ func (c *Control) CallAsyncTimeout(
 	}
 
 	// Wait for the response, but in an new routine.
-	go func() {
-		ctx, err := c.waitForResponse(timeout, channel)
-		callback(ctx.Data, err)
-	}()
+	go callback(c.waitForResponse(timeout, channel))
 
 	return nil
 }
@@ -473,6 +473,7 @@ func (c *Control) waitForResponse(
 
 	// Stop the timeout.
 	_ = timeoutTimer.Stop()
+
 	return
 }
 

@@ -17,13 +17,249 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package msgpack
+package msgpack_test
 
 import (
+	"bytes"
 	"github.com/desertbit/orbit/codec"
+	"github.com/desertbit/orbit/codec/msgpack"
+	"github.com/tinylib/msgp/msgp"
+	"reflect"
 	"testing"
 )
 
 func TestMSGPack(t *testing.T) {
-	codec.Tester(t, Codec)
+	codec.Tester(t, msgpack.Codec)
+}
+
+type testMSGPackGenerate struct {
+	Name string
+}
+
+func TestMSGPackGenerated(t *testing.T) {
+	val := &testMSGPackGenerate{Name: "test"}
+	to := &testMSGPackGenerate{}
+
+	encoded, err := msgpack.Codec.Encode(val)
+	if err != nil {
+		t.Fatal("Encode error:", err)
+	}
+	err = msgpack.Codec.Decode(encoded, to)
+	if err != nil {
+		t.Fatal("Decode error:", err)
+	}
+	if !reflect.DeepEqual(val, to) {
+		t.Fatalf("Roundtrip codec mismatch, expected\n%#v\ngot\n%#v", val, to)
+	}
+}
+
+// ################################################
+// ## Generated Code by github.com/tinylib/msgp ###
+// ################################################
+
+// DecodeMsg implements msgp.Decodable
+func (z *testMSGPackGenerate) DecodeMsg(dc *msgp.Reader) (err error) {
+	var field []byte
+	_ = field
+	var zb0001 uint32
+	zb0001, err = dc.ReadMapHeader()
+	if err != nil {
+		return
+	}
+	for zb0001 > 0 {
+		zb0001--
+		field, err = dc.ReadMapKeyPtr()
+		if err != nil {
+			return
+		}
+		switch msgp.UnsafeString(field) {
+		case "Name":
+			z.Name, err = dc.ReadString()
+			if err != nil {
+				return
+			}
+		default:
+			err = dc.Skip()
+			if err != nil {
+				return
+			}
+		}
+	}
+	return
+}
+
+// EncodeMsg implements msgp.Encodable
+func (z testMSGPackGenerate) EncodeMsg(en *msgp.Writer) (err error) {
+	// map header, size 1
+	// write "Name"
+	err = en.Append(0x81, 0xa4, 0x4e, 0x61, 0x6d, 0x65)
+	if err != nil {
+		return
+	}
+	err = en.WriteString(z.Name)
+	if err != nil {
+		return
+	}
+	return
+}
+
+// MarshalMsg implements msgp.Marshaler
+func (z testMSGPackGenerate) MarshalMsg(b []byte) (o []byte, err error) {
+	o = msgp.Require(b, z.Msgsize())
+	// map header, size 1
+	// string "Name"
+	o = append(o, 0x81, 0xa4, 0x4e, 0x61, 0x6d, 0x65)
+	o = msgp.AppendString(o, z.Name)
+	return
+}
+
+// UnmarshalMsg implements msgp.Unmarshaler
+func (z *testMSGPackGenerate) UnmarshalMsg(bts []byte) (o []byte, err error) {
+	var field []byte
+	_ = field
+	var zb0001 uint32
+	zb0001, bts, err = msgp.ReadMapHeaderBytes(bts)
+	if err != nil {
+		return
+	}
+	for zb0001 > 0 {
+		zb0001--
+		field, bts, err = msgp.ReadMapKeyZC(bts)
+		if err != nil {
+			return
+		}
+		switch msgp.UnsafeString(field) {
+		case "Name":
+			z.Name, bts, err = msgp.ReadStringBytes(bts)
+			if err != nil {
+				return
+			}
+		default:
+			bts, err = msgp.Skip(bts)
+			if err != nil {
+				return
+			}
+		}
+	}
+	o = bts
+	return
+}
+
+// Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
+func (z testMSGPackGenerate) Msgsize() (s int) {
+	s = 1 + 5 + msgp.StringPrefixSize + len(z.Name)
+	return
+}
+
+func TestMarshalUnmarshalTestMSGPackGenerate(t *testing.T) {
+	v := testMSGPackGenerate{}
+	bts, err := v.MarshalMsg(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	left, err := v.UnmarshalMsg(bts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(left) > 0 {
+		t.Errorf("%d bytes left over after UnmarshalMsg(): %q", len(left), left)
+	}
+
+	left, err = msgp.Skip(bts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(left) > 0 {
+		t.Errorf("%d bytes left over after Skip(): %q", len(left), left)
+	}
+}
+
+func BenchmarkMarshalMsgTestMSGPackGenerate(b *testing.B) {
+	v := testMSGPackGenerate{}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		v.MarshalMsg(nil)
+	}
+}
+
+func BenchmarkAppendMsgTestMSGPackGenerate(b *testing.B) {
+	v := testMSGPackGenerate{}
+	bts := make([]byte, 0, v.Msgsize())
+	bts, _ = v.MarshalMsg(bts[0:0])
+	b.SetBytes(int64(len(bts)))
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		bts, _ = v.MarshalMsg(bts[0:0])
+	}
+}
+
+func BenchmarkUnmarshalTestMSGPackGenerate(b *testing.B) {
+	v := testMSGPackGenerate{}
+	bts, _ := v.MarshalMsg(nil)
+	b.ReportAllocs()
+	b.SetBytes(int64(len(bts)))
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, err := v.UnmarshalMsg(bts)
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func TestEncodeDecodeTestMSGPackGenerate(t *testing.T) {
+	v := testMSGPackGenerate{}
+	var buf bytes.Buffer
+	msgp.Encode(&buf, &v)
+
+	m := v.Msgsize()
+	if buf.Len() > m {
+		t.Logf("WARNING: Msgsize() for %v is inaccurate", v)
+	}
+
+	vn := testMSGPackGenerate{}
+	err := msgp.Decode(&buf, &vn)
+	if err != nil {
+		t.Error(err)
+	}
+
+	buf.Reset()
+	msgp.Encode(&buf, &v)
+	err = msgp.NewReader(&buf).Skip()
+	if err != nil {
+		t.Error(err)
+	}
+}
+
+func BenchmarkEncodeTestMSGPackGenerate(b *testing.B) {
+	v := testMSGPackGenerate{}
+	var buf bytes.Buffer
+	msgp.Encode(&buf, &v)
+	b.SetBytes(int64(buf.Len()))
+	en := msgp.NewWriter(msgp.Nowhere)
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		v.EncodeMsg(en)
+	}
+	en.Flush()
+}
+
+func BenchmarkDecodeTestMSGPackGenerate(b *testing.B) {
+	v := testMSGPackGenerate{}
+	var buf bytes.Buffer
+	msgp.Encode(&buf, &v)
+	b.SetBytes(int64(buf.Len()))
+	rd := msgp.NewEndlessReader(buf.Bytes(), b)
+	dc := msgp.NewReader(rd)
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		err := v.DecodeMsg(dc)
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
 }

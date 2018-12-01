@@ -17,13 +17,14 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package json
+package json_test
 
 import (
 	"github.com/desertbit/orbit/codec"
+	"github.com/desertbit/orbit/codec/json"
 	"testing"
 )
 
 func TestJSON(t *testing.T) {
-	codec.Tester(t, Codec)
+	codec.Tester(t, json.Codec)
 }
