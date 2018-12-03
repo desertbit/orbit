@@ -66,10 +66,6 @@ package control
 import (
 	"errors"
 	"fmt"
-	"github.com/desertbit/orbit/codec"
-	"github.com/desertbit/orbit/codec/msgpack"
-	"github.com/desertbit/orbit/internal/api"
-	"github.com/desertbit/orbit/packet"
 	"io"
 	"log"
 	"net"
@@ -77,6 +73,10 @@ import (
 	"time"
 
 	"github.com/desertbit/closer"
+	"github.com/desertbit/orbit/codec"
+	"github.com/desertbit/orbit/codec/msgpack"
+	"github.com/desertbit/orbit/internal/api"
+	"github.com/desertbit/orbit/packet"
 )
 
 const (
@@ -326,7 +326,7 @@ func (c *Control) CallAsyncTimeout(
 	callback func(ctx *Context, err error),
 ) error {
 	var (
-		key uint64
+		key     uint64
 		channel chainChan
 	)
 
@@ -338,7 +338,7 @@ func (c *Control) CallAsyncTimeout(
 
 	// Create the header.
 	header := &api.ControlCall{
-		ID: id,
+		ID:  id,
 		Key: key,
 	}
 
@@ -402,6 +402,12 @@ func (c *Control) write(reqType byte, headerI interface{}, dataI interface{}) (e
 				return fmt.Errorf("encode: %v", err)
 			}
 		}
+	}
+
+	// Check the size of the header and the payload beforehand, so that we do not
+	// write something onto the connection and then fail.
+	if len(header) > c.config.MaxMessageSize || len(payload) > c.config.MaxMessageSize {
+		return packet.ErrMaxPayloadSizeExceeded
 	}
 
 	// Ensure only one write happens at a time.

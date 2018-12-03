@@ -21,14 +21,15 @@ package control_test
 
 import (
 	"fmt"
-	"github.com/desertbit/orbit/control"
-	"github.com/desertbit/orbit/packet"
-	"github.com/pkg/errors"
 	"log"
 	"net"
 	"os"
 	"testing"
 	"time"
+
+	"github.com/desertbit/orbit/control"
+	"github.com/desertbit/orbit/packet"
+	"github.com/pkg/errors"
 )
 
 var (
@@ -133,7 +134,7 @@ func TestControl_CallTimeout(t *testing.T) {
 	}
 	// Exceed timeout.
 	fTimout := func(ctx *control.Context) (data interface{}, err error) {
-		time.Sleep(1*time.Second)
+		time.Sleep(1 * time.Second)
 		return
 	}
 
@@ -250,7 +251,7 @@ func TestControl_CallAsyncTimeout(t *testing.T) {
 	t.Parallel()
 
 	f := func(ctx *control.Context) (data interface{}, err error) {
-		time.Sleep(250*time.Millisecond)
+		time.Sleep(250 * time.Millisecond)
 		return
 	}
 
@@ -265,7 +266,7 @@ func TestControl_CallAsyncTimeout(t *testing.T) {
 		resChan <- err
 	}
 
-	err := ctrl2.CallAsyncTimeout(call, nil, 10 * time.Millisecond, cb)
+	err := ctrl2.CallAsyncTimeout(call, nil, 10*time.Millisecond, cb)
 	checkErr(t, "call 2: %v", err)
 	err = <-resChan
 	assert(t, err.Error() == control.ErrCallTimeout.Error(), "expected timeout err '%v', got '%v'", control.ErrCallTimeout, err)
@@ -288,7 +289,7 @@ func TestControl_ErrorClose(t *testing.T) {
 
 	const call = "callErrorClose"
 	ctrl1.AddFunc(call, func(ctx *control.Context) (data interface{}, err error) {
-		time.Sleep(100*time.Millisecond)
+		time.Sleep(100 * time.Millisecond)
 		return
 	})
 
@@ -449,14 +450,14 @@ func TestControl_MaxMessageSize(t *testing.T) {
 
 	// We set the message size at this point so small, that the header should
 	// fail to be sent.
-	/*config2.MaxMessageSize = 1
+	config2.MaxMessageSize = 1
 	_, err := ctrl2.Call(call, nil)
-	assert(t, err == packet.ErrMaxPayloadSizeExceeded, "wrong error; expected '%v', got '%v'", packet.ErrMaxPayloadSizeExceeded, err)*/
+	assert(t, err == packet.ErrMaxPayloadSizeExceeded, "wrong error; expected '%v', got '%v'", packet.ErrMaxPayloadSizeExceeded, err)
 
 	// Now, set the MaxMessageSize to a value, that allows our header, but
 	// is too small for the payload.
 	config2.MaxMessageSize = 511
-	_, err := ctrl2.Call(call, make([]byte, 512))
+	_, err = ctrl2.Call(call, make([]byte, 512))
 	assert(t, err == packet.ErrMaxPayloadSizeExceeded, "wrong error; expected '%v', got '%v'", packet.ErrMaxPayloadSizeExceeded, err)
 }
 
