@@ -60,6 +60,9 @@ type errImpl struct {
 
 // Implements the control.Error interface.
 func (e errImpl) Error() string {
+	if e.err == nil {
+		return ""
+	}
 	return e.err.Error()
 }
 

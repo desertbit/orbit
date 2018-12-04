@@ -649,8 +649,6 @@ func (c *Control) handleCall(headerData, payloadData []byte) (err error) {
 	// Execute the handler function.
 	retData, retErr := f(ctx)
 	if retErr != nil {
-		c.logger.Printf("call request: id='%v': returned error: %v", header.ID, retErr)
-
 		// Decide what to send back to the caller.
 		if cErr, ok := retErr.(Error); ok {
 			code = cErr.Code()
@@ -662,6 +660,11 @@ func (c *Control) handleCall(headerData, payloadData []byte) (err error) {
 		// Ensure an error message is always set.
 		if msg == "" {
 			msg = defaultErrorMessage
+		}
+
+		// Log the actual error here, but only if it contains a message
+		if retErr.Error() != "" {
+			c.logger.Printf("call request: id='%v'; returned error: %v", header.ID, retErr)
 		}
 	}
 
