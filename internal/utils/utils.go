@@ -32,7 +32,7 @@ const alphanum = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz
 
 // RandomString generates a random string with len n using the crypto/rand RNG.
 // The returned string contains only chars defined in the alphanum constant.
-func RandomString(n int) (string, error) {
+func RandomString(n uint) (string, error) {
 	var bytes = make([]byte, n)
 	_, err := rand.Read(bytes)
 	if err != nil {

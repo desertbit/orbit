@@ -21,24 +21,21 @@ package control_test
 
 import (
 	"errors"
-	"github.com/desertbit/orbit/control"
-	"net"
 	"testing"
+
+	"github.com/desertbit/orbit/control"
 )
 
 func TestContext_Control(t *testing.T) {
-	const call = "callControl"
+	t.Parallel()
 
-	peer1, peer2 := net.Pipe()
-	ctrl1 := control.New(peer1, &control.Config{SendErrToCaller: true})
-	ctrl2 := control.New(peer2, nil)
+	ctrl1, ctrl2 := testControls(&control.Config{SendErrToCaller: true}, nil)
 	defer func() {
 		_ = ctrl1.Close()
 		_ = ctrl2.Close()
 	}()
-	ctrl1.Ready()
-	ctrl2.Ready()
 
+	const call = "callControl"
 	ctrl1.AddFunc(call, func(ctx *control.Context) (data interface{}, err error) {
 		// Check, if the Control is correctly set.
 		if ctx.Control() != ctrl1 {
@@ -66,18 +63,15 @@ func TestContext_Control(t *testing.T) {
 }
 
 func TestContext_Decode(t *testing.T) {
-	const call = "callDecode"
+	t.Parallel()
 
-	peer1, peer2 := net.Pipe()
-	ctrl1 := control.New(peer1, &control.Config{SendErrToCaller: true})
-	ctrl2 := control.New(peer2, nil)
+	ctrl1, ctrl2 := testControls(&control.Config{SendErrToCaller: true}, nil)
 	defer func() {
 		_ = ctrl1.Close()
 		_ = ctrl2.Close()
 	}()
-	ctrl1.Ready()
-	ctrl2.Ready()
 
+	const call = "callDecode"
 	ctrl1.AddFunc(call, func(ctx *control.Context) (data interface{}, err error) {
 		var test string
 		err = ctx.Decode(&test)

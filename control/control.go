@@ -508,7 +508,10 @@ func (c *Control) readRoutine() {
 		reqTypeBuf   = make([]byte, 1)
 	)
 
-	// Catch panics. and log error messages.
+	// Catch panics and log error messages. There should be exactly one
+	// readRoutine running all the time, therefore this defer does not
+	// hurt performance at all and is a safety net, to prevent the server
+	// from crashing, should anything panic during the reads.
 	defer func() {
 		if e := recover(); e != nil {
 			err = fmt.Errorf("catched panic: %v", e)
@@ -584,7 +587,7 @@ func (c *Control) readRoutine() {
 // Panics are recovered and wrapped in an error.
 // If the request type is unknown, an error is returned.
 func (c *Control) handleRequest(reqType byte, headerData, payloadData []byte) (err error) {
-	// Catch panics.
+	// Catch panics, caused by the handler func or one of the hooks.
 	defer func() {
 		if e := recover(); e != nil {
 			err = fmt.Errorf("catched panic: %v", e)
@@ -636,7 +639,7 @@ func (c *Control) handleCall(headerData, payloadData []byte) (err error) {
 	// Build the request context for the handler function.
 	ctx := newContext(c, payloadData)
 
-	// Call the call hook if defined.
+	// Call the call hook, if defined.
 	if c.callHook != nil {
 		c.callHook(c, header.ID, ctx)
 	}
@@ -662,13 +665,18 @@ func (c *Control) handleCall(headerData, payloadData []byte) (err error) {
 			msg = defaultErrorMessage
 		}
 
-		// Log the actual error here, but only if it contains a message
+		// Log the actual error here, but only if it contains a message.
 		if retErr.Error() != "" {
 			c.logger.Printf("call request: id='%v'; returned error: %v", header.ID, retErr)
 		}
+
+		// Call the error hook, if defined.
+		if c.errorHook != nil {
+			c.errorHook(c, header.ID, retErr)
+		}
 	}
 
-	// Skip the return if this is an asynchronous call.
+	// Skip the return if this is a one way call.
 	if header.Key == 0 {
 		return nil
 	}
@@ -683,12 +691,7 @@ func (c *Control) handleCall(headerData, payloadData []byte) (err error) {
 	// Send the response back to the caller.
 	err = c.write(typeCallReturn, retHeader, retData)
 	if err != nil {
-		return fmt.Errorf("call request: send return request: %v", err)
-	}
-
-	// Call the error hook if defined.
-	if retErr != nil && c.errorHook != nil {
-		c.errorHook(c, header.ID, retErr)
+		return fmt.Errorf("call request: send response: %v", err)
 	}
 
 	return nil
@@ -736,7 +739,6 @@ func (c *Control) handleCallReturn(headerData, payloadData []byte) (err error) {
 		return nil
 
 	default:
-		// TODO: Is this really necessary?
 		// Retry with a timeout.
 		timeout := time.NewTimer(time.Second)
 		defer timeout.Stop()
