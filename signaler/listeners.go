@@ -138,7 +138,7 @@ func (ls *listeners) activateIfRequired() {
 }
 
 // routine is the main worker routine of this listeners and should be started
-// exactly one, ideally when creating a new listeners.
+// exactly once, ideally when creating a new listeners.
 // It watches the three channels (close, active, remove) for new values and
 // performs the necessary actions for each of them.
 //

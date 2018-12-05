@@ -63,22 +63,20 @@ func (s *Signaler) TriggerSignal(id string, data interface{}) (err error) {
 
 	// In case the signal is not active (meaning no one listens for it)
 	// we do not need to bother sending it.
-	if signal.isActive() {
-		// Check if the signal is filtered out.
-		var conformsToFilter bool
-		conformsToFilter, err = signal.conformsToFilter(data)
-		if err != nil || !conformsToFilter {
-			return
-		}
-
-		// Trigger the signal with the data.
-		err = s.callTriggerSignal(id, data)
-		if err != nil {
-			return
-		}
+	if !signal.isActive() {
+		return
 	}
 
-	return
+	// Check if the signal is filtered out.
+	var conformsToFilter bool
+	conformsToFilter, err = signal.conformsToFilter(data)
+	if err != nil || !conformsToFilter {
+		return
+	}
+
+	// Trigger the signal with the data.
+	s.logger.Print("calling trigger signal")
+	return s.callTriggerSignal(id, data)
 }
 
 //###############//
@@ -94,7 +92,7 @@ func (s *Signaler) getSignal(id string) (signal *signal, err error) {
 	s.signalsMutex.Unlock()
 
 	// Check if the signal has been found.
-	if s == nil {
+	if signal == nil {
 		err = ErrSignalNotFound
 	}
 	return

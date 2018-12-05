@@ -55,10 +55,9 @@ import (
 	"net"
 	"sync"
 
+	"github.com/desertbit/closer"
 	"github.com/desertbit/orbit/codec"
 	"github.com/desertbit/orbit/control"
-
-	"github.com/desertbit/closer"
 )
 
 const (
@@ -103,6 +102,7 @@ type Signaler struct {
 func New(conn net.Conn, config *control.Config) (s *Signaler) {
 	// Create the control.
 	ctrl := control.New(conn, config)
+
 	// Create the signaler.
 	s = &Signaler{
 		Closer:  ctrl,

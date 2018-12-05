@@ -34,7 +34,7 @@ func (s *Signaler) SetSignalFilter(id string, data interface{}) (err error) {
 }
 
 // OnSignal adds a listener to the signal with the given id.
-// The Listener will output an empty struct on its channel
+// The Listener will output a request context on its channel
 // when the signal has been triggered.
 func (s *Signaler) OnSignal(id string) *Listener {
 	return s.addListener(id, defaultLsChanSize, false)

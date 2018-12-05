@@ -161,7 +161,13 @@ func TestControl_CallOneWay(t *testing.T) {
 
 	input := "args"
 
+	errChan := make(chan error)
 	f := func(ctx *control.Context) (data interface{}, err error) {
+		defer func() {
+			// Report the result back.
+			errChan <- err
+		}()
+
 		var args string
 		err = ctx.Decode(&args)
 		if err != nil {
@@ -185,6 +191,10 @@ func TestControl_CallOneWay(t *testing.T) {
 
 	err = defCtrl2.CallOneWay(call, input)
 	checkErr(t, "call 2: %v", err)
+
+	// Check the result of both one way calls.
+	checkErr(t, "one way result: %v", <-errChan)
+	checkErr(t, "one way result: %v", <-errChan)
 }
 
 func TestControl_CallAsync(t *testing.T) {

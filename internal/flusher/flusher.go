@@ -45,7 +45,8 @@ func Flush(conn net.Conn, timeout time.Duration) (err error) {
 	n, err := conn.Write(b)
 	if err != nil {
 		return err
-	} else if n != 1 {
+	}
+	if n != 1 {
 		return errors.New("failed to write flush byte to connection")
 	}
 
@@ -53,9 +54,11 @@ func Flush(conn net.Conn, timeout time.Duration) (err error) {
 	n, err = conn.Read(b)
 	if err != nil {
 		return
-	} else if n != 1 {
+	}
+	if n != 1 {
 		return errors.New("failed to read flush byte from connection")
-	} else if b[0] != flushByte {
+	}
+	if b[0] != flushByte {
 		return errors.New("flush byte is invalid")
 	}
 
