@@ -43,10 +43,9 @@ Filtering
 It is possible when adding a new signal to set a filter function on a signal.
 Peers can then set filter data on this signal that gets passed to this filter
 func. Depending on the return of the filter func, the signal may not be
-triggered, if the filter is not fulfilled.
-Right now, this filter is then applied for the signal in general, meaning that
-all peers listening on the same signal are affected by the same filter.
-A filter allows to configure when exactly a signal may be triggered.
+triggered for this peer, if its filter is not fulfilled.
+This allows peers to filter the signals to their liking and prevents a
+waste of resources.
 */
 package signaler
 
