@@ -60,6 +60,14 @@ error interface, but contains in addition the error code the server can
 set to indicate certain errors. Clients should therefore always check,
 whether the returned error is of type ErrorCode, to handle certain errors
 appropriately.
+
+Note: The MaxMessageSize that can be configured in the Config is a hard limit
+for the read routine of the respective peer that receives a message. Every request
+that exceeds this configured limit and sends the request anyways causes
+the connection to be closed and dropped.
+This is done on purpose, as allowing peers to send huge payloads can result
+in a DoS. Therefore, the peer that wants to make a call is required to
+check beforehand how big its request may be.
 */
 package control
 

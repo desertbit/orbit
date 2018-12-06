@@ -75,7 +75,6 @@ func (s *Signaler) TriggerSignal(id string, data interface{}) (err error) {
 	}
 
 	// Trigger the signal with the data.
-	s.logger.Print("calling trigger signal")
 	return s.callTriggerSignal(id, data)
 }
 
@@ -119,11 +118,15 @@ func (s *Signaler) addSignal(id string) (ev *signal) {
 // callTriggerSignal triggers the signal with the given id and sends along
 // the given data. This function does not block.
 // The data is encoded using the signaler's codec.
-func (s *Signaler) callTriggerSignal(id string, data interface{}) error {
+func (s *Signaler) callTriggerSignal(id string, data interface{}) (err error) {
+	var dataBytes []byte
+
 	// Encode the data.
-	dataBytes, err := s.codec.Encode(data)
-	if err != nil {
-		return err
+	if data != nil {
+		dataBytes, err = s.codec.Encode(data)
+		if err != nil {
+			return err
+		}
 	}
 
 	// Trigger the signal in a non-blocking way.

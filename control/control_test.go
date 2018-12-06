@@ -101,13 +101,13 @@ func TestControl_Call(t *testing.T) {
 	var ret string
 
 	ctx, err := defCtrl1.Call(call, input)
-	checkErr(t, "call 1: %v", err)
-	checkErr(t, "decode ret 1: %v", ctx.Decode(&ret))
+	checkErr(t, "call 1", err)
+	checkErr(t, "decode ret 1", ctx.Decode(&ret))
 	assert(t, ret == output, "decoded ret 1: expected '%v', got '%v'", output, ret)
 
 	ctx, err = defCtrl2.Call(call, input)
-	checkErr(t, "call 2: %v", err)
-	checkErr(t, "decode ret 2: %v", ctx.Decode(&ret))
+	checkErr(t, "call 2", err)
+	checkErr(t, "decode ret 2", ctx.Decode(&ret))
 	assert(t, ret == output, "decoded ret 2: expected '%v', got '%v'", output, ret)
 }
 
@@ -147,8 +147,8 @@ func TestControl_CallTimeout(t *testing.T) {
 
 	// Timeout not exceeded.
 	ctx, err := defCtrl1.CallTimeout(call, input, 100*time.Millisecond)
-	checkErr(t, "call 1: %v", err)
-	checkErr(t, "decode ret 1: %v", ctx.Decode(&ret))
+	checkErr(t, "call 1", err)
+	checkErr(t, "decode ret 1", ctx.Decode(&ret))
 	assert(t, ret == output, "decoded ret 1: expected '%v', got '%v'", output, ret)
 
 	// Timeout exceeded.
@@ -187,14 +187,14 @@ func TestControl_CallOneWay(t *testing.T) {
 	defCtrl2.AddFuncs(map[string]control.Func{call: f})
 
 	err := defCtrl1.CallOneWay(call, input)
-	checkErr(t, "call 1: %v", err)
+	checkErr(t, "call 1", err)
 
 	err = defCtrl2.CallOneWay(call, input)
-	checkErr(t, "call 2: %v", err)
+	checkErr(t, "call 2", err)
 
 	// Check the result of both one way calls.
-	checkErr(t, "one way result: %v", <-errChan)
-	checkErr(t, "one way result: %v", <-errChan)
+	checkErr(t, "one way result", <-errChan)
+	checkErr(t, "one way result", <-errChan)
 }
 
 func TestControl_CallAsync(t *testing.T) {
@@ -250,12 +250,12 @@ func TestControl_CallAsync(t *testing.T) {
 	}
 
 	err := defCtrl1.CallAsync(call, input, cb)
-	checkErr(t, "call 1: %v", err)
-	checkErr(t, "cb 1: %v", <-resChan)
+	checkErr(t, "call 1", err)
+	checkErr(t, "cb 1", <-resChan)
 
 	err = defCtrl2.CallAsync(call, input, cb)
-	checkErr(t, "call 2: %v", err)
-	checkErr(t, "cb 2: %v", <-resChan)
+	checkErr(t, "call 2", err)
+	checkErr(t, "cb 2", <-resChan)
 }
 
 func TestControl_CallAsyncTimeout(t *testing.T) {
@@ -278,7 +278,7 @@ func TestControl_CallAsyncTimeout(t *testing.T) {
 	}
 
 	err := defCtrl2.CallAsyncTimeout(call, nil, 10*time.Millisecond, cb)
-	checkErr(t, "call 2: %v", err)
+	checkErr(t, "call 2", err)
 	err = <-resChan
 	assert(t, err.Error() == control.ErrCallTimeout.Error(), "expected timeout err '%v', got '%v'", control.ErrCallTimeout, err)
 }
@@ -287,10 +287,7 @@ func TestControl_ErrorClose(t *testing.T) {
 	t.Parallel()
 
 	ctrl1, ctrl2 := testControls(nil, nil)
-	defer func() {
-		_ = ctrl1.Close()
-		_ = ctrl2.Close()
-	}()
+	defer closeControls(ctrl1, ctrl2)
 
 	const call = "callErrorClose"
 	ctrl1.AddFunc(call, func(ctx *control.Context) (data interface{}, err error) {
@@ -309,10 +306,7 @@ func TestControl_Error_And_Hooks(t *testing.T) {
 	t.Parallel()
 
 	ctrl1, ctrl2 := testControls(nil, nil)
-	defer func() {
-		_ = ctrl1.Close()
-		_ = ctrl2.Close()
-	}()
+	defer closeControls(ctrl1, ctrl2)
 
 	const call = "callError"
 	callHookChan := make(chan error, 1)
@@ -383,7 +377,7 @@ func TestControl_Error_And_Hooks(t *testing.T) {
 	}
 
 	// Check the result of the hooks.
-	checkErr(t, "callhook: %v", <-callHookChan)
+	checkErr(t, "callhook", <-callHookChan)
 	err = <-errHookChan
 	assert(t, err.Error() == errMsg, "wrong hook error; expected '%s', got '%v'", errMsg, err)
 
@@ -408,10 +402,7 @@ func TestControl_WriteTimeout(t *testing.T) {
 
 	// Set ridiculous timeouts to safely trigger them.
 	ctrl1, ctrl2 := testControls(nil, &control.Config{WriteTimeout: time.Nanosecond})
-	defer func() {
-		_ = ctrl1.Close()
-		_ = ctrl2.Close()
-	}()
+	defer closeControls(ctrl1, ctrl2)
 
 	const call = "callReadWriteTimeout"
 	ctrl1.AddFunc(call, func(ctx *control.Context) (data interface{}, err error) {
@@ -432,15 +423,16 @@ func TestControl_MaxMessageSize(t *testing.T) {
 	t.Parallel()
 
 	// We need our own controls here to overwrite the config.
+	config1 := &control.Config{}
 	config2 := &control.Config{}
-	ctrl1, ctrl2 := testControls(nil, config2)
-	defer func() {
-		_ = ctrl1.Close()
-		_ = ctrl2.Close()
-	}()
+	ctrl1, ctrl2 := testControls(config1, config2)
+	defer closeControls(ctrl1, ctrl2)
 
 	const call = "callMaxMessageSize"
 	ctrl1.AddFunc(call, func(ctx *control.Context) (data interface{}, err error) {
+		return
+	})
+	ctrl2.AddFunc(call, func(ctx *control.Context) (data interface{}, err error) {
 		return
 	})
 
@@ -456,10 +448,17 @@ func TestControl_MaxMessageSize(t *testing.T) {
 	_, err = ctrl2.Call(call, make([]byte, 512))
 	assert(t, err == packet.ErrMaxPayloadSizeExceeded, "wrong error; expected '%v', got '%v'", packet.ErrMaxPayloadSizeExceeded, err)
 
-	// Now, set the MaxMessageSize to a value, that allows both header and payload
+	// Now, set the MaxMessageSize to a value, that allows both header and payload.
 	config2.MaxMessageSize = 512
 	_, err = ctrl2.Call(call, make([]byte, 512))
 	checkErr(t, "should be valid message size", err)
+
+	// At last, set the MaxMessageSize on the receiving peer too low, which
+	// must result in the connection being closed.
+	config1.MaxMessageSize = 511
+	_, err = ctrl2.Call(call, make([]byte, 512))
+	netErrorString := "io: read/write on closed pipe"
+	assert(t, err != nil && err.Error() == netErrorString, "expected error '%v', got '%v'", netErrorString, err)
 }
 
 func TestControl_Panic(t *testing.T) {
@@ -467,10 +466,7 @@ func TestControl_Panic(t *testing.T) {
 
 	conf := &control.Config{CallTimeout: 5 * time.Millisecond}
 	ctrl1, ctrl2 := testControls(conf, conf)
-	defer func() {
-		_ = ctrl1.Close()
-		_ = ctrl2.Close()
-	}()
+	defer closeControls(ctrl1, ctrl2)
 
 	const call = "callPanic"
 	ctrl1.AddFunc(call, func(ctx *control.Context) (data interface{}, err error) {
@@ -509,10 +505,7 @@ func TestControl_HandleFuncNotExist(t *testing.T) {
 
 	conf := &control.Config{CallTimeout: 5 * time.Millisecond}
 	ctrl1, ctrl2 := testControls(conf, conf)
-	defer func() {
-		_ = ctrl1.Close()
-		_ = ctrl2.Close()
-	}()
+	defer closeControls(ctrl1, ctrl2)
 
 	_, err := ctrl1.Call("blabla", nil)
 	assert(t, err != nil, "expected error since handler func is not defined")
@@ -525,10 +518,7 @@ func TestControl_CloseReadRoutine(t *testing.T) {
 	peer1, peer2 := net.Pipe()
 	ctrl1 := control.New(peer1, &control.Config{Logger: log.New(&logger, "", 0)})
 	ctrl2 := control.New(peer2, nil)
-	defer func() {
-		_ = ctrl1.Close()
-		_ = ctrl2.Close()
-	}()
+	defer closeControls(ctrl1, ctrl2)
 
 	// Close the control now, before the read routine is started.
 	err := peer1.Close()
@@ -552,9 +542,9 @@ func assert(t *testing.T, condition bool, fmt string, args ...interface{}) {
 }
 
 // convenience
-func checkErr(t *testing.T, fmt string, err error) {
+func checkErr(t *testing.T, msg string, err error) {
 	if err != nil {
-		t.Fatalf(fmt, err)
+		t.Fatal(msg, err)
 	}
 }
 
@@ -567,4 +557,11 @@ func testControls(conf1, conf2 *control.Config) (ctrl1, ctrl2 *control.Control) 
 	ctrl1.Ready()
 	ctrl2.Ready()
 	return
+}
+
+// convenience
+func closeControls(ctrls ...*control.Control) {
+	for _, ctrl := range ctrls {
+		_ = ctrl.Close()
+	}
 }

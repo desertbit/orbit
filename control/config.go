@@ -58,7 +58,7 @@ type Config struct {
 	// The log.logger to be used for writing log messages to.
 	Logger *log.Logger
 
-	// The max size a message may have that is sent over the stream.
+	// The max size in bytes a message may have that is sent over the stream.
 	MaxMessageSize int
 
 	// The maximum time a call may take to finish.

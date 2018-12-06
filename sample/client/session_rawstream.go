@@ -21,10 +21,11 @@ package main
 
 import (
 	"fmt"
-	"github.com/desertbit/orbit/sample/api"
 	"io"
 	"net"
 	"time"
+
+	"github.com/desertbit/orbit/sample/api"
 )
 
 // streamRawRoutine is a showcase of the client side implementation of streaming on a

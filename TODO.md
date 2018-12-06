@@ -5,11 +5,12 @@
 - finish documenting
 - clarify orbit/config.go, since logger defaults to os.Stderr (shouldn't that be zerolog?)
 - discuss logging in general, make sure that orbit uses a default config level. Right now, zerolog prints '???' as level
-- complete tests
+- write tests for packages:
+  - orbit
+  - flusher
 - Walk through TODOs in code and resolve them
-- Add request cancellation (e.g. with context) 
+- Add request cancellation (e.g. with context)
 
 ### Samples
-- Rework completely
 - Add "chatroom" example, where one client writes to console, and others receive event (multicast), needs global events pkg first 
 - Add sample that shows error handling

@@ -98,6 +98,7 @@ func (s *signal) setFilter(ctx *Context) (err error) {
 	// Check if a filter func is defined.
 	if s.filterFunc == nil {
 		err = ErrFilterFuncUndefined
+		return
 	}
 
 	// Produce and save a new filter.

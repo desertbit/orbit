@@ -52,14 +52,10 @@ func TestContext_Control(t *testing.T) {
 	})
 
 	_, err := ctrl1.Call(call, nil)
-	if err != nil {
-		t.Fatal("call 1", err)
-	}
+	checkErr(t, "call 1: %v", err)
 
 	_, err = ctrl2.Call(call, nil)
-	if err != nil {
-		t.Fatal("call 2", err)
-	}
+	checkErr(t, "call 2: %v", err)
 }
 
 func TestContext_Decode(t *testing.T) {
@@ -79,12 +75,8 @@ func TestContext_Decode(t *testing.T) {
 	})
 
 	_, err := ctrl2.Call(call, nil)
-	if err.Error() != control.ErrNoContextData.Error() {
-		t.Fatalf("expected err '%v', got '%v'", control.ErrNoContextData, err)
-	}
+	assert(t, err.Error() == control.ErrNoContextData.Error(), "expected err '%v', got '%v'", control.ErrNoContextData, err)
 
 	_, err = ctrl2.Call(call, []byte{54, 51, 50, 1, 5, 2})
-	if err == nil {
-		t.Fatal("expected decode to fail")
-	}
+	assert(t, err != nil, "expected decode to fail")
 }
