@@ -43,7 +43,10 @@ func (s *Signaler) OnSignal(id string) *Listener {
 // OnSignalOpts adds a listener like OnSignal() does, but
 // allows to configure the channel size of the listener. This
 // determines how many events can be buffered in the listener before
-// a trigger will block.
+// the triggerSignal handler func will block and further events can not
+// be processed.
+// The size of the channel must be greater than 0 (Unbuffered channels
+// are not allowed).
 func (s *Signaler) OnSignalOpts(id string, channelSize int) *Listener {
 	return s.addListener(id, channelSize, false)
 }
@@ -65,7 +68,10 @@ func (s *Signaler) OnceSignal(id string) *Listener {
 // OnceSignalOpts adds a listener like OnceSignal() does, but allows
 // to configure the channel size of the listener. This
 // determines how many events can be buffered in the listener before
-// a trigger will block.
+// the triggerSignal handler func will block and further events can not
+// be processed.
+// The size of the channel must be greater than 0 (Unbuffered channels
+// are not allowed).
 func (s *Signaler) OnceSignalOpts(id string, channelSize int) *Listener {
 	return s.addListener(id, channelSize, true)
 }

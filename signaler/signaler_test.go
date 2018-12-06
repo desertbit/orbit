@@ -20,6 +20,7 @@
 package signaler_test
 
 import (
+	"errors"
 	"net"
 	"testing"
 	"time"
@@ -82,8 +83,26 @@ func TestSignaler_OnSignalOpts(t *testing.T) {
 	}()
 
 	const signal = "onSignalOpts"
-	const chanSize = 3
 	sig1.AddSignal(signal)
+
+	// First, test invalid channel sizes.
+	func() {
+		defer func() {
+			e := recover()
+			assert(t, e != nil, "expected panic for chan size -1")
+		}()
+		_ = sig2.OnSignalOpts(signal, -1)
+	}()
+	func() {
+		defer func() {
+			e := recover()
+			assert(t, e != nil, "expected panic for chan size 0")
+		}()
+		_ = sig2.OnSignalOpts(signal, 0)
+	}()
+
+	// Now use a valid chan size.
+	const chanSize = 3
 	ln2 := sig2.OnSignalOpts(signal, chanSize)
 
 	// IMPORTANT! Wait a short time, since the signal needs to be activated
@@ -92,25 +111,22 @@ func TestSignaler_OnSignalOpts(t *testing.T) {
 
 	data := "test data"
 
-	// Trigger the signals with some test data.
-	for i := 0; i < chanSize; i++ {
+	// Trigger the signals with some test data, but more than fit into the chan.
+	for i := 0; i < chanSize*2; i++ {
 		checkErr(t, "trigger signal 1", sig1.TriggerSignal(signal, data))
 	}
 
 	// Read the signals off of the listener.
-	for i := 0; i < chanSize; i++ {
-		ctx := <-ln2.C
-		var ret string
-		checkErr(t, "decoding return data 1", ctx.Decode(&ret))
-		assert(t, ret == data, "returned data wrong; expected '%v', got '%v'", data, ret)
+	for i := 0; i < chanSize*2; i++ {
+		select {
+		case ctx := <-ln2.C:
+			var ret string
+			checkErr(t, "decoding return data 1", ctx.Decode(&ret))
+			assert(t, ret == data, "returned data wrong; expected '%v', got '%v'", data, ret)
+		case <-time.After(time.Millisecond * 10):
+			t.Fatal("timeout when waiting for events in OnSignalOpts")
+		}
 	}
-
-	// Now trigger the signal of sig2, which should exceed the configured
-	// MaxMessageSize.
-	// Trigger the signal with some test data.
-	conf2.MaxMessageSize = 1
-	err = sig2.TriggerSignal(signal, data)
-	assert(t, err == packet.ErrMaxPayloadSizeExceeded, "expected ErrMaxPayloadSizeExceeded, got '%v'", err)
 }
 
 func TestSignaler_OnSignalFunc(t *testing.T) {
@@ -169,6 +185,75 @@ func TestSignaler_OnSignalFunc(t *testing.T) {
 		t.Fatal("did not expect a result")
 	case <-time.After(time.Millisecond * 10):
 	}
+}
+
+func TestSignaler_SignalFilter(t *testing.T) {
+	t.Parallel()
+
+	sig1, sig2 := testSignaler(nil, nil)
+	defer func() {
+		_ = sig1.Close()
+		_ = sig2.Close()
+	}()
+
+	const signal = "signalFilter"
+	type filterData struct {
+		ID int
+	}
+	type signalData struct {
+		ID int
+	}
+
+	sig1.AddSignalFilter(signal, func(ctx *signaler.Context) (f signaler.Filter, err error) {
+		var filData filterData
+		err = ctx.Decode(&filData)
+		if err != nil {
+			return
+		}
+
+		f = func(data interface{}) (conforms bool, err error) {
+			sigData, ok := data.(*signalData)
+			if !ok {
+				err = errors.New("cast to signalData failed")
+				return
+			}
+
+			conforms = sigData.ID == filData.ID
+			return
+		}
+		return
+	})
+
+	ln2 := sig2.OnSignal(signal)
+	// IMPORTANT! Wait a short time, since the signal needs to be activated
+	// with the remote peer, which needs some I/O ops.
+	time.Sleep(time.Millisecond * 2)
+
+	// Set a filter on the signal.
+	err := sig2.SetSignalFilter(signal, &filterData{ID: 1})
+	checkErr(t, "set signal filter failed: %v", err)
+
+	// Trigger the signal with some test data that should not pass the filter.
+	err = sig1.TriggerSignal(signal, &signalData{ID: 0})
+	checkErr(t, "trigger signal 1", err)
+
+	// Check that no signal has been triggered.
+	select {
+	case _ = <-ln2.C:
+		t.Fatal("signal should have been filtered out")
+	case <-time.After(time.Millisecond * 10):
+	}
+
+	// Trigger the signal with some test data that should pass the filter.
+	err = sig1.TriggerSignal(signal, &signalData{ID: 1})
+	checkErr(t, "trigger signal 1", err)
+
+	// Read the signal off of the listener.
+	ctx := <-ln2.C
+	var ret signalData
+	err = ctx.Decode(&ret)
+	checkErr(t, "decoding return data 1", err)
+	assert(t, ret.ID == 1, "returned data wrong; expected '%v', got '%v'", 1, ret)
 }
 
 func TestSignaler_TriggerSignalError(t *testing.T) {
