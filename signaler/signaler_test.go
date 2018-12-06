@@ -251,15 +251,13 @@ func TestSignaler_OnceSignalOpts(t *testing.T) {
 	// First, test invalid channel sizes.
 	func() {
 		defer func() {
-			e := recover()
-			assert(t, e != nil, "expected panic for chan size -1")
+			assert(t, recover() != nil, "expected panic for chan size -1")
 		}()
 		_ = sig2.OnceSignalOpts(signal, -1)
 	}()
 	func() {
 		defer func() {
-			e := recover()
-			assert(t, e != nil, "expected panic for chan size 0")
+			assert(t, recover() != nil, "expected panic for chan size 0")
 		}()
 		_ = sig2.OnceSignalOpts(signal, 0)
 	}()
