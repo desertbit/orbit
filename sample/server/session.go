@@ -32,13 +32,13 @@ type Session struct {
 	server *Server
 
 	ctrl *control.Control
-	sig *signaler.Signaler
+	sig  *signaler.Signaler
 }
 
 func newSession(server *Server, orbitSession *orbit.Session) (s *Session, err error) {
 	s = &Session{
 		Session: orbitSession,
-		server: server,
+		server:  server,
 	}
 
 	// Always close the session on error.
@@ -72,12 +72,18 @@ func newSession(server *Server, orbitSession *orbit.Session) (s *Session, err er
 					ID:     api.SignalNewsletter,
 					Filter: s.newsletterFilter,
 				},
+				{
+					ID:     api.SignalChatIncomingMessage,
+					Filter: s.chatFilter,
+				},
 			},
 		},
 	})
 	if err != nil {
 		return
 	}
+
+	_ = s.sig.OnSignalFunc(api.SignalChatSendMessage, s.onChatSendMessage)
 
 	s.ctrl.Ready()
 	s.sig.Ready()

@@ -25,13 +25,15 @@ import (
 )
 
 const (
-	ChannelOrbit    = "Orbit"
+	ChannelOrbit = "Orbit"
 
 	ControlServerInfo = "ServerInfo"
 	ControlClientInfo = "ClientInfo"
 
-	SignalTimeBomb   = "TimeBomb"
-	SignalNewsletter = "Newsletter"
+	SignalTimeBomb            = "TimeBomb"
+	SignalNewsletter          = "Newsletter"
+	SignalChatIncomingMessage = "ChatIncomingMessage"
+	SignalChatSendMessage     = "ChatSendMessage"
 )
 
 type AuthRequest struct {
@@ -44,20 +46,20 @@ type AuthResponse struct {
 }
 
 type ServerInfoRet struct {
-	RemoteAddr string
-	Uptime time.Time
+	RemoteAddr   string
+	Uptime       time.Time
 	ClientsCount int
 }
 
 type ClientInfoRet struct {
 	RemoteAddr string
-	Uptime time.Time
+	Uptime     time.Time
 }
 
 type TimeBombData struct {
-	Countdown       int
-	HasDetonated    bool
-	Gift            string
+	Countdown    int
+	HasDetonated bool
+	Gift         string
 }
 
 type NewsletterFilterData struct {
@@ -66,5 +68,15 @@ type NewsletterFilterData struct {
 
 type NewsletterSignalData struct {
 	Subject string
-	Msg string
+	Msg     string
+}
+
+type ChatFilterData struct {
+	Join bool
+}
+
+type ChatSignalData struct {
+	Author    string
+	Msg       string
+	Timestamp time.Time
 }
