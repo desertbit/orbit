@@ -41,23 +41,29 @@ func NewGroup() *Group {
 }
 
 // Add TODO
-// When the signaler closes, it is automatically removed from the group.
-func (g *Group) Add(s *Signaler) {
+// When the signaler is closed, it is automatically removed from the group.
+func (g *Group) Add(ss ...*Signaler) {
+	if len(ss) == 0 {
+		return
+	}
+
 	g.mutex.Lock()
+	for _, s := range ss {
+		if s == nil {
+			continue
+		}
 
-	s.groupID = g.idCount
-	g.signalers[s.groupID] = s
-	g.idCount++
+		s.groupID = g.idCount
+		g.signalers[s.groupID] = s
+		g.idCount++
 
+		// Remove the signaler from the group once it closes.
+		s.OnClose(func() error {
+			g.Remove(s)
+			return nil
+		})
+	}
 	g.mutex.Unlock()
-
-	// Remove the signaler from the group once it closes.
-	s.OnClose(func() error {
-		g.Remove(s)
-		return nil
-	})
-
-	return
 }
 
 // Remove TODO
@@ -98,7 +104,11 @@ TriggerLoop:
 		// Trigger the signal with id at all signalers with the given data.
 		// It is ignored, if one of the signalers does not contain the desired signal.
 		err = s.TriggerSignal(id, data)
-		if err != nil && err != ErrSignalNotFound {
+		if err != nil {
+			if err == ErrSignalNotFound {
+				err = nil
+				continue TriggerLoop
+			}
 			return
 		}
 	}
