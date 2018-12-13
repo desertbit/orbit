@@ -78,7 +78,7 @@ func newListeners(e *Signaler, signalID string) *listeners {
 // signal is currently inactive, the signal is switched back
 // to active.
 func (ls *listeners) add(l *Listener) {
-	// Create a new listener ID and ensure it is unqiue.
+	// Create a new listener ID and ensure it is unique.
 	// Add it to the listeners map and set the ID.
 	//
 	// WARNING: Possible loop, if more than 2^64 listeners

@@ -7,7 +7,6 @@
 - write tests for packages:
   - orbit
   - internal.flusher
-  - signaler.group
 - Walk through TODOs in code and resolve them
 - Add request cancellation (e.g. with context)
 

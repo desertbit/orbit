@@ -26,6 +26,7 @@ import (
 	"github.com/desertbit/orbit/signaler"
 )
 
+// TestGroup tests the complete group file.
 func TestGroup(t *testing.T) {
 	sigServer1, sigClient2 := testSignaler(nil, nil)
 	sigServer3, sigClient4 := testSignaler(nil, nil)
@@ -62,23 +63,26 @@ func TestGroup(t *testing.T) {
 	group := signaler.NewGroup()
 	group.Add(sigServer1, sigServer3)
 
+	// Test an empty Add.
+	group.Add()
+	// Test a nil Add.
+	group.Add(nil)
+
 	// Normal test, both clients should receive the signal.
 	checkErr(t, "trigger 1", group.Trigger(signal, data))
 
 	timeout := 10 * time.Millisecond
-	timer := time.NewTimer(timeout)
+
 	for i := 0; i < 2; i++ {
 		select {
 		case err := <-errChan:
 			t.Fatalf("error 1: %v", err)
 		case res := <-resChan:
 			assert(t, res == data, "invalid result; expected '%v', got '%v'", data, res)
-		case <-timer.C:
+		case <-time.After(timeout):
 			t.Fatal("timeout 1")
 		}
-		timer.Reset(timeout)
 	}
-	_ = timer.Stop()
 
 	// Exclude sigServer3 from trigger, only sigClient2 should receive the signal.
 	checkErr(t, "trigger 2", group.Trigger(signal, data, sigServer3))
@@ -94,4 +98,33 @@ func TestGroup(t *testing.T) {
 	}
 
 	// Ensure sigClient4 does not send something back.
+	select {
+	case err := <-errChan:
+		t.Fatalf("error 3: %v", err)
+	case _ = <-resChan:
+		t.Fatal("did not expect result 3")
+	case <-time.After(timeout):
+	}
+
+	// Exclude both server signals, no client should receive the signal.
+	checkErr(t, "trigger 2", group.Trigger(signal, data, sigServer1, sigServer3))
+
+	select {
+	case err := <-errChan:
+		t.Fatalf("error 4: %v", err)
+	case _ = <-resChan:
+		t.Fatal("did not expect result 4")
+	case <-time.After(timeout):
+	}
+
+	// Trigger a signal that does not exist. This is allowed and should
+	// not produce an error.
+	err := group.Trigger("blabla", data)
+	assert(t, err == nil, "expected trigger not to fail")
+
+	// Close one of the signalers and try again. This should now produce
+	// an error.
+	checkErr(t, "closing signaler server 1", sigServer1.Close())
+	err = group.Trigger(signal, "test")
+	assert(t, err != nil && err != signaler.ErrSignalNotFound, "expected trigger to fail, error was: %v", err)
 }

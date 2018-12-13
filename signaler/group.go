@@ -23,25 +23,30 @@ import (
 	"sync"
 )
 
-// The Group type TODO
+// The Group type represents a group of signalers.
+// It is useful for triggering the same signal with some data
+// on all signalers contained in the group.
 type Group struct {
-	// TODO closer? stricty not needed, since signalers are closed, when underlying control is closed, which closes, when session closes anyways, but we could go safe.
-
-	mutex     sync.RWMutex // TODO: Normal Mutex?
+	// Synchronises the access to the signalers map and the idCount.
+	mutex sync.RWMutex
+	// The signalers that are part of this group. The key to the map
+	// is an id generated from the idCount property.
 	signalers map[uint64]*Signaler
 	// A counter that is used to produce new ids for new signalers.
 	idCount uint64
 }
 
-// NewGroup TODO
+// NewGroup creates an empty group.
 func NewGroup() *Group {
 	return &Group{
 		signalers: make(map[uint64]*Signaler, 0),
 	}
 }
 
-// Add TODO
-// When the signaler is closed, it is automatically removed from the group.
+// Add adds the given signalers to the group.
+// When a signaler is closed, it is automatically
+// removed from the group. There is no need to call Remove()
+// in that case.
 func (g *Group) Add(ss ...*Signaler) {
 	if len(ss) == 0 {
 		return
@@ -49,12 +54,16 @@ func (g *Group) Add(ss ...*Signaler) {
 
 	g.mutex.Lock()
 	for _, s := range ss {
+		// Ignore nil signalers.
 		if s == nil {
 			continue
 		}
 
+		// Add the signaler to our group with the current
+		// value of idCount as id.
 		s.groupID = g.idCount
 		g.signalers[s.groupID] = s
+		// Generate the next id for the next signaler.
 		g.idCount++
 
 		// Remove the signaler from the group once it closes.
@@ -66,32 +75,25 @@ func (g *Group) Add(ss ...*Signaler) {
 	g.mutex.Unlock()
 }
 
-// Remove TODO
-// If the id is unknown, this is a no-op.
+// Remove removes the signaler from this group.
+// If the signaler is not in the group, this is a no-op.
 func (g *Group) Remove(s *Signaler) {
 	g.mutex.Lock()
 	delete(g.signalers, s.groupID)
-	/*for i := range g.signalers { TODO only needed if slice used.
-		if g.signalers[i] == s {
-			// Remove the element from the slice at the index.
-			// We are using the safe way documented in the golang slice
-			// tricks (https://github.com/golang/go/wiki/SliceTricks),
-			// since we must avoid a memory leak due to pointers in a slice.
-			copy(g.signalers[i:], g.signalers[i+1:])
-			g.signalers[len(g.signalers)-1] = nil
-			g.signalers = g.signalers[:len(g.signalers)-1]
-			break
-		}
-	}*/
 	g.mutex.Unlock()
 }
 
-// Trigger TODO
-// TODO exclude is not the best solution
+// Trigger calls each signaler's TriggerSignal() method of this group
+// with the given id and the given data.
+// If a signaler in the group does not contain the signal with the given id,
+// the error is ignored and all other signalers are still triggered.
+//
+// Signalers can be explicitly excluded from being triggered.
 func (g *Group) Trigger(id string, data interface{}, exclude ...*Signaler) (err error) {
 	g.mutex.RLock()
 	defer g.mutex.RUnlock()
 
+	// Trigger the signal for all signalers.
 TriggerLoop:
 	for _, s := range g.signalers {
 		// Do not trigger the signal for the excluded signalers.
@@ -101,7 +103,6 @@ TriggerLoop:
 			}
 		}
 
-		// Trigger the signal with id at all signalers with the given data.
 		// It is ignored, if one of the signalers does not contain the desired signal.
 		err = s.TriggerSignal(id, data)
 		if err != nil {
