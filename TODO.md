@@ -10,6 +10,7 @@
   - flusher
 - Walk through TODOs in code and resolve them
 - Add request cancellation (e.g. with context)
+- Add load balancing interface
 
 ### Samples
 - Add "chatroom" example, where one client writes to console, and others receive event (multicast), needs global events pkg first 
