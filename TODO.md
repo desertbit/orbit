@@ -1,5 +1,4 @@
 ### General
-- change license? at least for the examples?
 - use the orbit logger for the control and event package
 - global events
 - finish documenting
