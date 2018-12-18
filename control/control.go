@@ -361,7 +361,7 @@ func (c *Control) CallAsyncTimeout(
 		return nil
 	}
 
-	// Wait for the response, but in an new routine.
+	// Wait for the response, but in a new routine.
 	go callback(c.waitForResponse(timeout, channel))
 
 	return nil
@@ -578,12 +578,7 @@ func (c *Control) readRoutine() {
 		}
 
 		// Handle the received message in a new goroutine.
-		go func() {
-			gerr := c.handleRequest(reqType, headerData, payloadData)
-			if gerr != nil {
-				c.logger.Printf("control: handleRequest: %v", gerr)
-			}
-		}()
+		go c.handleRequest(reqType, headerData, payloadData)
 	}
 }
 
@@ -593,12 +588,17 @@ func (c *Control) readRoutine() {
 // whether the data must be processed as Call or CallReturn.
 //
 // Panics are recovered and wrapped in an error.
-// If the request type is unknown, an error is returned.
-func (c *Control) handleRequest(reqType byte, headerData, payloadData []byte) (err error) {
+// Any error is logged using the control logger.
+func (c *Control) handleRequest(reqType byte, headerData, payloadData []byte) {
+	var err error
+
 	// Catch panics, caused by the handler func or one of the hooks.
 	defer func() {
 		if e := recover(); e != nil {
 			err = fmt.Errorf("catched panic: %v", e)
+		}
+		if err != nil {
+			c.logger.Printf("control: handleRequest: %v", err)
 		}
 	}()
 
@@ -613,7 +613,6 @@ func (c *Control) handleRequest(reqType byte, headerData, payloadData []byte) (e
 	default:
 		err = fmt.Errorf("invalid request type: %v", reqType)
 	}
-	return
 }
 
 // handleCall processes an incoming request with request type 'typeCall'.
