@@ -29,8 +29,9 @@ package codec
 
 import (
 	"encoding/gob"
-	"reflect"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 type test struct {
@@ -47,16 +48,11 @@ func Tester(t *testing.T, c Codec) {
 	to := &test{}
 
 	encoded, err := c.Encode(val)
-	if err != nil {
-		t.Fatal("Encode error:", err)
-	}
+	assert.NoError(t, err)
+
 	err = c.Decode(encoded, to)
-	if err != nil {
-		t.Fatal("Decode error:", err)
-	}
-	if !reflect.DeepEqual(val, to) {
-		t.Fatalf("Roundtrip codec mismatch, expected\n%#v\ngot\n%#v", val, to)
-	}
+	assert.NoError(t, err)
+	assert.Exactly(t, to, val)
 }
 
 func init() {

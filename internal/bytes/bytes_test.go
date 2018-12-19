@@ -25,41 +25,35 @@
  * SOFTWARE.
  */
 
-package bytes
+package bytes_test
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/desertbit/orbit/internal/bytes"
+	"github.com/stretchr/testify/assert"
+)
 
 func TestUInt16Conversion(t *testing.T) {
 	uint16Max := uint16(1<<16 - 1)
 	numbers := []uint16{5251, uint16Max, 0, 1, 101, 2387, 219}
 
 	for _, i := range numbers {
-		data := FromUint16(i)
-		if len(data) != 2 {
-			t.Fatal()
-		}
+		data := bytes.FromUint16(i)
+		assert.Len(t, data, 2)
 
-		ii, err := ToUint16(data)
-		if err != nil {
-			t.Fatal()
-		} else if ii != i {
-			t.Fatal()
-		}
+		ii, err := bytes.ToUint16(data)
+		assert.NoError(t, err)
+		assert.Equal(t, i, ii)
 	}
 
-	ii, err := ToUint16(nil)
-	if err != ErrInvalidLen {
-		t.Fatal()
-	} else if ii != 0 {
-		t.Fatal()
-	}
+	ii, err := bytes.ToUint16(nil)
+	assert.Equal(t, bytes.ErrInvalidLen, err)
+	assert.EqualValues(t, 0, ii)
 
-	ii, err = ToUint16(make([]byte, 1))
-	if err != ErrInvalidLen {
-		t.Fatal()
-	} else if ii != 0 {
-		t.Fatal()
-	}
+	ii, err = bytes.ToUint16(make([]byte, 1))
+	assert.Equal(t, bytes.ErrInvalidLen, err)
+	assert.EqualValues(t, 0, ii)
 }
 
 func TestUInt32Conversion(t *testing.T) {
@@ -67,32 +61,21 @@ func TestUInt32Conversion(t *testing.T) {
 	numbers := []uint32{5251, uint32Max, 0, 1, 101, 2387, 219}
 
 	for _, i := range numbers {
-		data := FromUint32(i)
-		if len(data) != 4 {
-			t.Fatal()
-		}
+		data := bytes.FromUint32(i)
+		assert.Len(t, data, 4)
 
-		ii, err := ToUint32(data)
-		if err != nil {
-			t.Fatal()
-		} else if ii != i {
-			t.Fatal()
-		}
+		ii, err := bytes.ToUint32(data)
+		assert.NoError(t, err)
+		assert.Equal(t, i, ii)
 	}
 
-	ii, err := ToUint32(nil)
-	if err != ErrInvalidLen {
-		t.Fatal()
-	} else if ii != 0 {
-		t.Fatal()
-	}
+	ii, err := bytes.ToUint32(nil)
+	assert.Equal(t, bytes.ErrInvalidLen, err)
+	assert.EqualValues(t, 0, ii)
 
-	ii, err = ToUint32(make([]byte, 1))
-	if err != ErrInvalidLen {
-		t.Fatal()
-	} else if ii != 0 {
-		t.Fatal()
-	}
+	ii, err = bytes.ToUint32(make([]byte, 1))
+	assert.Equal(t, bytes.ErrInvalidLen, err)
+	assert.EqualValues(t, 0, ii)
 }
 
 func TestUInt64Conversion(t *testing.T) {
@@ -100,30 +83,19 @@ func TestUInt64Conversion(t *testing.T) {
 	numbers := []uint64{5251, uint64Max, 0, 1, 101, 2387, 219, 213613871263}
 
 	for _, i := range numbers {
-		data := FromUint64(i)
-		if len(data) != 8 {
-			t.Fatal()
-		}
+		data := bytes.FromUint64(i)
+		assert.Len(t, data, 8)
 
-		ii, err := ToUint64(data)
-		if err != nil {
-			t.Fatal()
-		} else if ii != i {
-			t.Fatal()
-		}
+		ii, err := bytes.ToUint64(data)
+		assert.NoError(t, err)
+		assert.Equal(t, i, ii)
 	}
 
-	ii, err := ToUint64(nil)
-	if err != ErrInvalidLen {
-		t.Fatal()
-	} else if ii != 0 {
-		t.Fatal()
-	}
+	ii, err := bytes.ToUint64(nil)
+	assert.Equal(t, bytes.ErrInvalidLen, err)
+	assert.EqualValues(t, 0, ii)
 
-	ii, err = ToUint64(make([]byte, 1))
-	if err != ErrInvalidLen {
-		t.Fatal()
-	} else if ii != 0 {
-		t.Fatal()
-	}
+	ii, err = bytes.ToUint64(make([]byte, 1))
+	assert.Equal(t, bytes.ErrInvalidLen, err)
+	assert.EqualValues(t, 0, ii)
 }

@@ -32,6 +32,7 @@ import (
 	"testing"
 
 	"github.com/desertbit/orbit/control"
+	"github.com/stretchr/testify/require"
 )
 
 func TestContext_Control(t *testing.T) {
@@ -60,10 +61,10 @@ func TestContext_Control(t *testing.T) {
 	})
 
 	_, err := ctrl1.Call(call, nil)
-	checkErr(t, "call 1: %v", err)
+	require.NoError(t, err, "call 1: %v")
 
 	_, err = ctrl2.Call(call, nil)
-	checkErr(t, "call 2: %v", err)
+	require.NoError(t, err, "call 2: %v")
 }
 
 func TestContext_Decode(t *testing.T) {
@@ -83,8 +84,8 @@ func TestContext_Decode(t *testing.T) {
 	})
 
 	_, err := ctrl2.Call(call, nil)
-	assert(t, err.Error() == control.ErrNoContextData.Error(), "expected err '%v', got '%v'", control.ErrNoContextData, err)
+	require.EqualError(t, err, control.ErrNoContextData.Error())
 
 	_, err = ctrl2.Call(call, []byte{54, 51, 50, 1, 5, 2})
-	assert(t, err != nil, "expected decode to fail")
+	require.Error(t, err, "expected decode to fail")
 }
