@@ -31,7 +31,7 @@ import (
 	"encoding/gob"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type test struct {
@@ -48,11 +48,11 @@ func Tester(t *testing.T, c Codec) {
 	to := &test{}
 
 	encoded, err := c.Encode(val)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	err = c.Decode(encoded, to)
-	assert.NoError(t, err)
-	assert.Exactly(t, to, val)
+	require.NoError(t, err)
+	require.Exactly(t, to, val)
 }
 
 func init() {
