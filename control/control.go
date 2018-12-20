@@ -370,7 +370,9 @@ func (c *Control) CallAsyncTimeout(
 	}
 
 	// Wait for the response, but in a new routine.
-	go callback(c.waitForResponse(timeout, channel))
+	go func() {
+		callback(c.waitForResponse(timeout, channel))
+	}()
 
 	return nil
 }
