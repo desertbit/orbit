@@ -38,7 +38,6 @@ import (
 	"github.com/desertbit/orbit/control"
 	"github.com/desertbit/orbit/packet"
 	"github.com/desertbit/orbit/signaler"
-	"github.com/stretchr/testify/require.
 	"github.com/stretchr/testify/require"
 )
 
