@@ -38,7 +38,7 @@ import (
 	"github.com/desertbit/orbit/control"
 	"github.com/desertbit/orbit/packet"
 	"github.com/desertbit/orbit/signaler"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require.
 	"github.com/stretchr/testify/require"
 )
 
@@ -410,12 +410,12 @@ func TestSignaler_SignalErrors(t *testing.T) {
 	// but we expect a log to be printed.
 	sig1.AddSignal("test3")
 	sig1.AddSignal("test3")
-	assert.True(t, buffer.Len() > 0)
+	require.True(t, buffer.Len() > 0)
 
 	// Empty the log buffer.
 	buffer.Reset()
 	sig1.AddSignals([]string{"test4", "test4"})
-	assert.True(t, buffer.Len() > 0)
+	require.True(t, buffer.Len() > 0)
 
 	// Trigger a signal with nil data and try to decode it in the handler
 	errChan := make(chan error)
@@ -428,7 +428,7 @@ func TestSignaler_SignalErrors(t *testing.T) {
 	time.Sleep(2 * time.Millisecond)
 	require.NoError(t, sig1.TriggerSignal("test3", nil))
 	err := <-errChan
-	assert.Equal(t, signaler.ErrNoContextData, err)
+	require.Equal(t, signaler.ErrNoContextData, err)
 
 	// Try to register a listener for a non-existent signal.
 	lntmp := sig2.OnSignal("test")
@@ -443,16 +443,16 @@ func TestSignaler_SignalErrors(t *testing.T) {
 
 	// Try to set a filter for a non-existent signal.
 	err = sig2.SetSignalFilter("test", "test")
-	assert.Equal(t, signaler.ErrSignalNotFound, err)
+	require.Equal(t, signaler.ErrSignalNotFound, err)
 
 	// Trigger a non-existent signal.
 	err = sig1.TriggerSignal("test", nil)
-	assert.Equal(t, signaler.ErrSignalNotFound, err)
+	require.Equal(t, signaler.ErrSignalNotFound, err)
 
 	// Try to set a filter on a signal, that does not allow filters.
 	sig1.AddSignal("test")
 	err = sig2.SetSignalFilter("test", "test")
-	assert.Equal(t, signaler.ErrFilterFuncUndefined, err)
+	require.Equal(t, signaler.ErrFilterFuncUndefined, err)
 
 	const signal = "triggerSignalError"
 	// Add the signal and register listener for it.
