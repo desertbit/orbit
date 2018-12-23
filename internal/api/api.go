@@ -52,6 +52,10 @@ type ControlReturn struct {
 	Code int
 }
 
+type ControlCancel struct {
+	Key uint64
+}
+
 type SetSignal struct {
 	ID     string
 	Active bool
