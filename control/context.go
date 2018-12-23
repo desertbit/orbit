@@ -30,6 +30,8 @@ package control
 import (
 	"errors"
 	"fmt"
+
+	"github.com/desertbit/closer"
 )
 
 var (
@@ -41,19 +43,29 @@ var (
 // It offer a convenience method to decode the encoded data into an
 // interface.
 type Context struct {
-	// Data is the raw byte representation of the encoded context data.
-	Data []byte
+	// Closer is used to signal to the handling func that the request
+	// has been cancelled and that execution can be aborted.
+	closer.Closer
 
 	// ctrl is a reference to the Control the call has been issued on.
 	ctrl *Control
+
+	// Data is the raw byte representation of the encoded context data.
+	Data []byte
 }
 
 // newContext creates a new Context from the given Control and the
 // payload data.
 func newContext(ctrl *Control, data []byte) *Context {
+	// Create a new closer for the context.
+	cl := closer.New()
+	// If the underlying control is closed, also close the context.
+	ctrl.OnClose(cl.Close)
+
 	return &Context{
-		ctrl: ctrl,
-		Data: data,
+		ctrl:   ctrl,
+		Closer: cl,
+		Data:   data,
 	}
 }
 

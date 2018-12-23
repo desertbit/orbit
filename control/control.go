@@ -109,6 +109,10 @@ const (
 	// The first byte send in a request to indicate the response from a remote
 	// called function.
 	typeCallReturn byte = 1
+
+	// The first byte send in a request to indicate that a currently running
+	// request should be cancelled.
+	typeCallCancel byte = 2
 )
 
 var (
@@ -154,14 +158,25 @@ type Control struct {
 	// The raw network connection that is used to send the requests over.
 	conn net.Conn
 
+	// ### "Client-side" ###
+
 	// Contains a channel for each request that is used to deliver the
 	// response back to the correct calling function.
 	callRetChain *chain
+
+	// ### "Server-side" ###
+
 	// Synchronises the access to the handler function map.
 	funcMapMutex sync.RWMutex
 	// Stores the handler functions for the requests. The key to the map
 	// is the id of the request.
 	funcMap map[string]Func
+
+	// Synchronises the access to the active contexts map.
+	activeContextsMutex sync.Mutex
+	// Stores the contexts of requests that are currently being handled.
+	// This way, the processing of requests can be cancelled by the client.
+	activeContexts map[uint64]*Context
 
 	// Called for every incoming request. Can be useful for logging
 	// purposes or similar tasks.
@@ -184,12 +199,13 @@ func New(conn net.Conn, config *Config) *Control {
 	// Create a new socket.
 	config = prepareConfig(config)
 	s := &Control{
-		Closer:       closer.New(),
-		config:       config,
-		logger:       config.Logger,
-		conn:         conn,
-		callRetChain: newChain(),
-		funcMap:      make(map[string]Func),
+		Closer:         closer.New(),
+		config:         config,
+		logger:         config.Logger,
+		conn:           conn,
+		callRetChain:   newChain(),
+		funcMap:        make(map[string]Func),
+		activeContexts: make(map[uint64]*Context),
 	}
 	s.OnClose(conn.Close)
 
@@ -258,6 +274,10 @@ func (c *Control) AddFuncs(funcs Funcs) {
 	c.funcMapMutex.Unlock()
 }
 
+func (c *Control) NewCall() *Call {
+	return &Call{ctrl: c}
+}
+
 // Call is a convenience function that calls CallTimeout(), but uses the default
 // CallTimeout from the config of the Control.
 func (c *Control) Call(id string, data interface{}) (*Context, error) {
@@ -318,8 +338,6 @@ func (c *Control) CallOneWay(id string, data interface{}) error {
 // CallAsync calls a remote function in an asynchronous fashion, as the
 // response will be awaited in a new goroutine and passed to the given callback.
 // It uses the default CallTimeout from the config of the Control.
-//
-// This method is thread-safe.
 func (c *Control) CallAsync(
 	id string,
 	data interface{},
@@ -473,6 +491,7 @@ func (c *Control) write(reqType byte, headerI interface{}, dataI interface{}) (e
 func (c *Control) waitForResponse(
 	timeout time.Duration,
 	channel chainChan,
+	cancelChan chan uint64,
 ) (ctx *Context, err error) {
 	// Create the timeout.
 	timeoutTimer := time.NewTimer(timeout)
@@ -486,6 +505,10 @@ func (c *Control) waitForResponse(
 	case <-timeoutTimer.C:
 		// Abort if the deadline is over.
 		err = ErrCallTimeout
+
+	case key := <-cancelChan:
+		// TODO: Send key to remote peer to cancel request.
+		break
 
 	case rData := <-channel:
 		// Response has arrived.
@@ -618,6 +641,8 @@ func (c *Control) handleRequest(reqType byte, headerData, payloadData []byte) {
 	case typeCallReturn:
 		err = c.handleCallReturn(headerData, payloadData)
 
+	case typeCallCancel:
+
 	default:
 		err = fmt.Errorf("invalid request type: %v", reqType)
 	}
@@ -640,7 +665,7 @@ func (c *Control) handleCall(headerData, payloadData []byte) (err error) {
 	var header api.ControlCall
 	err = msgpack.Codec.Decode(headerData, &header)
 	if err != nil {
-		return fmt.Errorf("decode control call: %v", err)
+		return fmt.Errorf("decode header call: %v", err)
 	}
 
 	// Retrieve the handler function for this request.
@@ -653,6 +678,14 @@ func (c *Control) handleCall(headerData, payloadData []byte) (err error) {
 
 	// Build the request context for the handler function.
 	ctx := newContext(c, payloadData)
+
+	// Save the context in our active contexts map, if this
+	// is not a one-way call.
+	if header.Key != 0 {
+		c.activeContextsMutex.Lock()
+		c.activeContexts[header.Key] = ctx
+		c.activeContextsMutex.Unlock()
+	}
 
 	// Call the call hook, if defined.
 	if c.callHook != nil {
@@ -696,6 +729,11 @@ func (c *Control) handleCall(headerData, payloadData []byte) (err error) {
 		return nil
 	}
 
+	// Remove the context from the active contexts map.
+	c.activeContextsMutex.Lock()
+	delete(c.activeContexts, header.Key)
+	c.activeContextsMutex.Unlock()
+
 	// Build the header for the response.
 	retHeader := &api.ControlReturn{
 		Key:  header.Key,
@@ -726,7 +764,7 @@ func (c *Control) handleCallReturn(headerData, payloadData []byte) (err error) {
 	var header api.ControlReturn
 	err = msgpack.Codec.Decode(headerData, &header)
 	if err != nil {
-		return fmt.Errorf("decode call return: %v", err)
+		return fmt.Errorf("decode header call return: %v", err)
 	}
 
 	// Get the channel by the key.
@@ -765,4 +803,27 @@ func (c *Control) handleCallReturn(headerData, payloadData []byte) (err error) {
 			return fmt.Errorf("return request failed (call timeout exceeded?)")
 		}
 	}
+}
+
+// handleCallCancel
+func (c *Control) handleCallCancel(headerData []byte) (err error) {
+	// Decode the request header.
+	var header api.ControlCall
+	err = msgpack.Codec.Decode(headerData, &header)
+	if err != nil {
+		return fmt.Errorf("decode header call cancel: %v", err)
+	}
+
+	// Retrieve the context from the active contexts map.
+	c.activeContextsMutex.Lock()
+	ctx, ok := c.activeContexts[header.Key]
+	c.activeContextsMutex.Unlock()
+
+	// If there is no context available for this key, do nothing.
+	if !ok {
+		return nil
+	}
+
+	// Cancel the currently running request.
+	return ctx.Close()
 }
