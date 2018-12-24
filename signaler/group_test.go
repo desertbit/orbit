@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/desertbit/orbit/signaler"
+	"github.com/stretchr/testify/require"
 )
 
 // TestGroup tests the complete group file.
@@ -69,7 +70,8 @@ func TestGroup(t *testing.T) {
 	group.Add(nil)
 
 	// Normal test, both clients should receive the signal.
-	checkErr(t, "trigger 1", group.Trigger(signal, data))
+	err := group.Trigger(signal, data)
+	require.NoError(t, err)
 
 	timeout := 10 * time.Millisecond
 
@@ -78,21 +80,22 @@ func TestGroup(t *testing.T) {
 		case err := <-errChan:
 			t.Fatalf("error 1: %v", err)
 		case res := <-resChan:
-			assert(t, res == data, "invalid result; expected '%v', got '%v'", data, res)
+			require.Equal(t, data, res)
 		case <-time.After(timeout):
 			t.Fatal("timeout 1")
 		}
 	}
 
 	// Exclude sigServer3 from trigger, only sigClient2 should receive the signal.
-	checkErr(t, "trigger 2", group.Trigger(signal, data, sigServer3))
+	err = group.Trigger(signal, data, sigServer3)
+	require.NoError(t, err)
 
 	// Get result from sigClient2.
 	select {
 	case err := <-errChan:
 		t.Fatalf("error 2: %v", err)
 	case res := <-resChan:
-		assert(t, res == data, "invalid result; expected '%v', got '%v'", data, res)
+		require.Equal(t, data, res)
 	case <-time.After(timeout):
 		t.Fatal("timeout 2")
 	}
@@ -107,7 +110,8 @@ func TestGroup(t *testing.T) {
 	}
 
 	// Exclude both server signals, no client should receive the signal.
-	checkErr(t, "trigger 2", group.Trigger(signal, data, sigServer1, sigServer3))
+	err = group.Trigger(signal, data, sigServer1, sigServer3)
+	require.NoError(t, err)
 
 	select {
 	case err := <-errChan:
@@ -119,12 +123,15 @@ func TestGroup(t *testing.T) {
 
 	// Trigger a signal that does not exist. This is allowed and should
 	// not produce an error.
-	err := group.Trigger("blabla", data)
-	assert(t, err == nil, "expected trigger not to fail")
+	err = group.Trigger("blabla", data)
+	require.NoError(t, err)
 
 	// Close one of the signalers and try again. This should now produce
 	// an error.
-	checkErr(t, "closing signaler server 1", sigServer1.Close())
+	err = sigServer1.Close()
+	require.NoError(t, err)
+
 	err = group.Trigger(signal, "test")
-	assert(t, err != nil && err != signaler.ErrSignalNotFound, "expected trigger to fail, error was: %v", err)
+	require.Error(t, err, "expecting error for closed signaler")
+	require.NotEqual(t, signaler.ErrSignalNotFound, err)
 }
