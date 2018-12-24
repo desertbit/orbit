@@ -1,20 +1,28 @@
 /*
  * ORBIT - Interlink Remote Applications
- * Copyright (C) 2018  Roland Singer <roland.singer[at]desertbit.com>
- * Copyright (C) 2018  Sebastian Borchers <sebastian[at]desertbit.com>
  *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * The MIT License (MIT)
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * Copyright (c) 2018 Roland Singer <roland.singer[at]desertbit.com>
+ * Copyright (c) 2018 Sebastian Borchers <sebastian[at]desertbit.com>
  *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
  */
 
 package signaler
@@ -27,19 +35,16 @@ import (
 // It is useful for triggering the same signal with some data
 // on all signalers contained in the group.
 type Group struct {
-	// Synchronises the access to the signalers map and the idCount.
+	// Synchronises the access to the signalers.
 	mutex sync.RWMutex
-	// The signalers that are part of this group. The key to the map
-	// is an id generated from the idCount property.
-	signalers map[uint64]*Signaler
-	// A counter that is used to produce new ids for new signalers.
-	idCount uint64
+	// The signalers that are part of this group.
+	signalers []*Signaler
 }
 
 // NewGroup creates an empty group.
 func NewGroup() *Group {
 	return &Group{
-		signalers: make(map[uint64]*Signaler, 0),
+		signalers: make([]*Signaler, 0),
 	}
 }
 
@@ -59,12 +64,8 @@ func (g *Group) Add(ss ...*Signaler) {
 			continue
 		}
 
-		// Add the signaler to our group with the current
-		// value of idCount as id.
-		s.groupID = g.idCount
-		g.signalers[s.groupID] = s
-		// Generate the next id for the next signaler.
-		g.idCount++
+		// Add the signaler to our group.
+		g.signalers = append(g.signalers, s)
 
 		// Remove the signaler from the group once it closes.
 		s.OnClose(func() error {
@@ -79,7 +80,26 @@ func (g *Group) Add(ss ...*Signaler) {
 // If the signaler is not in the group, this is a no-op.
 func (g *Group) Remove(s *Signaler) {
 	g.mutex.Lock()
-	delete(g.signalers, s.groupID)
+	// Cache the length for performance.
+	sigLen := len(g.signalers)
+
+	// Iterate in reverse order, this is safer when deleting
+	// elements during a loop (we merely delete one element, but
+	// if this changes in the future, we are safe).
+	for i := sigLen - 1; i >= 0; i-- {
+		if g.signalers[i] == s {
+			// Delete without causing a memory leak due to the gc
+			// not being able to collect the pointer. This is done
+			// by explicitly overwriting the element.
+			// We DO NOT preserve the original order of the slice,
+			// as this is not important to us.
+			// See: https://github.com/golang/go/wiki/SliceTricks
+			g.signalers[i] = g.signalers[sigLen-1]
+			g.signalers[sigLen-1] = nil
+			g.signalers = g.signalers[:sigLen-1]
+			break
+		}
+	}
 	g.mutex.Unlock()
 }
 
@@ -98,7 +118,7 @@ TriggerLoop:
 	for _, s := range g.signalers {
 		// Do not trigger the signal for the excluded signalers.
 		for _, ex := range exclude {
-			if ex.groupID == s.groupID {
+			if ex == s {
 				continue TriggerLoop
 			}
 		}

@@ -103,9 +103,6 @@ type Signaler struct {
 	// id of the respective signal the listeners are interested
 	// in.
 	lsMap map[string]*listeners
-
-	// TODO
-	groupID uint64
 }
 
 // New returns a new Signaler.
