@@ -30,9 +30,6 @@ package main
 import (
 	"fmt"
 	"log"
-	"os"
-	"os/signal"
-	"syscall"
 	"time"
 
 	"github.com/AlecAivazis/survey"
@@ -146,10 +143,6 @@ func main() {
 }
 
 func chat(s *Session) error {
-	// Wait, until the user quits the chat by pressing Ctrl+C.
-	signalChan := make(chan os.Signal, 1)
-	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
-
 	var name string
 	err := survey.AskOne(
 		&survey.Input{Message: "What's your name?"},
