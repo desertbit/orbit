@@ -1,8 +1,4 @@
 ### General
-<<<<<<< HEAD
-- change license to MIT
-=======
->>>>>>> master
 - use the orbit logger for the control and event package
 - finish documenting
 - clarify orbit/config.go, since logger defaults to os.Stderr (shouldn't that be zerolog?)
