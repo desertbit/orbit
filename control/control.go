@@ -283,7 +283,7 @@ func (c *Control) Call(id string, data interface{}) (*Context, error) {
 // CallTimeout calls a remote function and waits for its result. The given id determines,
 // which function should be called on the remote. The given timeout determines how long
 // the request/response process may take at a maximum.
-//
+// TODO
 // The passed data are sent as payload of the request and get automatically encoded
 // with the codec.Codec of the Control.
 // If data is nil, no payload is sent.
@@ -348,7 +348,7 @@ func (c *Control) CallAsync(
 
 // CallAsyncTimeout calls a remote function in an asynchronous fashion, as the
 // response will be awaited in a new goroutine and passed to the given callback.
-//
+// TODO
 // The response will be awaited in a new goroutine. The given callback will
 // receive an ErrCallTimeout error, should the timeout be exceeded.
 //
@@ -528,6 +528,7 @@ func (c *Control) waitForResponse(
 	return
 }
 
+// cancelCall TODO
 func (c *Control) cancelCall(key uint64) {
 	err := c.write(
 		typeCallCancel,
@@ -820,7 +821,7 @@ func (c *Control) handleCallReturn(headerData, payloadData []byte) (err error) {
 	}
 }
 
-// handleCallCancel
+// handleCallCancel TODO
 func (c *Control) handleCallCancel(headerData []byte) (err error) {
 	// Decode the request header.
 	var header api.ControlCancel
@@ -840,5 +841,5 @@ func (c *Control) handleCallCancel(headerData []byte) (err error) {
 	}
 
 	// Cancel the currently running request.
-	return ctx.Close()
+	return ctx.closer.Close()
 }

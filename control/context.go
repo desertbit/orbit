@@ -43,9 +43,9 @@ var (
 // It offer a convenience method to decode the encoded data into an
 // interface.
 type Context struct {
-	// Closer is used to signal to the handling func that the request
+	// closer is used to signal to the handling func that the request
 	// has been cancelled and that execution can be aborted.
-	closer.Closer
+	closer closer.Closer
 
 	// ctrl is a reference to the Control the call has been issued on.
 	ctrl *Control
@@ -57,14 +57,9 @@ type Context struct {
 // newContext creates a new Context from the given Control and the
 // payload data.
 func newContext(ctrl *Control, data []byte) *Context {
-	// Create a new closer for the context.
-	cl := closer.New()
-	// If the underlying control is closed, also close the context.
-	ctrl.OnClose(cl.Close)
-
 	return &Context{
 		ctrl:   ctrl,
-		Closer: cl,
+		closer: closer.New(),
 		Data:   data,
 	}
 }
@@ -91,4 +86,9 @@ func (c *Context) Decode(v interface{}) error {
 	}
 
 	return nil
+}
+
+// TODO:
+func (c *Context) CancelChan() <-chan struct{} {
+	return c.closer.CloseChan()
 }

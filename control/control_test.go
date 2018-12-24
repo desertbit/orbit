@@ -36,6 +36,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/desertbit/closer"
 	"github.com/desertbit/orbit/control"
 	"github.com/desertbit/orbit/packet"
 	"github.com/pkg/errors"
@@ -119,7 +120,7 @@ func TestControl_Call(t *testing.T) {
 	assert(t, ret == output, "decoded ret 2: expected '%v', got '%v'", output, ret)
 }
 
-func TestControl_CallTimeout(t *testing.T) {
+func TestControl_CallOpts(t *testing.T) {
 	t.Parallel()
 
 	input := "args"
@@ -141,27 +142,52 @@ func TestControl_CallTimeout(t *testing.T) {
 		data = output
 		return
 	}
+
 	// Exceed timeout.
 	fTimout := func(ctx *control.Context) (data interface{}, err error) {
 		time.Sleep(1 * time.Second)
 		return
 	}
 
+	// Cancel.
+	errChan := make(chan error)
+	fCancel := func(ctx *control.Context) (data interface{}, err error) {
+		select {
+		case <-ctx.CancelChan():
+			errChan <- nil
+		case <-time.After(10 * time.Millisecond):
+			errChan <- errors.New("not cancelled")
+		}
+		return
+	}
+
 	const call = "callTimeout"
+	const call2 = "callCancel"
 	defCtrl1.AddFunc(call, fTimout)
 	defCtrl2.AddFunc(call, f)
+	defCtrl1.AddFunc(call2, fCancel)
 
 	var ret string
 
 	// Timeout not exceeded.
-	ctx, err := defCtrl1.CallTimeout(call, input, 100*time.Millisecond)
+	ctx, err := defCtrl1.CallOpts(call, input, 100*time.Millisecond, nil)
 	checkErr(t, "call 1", err)
 	checkErr(t, "decode ret 1", ctx.Decode(&ret))
 	assert(t, ret == output, "decoded ret 1: expected '%v', got '%v'", output, ret)
 
 	// Timeout exceeded.
-	ctx, err = defCtrl2.CallTimeout(call, input, 100*time.Millisecond)
+	ctx, err = defCtrl2.CallOpts(call, input, 100*time.Millisecond, nil)
 	assert(t, err == control.ErrCallTimeout, "call 2: expected '%v', got '%v'", control.ErrCallTimeout, err)
+
+	// Cancel request.
+	canceller := closer.New()
+	// Cancel the request immediately.
+	go func() {
+		_ = canceller.Close()
+	}()
+	ctx, err = defCtrl2.CallOpts(call2, input, 100*time.Millisecond, canceller.CloseChan())
+	checkErr(t, "call 2", err)
+	assert(t, <-errChan == nil, "call cancel")
 }
 
 func TestControl_CallOneWay(t *testing.T) {
@@ -266,7 +292,7 @@ func TestControl_CallAsync(t *testing.T) {
 	checkErr(t, "cb 2", <-resChan)
 }
 
-func TestControl_CallAsyncTimeout(t *testing.T) {
+func TestControl_CallAsyncOpts(t *testing.T) {
 	t.Parallel()
 
 	f := func(ctx *control.Context) (data interface{}, err error) {
@@ -274,8 +300,21 @@ func TestControl_CallAsyncTimeout(t *testing.T) {
 		return
 	}
 
-	const call = "callAsyncTimeout"
+	// Cancel.
+	errChan := make(chan error)
+	fCancel := func(ctx *control.Context) (data interface{}, err error) {
+		select {
+		case <-ctx.CancelChan():
+			errChan <- nil
+		case <-time.After(10 * time.Millisecond):
+			errChan <- errors.New("not cancelled")
+		}
+		return
+	}
+
+	const call = "callAsyncOpts"
 	defCtrl1.AddFuncs(map[string]control.Func{call: f})
+	defCtrl2.AddFunc(call, fCancel)
 
 	resChan := make(chan error)
 	cb := func(ctx *control.Context, err error) {
@@ -285,10 +324,17 @@ func TestControl_CallAsyncTimeout(t *testing.T) {
 		resChan <- err
 	}
 
-	err := defCtrl2.CallAsyncTimeout(call, nil, 10*time.Millisecond, cb)
-	checkErr(t, "call 2", err)
+	err := defCtrl2.CallAsyncOpts(call, nil, 10*time.Millisecond, cb, nil)
+	checkErr(t, "call 1", err)
 	err = <-resChan
 	assert(t, err.Error() == control.ErrCallTimeout.Error(), "expected timeout err '%v', got '%v'", control.ErrCallTimeout, err)
+
+	// Test a cancellation of the request.
+	canceller := closer.New()
+	_ = canceller.Close()
+	err = defCtrl1.CallAsyncOpts(call, nil, 0, nil, canceller.CloseChan())
+	checkErr(t, "call 2", err)
+	assert(t, <-errChan == nil, "expected no error")
 }
 
 func TestControl_ErrorClose(t *testing.T) {
