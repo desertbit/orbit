@@ -35,6 +35,7 @@ import (
 
 	"github.com/desertbit/orbit/control"
 	"github.com/desertbit/orbit/signaler"
+	"github.com/stretchr/testify/require"
 )
 
 func TestListener_OffAndOffChan(t *testing.T) {
@@ -82,7 +83,7 @@ func TestListener_OffAndOffChan(t *testing.T) {
 	}
 
 	// Trigger the signal.
-	checkErr(t, "trigger signal", sig1.TriggerSignal(signal, data))
+	require.NoError(t, sig1.TriggerSignal(signal, data))
 
 	// Wait for the result.
 	select {

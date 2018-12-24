@@ -31,17 +31,15 @@ import (
 	"testing"
 
 	"github.com/desertbit/orbit/internal/utils"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestRandomString(t *testing.T) {
 	testCases := []uint{0, 1, 10, 100}
+
 	for i, c := range testCases {
 		s, err := utils.RandomString(c)
-		if err != nil {
-			t.Fatalf("case %d: %v", i+1, err)
-		}
-		if uint(len(s)) != c {
-			t.Fatalf("wrong length; expected %d, got %d", c, len(s))
-		}
+		assert.NoErrorf(t, err, "case %d", i+1)
+		assert.EqualValuesf(t, c, len(s), "case %d", i+1)
 	}
 }

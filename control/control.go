@@ -500,7 +500,7 @@ func (c *Control) waitForResponse(
 ) (ctx *Context, err error) {
 	// Create the timeout.
 	timeoutTimer := time.NewTimer(timeout)
-
+	c.logger.Printf("%#v", cancelChan)
 	// Wait for a response.
 	select {
 	case <-c.CloseChan():

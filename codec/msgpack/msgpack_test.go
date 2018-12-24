@@ -29,11 +29,11 @@ package msgpack_test
 
 import (
 	"bytes"
-	"reflect"
 	"testing"
 
 	"github.com/desertbit/orbit/codec"
 	"github.com/desertbit/orbit/codec/msgpack"
+	"github.com/stretchr/testify/assert"
 	"github.com/tinylib/msgp/msgp"
 )
 
@@ -50,20 +50,16 @@ func TestMSGPackGenerated(t *testing.T) {
 	to := &testMSGPackGenerate{}
 
 	encoded, err := msgpack.Codec.Encode(val)
-	if err != nil {
-		t.Fatal("Encode error:", err)
-	}
+	assert.NoError(t, err)
+
 	err = msgpack.Codec.Decode(encoded, to)
-	if err != nil {
-		t.Fatal("Decode error:", err)
-	}
-	if !reflect.DeepEqual(val, to) {
-		t.Fatalf("Roundtrip codec mismatch, expected\n%#v\ngot\n%#v", val, to)
-	}
+	assert.NoError(t, err)
+	assert.Exactly(t, to, val)
 }
 
 // ################################################
 // ## Generated Code by github.com/tinylib/msgp ###
+// ################# DO NOT EDIT ##################
 // ################################################
 
 // DecodeMsg implements msgp.Decodable

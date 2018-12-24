@@ -32,6 +32,7 @@ import (
 	"testing"
 
 	"github.com/desertbit/orbit/control"
+	"github.com/stretchr/testify/require"
 )
 
 func TestConfig(t *testing.T) {
@@ -41,10 +42,6 @@ func TestConfig(t *testing.T) {
 	ctrl := control.New(conn, nil)
 	defer ctrl.Close()
 
-	if ctrl.Logger() == nil {
-		t.Fatal("logger was nil")
-	}
-	if ctrl.Codec() == nil {
-		t.Fatal("codec was nil")
-	}
+	require.NotNil(t, ctrl.Logger(), "logger was nil")
+	require.NotNil(t, ctrl.Codec(), "codec was nil")
 }
