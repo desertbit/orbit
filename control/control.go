@@ -198,7 +198,7 @@ type Control struct {
 func New(conn net.Conn, config *Config) *Control {
 	// Create a new socket.
 	config = prepareConfig(config)
-	s := &Control{
+	c := &Control{
 		Closer:         closer.New(),
 		config:         config,
 		logger:         config.Logger,
@@ -207,9 +207,9 @@ func New(conn net.Conn, config *Config) *Control {
 		funcMap:        make(map[string]Func),
 		activeContexts: make(map[uint64]*Context),
 	}
-	s.OnClose(conn.Close)
+	c.OnClose(conn.Close)
 
-	return s
+	return c
 }
 
 // Logger returns the log.Logger of the control's config.
@@ -500,7 +500,7 @@ func (c *Control) waitForResponse(
 ) (ctx *Context, err error) {
 	// Create the timeout.
 	timeoutTimer := time.NewTimer(timeout)
-	c.logger.Printf("%#v", cancelChan)
+
 	// Wait for a response.
 	select {
 	case <-c.CloseChan():
