@@ -1,20 +1,28 @@
 /*
  * ORBIT - Interlink Remote Applications
- * Copyright (C) 2018  Roland Singer <roland.singer[at]desertbit.com>
- * Copyright (C) 2018  Sebastian Borchers <sebastian[at]desertbit.com>
  *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * The MIT License (MIT)
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * Copyright (c) 2018 Roland Singer <roland.singer[at]desertbit.com>
+ * Copyright (c) 2018 Sebastian Borchers <sebastian[at]desertbit.com>
  *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
  */
 
 package control_test
@@ -24,6 +32,7 @@ import (
 	"testing"
 
 	"github.com/desertbit/orbit/control"
+	"github.com/stretchr/testify/require"
 )
 
 func TestContext_Control(t *testing.T) {
@@ -52,10 +61,10 @@ func TestContext_Control(t *testing.T) {
 	})
 
 	_, err := ctrl1.Call(call, nil)
-	checkErr(t, "call 1: %v", err)
+	require.NoError(t, err, "call 1: %v")
 
 	_, err = ctrl2.Call(call, nil)
-	checkErr(t, "call 2: %v", err)
+	require.NoError(t, err, "call 2: %v")
 }
 
 func TestContext_Decode(t *testing.T) {
@@ -75,8 +84,8 @@ func TestContext_Decode(t *testing.T) {
 	})
 
 	_, err := ctrl2.Call(call, nil)
-	assert(t, err.Error() == control.ErrNoContextData.Error(), "expected err '%v', got '%v'", control.ErrNoContextData, err)
+	require.EqualError(t, err, control.ErrNoContextData.Error())
 
 	_, err = ctrl2.Call(call, []byte{54, 51, 50, 1, 5, 2})
-	assert(t, err != nil, "expected decode to fail")
+	require.Error(t, err, "expected decode to fail")
 }

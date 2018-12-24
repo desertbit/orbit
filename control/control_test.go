@@ -1,20 +1,28 @@
 /*
  * ORBIT - Interlink Remote Applications
- * Copyright (C) 2018  Roland Singer <roland.singer[at]desertbit.com>
- * Copyright (C) 2018  Sebastian Borchers <sebastian[at]desertbit.com>
  *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * The MIT License (MIT)
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * Copyright (c) 2018 Roland Singer <roland.singer[at]desertbit.com>
+ * Copyright (c) 2018 Sebastian Borchers <sebastian[at]desertbit.com>
  *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
  */
 
 package control_test
@@ -31,6 +39,7 @@ import (
 	"github.com/desertbit/orbit/control"
 	"github.com/desertbit/orbit/packet"
 	"github.com/pkg/errors"
+	"github.com/stretchr/testify/require"
 )
 
 var (
@@ -68,8 +77,8 @@ func TestMain(m *testing.M) {
 func TestControl_General(t *testing.T) {
 	t.Parallel()
 
-	assert(t, defCtrl1.LocalAddr() == defPeer1.LocalAddr(), "expected local addresses to be equal")
-	assert(t, defCtrl1.RemoteAddr() == defPeer1.RemoteAddr(), "expected local addresses to be equal")
+	require.Equal(t, defCtrl1.LocalAddr(), defPeer1.LocalAddr(), "expected local addresses to be equal")
+	require.Equal(t, defCtrl1.RemoteAddr(), defPeer1.RemoteAddr(), "expected remote addresses to be equal")
 }
 
 func TestControl_Call(t *testing.T) {
@@ -101,14 +110,14 @@ func TestControl_Call(t *testing.T) {
 	var ret string
 
 	ctx, err := defCtrl1.Call(call, input)
-	checkErr(t, "call 1", err)
-	checkErr(t, "decode ret 1", ctx.Decode(&ret))
-	assert(t, ret == output, "decoded ret 1: expected '%v', got '%v'", output, ret)
+	require.NoError(t, err)
+	require.NoError(t, ctx.Decode(&ret))
+	require.Equal(t, output, ret)
 
 	ctx, err = defCtrl2.Call(call, input)
-	checkErr(t, "call 2", err)
-	checkErr(t, "decode ret 2", ctx.Decode(&ret))
-	assert(t, ret == output, "decoded ret 2: expected '%v', got '%v'", output, ret)
+	require.NoError(t, err)
+	require.NoError(t, ctx.Decode(&ret))
+	require.Equal(t, output, ret)
 }
 
 func TestControl_CallTimeout(t *testing.T) {
@@ -147,13 +156,13 @@ func TestControl_CallTimeout(t *testing.T) {
 
 	// Timeout not exceeded.
 	ctx, err := defCtrl1.CallTimeout(call, input, 100*time.Millisecond)
-	checkErr(t, "call 1", err)
-	checkErr(t, "decode ret 1", ctx.Decode(&ret))
-	assert(t, ret == output, "decoded ret 1: expected '%v', got '%v'", output, ret)
+	require.NoError(t, err)
+	require.NoError(t, ctx.Decode(&ret))
+	require.Equal(t, output, ret)
 
 	// Timeout exceeded.
 	ctx, err = defCtrl2.CallTimeout(call, input, 100*time.Millisecond)
-	assert(t, err == control.ErrCallTimeout, "call 2: expected '%v', got '%v'", control.ErrCallTimeout, err)
+	require.Exactly(t, control.ErrCallTimeout, err)
 }
 
 func TestControl_CallOneWay(t *testing.T) {
@@ -187,14 +196,14 @@ func TestControl_CallOneWay(t *testing.T) {
 	defCtrl2.AddFuncs(map[string]control.Func{call: f})
 
 	err := defCtrl1.CallOneWay(call, input)
-	checkErr(t, "call 1", err)
+	require.NoError(t, err)
 
 	err = defCtrl2.CallOneWay(call, input)
-	checkErr(t, "call 2", err)
+	require.NoError(t, err)
 
 	// Check the result of both one way calls.
-	checkErr(t, "one way result", <-errChan)
-	checkErr(t, "one way result", <-errChan)
+	require.NoError(t, <-errChan)
+	require.NoError(t, <-errChan)
 }
 
 func TestControl_CallAsync(t *testing.T) {
@@ -224,12 +233,12 @@ func TestControl_CallAsync(t *testing.T) {
 	defCtrl1.AddFuncs(map[string]control.Func{call: f})
 	defCtrl2.AddFuncs(map[string]control.Func{call: f})
 
-	resChan := make(chan error)
+	errChan := make(chan error)
 	cb := func(ctx *control.Context, err error) {
 		// We can not fail in another routine, therefore report whatever
 		// happened back to the test thread by using the channel.
 		defer func() {
-			resChan <- err
+			errChan <- err
 		}()
 		if err != nil {
 			return
@@ -250,12 +259,12 @@ func TestControl_CallAsync(t *testing.T) {
 	}
 
 	err := defCtrl1.CallAsync(call, input, cb)
-	checkErr(t, "call 1", err)
-	checkErr(t, "cb 1", <-resChan)
+	require.NoError(t, err)
+	require.NoError(t, <-errChan)
 
 	err = defCtrl2.CallAsync(call, input, cb)
-	checkErr(t, "call 2", err)
-	checkErr(t, "cb 2", <-resChan)
+	require.NoError(t, err)
+	require.NoError(t, <-errChan)
 }
 
 func TestControl_CallAsyncTimeout(t *testing.T) {
@@ -269,18 +278,14 @@ func TestControl_CallAsyncTimeout(t *testing.T) {
 	const call = "callAsyncTimeout"
 	defCtrl1.AddFuncs(map[string]control.Func{call: f})
 
-	resChan := make(chan error)
+	errChan := make(chan error)
 	cb := func(ctx *control.Context, err error) {
-		// We can not fail in another routine, therefore report whatever
-		// happened back to the test thread by using the channel.
-		// We just expect a timeout error.
-		resChan <- err
+		errChan <- err
 	}
 
 	err := defCtrl2.CallAsyncTimeout(call, nil, 10*time.Millisecond, cb)
-	checkErr(t, "call 2", err)
-	err = <-resChan
-	assert(t, err.Error() == control.ErrCallTimeout.Error(), "expected timeout err '%v', got '%v'", control.ErrCallTimeout, err)
+	require.NoError(t, err)
+	require.EqualError(t, <-errChan, control.ErrCallTimeout.Error())
 }
 
 func TestControl_ErrorClose(t *testing.T) {
@@ -299,7 +304,7 @@ func TestControl_ErrorClose(t *testing.T) {
 		_ = ctrl1.Close()
 	})
 	_, err := ctrl2.Call(call, nil)
-	assert(t, err.Error() == control.ErrClosed.Error(), "wrong error; expected '%v', got '%v'", control.ErrClosed, err)
+	require.EqualError(t, err, control.ErrClosed.Error())
 }
 
 func TestControl_Error_And_Hooks(t *testing.T) {
@@ -369,17 +374,14 @@ func TestControl_Error_And_Hooks(t *testing.T) {
 
 	_, err := ctrl2.Call(call, input)
 	// Check if the error contains the correct code and message.
-	if cerr, ok := err.(*control.ErrorCode); ok {
-		assert(t, cerr.Code == errCode, "wrong error code; expected '%d', got '%d'", errCode, cerr.Code)
-		assert(t, cerr.Error() == msg, "wrong error; expected '%s', got '%s'", msg, cerr.Error())
-	} else {
-		t.Fatal("expected control error")
-	}
+	require.IsType(t, (*control.ErrorCode)(nil), err)
+	cerr, _ := err.(*control.ErrorCode)
+	require.Equal(t, errCode, cerr.Code)
+	require.EqualError(t, cerr, msg)
 
 	// Check the result of the hooks.
-	checkErr(t, "callhook", <-callHookChan)
-	err = <-errHookChan
-	assert(t, err.Error() == errMsg, "wrong hook error; expected '%s', got '%v'", errMsg, err)
+	require.NoError(t, <-callHookChan)
+	require.EqualError(t, <-errHookChan, errMsg)
 
 	ctrl2.AddFunc(call, func(ctx *control.Context) (data interface{}, err error) {
 		// Test, whether a nil error is accepted.
@@ -389,12 +391,10 @@ func TestControl_Error_And_Hooks(t *testing.T) {
 
 	_, err = ctrl1.Call(call, input)
 	// Check if the error contains the correct code and message.
-	if cerr, ok := err.(*control.ErrorCode); ok {
-		assert(t, cerr.Code == errCode, "wrong error code; expected '%d', got '%d'", errCode, cerr.Code)
-		assert(t, cerr.Error() == msg, "wrong error; expected '%s', got '%s'", msg, cerr.Error())
-	} else {
-		t.Fatal("expected control error")
-	}
+	require.IsType(t, (*control.ErrorCode)(nil), err)
+	cerr, _ = err.(*control.ErrorCode)
+	require.Equal(t, errCode, cerr.Code)
+	require.EqualError(t, cerr, msg)
 }
 
 func TestControl_WriteTimeout(t *testing.T) {
@@ -412,11 +412,11 @@ func TestControl_WriteTimeout(t *testing.T) {
 
 	// Trigger a write timeout during Call.
 	_, err := ctrl2.Call(call, "Hello this is a test case")
-	assert(t, err == control.ErrWriteTimeout, "wrong error 1; expected '%v', got '%v'", control.ErrWriteTimeout, err)
+	require.Equal(t, control.ErrWriteTimeout, err)
 
 	// Trigger a write timeout during CallAsync.
 	err = ctrl2.CallAsync(call, "Hello this is a test case", nil)
-	assert(t, err == control.ErrWriteTimeout, "wrong error 2; expected '%v', got '%v'", control.ErrWriteTimeout, err)
+	require.Equal(t, control.ErrWriteTimeout, err)
 }
 
 func TestControl_MaxMessageSize(t *testing.T) {
@@ -440,25 +440,25 @@ func TestControl_MaxMessageSize(t *testing.T) {
 	// fail to be sent.
 	config2.MaxMessageSize = 1
 	_, err := ctrl2.Call(call, nil)
-	assert(t, err == packet.ErrMaxPayloadSizeExceeded, "wrong error; expected '%v', got '%v'", packet.ErrMaxPayloadSizeExceeded, err)
+	require.Equal(t, packet.ErrMaxPayloadSizeExceeded, err)
 
 	// Now, set the MaxMessageSize to a value, that allows our header, but
 	// is too small for the payload.
 	config2.MaxMessageSize = 511
 	_, err = ctrl2.Call(call, make([]byte, 512))
-	assert(t, err == packet.ErrMaxPayloadSizeExceeded, "wrong error; expected '%v', got '%v'", packet.ErrMaxPayloadSizeExceeded, err)
+	require.Equal(t, packet.ErrMaxPayloadSizeExceeded, err)
 
 	// Now, set the MaxMessageSize to a value, that allows both header and payload.
 	config2.MaxMessageSize = 512
 	_, err = ctrl2.Call(call, make([]byte, 512))
-	checkErr(t, "should be valid message size", err)
+	require.NoError(t, err, "should be valid message size")
 
 	// At last, set the MaxMessageSize on the receiving peer too low, which
 	// must result in the connection being closed.
 	config1.MaxMessageSize = 511
 	_, err = ctrl2.Call(call, make([]byte, 512))
 	netErrorString := "io: read/write on closed pipe"
-	assert(t, err != nil && err.Error() == netErrorString, "expected error '%v', got '%v'", netErrorString, err)
+	require.EqualError(t, err, netErrorString)
 }
 
 func TestControl_Panic(t *testing.T) {
@@ -480,7 +480,7 @@ func TestControl_Panic(t *testing.T) {
 
 	// Test a panic in a handler func.
 	_, err := ctrl2.Call(call, nil)
-	assert(t, err == control.ErrCallTimeout, "expected a timeout error due to panic in handler func")
+	require.Equal(t, control.ErrCallTimeout, err)
 
 	// Test a panic in the hooks.
 	// Start with the call hook.
@@ -488,7 +488,11 @@ func TestControl_Panic(t *testing.T) {
 		panic("test")
 	})
 	_, err = ctrl1.Call(call, nil)
-	assert(t, err != nil, "expected a timeout error due to panic in call hook")
+	require.Equal(
+		t,
+		control.ErrCallTimeout, err,
+		"expected call timeout due to panic in call hook",
+	)
 	// Reset the hook.
 	ctrl2.SetCallHook(nil)
 
@@ -497,7 +501,11 @@ func TestControl_Panic(t *testing.T) {
 		panic("test")
 	})
 	_, err = ctrl1.Call(call, nil)
-	assert(t, err != nil, "expected a timeout error due to panic in error hook")
+	require.Equal(
+		t,
+		control.ErrCallTimeout, err,
+		"expected call timeout due to panic in error hook",
+	)
 }
 
 func TestControl_HandleFuncNotExist(t *testing.T) {
@@ -508,7 +516,7 @@ func TestControl_HandleFuncNotExist(t *testing.T) {
 	defer closeControls(ctrl1, ctrl2)
 
 	_, err := ctrl1.Call("blabla", nil)
-	assert(t, err != nil, "expected error since handler func is not defined")
+	require.Error(t, err, "expected error since handler func is not defined")
 }
 
 func TestControl_CloseReadRoutine(t *testing.T) {
@@ -522,7 +530,7 @@ func TestControl_CloseReadRoutine(t *testing.T) {
 
 	// Close the control now, before the read routine is started.
 	err := peer1.Close()
-	checkErr(t, "closing peer1", err)
+	require.NoError(t, err, "closing peer1")
 
 	// Start the read routine on the closed connection.
 	ctrl1.Ready()
@@ -531,21 +539,7 @@ func TestControl_CloseReadRoutine(t *testing.T) {
 	time.Sleep(5 * time.Millisecond)
 
 	// Check, if a log message has been written.
-	assert(t, logger.Len() > 0, "expected a log message to be written")
-}
-
-// convenience
-func assert(t *testing.T, condition bool, fmt string, args ...interface{}) {
-	if !condition {
-		t.Fatalf(fmt, args...)
-	}
-}
-
-// convenience
-func checkErr(t *testing.T, msg string, err error) {
-	if err != nil {
-		t.Fatal(msg, err)
-	}
+	require.True(t, logger.Len() > 0)
 }
 
 // convenience

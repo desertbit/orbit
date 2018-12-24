@@ -1,20 +1,28 @@
 /*
- *  ORBIT - Interlink Remote Applications
- *  Copyright (C) 2018  Roland Singer <roland.singer[at]desertbit.com>
- *  Copyright (C) 2018  Sebastian Borchers <sebastian[at]desertbit.com>
+ * ORBIT - Interlink Remote Applications
  *
- *  This program is free software: you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation, either version 3 of the License, or
- *  (at your option) any later version.
+ * The MIT License (MIT)
  *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
+ * Copyright (c) 2018 Roland Singer <roland.singer[at]desertbit.com>
+ * Copyright (c) 2018 Sebastian Borchers <sebastian[at]desertbit.com>
  *
- *  You should have received a copy of the GNU General Public License
- *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
  */
 
 /*
@@ -361,8 +369,10 @@ func (c *Control) CallAsyncTimeout(
 		return nil
 	}
 
-	// Wait for the response, but in an new routine.
-	go callback(c.waitForResponse(timeout, channel))
+	// Wait for the response, but in a new routine.
+	go func() {
+		callback(c.waitForResponse(timeout, channel))
+	}()
 
 	return nil
 }
@@ -578,12 +588,7 @@ func (c *Control) readRoutine() {
 		}
 
 		// Handle the received message in a new goroutine.
-		go func() {
-			gerr := c.handleRequest(reqType, headerData, payloadData)
-			if gerr != nil {
-				c.logger.Printf("control: handleRequest: %v", gerr)
-			}
-		}()
+		go c.handleRequest(reqType, headerData, payloadData)
 	}
 }
 
@@ -593,12 +598,17 @@ func (c *Control) readRoutine() {
 // whether the data must be processed as Call or CallReturn.
 //
 // Panics are recovered and wrapped in an error.
-// If the request type is unknown, an error is returned.
-func (c *Control) handleRequest(reqType byte, headerData, payloadData []byte) (err error) {
+// Any error is logged using the control logger.
+func (c *Control) handleRequest(reqType byte, headerData, payloadData []byte) {
+	var err error
+
 	// Catch panics, caused by the handler func or one of the hooks.
 	defer func() {
 		if e := recover(); e != nil {
 			err = fmt.Errorf("catched panic: %v", e)
+		}
+		if err != nil {
+			c.logger.Printf("control: handleRequest: %v", err)
 		}
 	}()
 
@@ -613,7 +623,6 @@ func (c *Control) handleRequest(reqType byte, headerData, payloadData []byte) (e
 	default:
 		err = fmt.Errorf("invalid request type: %v", reqType)
 	}
-	return
 }
 
 // handleCall processes an incoming request with request type 'typeCall'.

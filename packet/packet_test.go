@@ -1,20 +1,28 @@
 /*
- *  ORBIT - Interlink Remote Applications
- *  Copyright (C) 2018  Roland Singer <roland.singer[at]desertbit.com>
- *  Copyright (C) 2018 Sebastian Borchers <sebastian[at].desertbit.com>
+ * ORBIT - Interlink Remote Applications
  *
- *  This program is free software: you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation, either version 3 of the License, or
- *  (at your option) any later version.
+ * The MIT License (MIT)
  *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
+ * Copyright (c) 2018 Roland Singer <roland.singer[at]desertbit.com>
+ * Copyright (c) 2018 Sebastian Borchers <sebastian[at]desertbit.com>
  *
- *  You should have received a copy of the GNU General Public License
- *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
  */
 
 package packet_test
@@ -27,6 +35,7 @@ import (
 
 	"github.com/desertbit/orbit/codec/msgpack"
 	"github.com/desertbit/orbit/packet"
+	"github.com/stretchr/testify/require"
 )
 
 func TestWriteEncode(t *testing.T) {
@@ -56,16 +65,16 @@ func TestWriteEncode(t *testing.T) {
 	}()
 
 	err := packet.WriteEncode(connW, data, msgpack.Codec, 16384, time.Second)
-	if err != nil {
-		t.Fatal(err)
+	require.NoError(t, err)
+
+	// Wait for the read to finish.
+	select {
+	case <-done:
+	case <-time.After(time.Millisecond * 10):
+		t.Fatal("timeout")
 	}
 
-	// Wait for the read to finish
-	<-done
-
-	if ret.Msg != data.Msg {
-		t.Fatalf("wrong return msg; expected '%s', got '%s'", data.Msg, ret.Msg)
-	}
+	require.Equal(t, data.Msg, ret.Msg)
 }
 
 func TestWriteTimeout(t *testing.T) {
@@ -98,12 +107,14 @@ func TestWriteTimeout(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Wait, until the read has finished
-	<-done
-
-	if !bytes.Equal(data, ret) {
-		t.Fatalf("read data was not equal to sent data, expected %v, got %v", data, ret)
+	// Wait, until the read has finished.
+	select {
+	case <-done:
+	case <-time.After(time.Millisecond * 10):
+		t.Fatal("timeout")
 	}
+
+	require.Equal(t, data, ret)
 }
 
 func TestWrite(t *testing.T) {
@@ -169,31 +180,26 @@ func TestWrite(t *testing.T) {
 	}
 
 	for i, c := range cases {
-		func() {
-			defer func() {
-				e := recover()
-				if e == nil && c.shouldPanic {
-					t.Fatalf("expected a panic for case %d", i+1)
-				} else if e != nil && !c.shouldPanic {
-					t.Fatalf("panic for case %d", i+1)
-				}
-			}()
+		buff := bytes.Buffer{}
+		if c.shouldPanic {
+			require.Panicsf(t, func() {
+				_ = packet.Write(&buff, c.data, c.maxPayloadSize)
+			}, "case %d", i+1)
+			continue
+		}
 
-			buff := bytes.Buffer{}
-			err := packet.Write(&buff, c.data, c.maxPayloadSize)
-			if err == nil && c.shouldFail {
-				t.Fatalf("write did not fail for case %d, but should have", i+1)
-			}
-			if err != nil && !c.shouldFail {
-				t.Fatalf("write failed for case %d: %v", i+1, err)
-			}
+		err := packet.Write(&buff, c.data, c.maxPayloadSize)
+		if c.shouldFail {
+			require.Errorf(t, err, "case %d", i+1)
+			continue
+		}
 
-			// Try to read the same data off of the buffer.
-			ret, _ := packet.Read(&buff, nil, 16384)
-			if !bytes.Equal(c.data, ret) && err == nil {
-				t.Fatalf("read data was not equal to sent data for case %d, expected %v, got %v", i+1, c.data, ret)
-			}
-		}()
+		require.NoErrorf(t, err, "case %d", i+1)
+
+		// Try to read the same data off of the buffer.
+		ret, err := packet.Read(&buff, nil, 16384)
+		require.NoErrorf(t, err, "case %d", i+1)
+		require.Equalf(t, c.data, ret, "case %d", i+1)
 	}
 }
 
@@ -215,19 +221,13 @@ func TestReadDecode(t *testing.T) {
 	// Write in a goroutine, because net.Pipe() does not buffer.
 	go func() {
 		err := packet.WriteEncode(connW, data, msgpack.Codec, 16384, time.Second)
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 	}()
 
 	var ret test
 	err := packet.ReadDecode(connR, &ret, msgpack.Codec, 16384, time.Second)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if ret.Msg != data.Msg {
-		t.Fatalf("wrong return msg; expected '%s', got '%s'", data.Msg, ret.Msg)
-	}
+	require.NoError(t, err)
+	require.Equal(t, data.Msg, ret.Msg)
 }
 
 func TestReadTimeout(t *testing.T) {
@@ -244,9 +244,7 @@ func TestReadTimeout(t *testing.T) {
 	// Write in a goroutine, because net.Pipe() does not buffer.
 	go func() {
 		err := packet.Write(connW, data, 16384)
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 	}()
 
 	// Read with a timeout.
@@ -257,12 +255,8 @@ func TestReadTimeout(t *testing.T) {
 
 	// Read normally.
 	ret, err := packet.ReadTimeout(connR, nil, 16384, time.Second)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !bytes.Equal(ret, data) {
-		t.Fatalf("read data was not equal to sent data; expected '%v', got '%v'", data, ret)
-	}
+	require.NoError(t, err)
+	require.Equal(t, data, ret)
 }
 
 func TestRead(t *testing.T) {
@@ -328,34 +322,27 @@ func TestRead(t *testing.T) {
 	}
 
 	for i, c := range cases {
-		func() {
-			defer func() {
-				e := recover()
-				if e == nil && c.shouldPanic {
-					t.Fatalf("expected a panic for case %d", i+1)
-				} else if e != nil && !c.shouldPanic {
-					t.Fatalf("panic for case %d", i+1)
-				}
-			}()
+		buff := bytes.Buffer{}
 
-			buff := bytes.Buffer{}
-			err := packet.Write(&buff, c.data, 16384)
-			if err != nil {
-				t.Fatalf("write case %d: %v", i, err)
-			}
+		err := packet.Write(&buff, c.data, 16384)
+		require.NoErrorf(t, err, "case %d", i+1)
 
-			// Try to read the same data off of the buffer.
-			ret, err := packet.Read(&buff, c.buffer, c.maxPayloadSize)
-			if err == nil && c.shouldFail {
-				t.Fatalf("read did not fail for case %d, but should have", i+1)
-			}
-			if err != nil {
-				if !c.shouldFail {
-					t.Fatalf("read failed for case %d: %v", i+1, err)
-				}
-			} else if !bytes.Equal(c.data, ret) {
-				t.Fatalf("read data was not equal to sent data for case %d, expected %v, got %v", i+1, c.data, ret)
-			}
-		}()
+		// Try to read the same data off of the buffer.
+
+		if c.shouldPanic {
+			require.Panicsf(t, func() {
+				_, _ = packet.Read(&buff, c.buffer, c.maxPayloadSize)
+			}, "case %d", i+1)
+			continue
+		}
+
+		ret, err := packet.Read(&buff, c.buffer, c.maxPayloadSize)
+		if c.shouldFail {
+			require.Errorf(t, err, "case %d", i+1)
+			continue
+		}
+
+		require.NoErrorf(t, err, "case %d", i+1)
+		require.Equalf(t, c.data, ret, "case %d", i+1)
 	}
 }
