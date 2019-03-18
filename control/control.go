@@ -837,7 +837,7 @@ func (c *Control) handleCallCancel(headerData []byte) (err error) {
 
 	// If there is no context available for this key, do nothing.
 	if !ok {
-		return nil
+		return
 	}
 
 	// Cancel the currently running request.
