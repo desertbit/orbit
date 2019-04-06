@@ -109,7 +109,7 @@ func (g *Group) Remove(s *Signaler) {
 // the error is ignored and all other signalers are still triggered.
 //
 // Signalers can be explicitly excluded from being triggered.
-func (g *Group) Trigger(id string, data interface{}, exclude ...*Signaler) (err error) {
+func (g *Group) Trigger(id string, data interface{}, exclude ...*Signaler) error {
 	g.mutex.RLock()
 	defer g.mutex.RUnlock()
 
@@ -124,15 +124,11 @@ TriggerLoop:
 		}
 
 		// It is ignored, if one of the signalers does not contain the desired signal.
-		err = s.TriggerSignal(id, data)
-		if err != nil {
-			if err == ErrSignalNotFound {
-				err = nil
-				continue TriggerLoop
-			}
-			return
+		err := s.TriggerSignal(id, data)
+		if err != nil && err != ErrSignalNotFound {
+			return err
 		}
 	}
 
-	return
+	return nil
 }
