@@ -40,8 +40,9 @@ var (
 )
 
 // The Context type is a wrapper around the raw payload data of calls.
-// It offer a convenience method to decode the encoded data into an
-// interface.
+// It offers a convenience method to decode the encoded data into an
+// interface and contains a closer that can be used to cancel the ongoing
+// associated request.
 type Context struct {
 	// closer is used to signal to the handling func that the request
 	// has been cancelled and that execution can be aborted.
@@ -87,7 +88,8 @@ func (c *Context) Decode(v interface{}) error {
 	return nil
 }
 
-// TODO:
+// CancelChan returns the close channel of the context's associated closer.
+// It can be used to detect, if a context has been cancelled.
 func (c *Context) CancelChan() <-chan struct{} {
 	return c.closer.CloseChan()
 }

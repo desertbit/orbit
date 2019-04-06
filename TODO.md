@@ -8,14 +8,6 @@
   - orbit
   - flusher
 - Walk through TODOs in code and resolve them
-- Add request cancellation (e.g. with context)
-  - Client-side must be able to cancel an ongoing request
-    - Hand in a request context to each Call
-    - The context can contain a closer (for cancellation) and/or a timeout (for timeouts, replaces the current timeout methods)
-    - When the closer is closed, the server must be notified of it, therefore additional data must be sent over the wire
-  - Server-side must be able to listen to a cancel from the client to abort its request handling
-    - Include a closer in the current context
-    - Close this closer, if client has sent a cancel message
 - Add load balancing interface
 
 ### Samples

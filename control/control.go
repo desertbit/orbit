@@ -276,14 +276,18 @@ func (c *Control) AddFuncs(funcs Funcs) {
 
 // Call is a convenience function that calls CallTimeout(), but uses the default
 // CallTimeout from the config of the Control.
+//
+// This method is thread-safe.
 func (c *Control) Call(id string, data interface{}) (*Context, error) {
 	return c.CallOpts(id, data, c.config.CallTimeout, nil)
 }
 
-// CallTimeout calls a remote function and waits for its result. The given id determines,
-// which function should be called on the remote. The given timeout determines how long
-// the request/response process may take at a maximum.
-// TODO
+// CallOpts calls a remote function and waits for its result. The given id determines,
+// which function should be called on the remote.
+// The given timeout determines how long the request/response process may take at a maximum.
+// The given cancel channel can be used to abort the ongoing request. The channel is read
+// from exactly once at maximum.
+//
 // The passed data are sent as payload of the request and get automatically encoded
 // with the codec.Codec of the Control.
 // If data is nil, no payload is sent.
@@ -346,11 +350,11 @@ func (c *Control) CallAsync(
 	return c.CallAsyncOpts(id, data, c.config.CallTimeout, callback, nil)
 }
 
-// CallAsyncTimeout calls a remote function in an asynchronous fashion, as the
+// CallAsyncOpts calls a remote function in an asynchronous fashion, as the
 // response will be awaited in a new goroutine and passed to the given callback.
-// TODO
-// The response will be awaited in a new goroutine. The given callback will
-// receive an ErrCallTimeout error, should the timeout be exceeded.
+// Like with CallOpts(), the request is aborted after the timeout has been exceeded
+// or the cancel channel has read a value.
+// The given callback will receive an ErrCallTimeout error, should the timeout be exceeded.
 //
 // This method is thread-safe.
 func (c *Control) CallAsyncOpts(
@@ -514,6 +518,7 @@ func (c *Control) waitForResponse(
 
 	case <-cancelChan:
 		// Cancel if request has been cancelled.
+		// TODO: Return a ErrCallCanceled?
 		c.cancelCall(key)
 
 	case rData := <-channel:
@@ -528,7 +533,8 @@ func (c *Control) waitForResponse(
 	return
 }
 
-// cancelCall TODO
+// cancelCall sends a request to the remote peer in order to cancel an ongoing request
+// identified by the given key.
 func (c *Control) cancelCall(key uint64) {
 	err := c.write(
 		typeCallCancel,
@@ -821,7 +827,13 @@ func (c *Control) handleCallReturn(headerData, payloadData []byte) (err error) {
 	}
 }
 
-// handleCallCancel TODO
+// handleCallCancel processes an incoming request with request type 'typeCallCancel'.
+// It decodes the header to retrieve the key of the request that should be cancelled.
+// It then retrieves the context of said request and closes its associated closer.
+// If no request with the sent key could be found, nothing happens.
+//
+// This function is executed on the side of the receiver of a request,
+// the "server-side".
 func (c *Control) handleCallCancel(headerData []byte) (err error) {
 	// Decode the request header.
 	var header api.ControlCancel
