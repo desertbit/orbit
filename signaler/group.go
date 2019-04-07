@@ -34,6 +34,7 @@ import (
 // The Group type represents a group of signalers.
 // It is useful for triggering the same signal with some data
 // on all signalers contained in the group.
+// A Group is thread-safe.
 type Group struct {
 	// Synchronises the access to the signalers.
 	mutex sync.RWMutex
@@ -68,36 +69,41 @@ func (g *Group) Add(ss ...*Signaler) {
 		g.signalers = append(g.signalers, s)
 
 		// Remove the signaler from the group once it closes.
+		// ATTENTION! The reference to the signaler must be stored in a variable here!
+		// Otherwise, the pointer of the for loop is used and that is overwritten
+		// in each iteration, leading to all signalers closing the last signaler.
+		refToS := s
 		s.OnClose(func() error {
-			g.Remove(s)
+			g.Remove(refToS)
 			return nil
 		})
 	}
 	g.mutex.Unlock()
 }
 
-// Remove removes the signaler from this group.
-// If the signaler is not in the group, this is a no-op.
-func (g *Group) Remove(s *Signaler) {
+// Remove removes the given signalers from this group.
+// If a signaler is not in the group, this method is a no-op for it.
+func (g *Group) Remove(ss ...*Signaler) {
 	g.mutex.Lock()
-	// Cache the length for performance.
-	sigLen := len(g.signalers)
 
 	// Iterate in reverse order, this is safer when deleting
-	// elements during a loop (we merely delete one element, but
-	// if this changes in the future, we are safe).
-	for i := sigLen - 1; i >= 0; i-- {
-		if g.signalers[i] == s {
-			// Delete without causing a memory leak due to the gc
-			// not being able to collect the pointer. This is done
-			// by explicitly overwriting the element.
-			// We DO NOT preserve the original order of the slice,
-			// as this is not important to us.
-			// See: https://github.com/golang/go/wiki/SliceTricks
-			g.signalers[i] = g.signalers[sigLen-1]
-			g.signalers[sigLen-1] = nil
-			g.signalers = g.signalers[:sigLen-1]
-			break
+	// elements during a loop.
+Loop:
+	for _, s := range ss {
+		for i := len(g.signalers) - 1; i >= 0; i-- {
+			if g.signalers[i] == s {
+				// Delete without causing a memory leak due to the gc
+				// not being able to collect the pointer. This is done
+				// by explicitly overwriting the element.
+				// We DO NOT preserve the original order of the slice,
+				// as this is not important to us.
+				// See: https://github.com/golang/go/wiki/SliceTricks
+				l := len(g.signalers)
+				g.signalers[i] = g.signalers[l-1]
+				g.signalers[l-1] = nil
+				g.signalers = g.signalers[:l-1]
+				continue Loop
+			}
 		}
 	}
 	g.mutex.Unlock()

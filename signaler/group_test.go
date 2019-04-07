@@ -31,12 +31,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/desertbit/orbit/signaler"
 	"github.com/stretchr/testify/require"
+
+	"github.com/desertbit/orbit/signaler"
 )
 
 // TestGroup tests the complete group file.
 func TestGroup(t *testing.T) {
+	t.Parallel()
+
 	sigServer1, sigClient2 := testSignaler(nil, nil)
 	sigServer3, sigClient4 := testSignaler(nil, nil)
 	defer closeSignalers(sigServer1, sigClient2, sigServer3, sigClient4)
@@ -86,11 +89,11 @@ func TestGroup(t *testing.T) {
 	for i := 0; i < 2; i++ {
 		select {
 		case err := <-errChan:
-			t.Fatalf("error 1: %v", err)
+			t.Fatalf("error: %v", err)
 		case res := <-resChan:
 			require.Equal(t, data, res)
 		case <-time.After(timeout):
-			t.Fatal("timeout 1")
+			t.Fatal("timeout")
 		}
 	}
 
@@ -101,19 +104,19 @@ func TestGroup(t *testing.T) {
 	// Get result from sigClient2.
 	select {
 	case err := <-errChan:
-		t.Fatalf("error 2: %v", err)
+		t.Fatalf("error: %v", err)
 	case res := <-resChan:
 		require.Equal(t, data, res)
 	case <-time.After(timeout):
-		t.Fatal("timeout 2")
+		t.Fatal("timeout")
 	}
 
 	// Ensure sigClient4 does not send something back.
 	select {
 	case err := <-errChan:
-		t.Fatalf("error 3: %v", err)
+		t.Fatalf("error: %v", err)
 	case _ = <-resChan:
-		t.Fatal("did not expect result 3")
+		t.Fatal("did not expect result")
 	case <-time.After(timeout):
 	}
 
@@ -123,9 +126,9 @@ func TestGroup(t *testing.T) {
 
 	select {
 	case err := <-errChan:
-		t.Fatalf("error 4: %v", err)
+		t.Fatalf("error: %v", err)
 	case _ = <-resChan:
-		t.Fatal("did not expect result 4")
+		t.Fatal("did not expect result")
 	case <-time.After(timeout):
 	}
 
@@ -134,12 +137,90 @@ func TestGroup(t *testing.T) {
 	err = group.Trigger("blabla", data)
 	require.NoError(t, err)
 
-	// Close one of the signalers and try again. This should now produce
-	// an error.
+	// Close one of the signalers and try again.
+	// This should also not produce an error and the signaler
+	// should be removed from the group automatically.
 	err = sigServer1.Close()
 	require.NoError(t, err)
 
-	err = group.Trigger(signal, "test")
-	require.Error(t, err, "expecting error for closed signaler")
-	require.NotEqual(t, signaler.ErrSignalNotFound, err)
+	err = group.Trigger(signal, data)
+	require.NoError(t, err)
+
+	// Get result from sigClient4.
+	select {
+	case err := <-errChan:
+		t.Fatalf("error: %v", err)
+	case res := <-resChan:
+		require.Equal(t, data, res)
+	case <-time.After(timeout):
+		t.Fatal("timeout")
+	}
+
+	// Ensure sigClient2 does not send something back.
+	select {
+	case err := <-errChan:
+		t.Fatalf("error: %v", err)
+	case _ = <-resChan:
+		t.Fatal("did not expect result")
+	case <-time.After(timeout):
+	}
+}
+
+func TestGroup_Remove(t *testing.T) {
+	t.Parallel()
+
+	sigServer1, sigClient2 := testSignaler(nil, nil)
+	sigServer3, sigClient4 := testSignaler(nil, nil)
+	defer closeSignalers(sigServer1, sigClient2, sigServer3, sigClient4)
+
+	const signal = "test"
+	data := "testData"
+
+	resChan := make(chan string, 2)
+	errChan := make(chan error, 2)
+
+	handlerF := func(ctx *signaler.Context) {
+		var data string
+		err := ctx.Decode(&data)
+		if err != nil {
+			errChan <- err
+			return
+		}
+
+		resChan <- data
+	}
+
+	sigServer1.AddSignal(signal)
+	sigServer3.AddSignal(signal)
+
+	sigClient2.OnSignalFunc(signal, handlerF)
+	sigClient4.OnSignalFunc(signal, handlerF)
+
+	// IMPORTANT! Wait a short time, since the signal needs to be activated
+	// with the remote peer, which needs some I/O ops.
+	time.Sleep(time.Millisecond * 2)
+
+	// Create the group.
+	group := signaler.NewGroup()
+	group.Add(sigServer1, sigServer3)
+
+	// Remove both signalers.
+	group.Remove(sigServer1)
+	require.NoError(t, sigServer3.Close())
+
+	// Normal test, both clients should not receive the signal.
+	err := group.Trigger(signal, data)
+	require.NoError(t, err)
+
+	timeout := 10 * time.Millisecond
+
+	for i := 0; i < 2; i++ {
+		select {
+		case err := <-errChan:
+			t.Fatalf("error: %v", err)
+		case _ = <-resChan:
+			t.Fatal("did not expect result")
+		case <-time.After(timeout):
+		}
+	}
 }
