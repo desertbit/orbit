@@ -73,12 +73,7 @@ func NewServerWithCloser(ln net.Listener, config *ServerConfig, cl closer.Closer
 	return newServer(ln, config, cl)
 }
 
-// newServer creates a new orbit server. A listener is required
-// the server will use to listen for incoming connections.
-// A config can be provided, where every property of it that has not
-// been set will be initialized with a default value.
-// That makes it possible to overwrite only the interesting properties
-// for the caller.
+// newServer is the internal helper to create a new orbit server.
 func newServer(ln net.Listener, config *ServerConfig, cl closer.Closer) *Server {
 	// Prepare the config.
 	config = prepareServerConfig(config)

@@ -112,9 +112,10 @@ func newSession(
 	ys *yamux.Session,
 	config *Config,
 	isClient bool,
+	cl closer.Closer,
 ) (s *Session) {
 	s = &Session{
-		Closer:            closer.New(),
+		Closer:            cl,
 		conf:              config,
 		conn:              conn,
 		ys:                ys,
