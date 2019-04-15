@@ -64,11 +64,27 @@ type Server struct {
 // That makes it possible to overwrite only the interesting properties
 // for the caller.
 func NewServer(ln net.Listener, config *ServerConfig) *Server {
+	return newServer(ln, config, closer.New())
+}
+
+// NewServerWithCloser creates a new orbit server just like NewServer() does,
+// but you can provide your own closer for it.
+func NewServerWithCloser(ln net.Listener, config *ServerConfig, cl closer.Closer) *Server {
+	return newServer(ln, config, cl)
+}
+
+// newServer creates a new orbit server. A listener is required
+// the server will use to listen for incoming connections.
+// A config can be provided, where every property of it that has not
+// been set will be initialized with a default value.
+// That makes it possible to overwrite only the interesting properties
+// for the caller.
+func newServer(ln net.Listener, config *ServerConfig, cl closer.Closer) *Server {
 	// Prepare the config.
 	config = prepareServerConfig(config)
 
 	l := &Server{
-		Closer:         closer.New(),
+		Closer:         cl,
 		ln:             ln,
 		conf:           config,
 		sessions:       make(map[string]*Session),
