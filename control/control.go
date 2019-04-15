@@ -88,7 +88,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/desertbit/closer"
+	"github.com/desertbit/closer/v3"
 	"github.com/desertbit/orbit/codec"
 	"github.com/desertbit/orbit/codec/msgpack"
 	"github.com/desertbit/orbit/internal/api"
@@ -481,7 +481,7 @@ func (c *Control) waitForResponse(
 
 	// Wait for a response.
 	select {
-	case <-c.CloseChan():
+	case <-c.ClosingChan():
 		// Abort if the Control closes.
 		err = ErrClosed
 

@@ -34,7 +34,7 @@ import (
 
 	"github.com/desertbit/orbit/internal/utils"
 
-	"github.com/desertbit/closer"
+	"github.com/desertbit/closer/v3"
 )
 
 const (
@@ -156,11 +156,13 @@ func (l *Server) Sessions() []*Session {
 // and calls the handleConnection() function on each read connection.
 // Closes, when the server is closed.
 func (l *Server) handleConnectionLoop() {
-	closeChan := l.CloseChan()
+	var (
+		closingChan = l.ClosingChan()
+	)
 
 	for {
 		select {
-		case <-closeChan:
+		case <-closingChan:
 			return
 
 		case conn := <-l.newConnChan:
@@ -232,11 +234,11 @@ func (l *Server) handleConnection(conn net.Conn) (err error) {
 
 		// Wait for the session or server to close.
 		select {
-		case <-l.CloseChan():
+		case <-l.ClosingChan():
 			// Speed up the closing process when the server closes
 			// by returning directly from here.
 			return
-		case <-s.CloseChan():
+		case <-s.ClosingChan():
 		}
 
 		l.sessionsMutex.Lock()

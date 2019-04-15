@@ -213,7 +213,7 @@ func (s *Session) InitMany(opts *InitMany) (
 
 	// Wait for all goroutines or if an error occurs.
 	select {
-	case <-s.CloseChan():
+	case <-s.ClosingChan():
 		err = ErrClosed
 		return
 
@@ -283,7 +283,7 @@ func (s *Session) openControl(
 				handleErr(ErrOpenTimeout)
 				return
 
-			case <-s.CloseChan():
+			case <-s.ClosingChan():
 				handleErr(ErrClosed)
 				return
 
@@ -298,8 +298,8 @@ func (s *Session) openControl(
 		// Close the control if the session closes.
 		go func() {
 			select {
-			case <-s.CloseChan():
-			case <-ctrl.CloseChan():
+			case <-s.ClosingChan():
+			case <-ctrl.ClosingChan():
 			}
 			ctrl.Close()
 		}()
@@ -359,7 +359,7 @@ func (s *Session) openSignals(
 				handleErr(ErrOpenTimeout)
 				return
 
-			case <-s.CloseChan():
+			case <-s.ClosingChan():
 				handleErr(ErrClosed)
 				return
 
@@ -380,8 +380,8 @@ func (s *Session) openSignals(
 		// Close the signaler if the session closes.
 		go func() {
 			select {
-			case <-s.CloseChan():
-			case <-sgnl.CloseChan():
+			case <-s.ClosingChan():
+			case <-sgnl.ClosingChan():
 			}
 			sgnl.Close()
 		}()

@@ -27,7 +27,7 @@
 
 package signaler
 
-import "github.com/desertbit/closer"
+import "github.com/desertbit/closer/v3"
 
 const (
 	// defaultLsChanSize is the default size of the listener's C channel.
@@ -92,7 +92,7 @@ func newListener(ls *listeners, chanSize int, once bool) *Listener {
 // It allows users of this package to listen to the event, that their
 // listener gets closed.
 func (l *Listener) OffChan() <-chan struct{} {
-	return l.closer.CloseChan()
+	return l.closer.ClosingChan()
 }
 
 // Off closes this listener, meaning that it will no longer receive triggers
@@ -156,14 +156,16 @@ func (l *Listener) callFuncRoutine(f func(ctx *Context)) {
 		}
 	}()
 
-	closeChan := l.closer.CloseChan()
+	var (
+		closingChan = l.closer.ClosingChan()
+	)
 
 	for {
 		select {
-		case <-l.ls.closeChan:
+		case <-l.ls.closingChan:
 			return
 
-		case <-closeChan:
+		case <-closingChan:
 			return
 
 		case ctx := <-l.C:

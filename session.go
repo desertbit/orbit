@@ -37,7 +37,7 @@ import (
 	"github.com/desertbit/orbit/internal/api"
 	"github.com/desertbit/orbit/packet"
 
-	"github.com/desertbit/closer"
+	"github.com/desertbit/closer/v3"
 	"github.com/hashicorp/yamux"
 )
 
@@ -128,7 +128,7 @@ func newSession(
 	// Close if the underlying connection or yamux session close.
 	go func() {
 		select {
-		case <-s.CloseChan():
+		case <-s.ClosingChan():
 		case <-ys.CloseChan():
 		}
 		s.Close()

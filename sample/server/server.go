@@ -85,13 +85,13 @@ func (s *Server) handleNewSessionRoutine() {
 	defer s.Close()
 
 	var (
-		serverCloseChan = s.CloseChan()
-		newSessionChan  = s.NewSessionChan()
+		closingChan    = s.ClosingChan()
+		newSessionChan = s.NewSessionChan()
 	)
 
 	for {
 		select {
-		case <-serverCloseChan:
+		case <-closingChan:
 			return
 
 		case session := <-newSessionChan:

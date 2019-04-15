@@ -32,7 +32,7 @@ import (
 	"net"
 	"time"
 
-	"github.com/desertbit/closer"
+	"github.com/desertbit/closer/v3"
 	"github.com/desertbit/orbit/internal/api"
 	"github.com/hashicorp/yamux"
 )
