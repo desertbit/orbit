@@ -32,6 +32,7 @@ import (
 	"net"
 	"time"
 
+	"github.com/desertbit/closer"
 	"github.com/desertbit/orbit/internal/api"
 	"github.com/hashicorp/yamux"
 )
@@ -53,6 +54,17 @@ const (
 // As part of the session setup, the auth func of the config is called,
 // if it has been defined.
 func ServerSession(conn net.Conn, config *Config) (s *Session, err error) {
+	return serverSession(conn, config, closer.New())
+}
+
+// ServerSessionWithCloser initializes a new server-side session, just
+// as ServerSession() does, but allows to hand in an own closer.
+func ServerSessionWithCloser(conn net.Conn, config *Config, cl closer.Closer) (s *Session, err error) {
+	return serverSession(conn, config, cl)
+}
+
+// serverSession is the internal helper to initialize a new server-side session.
+func serverSession(conn net.Conn, config *Config, cl closer.Closer) (s *Session, err error) {
 	// Always close the conn on error.
 	defer func() {
 		if err != nil {
@@ -106,7 +118,7 @@ func ServerSession(conn net.Conn, config *Config) (s *Session, err error) {
 	}
 
 	// Finally, create the orbit server session.
-	s = newSession(conn, ys, config, false)
+	s = newSession(conn, ys, config, false, cl)
 
 	// Save the arbitrary data from the auth func.
 	s.Value = value
