@@ -57,12 +57,15 @@ type Context struct {
 
 // newContext creates a new Context from the given Control and the
 // payload data.
-func newContext(ctrl *Control, data []byte) *Context {
-	return &Context{
-		ctrl:   ctrl,
-		closer: closer.New(),
-		Data:   data,
+func newContext(ctrl *Control, data []byte, cancelable bool) *Context {
+	c := &Context{
+		ctrl: ctrl,
+		Data: data,
 	}
+	if cancelable {
+		c.closer = closer.New()
+	}
+	return c
 }
 
 // Control returns the control of the context.
@@ -91,5 +94,8 @@ func (c *Context) Decode(v interface{}) error {
 // CancelChan returns the close channel of the context's associated closer.
 // It can be used to detect, if a context has been cancelled.
 func (c *Context) CancelChan() <-chan struct{} {
+	if c.closer == nil {
+		return nil
+	}
 	return c.closer.CloseChan()
 }

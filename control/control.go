@@ -122,6 +122,9 @@ var (
 	// ErrCallTimeout defines the error if the call timeout is reached.
 	ErrCallTimeout = errors.New("call timeout")
 
+	// ErrCallCanceled defines the error if the call has been canceled.
+	ErrCallCanceled = errors.New("call canceled")
+
 	// ErrWriteTimeout defines the error if a write operation's timeout is reached.
 	ErrWriteTimeout = errors.New("write timeout")
 )
@@ -518,7 +521,7 @@ func (c *Control) waitForResponse(
 
 	case <-cancelChan:
 		// Cancel if request has been cancelled.
-		// TODO: Return a ErrCallCanceled?
+		err = ErrCallCanceled
 		c.cancelCall(key)
 
 	case rData := <-channel:
@@ -698,15 +701,25 @@ func (c *Control) handleCall(headerData, payloadData []byte) (err error) {
 		return fmt.Errorf("call request: requested function does not exist: id=%v", header.ID)
 	}
 
+	// One-Way calls are not cancelable.
+	cancelable := header.Key != 0
+
 	// Build the request context for the handler function.
-	ctx := newContext(c, payloadData)
+	ctx := newContext(c, payloadData, cancelable)
 
 	// Save the context in our active contexts map, if this
 	// is not a one-way call.
-	if header.Key != 0 {
+	if cancelable {
 		c.activeContextsMutex.Lock()
 		c.activeContexts[header.Key] = ctx
 		c.activeContextsMutex.Unlock()
+
+		// Ensure to remove the context from the map.
+		defer func() {
+			c.activeContextsMutex.Lock()
+			delete(c.activeContexts, header.Key)
+			c.activeContextsMutex.Unlock()
+		}()
 	}
 
 	// Call the call hook, if defined.
@@ -750,11 +763,6 @@ func (c *Control) handleCall(headerData, payloadData []byte) (err error) {
 	if header.Key == 0 {
 		return nil
 	}
-
-	// Remove the context from the active contexts map.
-	c.activeContextsMutex.Lock()
-	delete(c.activeContexts, header.Key)
-	c.activeContextsMutex.Unlock()
 
 	// Build the header for the response.
 	retHeader := &api.ControlReturn{
