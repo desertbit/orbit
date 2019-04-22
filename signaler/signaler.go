@@ -62,7 +62,7 @@ import (
 	"net"
 	"sync"
 
-	"github.com/desertbit/closer"
+	"github.com/desertbit/closer/v3"
 	"github.com/desertbit/orbit/codec"
 	"github.com/desertbit/orbit/control"
 )

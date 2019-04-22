@@ -34,7 +34,7 @@ import (
 
 	"github.com/desertbit/orbit/internal/utils"
 
-	"github.com/desertbit/closer"
+	"github.com/desertbit/closer/v3"
 )
 
 const (
@@ -64,11 +64,22 @@ type Server struct {
 // That makes it possible to overwrite only the interesting properties
 // for the caller.
 func NewServer(ln net.Listener, config *ServerConfig) *Server {
+	return newServer(ln, config, closer.New())
+}
+
+// NewServerWithCloser creates a new orbit server just like NewServer() does,
+// but you can provide your own closer for it.
+func NewServerWithCloser(ln net.Listener, config *ServerConfig, cl closer.Closer) *Server {
+	return newServer(ln, config, cl)
+}
+
+// newServer is the internal helper to create a new orbit server.
+func newServer(ln net.Listener, config *ServerConfig, cl closer.Closer) *Server {
 	// Prepare the config.
 	config = prepareServerConfig(config)
 
 	l := &Server{
-		Closer:         closer.New(),
+		Closer:         cl,
 		ln:             ln,
 		conf:           config,
 		sessions:       make(map[string]*Session),
@@ -145,11 +156,13 @@ func (l *Server) Sessions() []*Session {
 // and calls the handleConnection() function on each read connection.
 // Closes, when the server is closed.
 func (l *Server) handleConnectionLoop() {
-	closeChan := l.CloseChan()
+	var (
+		closingChan = l.ClosingChan()
+	)
 
 	for {
 		select {
-		case <-closeChan:
+		case <-closingChan:
 			return
 
 		case conn := <-l.newConnChan:
@@ -221,11 +234,11 @@ func (l *Server) handleConnection(conn net.Conn) (err error) {
 
 		// Wait for the session or server to close.
 		select {
-		case <-l.CloseChan():
+		case <-l.ClosingChan():
 			// Speed up the closing process when the server closes
 			// by returning directly from here.
 			return
-		case <-s.CloseChan():
+		case <-s.ClosingChan():
 		}
 
 		l.sessionsMutex.Lock()

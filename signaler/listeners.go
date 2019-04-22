@@ -61,19 +61,19 @@ type listeners struct {
 	removeChan chan uint64
 	// This channel is the close channel of the signaler, which
 	// can trigger the shutdown of the listeners.
-	closeChan <-chan struct{}
+	closingChan <-chan struct{}
 }
 
 // newListeners returns a new listeners for the given signalID and
 // with a reference to the signaler.
 func newListeners(e *Signaler, signalID string) *listeners {
 	ls := &listeners{
-		s:          e,
-		signalID:   signalID,
-		lMap:       make(map[uint64]*Listener),
-		activeChan: make(chan struct{}, 1),
-		removeChan: make(chan uint64, 3),
-		closeChan:  e.CloseChan(),
+		s:           e,
+		signalID:    signalID,
+		lMap:        make(map[uint64]*Listener),
+		activeChan:  make(chan struct{}, 1),
+		removeChan:  make(chan uint64, 3),
+		closingChan: e.ClosingChan(),
 	}
 
 	// Start the main routine that takes care of handling the active
@@ -179,7 +179,7 @@ func (ls *listeners) routine() {
 Loop:
 	for {
 		select {
-		case <-ls.closeChan:
+		case <-ls.closingChan:
 			return
 
 		case <-ls.activeChan:

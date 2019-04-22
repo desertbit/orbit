@@ -31,7 +31,8 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/AlecAivazis/survey"
+	survey "gopkg.in/AlecAivazis/survey.v1"
+
 	"github.com/desertbit/orbit/sample/auth"
 )
 
