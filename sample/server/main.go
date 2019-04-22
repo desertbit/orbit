@@ -31,8 +31,9 @@ import (
 	"fmt"
 	"log"
 
+	survey "gopkg.in/AlecAivazis/survey.v1"
+
 	"github.com/desertbit/orbit/sample/auth"
-	"gopkg.in/AlecAivazis/survey.v1"
 )
 
 const (
