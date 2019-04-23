@@ -86,11 +86,9 @@ func (g *Group) Add(ss ...*Signaler) {
 func (g *Group) Remove(ss ...*Signaler) {
 	g.mutex.Lock()
 
-	// Iterate in reverse order, this is safer when deleting
-	// elements during a loop.
 Loop:
 	for _, s := range ss {
-		for i := len(g.signalers) - 1; i >= 0; i-- {
+		for i := 0; i < len(g.signalers); i++ {
 			if g.signalers[i] == s {
 				// Delete without causing a memory leak due to the gc
 				// not being able to collect the pointer. This is done
@@ -109,13 +107,13 @@ Loop:
 	g.mutex.Unlock()
 }
 
-// Trigger calls each signaler's TriggerSignal() method of this group
+// TriggerSignal calls each signaler's TriggerSignal() method of this group
 // with the given id and the given data.
 // If a signaler in the group does not contain the signal with the given id,
 // the error is ignored and all other signalers are still triggered.
 //
 // Signalers can be explicitly excluded from being triggered.
-func (g *Group) Trigger(id string, data interface{}, exclude ...*Signaler) error {
+func (g *Group) TriggerSignal(id string, data interface{}, exclude ...*Signaler) error {
 	g.mutex.RLock()
 	defer g.mutex.RUnlock()
 

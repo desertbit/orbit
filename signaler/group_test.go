@@ -81,7 +81,7 @@ func TestGroup(t *testing.T) {
 	group.Add(nil)
 
 	// Normal test, both clients should receive the signal.
-	err := group.Trigger(signal, data)
+	err := group.TriggerSignal(signal, data)
 	require.NoError(t, err)
 
 	timeout := 10 * time.Millisecond
@@ -98,7 +98,7 @@ func TestGroup(t *testing.T) {
 	}
 
 	// Exclude sigServer3 from trigger, only sigClient2 should receive the signal.
-	err = group.Trigger(signal, data, sigServer3)
+	err = group.TriggerSignal(signal, data, sigServer3)
 	require.NoError(t, err)
 
 	// Get result from sigClient2.
@@ -121,7 +121,7 @@ func TestGroup(t *testing.T) {
 	}
 
 	// Exclude both server signals, no client should receive the signal.
-	err = group.Trigger(signal, data, sigServer1, sigServer3)
+	err = group.TriggerSignal(signal, data, sigServer1, sigServer3)
 	require.NoError(t, err)
 
 	select {
@@ -134,7 +134,7 @@ func TestGroup(t *testing.T) {
 
 	// Trigger a signal that does not exist. This is allowed and should
 	// not produce an error.
-	err = group.Trigger("blabla", data)
+	err = group.TriggerSignal("blabla", data)
 	require.NoError(t, err)
 
 	// Close one of the signalers and try again.
@@ -143,7 +143,7 @@ func TestGroup(t *testing.T) {
 	err = sigServer1.Close()
 	require.NoError(t, err)
 
-	err = group.Trigger(signal, data)
+	err = group.TriggerSignal(signal, data)
 	require.NoError(t, err)
 
 	// Get result from sigClient4.
@@ -209,7 +209,7 @@ func TestGroup_Remove(t *testing.T) {
 	require.NoError(t, sigServer3.Close())
 
 	// Normal test, both clients should not receive the signal.
-	err := group.Trigger(signal, data)
+	err := group.TriggerSignal(signal, data)
 	require.NoError(t, err)
 
 	timeout := 10 * time.Millisecond

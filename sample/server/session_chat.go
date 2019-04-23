@@ -56,7 +56,7 @@ func (s *Session) onChatSendMessage(ctx *signaler.Context) {
 	}
 
 	// Distribute the signal to all chat participants.
-	err = s.server.chatSigGroup.Trigger(api.SignalChatIncomingMessage, data, s.sig)
+	err = s.server.chatSigGroup.TriggerSignal(api.SignalChatIncomingMessage, data, s.sig)
 	if err != nil {
 		log.Printf("onChatSendMessage: %v", err)
 		return
