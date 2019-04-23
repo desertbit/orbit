@@ -134,5 +134,88 @@ func Action2() error {
 ```
 Inside the callback, you receive the response (or an error) and can handle it the same way as with the synchronous call.
 
-### Signaler - Events
-TODO
+## Signaler - Events
+The signaler package provides an implementation for sending events to remote peers. Under the hood, it uses the control package's `CallOneWay` function tFirst, you need to setup a control on each peer. It is best to use either the provided `Init` or `InitMany` functions to do this.o make calls without expecting a response.  
+
+The signaler package adds a lot of convenient stuff, such as allowing peers to set filters on their events, or unregister from an event completely.
+
+The code in the following sections is taken from the [sample](github.com/desertbit/orbit/sample).
+
+### Setup
+First, you need to setup a signaler on each peer. It is best to use either the provided `Init` or `InitMany` functions to do this.
+
+We start with the peer that emits the signal, the **sender**:
+```go
+// Initialize the signaler and declare, which signals
+// can be triggered on it.
+_, sig, err := orbitSesion.Init(&orbit.Init{
+    Signaler: orbit.InitSignaler{
+        Signals: []orbit.InitSignal{
+            {
+                ID: "TimeBomb",
+            },
+        },
+    },
+})
+if err != nil {
+    return
+}
+
+// Start the signaler.
+sig.Ready()
+```
+First, we initialize an orbit session using `Init` and we register a signaler on it that can emit the `"TimeBomb"` signal.   
+If this succeeds, we start the signaler by calling its `Ready()` method, which starts the listen routines of the signaler.  
+
+Now let us move on to the peer that receives the signal, the **receiver**:
+```go
+// Initialize the signaler and declare, which signals
+// can be triggered on it.
+_, sig, err := orbitSesion.Init(&orbit.Init{
+    Signaler: orbit.InitSignaler{
+        Signals: []orbit.InitSignal{},
+    },
+})
+if err != nil {
+    return
+}
+
+// Register handlers for events from the remote peer
+_ = sig.OnSignalFunc("TimeBomb", onEventTimeBomb)
+
+// Start the signaler.
+sig.Ready()
+``` 
+Again, we need to initialize the signaler for this peer as well, however, we do not register any signals on it, since we only want to receive signals from the remote peer right now.  
+Afterwards, we register a handler func for the `"TimeBomb"` signal, the `onEventTimeBomb` function.  
+In the end, we start the signaler.
+
+Here is the implementation of the `onEventTimeBomb` handler func:
+```go
+func onEventTimeBomb(ctx *signaler.Context) {
+	var args api.TimeBombData
+	err := ctx.Decode(&args)
+	if err != nil {
+		log.Printf("onEventTimeBomb error: %v", err)
+		return
+	}
+
+	// Do something with the signal data...
+}
+```
+It is identical to the control handler funcs, only that we do not return something to the caller, as signals are unidirectional.
+
+Now, if we want to finally trigger our signal on the **sender**, we can do it like this:
+```go
+// Trigger the event.
+args := &api.TimeBombData{
+    Countdown: 5,
+}
+
+err = sig.TriggerSignal("TimeBomb", &args)
+if err != nil {
+    log.Printf("triggerSignal TimeBomb: %v", err)
+    return
+}
+```
+We call the `TriggerSignal` method on our signaler we defined at the beginning of this section. This sends the given arguments over the wire to our **receiver**, where the `onEventTimeBomb` handler func will be triggered.
