@@ -30,11 +30,10 @@ package main
 import (
 	"time"
 
+	"github.com/desertbit/orbit"
 	"github.com/desertbit/orbit/control"
 	"github.com/desertbit/orbit/sample/api"
 	"github.com/desertbit/orbit/signaler"
-
-	"github.com/desertbit/orbit"
 )
 
 type Session struct {
@@ -66,7 +65,11 @@ func newSession(orbitSession *orbit.Session) (s *Session, err error) {
 			},
 		},
 		Signaler: orbit.InitSignaler{
-			Signals: []orbit.InitSignal{},
+			Signals: []orbit.InitSignal{
+				{
+					ID: api.SignalChatSendMessage,
+				},
+			},
 		},
 	})
 	if err != nil {
@@ -84,4 +87,5 @@ func newSession(orbitSession *orbit.Session) (s *Session, err error) {
 func (s *Session) setupSignals() {
 	_ = s.sig.OnSignalFunc(api.SignalTimeBomb, s.onEventTimeBomb)
 	_ = s.sig.OnSignalFunc(api.SignalNewsletter, s.onNewsletter)
+	_ = s.sig.OnSignalFunc(api.SignalChatIncomingMessage, s.onChatIncomingMessage)
 }

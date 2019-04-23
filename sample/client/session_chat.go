@@ -28,73 +28,20 @@
 package main
 
 import (
-	"github.com/desertbit/orbit"
-	"github.com/desertbit/orbit/control"
+	"log"
+
 	"github.com/desertbit/orbit/sample/api"
 	"github.com/desertbit/orbit/signaler"
 )
 
-type Session struct {
-	*orbit.Session
-
-	server *Server
-
-	ctrl *control.Control
-	sig  *signaler.Signaler
-}
-
-func newSession(server *Server, orbitSession *orbit.Session) (s *Session, err error) {
-	s = &Session{
-		Session: orbitSession,
-		server:  server,
-	}
-
-	// Always close the session on error.
-	defer func() {
-		if err != nil {
-			s.Close()
-		}
-	}()
-
-	// Log if the session closes.
-	s.OnClose(func() error {
-		return nil
-	})
-
-	s.ctrl, s.sig, err = s.Init(&orbit.Init{
-		AcceptStreams: orbit.InitAcceptStreams{
-			api.ChannelOrbit: handleStreamOrbit,
-		},
-		Control: orbit.InitControl{
-			Funcs: control.Funcs{
-				api.ControlServerInfo: s.serverInfo,
-			},
-		},
-		Signaler: orbit.InitSignaler{
-			Config: nil,
-			Signals: []orbit.InitSignal{
-				{
-					ID: api.SignalTimeBomb,
-				},
-				{
-					ID:     api.SignalNewsletter,
-					Filter: s.newsletterFilter,
-				},
-				{
-					ID:     api.SignalChatIncomingMessage,
-					Filter: s.chatFilter,
-				},
-			},
-		},
-	})
+func (s *Session) onChatIncomingMessage(ctx *signaler.Context) {
+	var data api.ChatSignalData
+	err := ctx.Decode(&data)
 	if err != nil {
+		log.Printf("onChatIncomingMessage: %v", err)
 		return
 	}
 
-	_ = s.sig.OnSignalFunc(api.SignalChatSendMessage, s.onChatSendMessage)
-
-	s.ctrl.Ready()
-	s.sig.Ready()
-
-	return
+	log.Println("--------------------------------")
+	log.Printf("From %s, %s: %s\n", data.Author, data.Timestamp.Format("Mon 15:04:05"), data.Msg)
 }

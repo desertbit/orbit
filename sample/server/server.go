@@ -36,6 +36,7 @@ import (
 	"github.com/desertbit/orbit/sample/auth"
 
 	"github.com/desertbit/orbit"
+	"github.com/desertbit/orbit/signaler"
 )
 
 const (
@@ -49,6 +50,8 @@ type Server struct {
 
 	sessionsMutex sync.RWMutex
 	sessions      map[string]*Session
+
+	chatSigGroup *signaler.Group
 }
 
 func NewServer(listenAddr string, authHook auth.GetHashHook) (s *Server, err error) {
@@ -63,8 +66,9 @@ func NewServer(listenAddr string, authHook auth.GetHashHook) (s *Server, err err
 				AuthFunc: auth.Server(authHook),
 			},
 		}),
-		uptime:   time.Now(),
-		sessions: make(map[string]*Session),
+		uptime:       time.Now(),
+		sessions:     make(map[string]*Session),
+		chatSigGroup: signaler.NewGroup(),
 	}
 
 	// Always close the server on error.
@@ -101,6 +105,9 @@ func (s *Server) handleNewSessionRoutine() {
 			}
 
 			s.addSession(sess)
+
+			// Add the signaler of it to our signaler group.
+			s.chatSigGroup.Add(sess.sig)
 
 			// Once the session closes, remove it from the sessions map.
 			sess.OnClose(func() error {

@@ -30,6 +30,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/desertbit/orbit/sample/api"
 	"github.com/desertbit/orbit/sample/auth"
@@ -41,6 +42,7 @@ const (
 	actionServerInfo              = "print info about the server"
 	actionSubscribeToNewsletter   = "subscribe to newsletter"
 	actionUnsubscribeToNewsletter = "unsubscribe from newsletter"
+	actionJoinChatRoom            = "join the chat room"
 	actionExit                    = "exit"
 )
 
@@ -61,17 +63,16 @@ func main() {
 	var (
 		action       string
 		isSubscribed bool
-		options      []string
 	)
 	for {
+		options := []string{
+			actionOrbit, actionServerInfo, actionExit, actionJoinChatRoom,
+		}
+
 		if isSubscribed {
-			options = []string{
-				actionOrbit, actionServerInfo, actionUnsubscribeToNewsletter, actionExit,
-			}
+			options = append(options, actionUnsubscribeToNewsletter)
 		} else {
-			options = []string{
-				actionOrbit, actionServerInfo, actionSubscribeToNewsletter, actionExit,
-			}
+			options = append(options, actionSubscribeToNewsletter)
 		}
 
 		err = survey.AskOne(&survey.Select{
@@ -118,6 +119,19 @@ func main() {
 			} else {
 				fmt.Print("unsubscribed from newsletter!")
 			}
+		case actionJoinChatRoom:
+			err = s.sig.SetSignalFilter(api.SignalChatIncomingMessage, api.ChatFilterData{Join: true})
+			if err != nil {
+				return
+			}
+
+			_ = chat(s)
+
+			fmt.Println("\nLeaving Chat Room")
+			err = s.sig.SetSignalFilter(api.SignalChatIncomingMessage, api.ChatFilterData{Join: false})
+			if err != nil {
+				return
+			}
 		case actionExit:
 			_ = s.Close()
 			fmt.Println("bye!")
@@ -125,5 +139,39 @@ func main() {
 		}
 		fmt.Println()
 		fmt.Println()
+	}
+}
+
+func chat(s *Session) error {
+	var name string
+	err := survey.AskOne(
+		&survey.Input{Message: "What's your name?"},
+		&name,
+		survey.ComposeValidators(
+			survey.MinLength(1),
+			survey.MaxLength(20),
+		),
+	)
+	if err != nil {
+		return err
+	}
+
+	for {
+		var text string
+		err = survey.AskOne(&survey.Multiline{
+			Message: "Enter your message:",
+		}, &text, nil)
+		if err != nil {
+			return err
+		}
+
+		err = s.sig.TriggerSignal(api.SignalChatSendMessage, &api.ChatSignalData{
+			Author:    name,
+			Msg:       text,
+			Timestamp: time.Now(),
+		})
+		if err != nil {
+			return err
+		}
 	}
 }

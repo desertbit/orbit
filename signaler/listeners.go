@@ -46,18 +46,17 @@ type listeners struct {
 	// The listener types that are handled by this listeners.
 	// The key of the map is the id of the listener.
 	lMap map[uint64]*Listener
-	// A counter that is used to produce new ids for new
-	// listeners.
+	// A counter that is used to produce new ids for new listeners.
 	idCount uint64
 
 	// This channel is used to manage the active state of the
 	// signal. Whenever a listener joins or leaves the listeners,
 	// over this channel a value is sent that triggers a check to
 	// whether the signal must be set to in-/active.
-	// Buffered channel.
+	// Buffered channel of size 1.
 	activeChan chan struct{}
 	// This channel is used to remove a listener from the listeners.
-	// Buffered channel.
+	// Buffered channel of size 3.
 	removeChan chan uint64
 	// This channel is the close channel of the signaler, which
 	// can trigger the shutdown of the listeners.
@@ -87,7 +86,7 @@ func newListeners(e *Signaler, signalID string) *listeners {
 // signal is currently inactive, the signal is switched back
 // to active.
 func (ls *listeners) add(l *Listener) {
-	// Create a new listener ID and ensure it is unqiue.
+	// Create a new listener ID and ensure it is unique.
 	// Add it to the listeners map and set the ID.
 	//
 	// WARNING: Possible loop, if more than 2^64 listeners

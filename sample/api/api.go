@@ -38,8 +38,10 @@ const (
 	ControlServerInfo = "ServerInfo"
 	ControlClientInfo = "ClientInfo"
 
-	SignalTimeBomb   = "TimeBomb"
-	SignalNewsletter = "Newsletter"
+	SignalTimeBomb            = "TimeBomb"
+	SignalNewsletter          = "Newsletter"
+	SignalChatIncomingMessage = "ChatIncomingMessage"
+	SignalChatSendMessage     = "ChatSendMessage"
 )
 
 type AuthRequest struct {
@@ -75,4 +77,14 @@ type NewsletterFilterData struct {
 type NewsletterSignalData struct {
 	Subject string
 	Msg     string
+}
+
+type ChatFilterData struct {
+	Join bool
+}
+
+type ChatSignalData struct {
+	Author    string
+	Msg       string
+	Timestamp time.Time
 }
