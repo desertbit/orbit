@@ -36,7 +36,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/desertbit/closer"
+	"github.com/desertbit/closer/v3"
 	"github.com/desertbit/orbit/control"
 	"github.com/desertbit/orbit/packet"
 	"github.com/pkg/errors"
@@ -157,7 +157,7 @@ func TestControl_CallOpts(t *testing.T) {
 		case <-ctx.CancelChan():
 			errChan <- nil
 		case <-time.After(50 * time.Millisecond):
-			errChan <- errors.New("not cancelled")
+			errChan <- errors.New("not canceled")
 		}
 		return
 	}
@@ -186,9 +186,8 @@ func TestControl_CallOpts(t *testing.T) {
 	go func() {
 		_ = canceller.Close()
 	}()
-	ctx, err = defCtrl2.CallOpts(call2, input, 100*time.Millisecond, canceller.CloseChan())
-	require.NoError(t, err)
-	require.NoError(t, <-errChan)
+	ctx, err = defCtrl2.CallOpts(call2, input, 100*time.Millisecond, canceller.ClosingChan())
+	require.Equal(t, control.ErrCallCanceled, err)
 }
 
 func TestControl_CallOneWay(t *testing.T) {
@@ -229,6 +228,32 @@ func TestControl_CallOneWay(t *testing.T) {
 
 	// Check the result of both one way calls.
 	require.NoError(t, <-errChan)
+	require.NoError(t, <-errChan)
+}
+
+func TestControl_CallOneWayOpts(t *testing.T) {
+	t.Parallel()
+
+	// Cancel.
+	errChan := make(chan error)
+	fCancel := func(ctx *control.Context) (data interface{}, err error) {
+		select {
+		case <-ctx.CancelChan():
+			errChan <- nil
+		case <-time.After(50 * time.Millisecond):
+			errChan <- errors.New("not canceled")
+		}
+		return
+	}
+
+	const call = "callOneWayOpts"
+	defCtrl2.AddFunc(call, fCancel)
+
+	// Test a cancellation of the request.
+	canceller := closer.New()
+	err := defCtrl1.CallOneWayOpts(call, nil, canceller.ClosingChan())
+	require.NoError(t, err)
+	require.NoError(t, canceller.Close())
 	require.NoError(t, <-errChan)
 }
 
@@ -308,7 +333,7 @@ func TestControl_CallAsyncOpts(t *testing.T) {
 		case <-ctx.CancelChan():
 			errChan <- nil
 		case <-time.After(50 * time.Millisecond):
-			errChan <- errors.New("not cancelled")
+			errChan <- errors.New("not canceled")
 		}
 		return
 	}
@@ -327,8 +352,8 @@ func TestControl_CallAsyncOpts(t *testing.T) {
 
 	// Test a cancellation of the request.
 	canceller := closer.New()
-	err = defCtrl1.CallAsyncOpts(call, nil, 10*time.Millisecond, cb, canceller.CloseChan())
-	_ = canceller.Close()
+	err = defCtrl1.CallAsyncOpts(call, nil, 10*time.Millisecond, cb, canceller.ClosingChan())
+	require.NoError(t, canceller.Close())
 	require.NoError(t, err)
 	require.NoError(t, <-errChan)
 }

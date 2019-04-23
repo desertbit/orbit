@@ -30,8 +30,6 @@ package control
 import (
 	"errors"
 	"fmt"
-
-	"github.com/desertbit/closer"
 )
 
 var (
@@ -44,9 +42,10 @@ var (
 // interface and contains a closer that can be used to cancel the ongoing
 // associated request.
 type Context struct {
-	// closer is used to signal to the handling func that the request
-	// has been cancelled and that execution can be aborted.
-	closer closer.Closer
+	// cancelChan is used to signal to the handling func that the request
+	// has been canceled and that execution can be aborted.
+	// Buffered channel of size 1.
+	cancelChan chan struct{}
 
 	// ctrl is a reference to the Control the call has been issued on.
 	ctrl *Control
@@ -63,7 +62,7 @@ func newContext(ctrl *Control, data []byte, cancelable bool) *Context {
 		Data: data,
 	}
 	if cancelable {
-		c.closer = closer.New()
+		c.cancelChan = make(chan struct{}, 1)
 	}
 	return c
 }
@@ -91,11 +90,12 @@ func (c *Context) Decode(v interface{}) error {
 	return nil
 }
 
-// CancelChan returns the close channel of the context's associated closer.
-// It can be used to detect, if a context has been cancelled.
+// CancelChan returns the cancel channel of the context.
+// It can be used to detect whether a context has been canceled.
+// Attention: Since the caller of a remote call can decide, whether his
+// is cancelable or not, the cancel channel of the context may be nil!
+// Users of this method should never read directly from this channel,
+// but rather use a select clause.
 func (c *Context) CancelChan() <-chan struct{} {
-	if c.closer == nil {
-		return nil
-	}
-	return c.closer.CloseChan()
+	return c.cancelChan
 }

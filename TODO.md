@@ -9,6 +9,10 @@
   - flusher
 - Walk through TODOs in code and resolve them
 - Add load balancing interface
+- Include go report in readme (and fix issues that it reports beforehand)
+
+### Testing
+- Add reflection based tests that test the API structs and instantiate them with each field initialized, then marshal them using msgp and check the result with require.Exactly. This way, we can detect whether go generate has been executed for newly added structs/properties
 
 ### Samples
 - Add "chatroom" example, where one client writes to console, and others receive event (multicast), needs global events pkg first 

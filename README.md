@@ -1,5 +1,9 @@
 # Orbit - Interlink Remote Applications
 
+[![GoDoc](https://godoc.org/github.com/desertbit/desertbit?status.svg)](https://godoc.org/github.com/desertbit/desertbit)
+[![coverage](https://codecov.io/gh/desertbit/orbit/branch/master/graph/badge.svg)](https://codecov.io/gh/desertbit/orbit/branch/master)
+[![license](https://img.shields.io/github/license/desertbit/orbit.svg)](https://opensource.org/licenses/MIT)
+
 Orbit provides a powerful backend to interlink remote applications with each other.  
 It replaces connectionless RPC solutions with a multiplexed session-based solution that includes convenient features (such as raw streams, signals and more ...).  
 

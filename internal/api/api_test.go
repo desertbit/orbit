@@ -29,6 +29,9 @@ package api
 
 import (
 	"testing"
+
+	"github.com/stretchr/testify/require"
+	"github.com/tinylib/msgp/msgp"
 )
 
 func TestMsgpImplementation(t *testing.T) {
@@ -39,7 +42,7 @@ func TestMsgpImplementation(t *testing.T) {
 		&SetSignal{}, &TriggerSignal{}, &SetSignalFilter{},
 	}
 
-	for i, t := range testCases {
-		require
+	for i, tc := range testCases {
+		require.Implements(t, (*msgp.Marshaler)(nil), tc, "Test Case %d", i+1)
 	}
 }

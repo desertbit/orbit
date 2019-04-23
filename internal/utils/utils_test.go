@@ -31,7 +31,7 @@ import (
 	"testing"
 
 	"github.com/desertbit/orbit/internal/utils"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestRandomString(t *testing.T) {
@@ -39,7 +39,7 @@ func TestRandomString(t *testing.T) {
 
 	for i, c := range testCases {
 		s, err := utils.RandomString(c)
-		assert.NoErrorf(t, err, "case %d", i+1)
-		assert.EqualValuesf(t, c, len(s), "case %d", i+1)
+		require.NoErrorf(t, err, "case %d", i+1)
+		require.Lenf(t, s, int(c), "case %d", i+1)
 	}
 }

@@ -42,8 +42,9 @@ type InitStream struct {
 }
 
 type ControlCall struct {
-	ID  string
-	Key uint64
+	ID         string
+	Key        uint64
+	Cancelable bool
 }
 
 type ControlReturn struct {
