@@ -93,7 +93,7 @@ func (c *Context) Decode(v interface{}) error {
 // CancelChan returns the cancel channel of the context.
 // It can be used to detect whether a context has been canceled.
 // Attention: Since the caller of a remote call can decide, whether his
-// is cancelable or not, the cancel channel of the context may be nil!
+// call is cancelable or not, the cancel channel of the context may be nil!
 // Users of this method should never read directly from this channel,
 // but rather use a select clause.
 func (c *Context) CancelChan() <-chan struct{} {
