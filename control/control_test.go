@@ -231,32 +231,6 @@ func TestControl_CallOneWay(t *testing.T) {
 	require.NoError(t, <-errChan)
 }
 
-func TestControl_CallOneWayOpts(t *testing.T) {
-	t.Parallel()
-
-	// Cancel.
-	errChan := make(chan error)
-	fCancel := func(ctx *control.Context) (data interface{}, err error) {
-		select {
-		case <-ctx.CancelChan():
-			errChan <- nil
-		case <-time.After(50 * time.Millisecond):
-			errChan <- errors.New("not canceled")
-		}
-		return
-	}
-
-	const call = "callOneWayOpts"
-	defCtrl2.AddFunc(call, fCancel)
-
-	// Test a cancellation of the request.
-	canceller := closer.New()
-	err := defCtrl1.CallOneWayOpts(call, nil, canceller.ClosingChan())
-	require.NoError(t, err)
-	require.NoError(t, canceller.Close())
-	require.NoError(t, <-errChan)
-}
-
 func TestControl_CallAsync(t *testing.T) {
 	t.Parallel()
 

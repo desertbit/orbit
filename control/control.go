@@ -343,23 +343,11 @@ func (c *Control) CallOpts(
 // back a response and this func will immediately return, as soon as
 // the data has been written to the connection.
 //
-// This call can not be canceled, use CallOneWayOpts() for this instead.
+// This call can not be canceled, use CallAsyncOpts() for this instead.
 //
 // This method is thread-safe.
 func (c *Control) CallOneWay(id string, data interface{}) error {
 	return c.CallAsync(id, data, nil)
-}
-
-// CallOneWayOpts calls the remote function, but the remote peer will not send
-// back a response and this func will immediately return, as soon as the data
-// has been written to the connection.
-//
-// The call can be canceled though by providing a channel that should read a value
-// once the call should be canceled.
-//
-// This method is thread-safe.
-func (c *Control) CallOneWayOpts(id string, data interface{}, cancelChan <-chan struct{}) error {
-	return c.CallAsyncOpts(id, data, c.config.CallTimeout, nil, cancelChan)
 }
 
 // CallAsync calls a remote function in an asynchronous fashion, as the
