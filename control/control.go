@@ -75,7 +75,9 @@ that exceeds this configured limit and sends the request anyways causes
 the connection to be closed and dropped.
 This is done on purpose, as allowing peers to send huge payloads can result
 in a DoS. Therefore, the peer that wants to make a call is required to
-check beforehand how big its request may be.
+check beforehand how big its request may be, but this is taken care of already
+in the implementation, so if you use one of the Call() methods, the size is
+checked before attempting to send everything to the remote peer.
 */
 package control
 
@@ -109,6 +111,10 @@ const (
 	// The first byte send in a request to indicate the response from a remote
 	// called function.
 	typeCallReturn byte = 1
+
+	// The first byte send in a request to indicate that a currently running
+	// request should be canceled.
+	typeCallCancel byte = 2
 )
 
 var (
@@ -117,6 +123,9 @@ var (
 
 	// ErrCallTimeout defines the error if the call timeout is reached.
 	ErrCallTimeout = errors.New("call timeout")
+
+	// ErrCallCanceled defines the error if the call has been canceled.
+	ErrCallCanceled = errors.New("call canceled")
 
 	// ErrWriteTimeout defines the error if a write operation's timeout is reached.
 	ErrWriteTimeout = errors.New("write timeout")
@@ -154,14 +163,25 @@ type Control struct {
 	// The raw network connection that is used to send the requests over.
 	conn net.Conn
 
+	// ### "Client-side" ###
+
 	// Contains a channel for each request that is used to deliver the
 	// response back to the correct calling function.
 	callRetChain *chain
+
+	// ### "Server-side" ###
+
 	// Synchronises the access to the handler function map.
 	funcMapMutex sync.RWMutex
 	// Stores the handler functions for the requests. The key to the map
 	// is the id of the request.
 	funcMap map[string]Func
+
+	// Synchronises the access to the active call contexts map.
+	activeCallContextsMx sync.Mutex
+	// Stores the contexts of requests that are currently being handled.
+	// This way, the processing of requests can be canceled by the client.
+	activeCallContexts map[uint64]*Context
 
 	// Called for every incoming request. Can be useful for logging
 	// purposes or similar tasks.
@@ -183,17 +203,18 @@ type Control struct {
 func New(conn net.Conn, config *Config) *Control {
 	// Create a new socket.
 	config = prepareConfig(config)
-	s := &Control{
-		Closer:       closer.New(),
-		config:       config,
-		logger:       config.Logger,
-		conn:         conn,
-		callRetChain: newChain(),
-		funcMap:      make(map[string]Func),
+	c := &Control{
+		Closer:             closer.New(),
+		config:             config,
+		logger:             config.Logger,
+		conn:               conn,
+		callRetChain:       newChain(),
+		funcMap:            make(map[string]Func),
+		activeCallContexts: make(map[uint64]*Context),
 	}
-	s.OnClose(conn.Close)
+	c.OnClose(conn.Close)
 
-	return s
+	return c
 }
 
 // Logger returns the log.Logger of the control's config.
@@ -258,15 +279,24 @@ func (c *Control) AddFuncs(funcs Funcs) {
 	c.funcMapMutex.Unlock()
 }
 
-// Call is a convenience function that calls CallTimeout(), but uses the default
-// CallTimeout from the config of the Control.
+// Call is a convenience function that calls CallOpts(), but uses the default
+// timeout from the config of the Control and does not provide a cancel channel.
+//
+// This call can not be canceled, use CallOpts() for this instead.
+//
+// Returns ErrClosed, if the control is closed.
+// Returns ErrCallTimeout, if the timeout is exceeded.
+//
+// This method is thread-safe.
 func (c *Control) Call(id string, data interface{}) (*Context, error) {
-	return c.CallTimeout(id, data, c.config.CallTimeout)
+	return c.CallOpts(id, data, c.config.CallTimeout, nil)
 }
 
-// CallTimeout calls a remote function and waits for its result. The given id determines,
-// which function should be called on the remote. The given timeout determines how long
-// the request/response process may take at a maximum.
+// CallOpts calls a remote function and waits for its result. The given id determines,
+// which function should be called on the remote.
+// The given timeout determines how long the request/response process may take at a maximum.
+// The given cancel channel can be used to abort the ongoing request. The channel is read
+// from exactly once at maximum.
 //
 // The passed data are sent as payload of the request and get automatically encoded
 // with the codec.Codec of the Control.
@@ -276,39 +306,44 @@ func (c *Control) Call(id string, data interface{}) (*Context, error) {
 // This method blocks until the remote function sent back a response and returns the
 // Context of this response. It is therefore considered 'synchronous'.
 //
-// Returns ErrCallTimeout on a timeout.
-// Returns ErrClosed if the connection is closed.
+// Returns ErrClosed, if the control is closed.
+// Returns ErrCallTimeout, if the timeout is exceeded.
+// Returns ErrCallCanceled, if the caller cancels the call.
 //
 // This method is thread-safe.
-func (c *Control) CallTimeout(
+func (c *Control) CallOpts(
 	id string,
 	data interface{},
 	timeout time.Duration,
+	cancelChan <-chan struct{},
 ) (ctx *Context, err error) {
 	// Create a new channel with its key. This will be used to send
 	// the data over that forms the response to the call.
 	key, channel := c.callRetChain.new()
 	defer c.callRetChain.delete(key)
 
-	// Create the header.
-	header := &api.ControlCall{
-		ID:  id,
-		Key: key,
-	}
-
 	// Write to the client.
-	err = c.write(typeCall, header, data)
+	err = c.write(
+		typeCall,
+		&api.ControlCall{
+			ID:  id,
+			Key: key,
+		},
+		data,
+	)
 	if err != nil {
 		return
 	}
 
 	// Wait, until the response has arrived, and return its result.
-	return c.waitForResponse(timeout, channel)
+	return c.waitForResponse(key, timeout, channel, cancelChan)
 }
 
 // CallOneWay calls a remote function, but the remote peer will not send
 // back a response and this func will immediately return, as soon as
 // the data has been written to the connection.
+//
+// This call can not be canceled, use CallAsyncOpts() for this instead.
 //
 // This method is thread-safe.
 func (c *Control) CallOneWay(id string, data interface{}) error {
@@ -317,7 +352,11 @@ func (c *Control) CallOneWay(id string, data interface{}) error {
 
 // CallAsync calls a remote function in an asynchronous fashion, as the
 // response will be awaited in a new goroutine and passed to the given callback.
-// It uses the default CallTimeout from the config of the Control.
+// It uses the default CallAsyncOpts from the config of the Control.
+//
+// The given callback will receive:
+// ErrClosed error, should the control close.
+// ErrCallTimeout error, should the timeout be exceeded.
 //
 // This method is thread-safe.
 func (c *Control) CallAsync(
@@ -325,21 +364,26 @@ func (c *Control) CallAsync(
 	data interface{},
 	callback func(ctx *Context, err error),
 ) error {
-	return c.CallAsyncTimeout(id, data, c.config.CallTimeout, callback)
+	return c.CallAsyncOpts(id, data, c.config.CallTimeout, callback, nil)
 }
 
-// CallAsync calls a remote function in an asynchronous fashion, as the
+// CallAsyncOpts calls a remote function in an asynchronous fashion, as the
 // response will be awaited in a new goroutine and passed to the given callback.
+// Like with CallOpts(), the request is aborted after the timeout has been exceeded
+// or the cancel channel has read a value.
 //
-// The response will be awaited in a new goroutine. The given callback will
-// receive an ErrCallTimeout error, should the timeout be exceeded.
+// The given callback will receive:
+// ErrClosed error, should the control close.
+// ErrCallTimeout error, should the timeout be exceeded.
+// ErrCallCanceled error, should the call get canceled.
 //
 // This method is thread-safe.
-func (c *Control) CallAsyncTimeout(
+func (c *Control) CallAsyncOpts(
 	id string,
 	data interface{},
 	timeout time.Duration,
 	callback func(ctx *Context, err error),
+	cancelChan <-chan struct{},
 ) error {
 	var (
 		key     uint64
@@ -352,14 +396,16 @@ func (c *Control) CallAsyncTimeout(
 		key, channel = c.callRetChain.new()
 	}
 
-	// Create the header.
-	header := &api.ControlCall{
-		ID:  id,
-		Key: key,
-	}
-
 	// Send the request.
-	err := c.write(typeCall, header, data)
+	err := c.write(
+		typeCall,
+		&api.ControlCall{
+			ID:         id,
+			Key:        key,
+			Cancelable: cancelChan != nil,
+		},
+		data,
+	)
 	if err != nil {
 		return err
 	}
@@ -371,7 +417,7 @@ func (c *Control) CallAsyncTimeout(
 
 	// Wait for the response, but in a new routine.
 	go func() {
-		callback(c.waitForResponse(timeout, channel))
+		callback(c.waitForResponse(key, timeout, channel, cancelChan))
 	}()
 
 	return nil
@@ -398,6 +444,8 @@ func (c *Control) CallAsyncTimeout(
 // Returns ErrWriteTimeout, if the deadline of the write is not met.
 // Returns packet.ErrMaxPayloadSizeExceeded, if either the header
 // or the payload exceed the MaxMessageSize defined in the config.
+//
+// This method is thread-safe.
 func (c *Control) write(reqType byte, headerI interface{}, dataI interface{}) (err error) {
 	var header, payload []byte
 
@@ -407,8 +455,8 @@ func (c *Control) write(reqType byte, headerI interface{}, dataI interface{}) (e
 		return fmt.Errorf("encode header: %v", err)
 	}
 
-	// Marshal the payload data if present
-	// or use the direct byte slice if set.
+	// Marshal the payload data with the configured codec,
+	// unless the payload is a byte slice. Use that directly.
 	if dataI != nil {
 		switch v := dataI.(type) {
 		case []byte:
@@ -438,7 +486,7 @@ func (c *Control) write(reqType byte, headerI interface{}, dataI interface{}) (e
 		return err
 	}
 
-	// In case the write timeouts, assign to it our ErrWriteTimeout variable.
+	// In case the write timeouts, return our ErrWriteTimeout error.
 	defer func() {
 		if err != nil {
 			if nerr, ok := err.(net.Error); ok && nerr.Timeout() {
@@ -470,11 +518,13 @@ func (c *Control) write(reqType byte, headerI interface{}, dataI interface{}) (e
 
 // waitForResponse waits for a response on the given chainChan channel.
 // Returns ErrClosed, if the control is closed before the response arrives.
-// Returns ErrCallTimeout, if the given timeout is exceeded
-// before the response arrives.
+// Returns ErrCallTimeout, if the timeout exceeds before the response arrives.
+// Returns ErrCallCanceled, if the call is canceled by the caller.
 func (c *Control) waitForResponse(
+	key uint64,
 	timeout time.Duration,
 	channel chainChan,
+	cancelChan <-chan struct{},
 ) (ctx *Context, err error) {
 	// Create the timeout.
 	timeoutTimer := time.NewTimer(timeout)
@@ -482,12 +532,18 @@ func (c *Control) waitForResponse(
 	// Wait for a response.
 	select {
 	case <-c.ClosingChan():
-		// Abort if the Control closes.
+		// Abort, if the Control closes.
 		err = ErrClosed
 
 	case <-timeoutTimer.C:
-		// Abort if the deadline is over.
+		// Cancel, if the deadline is over.
 		err = ErrCallTimeout
+		c.cancelCall(key)
+
+	case <-cancelChan:
+		// Cancel, if request has been canceled.
+		err = ErrCallCanceled
+		c.cancelCall(key)
 
 	case rData := <-channel:
 		// Response has arrived.
@@ -499,6 +555,19 @@ func (c *Control) waitForResponse(
 	_ = timeoutTimer.Stop()
 
 	return
+}
+
+// cancelCall sends a request to the remote peer in order to cancel an ongoing request
+// identified by the given key.
+func (c *Control) cancelCall(key uint64) {
+	err := c.write(
+		typeCallCancel,
+		&api.ControlCancel{Key: key},
+		nil,
+	)
+	if err != nil {
+		c.logger.Printf("control cancel call: %v", err)
+	}
 }
 
 // readRoutine listens on the control stream and reads the packets from it.
@@ -616,10 +685,10 @@ func (c *Control) handleRequest(reqType byte, headerData, payloadData []byte) {
 	switch reqType {
 	case typeCall:
 		err = c.handleCall(headerData, payloadData)
-
 	case typeCallReturn:
 		err = c.handleCallReturn(headerData, payloadData)
-
+	case typeCallCancel:
+		err = c.handleCallCancel(headerData)
 	default:
 		err = fmt.Errorf("invalid request type: %v", reqType)
 	}
@@ -642,7 +711,7 @@ func (c *Control) handleCall(headerData, payloadData []byte) (err error) {
 	var header api.ControlCall
 	err = msgpack.Codec.Decode(headerData, &header)
 	if err != nil {
-		return fmt.Errorf("decode control call: %v", err)
+		return fmt.Errorf("decode header call: %v", err)
 	}
 
 	// Retrieve the handler function for this request.
@@ -654,7 +723,21 @@ func (c *Control) handleCall(headerData, payloadData []byte) (err error) {
 	}
 
 	// Build the request context for the handler function.
-	ctx := newContext(c, payloadData)
+	ctx := newContext(c, payloadData, header.Cancelable)
+
+	// Save the context in our active contexts map, if the request is cancelable.
+	if header.Cancelable {
+		c.activeCallContextsMx.Lock()
+		c.activeCallContexts[header.Key] = ctx
+		c.activeCallContextsMx.Unlock()
+
+		// Ensure to remove the context from the map.
+		defer func() {
+			c.activeCallContextsMx.Lock()
+			delete(c.activeCallContexts, header.Key)
+			c.activeCallContextsMx.Unlock()
+		}()
+	}
 
 	// Call the call hook, if defined.
 	if c.callHook != nil {
@@ -662,8 +745,8 @@ func (c *Control) handleCall(headerData, payloadData []byte) (err error) {
 	}
 
 	var (
-		code int
 		msg  string
+		code int
 	)
 
 	// Execute the handler function.
@@ -728,7 +811,7 @@ func (c *Control) handleCallReturn(headerData, payloadData []byte) (err error) {
 	var header api.ControlReturn
 	err = msgpack.Codec.Decode(headerData, &header)
 	if err != nil {
-		return fmt.Errorf("decode call return: %v", err)
+		return fmt.Errorf("decode header call return: %v", err)
 	}
 
 	// Get the channel by the key.
@@ -738,7 +821,7 @@ func (c *Control) handleCallReturn(headerData, payloadData []byte) (err error) {
 	}
 
 	// Create a new context.
-	ctx := newContext(c, payloadData)
+	ctx := newContext(c, payloadData, false)
 
 	// Create the channel data.
 	rData := chainData{Context: ctx}
@@ -767,4 +850,43 @@ func (c *Control) handleCallReturn(headerData, payloadData []byte) (err error) {
 			return fmt.Errorf("return request failed (call timeout exceeded?)")
 		}
 	}
+}
+
+// handleCallCancel processes an incoming request with request type 'typeCallCancel'.
+// It decodes the header to retrieve the key of the request that should be canceled.
+// It then retrieves the context of said request and closes its associated closer.
+// If no request with the sent key could be found, nothing happens.
+//
+// This function is executed on the side of the receiver of a request,
+// the "server-side".
+func (c *Control) handleCallCancel(headerData []byte) (err error) {
+	// Decode the request header.
+	var header api.ControlCancel
+	err = msgpack.Codec.Decode(headerData, &header)
+	if err != nil {
+		return fmt.Errorf("decode header call cancel: %v", err)
+	}
+
+	// Retrieve the context from the active contexts map and delete
+	// it right away from the map again to ensure that a context is
+	// canceled exactly once.
+	var (
+		ctx *Context
+		ok  bool
+	)
+	c.activeCallContextsMx.Lock()
+	ctx, ok = c.activeCallContexts[header.Key]
+	delete(c.activeCallContexts, header.Key)
+	c.activeCallContextsMx.Unlock()
+
+	// If there is no context available for this key, do nothing.
+	if !ok {
+		return
+	}
+
+	// Cancel the currently running request.
+	// Since we deleted the context from the map already, this code
+	// is executed exactly once and does not block on the buffered channel.
+	ctx.cancelChan <- struct{}{}
+	return
 }

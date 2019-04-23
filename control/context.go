@@ -38,23 +38,33 @@ var (
 )
 
 // The Context type is a wrapper around the raw payload data of calls.
-// It offer a convenience method to decode the encoded data into an
-// interface.
+// It offers a convenience method to decode the encoded data into an
+// interface and contains a closer that can be used to cancel the ongoing
+// associated request.
 type Context struct {
-	// Data is the raw byte representation of the encoded context data.
-	Data []byte
+	// cancelChan is used to signal to the handling func that the request
+	// has been canceled and that execution can be aborted.
+	// Buffered channel of size 1.
+	cancelChan chan struct{}
 
 	// ctrl is a reference to the Control the call has been issued on.
 	ctrl *Control
+
+	// Data is the raw byte representation of the encoded context data.
+	Data []byte
 }
 
 // newContext creates a new Context from the given Control and the
 // payload data.
-func newContext(ctrl *Control, data []byte) *Context {
-	return &Context{
+func newContext(ctrl *Control, data []byte, cancelable bool) *Context {
+	c := &Context{
 		ctrl: ctrl,
 		Data: data,
 	}
+	if cancelable {
+		c.cancelChan = make(chan struct{}, 1)
+	}
+	return c
 }
 
 // Control returns the control of the context.
@@ -78,4 +88,14 @@ func (c *Context) Decode(v interface{}) error {
 	}
 
 	return nil
+}
+
+// CancelChan returns the cancel channel of the context.
+// It can be used to detect whether a context has been canceled.
+// Attention: Since the caller of a remote call can decide, whether his
+// call is cancelable or not, the cancel channel of the context may be nil!
+// Users of this method should never read directly from this channel,
+// but rather use a select clause.
+func (c *Context) CancelChan() <-chan struct{} {
+	return c.cancelChan
 }

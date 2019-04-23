@@ -33,7 +33,7 @@ import (
 
 	"github.com/desertbit/orbit/codec"
 	"github.com/desertbit/orbit/codec/msgpack"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/tinylib/msgp/msgp"
 )
 
@@ -50,11 +50,11 @@ func TestMSGPackGenerated(t *testing.T) {
 	to := &testMSGPackGenerate{}
 
 	encoded, err := msgpack.Codec.Encode(val)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	err = msgpack.Codec.Decode(encoded, to)
-	assert.NoError(t, err)
-	assert.Exactly(t, to, val)
+	require.NoError(t, err)
+	require.Exactly(t, to, val)
 }
 
 // ################################################

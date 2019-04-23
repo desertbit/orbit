@@ -25,21 +25,24 @@
  * SOFTWARE.
  */
 
-package utils_test
+package api
 
 import (
 	"testing"
 
-	"github.com/desertbit/orbit/internal/utils"
 	"github.com/stretchr/testify/require"
+	"github.com/tinylib/msgp/msgp"
 )
 
-func TestRandomString(t *testing.T) {
-	testCases := []uint{0, 1, 10, 100}
+func TestMsgpImplementation(t *testing.T) {
+	t.Parallel()
 
-	for i, c := range testCases {
-		s, err := utils.RandomString(c)
-		require.NoErrorf(t, err, "case %d", i+1)
-		require.Lenf(t, s, int(c), "case %d", i+1)
+	testCases := []interface{}{
+		&InitStream{}, &ControlCall{}, &ControlReturn{}, &ControlCancel{},
+		&SetSignal{}, &TriggerSignal{}, &SetSignalFilter{},
+	}
+
+	for i, tc := range testCases {
+		require.Implements(t, (*msgp.Marshaler)(nil), tc, "Test Case %d", i+1)
 	}
 }
