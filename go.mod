@@ -3,7 +3,7 @@ module github.com/desertbit/orbit
 go 1.12
 
 require (
-	github.com/desertbit/closer/v3 v3.0.1
+	github.com/desertbit/closer/v3 v3.1.1
 	github.com/hashicorp/yamux v0.0.0-20181012175058-2f1d1f20f75d
 	github.com/kr/pretty v0.1.0 // indirect
 	github.com/philhofer/fwd v1.0.0 // indirect

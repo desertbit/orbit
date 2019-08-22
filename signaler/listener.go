@@ -80,7 +80,8 @@ func newListener(ls *listeners, chanSize int, once bool) *Listener {
 		once: once,
 		ls:   ls,
 	}
-	l.closer = closer.New(l.onClose)
+	l.closer = closer.New()
+	l.closer.OnClosing(l.onClose)
 
 	// Finally self-register to the given listeners.
 	ls.add(l)
@@ -98,7 +99,7 @@ func (l *Listener) OffChan() <-chan struct{} {
 // Off closes this listener, meaning that it will no longer receive triggers
 // for the signal and gets removed from its listeners.
 func (l *Listener) Off() {
-	l.closer.Close()
+	l.closer.Close_()
 }
 
 //###############//
