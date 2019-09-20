@@ -57,6 +57,10 @@ import (
 	"github.com/desertbit/orbit/internal/bytes"
 )
 
+const (
+	defaultStreamBufferSize = 32 * 1024 // 32KB (also used in io.Copy())
+)
+
 var (
 	// Returned, if the size of a payload exceeds the maxPayloadSize.
 	ErrMaxPayloadSizeExceeded = errors.New("max payload size exceeded")
@@ -249,4 +253,142 @@ func Write(
 	}
 
 	return
+}
+
+//##############//
+//### Stream ###//
+//##############//
+
+// ReadStream is a convenience func for ReadStreamBufTimeout.
+func ReadStream(
+	conn net.Conn,
+	dst io.Writer,
+) (err error) {
+	return ReadStreamBufTimeout(conn, dst, nil, 0)
+}
+
+// If buf is nil, a new buffer with default size is allocated.
+// A zero or negative timeout means no timeout is set.
+// Returns io.ErrShortWrite, if not all data read from
+// the connection could be written to dst.
+func ReadStreamBufTimeout(
+	conn net.Conn,
+	dst io.Writer,
+	buf []byte,
+	timeout time.Duration,
+) error {
+	var (
+		n    int
+		data []byte
+		err  error
+
+		size = len(buf)
+	)
+
+	// If no buffer, or an empty one, has been given, allocate one.
+	if size == 0 {
+		size = defaultStreamBufferSize
+		buf = make([]byte, size)
+	}
+
+	for {
+		// Read the next packet off the connection.
+		// Use a timeout for the read operation, if wanted.
+		if timeout > 0 {
+			data, err = ReadTimeout(conn, buf, size, timeout)
+		} else {
+			data, err = Read(conn, buf, size)
+		}
+		if err != nil {
+			return err
+		}
+
+		// If an empty packet has been sent, the stream is over.
+		if len(data) == 0 {
+			return nil
+		}
+
+		// Write the data to the destination.
+		n, err = dst.Write(data)
+		if err != nil {
+			return err
+		} else if n != len(data) {
+			return io.ErrShortWrite
+		}
+	}
+}
+
+// WriteStream is a convenience func for WriteStreamBufTimeout.
+func WriteStream(
+	conn net.Conn,
+	src io.Reader,
+) (err error) {
+	return WriteStreamBufTimeout(conn, src, nil, 0)
+}
+
+// If buf is nil, a new buffer with default size is allocated.
+// A zero or negative timeout means no timeout is set.
+func WriteStreamBufTimeout(
+	conn net.Conn,
+	src io.Reader,
+	buf []byte,
+	timeout time.Duration,
+) error {
+	var (
+		n         int
+		err, rErr error
+
+		size = len(buf)
+	)
+
+	// If no buffer, or an empty one, has been given, allocate one.
+	if size == 0 {
+		size = defaultStreamBufferSize
+
+		// If the source is a limited reader, make sure we stay within its limits.
+		if l, ok := src.(*io.LimitedReader); ok && int64(size) > l.N {
+			if l.N < 1 {
+				size = 1
+			} else {
+				size = int(l.N)
+			}
+		}
+		buf = make([]byte, size)
+	}
+
+	for {
+		// Read packet size many bytes from the src.
+		n, rErr = src.Read(buf)
+
+		// Process any read bytes before handling the error.
+		if n > 0 {
+			// Write the data to the connection.
+			// Use a timeout on the write operation, if wanted.
+			if timeout > 0 {
+				err = WriteTimeout(conn, buf[:n], size, timeout)
+			} else {
+				err = Write(conn, buf[:n], size)
+			}
+			if err != nil {
+				return err
+			}
+		}
+
+		// Handle the potential read error.
+		if rErr == io.EOF {
+			// All stream data has been written,
+			// send the empty packet to tell its over.
+			if timeout > 0 {
+				err = WriteTimeout(conn, nil, size, timeout)
+			} else {
+				err = Write(conn, nil, size)
+			}
+			if err != nil {
+				return err
+			}
+			return nil
+		} else if rErr != nil {
+			return rErr
+		}
+	}
 }
