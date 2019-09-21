@@ -379,14 +379,9 @@ func WriteStreamBufTimeout(
 			// All stream data has been written,
 			// send the empty packet to tell its over.
 			if timeout > 0 {
-				err = WriteTimeout(conn, nil, size, timeout)
-			} else {
-				err = Write(conn, nil, size)
+				return WriteTimeout(conn, nil, size, timeout)
 			}
-			if err != nil {
-				return err
-			}
-			return nil
+			return Write(conn, nil, size)
 		} else if rErr != nil {
 			return rErr
 		}
