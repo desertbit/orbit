@@ -28,11 +28,8 @@
 package control_test
 
 import (
-	"bytes"
 	"fmt"
-	"log"
 	"net"
-	"os"
 	"testing"
 	"time"
 
@@ -43,47 +40,32 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var (
-	defCtrl1, defCtrl2 *control.Control
-	defPeer1, defPeer2 net.Conn
-)
-
-func TestMain(m *testing.M) {
-	// Setup
-	defPeer1, defPeer2 = net.Pipe()
-
-	defCtrl1 = control.New(defPeer1, &control.Config{SendErrToCaller: true})
-	defCtrl2 = control.New(defPeer2, &control.Config{SendErrToCaller: true})
-
-	defCtrl1.Ready()
-	defCtrl2.Ready()
-
-	// Run
-	code := m.Run()
-
-	// Teardown
-	err := defCtrl1.Close()
-	if err != nil {
-		log.Fatalf("defCtrl1 close: %v", err)
-	}
-	err = defCtrl2.Close()
-	if err != nil {
-		log.Fatalf("defCtrl2 close: %v", err)
-	}
-
-	// Exit
-	os.Exit(code)
-}
-
 func TestControl_General(t *testing.T) {
 	t.Parallel()
 
-	require.Equal(t, defCtrl1.LocalAddr(), defPeer1.LocalAddr(), "expected local addresses to be equal")
-	require.Equal(t, defCtrl1.RemoteAddr(), defPeer1.RemoteAddr(), "expected remote addresses to be equal")
+	// Create controls.
+	peer1, peer2 := net.Pipe()
+	ctrl1 := control.New(peer1, nil)
+	ctrl2 := control.New(peer2, nil)
+
+	ctrl1.Ready()
+	ctrl2.Ready()
+
+	defer closeControls(ctrl1, ctrl2)
+
+	require.Equal(t, ctrl1.LocalAddr(), peer1.LocalAddr(), "expected local addresses to be equal")
+	require.Equal(t, ctrl1.RemoteAddr(), peer1.RemoteAddr(), "expected remote addresses to be equal")
 }
 
 func TestControl_Call(t *testing.T) {
 	t.Parallel()
+
+	// Create controls.
+	ctrl1, ctrl2 := testControls(
+		&control.Config{SendErrToCaller: true},
+		&control.Config{SendErrToCaller: true},
+	)
+	defer closeControls(ctrl1, ctrl2)
 
 	input := "args"
 	output := "ret"
@@ -105,17 +87,17 @@ func TestControl_Call(t *testing.T) {
 	}
 
 	const call = "call"
-	defCtrl1.AddFunc(call, f)
-	defCtrl2.AddFunc(call, f)
+	ctrl1.AddFunc(call, f)
+	ctrl2.AddFunc(call, f)
 
 	var ret string
 
-	ctx, err := defCtrl1.Call(call, input)
+	ctx, err := ctrl1.Call(call, input)
 	require.NoError(t, err)
 	require.NoError(t, ctx.Decode(&ret))
 	require.Equal(t, output, ret)
 
-	ctx, err = defCtrl2.Call(call, input)
+	ctx, err = ctrl2.Call(call, input)
 	require.NoError(t, err)
 	require.NoError(t, ctx.Decode(&ret))
 	require.Equal(t, output, ret)
@@ -123,6 +105,13 @@ func TestControl_Call(t *testing.T) {
 
 func TestControl_CallOpts(t *testing.T) {
 	t.Parallel()
+
+	// Create controls.
+	ctrl1, ctrl2 := testControls(
+		&control.Config{SendErrToCaller: true},
+		&control.Config{SendErrToCaller: true},
+	)
+	defer closeControls(ctrl1, ctrl2)
 
 	input := "args"
 	output := "ret"
@@ -164,20 +153,20 @@ func TestControl_CallOpts(t *testing.T) {
 
 	const call = "callTimeout"
 	const call2 = "callCancel"
-	defCtrl1.AddFunc(call, fTimout)
-	defCtrl2.AddFunc(call, f)
-	defCtrl1.AddFunc(call2, fCancel)
+	ctrl1.AddFunc(call, fTimout)
+	ctrl2.AddFunc(call, f)
+	ctrl1.AddFunc(call2, fCancel)
 
 	var ret string
 
 	// Timeout not exceeded.
-	ctx, err := defCtrl1.CallOpts(call, input, 100*time.Millisecond, nil)
+	ctx, err := ctrl1.CallOpts(call, input, 100*time.Millisecond, nil)
 	require.NoError(t, err)
 	require.NoError(t, ctx.Decode(&ret))
 	require.Equal(t, output, ret)
 
 	// Timeout exceeded.
-	ctx, err = defCtrl2.CallOpts(call, input, 100*time.Millisecond, nil)
+	ctx, err = ctrl2.CallOpts(call, input, 100*time.Millisecond, nil)
 	require.Exactly(t, control.ErrCallTimeout, err)
 
 	// Cancel request.
@@ -186,12 +175,19 @@ func TestControl_CallOpts(t *testing.T) {
 	go func() {
 		_ = canceller.Close()
 	}()
-	ctx, err = defCtrl2.CallOpts(call2, input, 100*time.Millisecond, canceller.ClosingChan())
+	ctx, err = ctrl2.CallOpts(call2, input, 100*time.Millisecond, canceller.ClosingChan())
 	require.Equal(t, control.ErrCallCanceled, err)
 }
 
 func TestControl_CallOneWay(t *testing.T) {
 	t.Parallel()
+
+	// Create controls.
+	ctrl1, ctrl2 := testControls(
+		&control.Config{SendErrToCaller: true},
+		&control.Config{SendErrToCaller: true},
+	)
+	defer closeControls(ctrl1, ctrl2)
 
 	input := "args"
 
@@ -217,13 +213,13 @@ func TestControl_CallOneWay(t *testing.T) {
 	}
 
 	const call = "callOneWay"
-	defCtrl1.AddFuncs(map[string]control.Func{call: f})
-	defCtrl2.AddFuncs(map[string]control.Func{call: f})
+	ctrl1.AddFuncs(map[string]control.Func{call: f})
+	ctrl2.AddFuncs(map[string]control.Func{call: f})
 
-	err := defCtrl1.CallOneWay(call, input)
+	err := ctrl1.CallOneWay(call, input)
 	require.NoError(t, err)
 
-	err = defCtrl2.CallOneWay(call, input)
+	err = ctrl2.CallOneWay(call, input)
 	require.NoError(t, err)
 
 	// Check the result of both one way calls.
@@ -233,6 +229,13 @@ func TestControl_CallOneWay(t *testing.T) {
 
 func TestControl_CallAsync(t *testing.T) {
 	t.Parallel()
+
+	// Create controls.
+	ctrl1, ctrl2 := testControls(
+		&control.Config{SendErrToCaller: true},
+		&control.Config{SendErrToCaller: true},
+	)
+	defer closeControls(ctrl1, ctrl2)
 
 	input := "args"
 	output := "ret"
@@ -255,8 +258,8 @@ func TestControl_CallAsync(t *testing.T) {
 	}
 
 	const call = "callAsync"
-	defCtrl1.AddFuncs(map[string]control.Func{call: f})
-	defCtrl2.AddFuncs(map[string]control.Func{call: f})
+	ctrl1.AddFuncs(map[string]control.Func{call: f})
+	ctrl2.AddFuncs(map[string]control.Func{call: f})
 
 	errChan := make(chan error)
 	cb := func(ctx *control.Context, err error) {
@@ -283,17 +286,24 @@ func TestControl_CallAsync(t *testing.T) {
 		return
 	}
 
-	err := defCtrl1.CallAsync(call, input, cb)
+	err := ctrl1.CallAsync(call, input, cb)
 	require.NoError(t, err)
 	require.NoError(t, <-errChan)
 
-	err = defCtrl2.CallAsync(call, input, cb)
+	err = ctrl2.CallAsync(call, input, cb)
 	require.NoError(t, err)
 	require.NoError(t, <-errChan)
 }
 
 func TestControl_CallAsyncOpts(t *testing.T) {
 	t.Parallel()
+
+	// Create controls.
+	ctrl1, ctrl2 := testControls(
+		&control.Config{SendErrToCaller: true},
+		&control.Config{SendErrToCaller: true},
+	)
+	defer closeControls(ctrl1, ctrl2)
 
 	f := func(ctx *control.Context) (data interface{}, err error) {
 		time.Sleep(250 * time.Millisecond)
@@ -313,23 +323,23 @@ func TestControl_CallAsyncOpts(t *testing.T) {
 	}
 
 	const call = "callAsyncOpts"
-	defCtrl1.AddFuncs(map[string]control.Func{call: f})
-	defCtrl2.AddFunc(call, fCancel)
+	ctrl1.AddFuncs(map[string]control.Func{call: f})
+	ctrl2.AddFunc(call, fCancel)
 
 	cb := func(ctx *control.Context, err error) {
 		errChan <- err
 	}
 
-	err := defCtrl2.CallAsyncOpts(call, nil, 10*time.Millisecond, cb, nil)
+	err := ctrl2.CallAsyncOpts(call, nil, 10*time.Millisecond, cb, nil)
 	require.NoError(t, err)
 	require.EqualError(t, <-errChan, control.ErrCallTimeout.Error())
 
 	// Test a cancellation of the request.
 	canceller := closer.New()
-	err = defCtrl1.CallAsyncOpts(call, nil, 10*time.Millisecond, cb, canceller.ClosingChan())
+	err = ctrl1.CallAsyncOpts(call, nil, 10*time.Millisecond, cb, canceller.ClosingChan())
 	require.NoError(t, canceller.Close())
 	require.NoError(t, err)
-	require.NoError(t, <-errChan)
+	require.Equal(t, control.ErrCallCanceled, <-errChan)
 }
 
 func TestControl_ErrorClose(t *testing.T) {
@@ -563,29 +573,6 @@ func TestControl_HandleFuncNotExist(t *testing.T) {
 	require.Error(t, err, "expected error since handler func is not defined")
 }
 
-func TestControl_CloseReadRoutine(t *testing.T) {
-	t.Parallel()
-
-	logger := bytes.Buffer{}
-	peer1, peer2 := net.Pipe()
-	ctrl1 := control.New(peer1, &control.Config{Logger: log.New(&logger, "", 0)})
-	ctrl2 := control.New(peer2, nil)
-	defer closeControls(ctrl1, ctrl2)
-
-	// Close the control now, before the read routine is started.
-	err := peer1.Close()
-	require.NoError(t, err, "closing peer1")
-
-	// Start the read routine on the closed connection.
-	ctrl1.Ready()
-
-	// Give the routine some time to start
-	time.Sleep(5 * time.Millisecond)
-
-	// Check, if a log message has been written.
-	require.True(t, logger.Len() > 0)
-}
-
 // convenience
 func testControls(conf1, conf2 *control.Config) (ctrl1, ctrl2 *control.Control) {
 	peer1, peer2 := net.Pipe()
@@ -600,6 +587,6 @@ func testControls(conf1, conf2 *control.Config) (ctrl1, ctrl2 *control.Control) 
 // convenience
 func closeControls(ctrls ...*control.Control) {
 	for _, ctrl := range ctrls {
-		_ = ctrl.Close()
+		ctrl.Close_()
 	}
 }

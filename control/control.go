@@ -183,6 +183,8 @@ type Control struct {
 	// This way, the processing of requests can be canceled by the client.
 	activeCallContexts map[uint64]*Context
 
+	// Synchronises the access to the hooks.
+	hookMutex sync.RWMutex
 	// Called for every incoming request. Can be useful for logging
 	// purposes or similar tasks.
 	callHook CallHook
@@ -248,16 +250,18 @@ func (c *Control) RemoteAddr() net.Addr {
 
 // SetCallHook sets the call hook function which is triggered, if a local
 // remote callable function will be called. This hook can be used for logging purpose.
-// Only set this hook during initialization (before Ready() has been called).
 func (c *Control) SetCallHook(h CallHook) {
+	c.hookMutex.Lock()
 	c.callHook = h
+	c.hookMutex.Unlock()
 }
 
 // SetErrorHook sets the error hook function which is triggered, if a local
 // remote callable function returns an error. This hook can be used for logging purpose.
-// Only set this hook during initialization (before Ready() has been called).
 func (c *Control) SetErrorHook(h ErrorHook) {
+	c.hookMutex.Lock()
 	c.errorHook = h
+	c.hookMutex.Unlock()
 }
 
 // AddFunc registers a local function that can be called by the remote peer.
@@ -585,7 +589,7 @@ func (c *Control) cancelCall(key uint64) {
 // handleRequest() method to process it.
 func (c *Control) readRoutine() {
 	// Close the control on exit.
-	defer c.Close()
+	defer c.Close_()
 
 	// Warning: don't shadow the error.
 	// Otherwise the deferred logging won't work!
@@ -740,8 +744,11 @@ func (c *Control) handleCall(headerData, payloadData []byte) (err error) {
 	}
 
 	// Call the call hook, if defined.
-	if c.callHook != nil {
-		c.callHook(c, header.ID, ctx)
+	c.hookMutex.RLock()
+	cHook := c.callHook
+	c.hookMutex.RUnlock()
+	if cHook != nil {
+		cHook(c, header.ID, ctx)
 	}
 
 	var (
@@ -771,8 +778,11 @@ func (c *Control) handleCall(headerData, payloadData []byte) (err error) {
 		}
 
 		// Call the error hook, if defined.
-		if c.errorHook != nil {
-			c.errorHook(c, header.ID, retErr)
+		c.hookMutex.RLock()
+		eHook := c.errorHook
+		c.hookMutex.RUnlock()
+		if eHook != nil {
+			eHook(c, header.ID, retErr)
 		}
 	}
 

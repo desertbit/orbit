@@ -70,11 +70,9 @@ func TestSignaler_MaxMessageSize(t *testing.T) {
 	t.Parallel()
 
 	const signal = "maxMessageSize"
-	conf1 := &control.Config{}
-	conf2 := &control.Config{}
-	sig1, sig2 := testSignaler(conf1, conf2)
+	sig1, sig2 := testSignaler(&control.Config{MaxMessageSize: 100}, nil)
 	defer closeSignalers(sig1, sig2)
-	data := "test data"
+	data := make([]byte, 15000)
 
 	sig1.AddSignal(signal)
 	_ = sig2.OnSignal(signal)
@@ -83,16 +81,8 @@ func TestSignaler_MaxMessageSize(t *testing.T) {
 	time.Sleep(time.Millisecond * 2)
 
 	// Now trigger the signal of sig1, which should exceed the configured MaxMessageSize.
-	conf1.MaxMessageSize = 1
 	err := sig1.TriggerSignal(signal, data)
 	require.Equal(t, packet.ErrMaxPayloadSizeExceeded, err)
-
-	// Now test the same for the other signaler.
-	// The connection should be closed.
-	conf1.MaxMessageSize = 16384
-	conf2.MaxMessageSize = 1
-	err = sig1.TriggerSignal(signal, data)
-	require.EqualError(t, err, "io: read/write on closed pipe")
 }
 
 func TestSignaler_OnSignalOpts(t *testing.T) {
@@ -143,12 +133,7 @@ func TestSignaler_OnSignalOpts(t *testing.T) {
 func TestSignaler_OnSignalFunc(t *testing.T) {
 	t.Parallel()
 
-	buffer1 := bytes.Buffer{}
-	buffer2 := bytes.Buffer{}
-	sig1, sig2 := testSignaler(
-		&control.Config{Logger: log.New(&buffer1, "", 0)},
-		&control.Config{Logger: log.New(&buffer2, "", 0)},
-	)
+	sig1, sig2 := testSignaler(nil, nil)
 	defer closeSignalers(sig1, sig2)
 
 	const signal = "onSignalFunc"
@@ -189,20 +174,12 @@ func TestSignaler_OnSignalFunc(t *testing.T) {
 	}
 
 	// Test a panic in the handler func.
-	buffer2.Reset()
 	require.NoError(t, sig1.TriggerSignal(signalPanic, data))
 	// Sleep shortly so that the signal has time to arrive.
 	time.Sleep(time.Millisecond * 10)
-	// A log message should have been written.
-	require.NotEqual(t, 0, buffer2.Len())
 
 	// Test a nil handler func.
-	buffer1.Reset()
 	require.NoError(t, sig2.TriggerSignal(signalPanic, data))
-	// Sleep shortly so that the signal has time to arrive.
-	time.Sleep(time.Millisecond * 10)
-	// A log message should have been written.
-	require.NotEqual(t, 0, buffer1.Len())
 }
 
 func TestSignaler_OnceSignal(t *testing.T) {
