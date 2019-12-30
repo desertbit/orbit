@@ -1,0 +1,15 @@
+service bencher {
+    call sayHello({
+        name string
+        id int
+    }) (apiInfo)
+}
+
+type apiInfo {
+    version version
+}
+
+type version {
+    major int
+    minor int
+}
