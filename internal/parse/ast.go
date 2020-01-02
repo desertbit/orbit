@@ -32,14 +32,6 @@ type Service struct {
 	Entries []Entry
 }
 
-/*type EntryType int
-
-const (
-	EntryTypeCall    EntryType = iota
-	EntryTypeRevCall EntryType = iota
-	EntryTypeStream  EntryType = iota
-)*/
-
 type Entry interface {
 	Name() string
 }
@@ -79,9 +71,7 @@ func (s *Stream) Name() string {
 	return s.name
 }
 
-type Type interface {
-	Name() string
-}
+type Type interface{}
 
 const (
 	TypeByte   = "byte"
@@ -105,22 +95,17 @@ const (
 )
 
 type StructType struct {
-	name string
-
-	Fields []Type
+	Name   string
+	Fields []*StructField
 }
 
-func (s *StructType) Name() string {
-	return s.name
+type StructField struct {
+	Name string
+	Type Type
 }
 
 type BaseType struct {
-	name     string
 	dataType string
-}
-
-func (b *BaseType) Name() string {
-	return b.name
 }
 
 func (b *BaseType) DataType() string {
@@ -128,22 +113,10 @@ func (b *BaseType) DataType() string {
 }
 
 type MapType struct {
-	name string
-
 	Key   Type
 	Value Type
 }
 
-func (m *MapType) Name() string {
-	return m.name
-}
-
 type ArrType struct {
-	name string
-
 	ElemType Type
-}
-
-func (a *ArrType) Name() string {
-	return a.name
 }

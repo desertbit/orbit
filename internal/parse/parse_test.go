@@ -35,7 +35,41 @@ import (
 )
 
 func TestParse(t *testing.T) {
-	_, _, s, err := parse.Parse("./testdata/test.orbit")
+	data := `
+service bencher {
+    call test(Plate) (stream Rect)
+    revcall test2({
+        i int
+        v float64
+        c map[int][]Rect
+    }) ({
+        lol string
+    })
+    stream hello
+}
+
+type Plate {
+    version int
+    name string
+    rect Rect
+    test map[int]Rect
+    test2 []Rect
+    test3 []float32
+    test4 map[string]map[int][]Rect
+}
+
+type Rect {
+    x1 float32
+    y1 float32
+    x2 float32
+    y2 float32
+    c  Char
+}
+
+type Char {
+    lol string
+}`
+
+	_, _, err := parse.Parse(data)
 	require.NoError(t, err)
-	t.Fatal(s)
 }

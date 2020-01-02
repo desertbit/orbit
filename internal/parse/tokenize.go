@@ -28,7 +28,6 @@
 package parse
 
 import (
-	"io/ioutil"
 	"unicode"
 )
 
@@ -37,31 +36,27 @@ type token struct {
 	line  int
 }
 
-func tokenize(filePath string) (tks []*token, err error) {
-	data, err := ioutil.ReadFile(filePath)
-	if err != nil {
-		return
-	}
-
+func tokenize(data string) (tks []*token, err error) {
 	var (
 		value    string
 		skipNext bool
 
 		lines = 1
-		s     = string(data)
-		sr    = []rune(s)
+		sr    = []rune(data)
 	)
 	tks = make([]*token, 0)
 
-	for i, r := range s {
+	for i, r := range data {
 		if skipNext {
 			skipNext = false
 			continue
 		}
 
-		if r == '\n' {
-			lines++
-		} else if unicode.IsSpace(r) {
+		if unicode.IsSpace(r) {
+			if r == '\n' {
+				lines++
+			}
+
 			if value == "" {
 				continue
 			}

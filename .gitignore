@@ -1,4 +1,4 @@
 *~
 .idea/
-/sample/server/server
-/sample/client/client
+/examples/full/server/server
+/examples/full/client/client

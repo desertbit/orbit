@@ -52,9 +52,9 @@ const (
 	tkMap = "map"
 )
 
-func Parse(filePath string) (services []*Service, types map[string]*StructType, str string, err error) {
+func Parse(data string) (services []*Service, types []*StructType, err error) {
 	// Tokenize the file.
-	tks, err := tokenize(filePath)
+	tks, err := tokenize(data)
 	if err != nil {
 		return
 	}
@@ -69,7 +69,11 @@ func Parse(filePath string) (services []*Service, types map[string]*StructType, 
 		return
 	}
 
-	types = p.types
+	types = make([]*StructType, 0, len(p.types))
+	for _, t := range p.types {
+		types = append(types, t)
+	}
+
 	return
 }
 
@@ -96,31 +100,30 @@ func newParser(tks []*token) (p *parser, err error) {
 }
 
 func (p *parser) parse() (srvcs []*Service, err error) {
-	var (
-		srvc *Service
-	)
-
 	for {
 		// Either a service or a type can be declared top-level.
 		if p.ck.value == tkService {
 			// Expect service.
+			var srvc *Service
 			srvc, err = p.expectService()
 			if err != nil {
 				return
 			}
 
+			// Check, if the service has already been defined.
+			for _, sr := range srvcs {
+				if sr.Name == srvc.Name {
+					err = &Error{msg: fmt.Sprintf("service '%s' declared twice"), line: p.ck.line}
+					return
+				}
+			}
+
 			srvcs = append(srvcs, srvc)
 		} else if p.ck.value == tkType {
-			// Expect name
+			// Expect name.
 			var name string
 			name, err = p.expectName()
 			if err != nil {
-				return
-			}
-
-			// Check, if type is redeclared.
-			if tt, ok := p.types[name]; ok && tt.Fields != nil {
-				err = &Error{msg: fmt.Sprintf("type '%s' redeclared", name), line: p.ck.line}
 				return
 			}
 
@@ -131,14 +134,10 @@ func (p *parser) parse() (srvcs []*Service, err error) {
 			}
 
 			// Expect struct type.
-			var t *StructType
-			t, err = p.expectStructType()
+			_, err = p.expectStructType(name)
 			if err != nil {
 				return
 			}
-			t.name = name
-
-			// Todo: save type?
 		} else {
 			err = &Error{msg: fmt.Sprintf("unknown top-level keyword '%s'", p.ck.value), line: p.ck.line}
 			return
@@ -252,26 +251,15 @@ func (p *parser) expectEntryParam(entryName, inPlaceSuffix string) (ep *EntryPar
 	isStream := p.checkSymbol(tkEntryParamStream)
 
 	// Check '{' (in-place type).
+	// Otherwise, expect struct type reference.
 	var t *StructType
 	if p.checkSymbol(tkBraceL) {
-		t, err = p.expectStructType()
-		if err != nil {
-			return
-		}
-		t.name = entryName + inPlaceSuffix
-
-		// Add to types. Must not exist.
-		if _, ok := p.types[t.name]; ok {
-			err = &Error{msg: fmt.Sprintf("entry '%s' redeclared in service", entryName), line: p.ck.line}
-			return
-		}
-		p.types[t.name] = t
+		t, err = p.expectStructType(entryName + inPlaceSuffix)
 	} else {
-		// Expect struct type reference.
 		t, err = p.expectStructTypeRef()
-		if err != nil {
-			return
-		}
+	}
+	if err != nil {
+		return
 	}
 
 	// Expect ')'.
@@ -407,8 +395,7 @@ func (p *parser) expectArrType() (a *ArrType, err error) {
 }
 
 func (p *parser) expectBaseType() (b *BaseType, err error) {
-	var ok bool
-	b, ok = p.checkBaseType()
+	b, ok := p.checkBaseType()
 	if !ok {
 		err = &Error{msg: fmt.Sprintf("expected base type, but got '%s'", p.ck.value), line: p.ck.line}
 		return
@@ -416,7 +403,19 @@ func (p *parser) expectBaseType() (b *BaseType, err error) {
 	return
 }
 
-func (p *parser) expectStructType() (t *StructType, err error) {
+func (p *parser) expectStructType(name string) (s *StructType, err error) {
+	// Check, if the struct has already been declared.
+	// References have the fields of the struct not filled yet.
+	s, ok := p.types[name]
+	if !ok {
+		// New type.
+		s = &StructType{Name: name}
+		p.types[name] = s
+	} else if s.Fields != nil {
+		err = &Error{msg: fmt.Sprintf("type '%s' declared twice", name), line: p.ck.line}
+		return
+	}
+
 	// Parse fields of struct.
 	for {
 		// Check end.
@@ -424,16 +423,22 @@ func (p *parser) expectStructType() (t *StructType, err error) {
 			return
 		}
 
-		var f Type
-		f, err = p.expectType()
+		f := &StructField{}
+
+		// Expect name.
+		f.Name, err = p.expectName()
 		if err != nil {
 			return
 		}
 
-		t.Fields = append(t.Fields, f)
-	}
+		// Expect type.
+		f.Type, err = p.expectType()
+		if err != nil {
+			return
+		}
 
-	// TODO: probably should handle type addition here.
+		s.Fields = append(s.Fields, f)
+	}
 }
 
 func (p *parser) expectStructTypeRef() (s *StructType, err error) {
@@ -451,7 +456,7 @@ func (p *parser) expectStructTypeRef() (s *StructType, err error) {
 	}
 
 	// Add as new type.
-	s = &StructType{name: name}
+	s = &StructType{Name: name}
 	p.types[name] = s
 	return
 }

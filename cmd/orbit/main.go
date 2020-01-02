@@ -27,6 +27,18 @@
 
 package main
 
-func main() {
+import (
+	"github.com/desertbit/grumble"
+)
 
+// Create the grumble app.
+var App = grumble.New(&grumble.Config{
+	Name:        "orbit",
+	Description: "orbit's helper application",
+
+	Flags: func(f *grumble.Flags) {},
+})
+
+func main() {
+	grumble.Main(App)
 }
