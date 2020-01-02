@@ -34,6 +34,7 @@ type Service struct {
 
 type Entry interface {
 	Name() string
+	Rev() bool
 }
 
 type EntryParam struct {
@@ -43,6 +44,7 @@ type EntryParam struct {
 
 type Call struct {
 	name string
+	rev  bool
 
 	Args *EntryParam
 	Ret  *EntryParam
@@ -52,23 +54,21 @@ func (c *Call) Name() string {
 	return c.name
 }
 
-type RevCall struct {
-	name string
-
-	Args *EntryParam
-	Ret  *EntryParam
-}
-
-func (r *RevCall) Name() string {
-	return r.name
+func (c *Call) Rev() bool {
+	return c.rev
 }
 
 type Stream struct {
 	name string
+	rev  bool
 }
 
 func (s *Stream) Name() string {
 	return s.name
+}
+
+func (s *Stream) Rev() bool {
+	return s.rev
 }
 
 type Type interface{}

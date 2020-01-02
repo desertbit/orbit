@@ -51,3 +51,13 @@ func RandomString(n uint) (string, error) {
 	}
 	return string(bytes), nil
 }
+
+// TODO: doc
+func IsOneOfStr(s string, poss ...string) bool {
+	for _, p := range poss {
+		if p == s {
+			return true
+		}
+	}
+	return false
+}

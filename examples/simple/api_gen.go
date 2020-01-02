@@ -3,6 +3,7 @@ package simple
 
 import (
 	"time"
+	"net"
 )
 
 //#############//
@@ -14,34 +15,65 @@ type Char struct {
 }
 
 type Plate struct {
-	name    string
-	rect    *Rect
-	test    map[int]*Rect
-	test2   []*Rect
-	test3   []float32
-	test4   map[string]map[int][]*Rect
-	ts      time.Time
+	name string
+	rect *Rect
+	test map[int]*Rect
+	test2 []*Rect
+	test3 []float32
+	test4 map[string]map[int][]*Rect
+	ts time.Time
 	version int
 }
 
 type Rect struct {
-	c  *Char
+	c *Char
 	x1 float32
 	x2 float32
 	y1 float32
 	y2 float32
 }
 
-type test2Args struct {
+type Test2Args struct {
 	c map[int][]*Rect
 	i int
 	v float64
 }
 
-type test2Ret struct {
+type Test2Ret struct {
 	lol string
 }
 
 //################//
 //### Services ###//
 //################//
+
+// Bencher ---------------------
+type BencherConsumerCaller interface {
+	// Calls
+	Test(args *Plate) (ret *Rect, err error)
+	// Streams
+	Hello(conn net.Conn) (err error)
+}
+
+type BencherConsumerHandler interface {
+	// Calls
+	Test2(args *Test2Args) (ret *Test2Ret, err error)
+	// Streams
+	Hello2(conn net.Conn) (err error)
+}
+
+type BencherProviderCaller interface {
+	// Calls
+	Test2(args *Test2Args) (ret *Test2Ret, err error)
+	// Streams
+	Hello2(conn net.Conn) (err error)
+}
+
+type BencherProviderHandler interface {
+	// Calls
+	Test(args *Plate) (ret *Rect, err error)
+	// Streams
+	Hello(conn net.Conn) (err error)
+}
+// ---------------------
+

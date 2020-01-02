@@ -30,7 +30,10 @@ package parse
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"unicode"
+
+	"github.com/desertbit/orbit/internal/utils"
 )
 
 const (
@@ -39,6 +42,7 @@ const (
 	tkEntryCall        = "call"
 	tkEntryRevCall     = "revcall"
 	tkEntryStream      = "stream"
+	tkEntryRevStream   = "revstream"
 	tkEntryParamStream = "stream"
 
 	tkBraceL   = "{"
@@ -157,7 +161,7 @@ func (p *parser) expectService() (srvc *Service, err error) {
 	if err != nil {
 		return
 	}
-	srvc = &Service{Name: name}
+	srvc = &Service{Name: strings.Title(name)}
 
 	// Expecting "{"
 	err = p.expectSymbol(tkBraceL)
@@ -195,7 +199,7 @@ func (p *parser) expectEntry() (e Entry, err error) {
 		err = &Error{msg: "expected entry type, but is missing", line: p.ck.line}
 		return
 	}
-	if p.ck.value != tkEntryCall && p.ck.value != tkEntryRevCall && p.ck.value != tkEntryStream {
+	if !utils.IsOneOfStr(p.ck.value, tkEntryCall, tkEntryRevCall, tkEntryStream, tkEntryRevStream) {
 		err = fmt.Errorf("expected entry type, but got '%s'", p.ck.value)
 		return
 	}
@@ -206,10 +210,11 @@ func (p *parser) expectEntry() (e Entry, err error) {
 	if err != nil {
 		return
 	}
+	name = strings.Title(name)
 
 	// If a stream, then no arguments.
-	if t == tkEntryStream {
-		e = &Stream{name: name}
+	if t == tkEntryStream || t == tkEntryRevStream {
+		e = &Stream{name: name, rev: t == tkEntryRevStream}
 		return
 	}
 
@@ -230,11 +235,7 @@ func (p *parser) expectEntry() (e Entry, err error) {
 	}
 
 	// Create entry based on type.
-	if t == tkEntryCall {
-		e = &Call{name: name, Args: args, Ret: ret}
-	} else {
-		e = &RevCall{name: name, Args: args, Ret: ret}
-	}
+	e = &Call{name: name, rev: t == tkEntryRevCall, Args: args, Ret: ret}
 	return
 }
 

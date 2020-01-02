@@ -78,6 +78,13 @@ func Generate(filePath string) (err error) {
 		s2.WriteString("\n\n")
 	}
 
+	// Generate the service definitions.
+	// Use a new builder, as we must first write the imports.
+	s3 := strings.Builder{}
+	for _, srvc := range services {
+		genService(&s3, imports, srvc)
+	}
+
 	// Write the imports.
 	if len(imports) > 0 {
 		s.WriteString("import (\n")
@@ -91,11 +98,8 @@ func Generate(filePath string) (err error) {
 	s.WriteString("//#############//\n//### Types ###//\n//#############//\n\n")
 	s.WriteString(s2.String())
 
-	// Generate the service definitions.
 	s.WriteString("//################//\n//### Services ###//\n//################//\n\n")
-	for _, srvc := range services {
-		genService(&s, srvc)
-	}
+	s.WriteString(s3.String())
 
 	// Write the contents to the file.
 	return ioutil.WriteFile(
@@ -160,11 +164,74 @@ func genType(s *strings.Builder, imports map[string]struct{}, t parse.Type) {
 	}
 }
 
-func genService(s *strings.Builder, srvc *parse.Service) {
+func genService(s *strings.Builder, imports map[string]struct{}, srvc *parse.Service) {
+	s.WriteString("// " + srvc.Name + " ---------------------\n")
 
+	var (
+		calls      = make([]*parse.Call, 0)
+		revCalls   = make([]*parse.Call, 0)
+		streams    = make([]*parse.Stream, 0)
+		revStreams = make([]*parse.Stream, 0)
+	)
+
+	// Sort the entries into the respective categories.
+	for _, e := range srvc.Entries {
+		switch v := e.(type) {
+		case *parse.Call:
+			if v.Rev() {
+				revCalls = append(revCalls, v)
+			} else {
+				calls = append(calls, v)
+			}
+		case *parse.Stream:
+			if v.Rev() {
+				revStreams = append(revStreams, v)
+			} else {
+				streams = append(streams, v)
+			}
+		}
+	}
+
+	// Imports!
+	if len(streams) > 0 || len(revStreams) > 0 {
+		imports["net"] = struct{}{}
+	}
+
+	// Create the interfaces.
+	genCallerInterface(s, srvc.Name+"Consumer", calls, streams)
+	s.WriteString("\n")
+	genHandlerInterface(s, srvc.Name+"Consumer", revCalls, revStreams)
+	s.WriteString("\n")
+	genCallerInterface(s, srvc.Name+"Provider", revCalls, revStreams)
+	s.WriteString("\n")
+	genHandlerInterface(s, srvc.Name+"Provider", calls, streams)
+
+	s.WriteString("// ---------------------\n\n")
 	return
 }
 
-func genCall(s *strings.Builder, c *parse.Call) {
+func genCallerInterface(s *strings.Builder, name string, calls []*parse.Call, streams []*parse.Stream) {
+	s.WriteString(fmt.Sprintf("type %sCaller interface {\n", name))
+	s.WriteString("\t// Calls\n")
+	for _, c := range calls {
+		s.WriteString(fmt.Sprintf("\t%s(args *%s) (ret *%s, err error)\n", c.Name(), c.Args.Type.Name, c.Ret.Type.Name))
+	}
+	s.WriteString("\t// Streams\n")
+	for _, st := range streams {
+		s.WriteString(fmt.Sprintf("\t%s(conn net.Conn) (err error)\n", st.Name()))
+	}
+	s.WriteString("}\n")
+}
 
+func genHandlerInterface(s *strings.Builder, name string, calls []*parse.Call, streams []*parse.Stream) {
+	s.WriteString(fmt.Sprintf("type %sHandler interface {\n", name))
+	s.WriteString("\t// Calls\n")
+	for _, c := range calls {
+		s.WriteString(fmt.Sprintf("\t%s(args *%s) (ret *%s, err error)\n", c.Name(), c.Args.Type.Name, c.Ret.Type.Name))
+	}
+	s.WriteString("\t// Streams\n")
+	for _, st := range streams {
+		s.WriteString(fmt.Sprintf("\t%s(conn net.Conn) (err error)\n", st.Name()))
+	}
+	s.WriteString("}\n")
 }
