@@ -197,14 +197,17 @@ func (s *Server) handleConnection(conn Conn) (err error) {
 
 	// Add the new session to the active sessions map.
 	// If the ID is already present, then generate a new one.
-	var id string
-	for {
+	var (
+		id    string
+		added bool
+	)
+	for i := 0; i < 10; i++ {
 		id, err = utils.RandomString(sessionIDLength)
 		if err != nil {
 			return
 		}
 
-		added := func() bool {
+		added = func() bool {
 			s.sessionsMutex.Lock()
 			defer s.sessionsMutex.Unlock()
 
@@ -219,6 +222,10 @@ func (s *Server) handleConnection(conn Conn) (err error) {
 		if added {
 			break
 		}
+	}
+	if !added {
+		err = fmt.Errorf("failed generate unique random session ID")
+		return
 	}
 
 	sn.OnClosing(func() error {
