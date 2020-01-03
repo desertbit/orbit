@@ -55,7 +55,7 @@ func newServerSession(cl closer.Closer, conn Conn, config *Config) (s *Session, 
 	config = prepareConfig(config)
 
 	// Create new context with a timeout.
-	ctx, cancel := context.WithTimeout(context.Background(), streamAcceptTimout)
+	ctx, cancel := context.WithTimeout(context.Background(), streamInitTimeout)
 	defer cancel()
 
 	// Wait for an incoming stream.
