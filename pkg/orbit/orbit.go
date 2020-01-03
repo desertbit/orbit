@@ -50,3 +50,13 @@ type Conn interface {
 	// RemoteAddr returns the address of the peer.
 	RemoteAddr() net.Addr
 }
+
+type Listener interface {
+	closer.Closer
+
+	// Accept waits for and returns the next connection to the listener.
+	Accept() (Conn, error)
+
+	// Addr returns the listener's network address.
+	Addr() Addr
+}
