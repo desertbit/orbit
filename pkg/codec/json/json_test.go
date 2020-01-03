@@ -25,18 +25,15 @@
  * SOFTWARE.
  */
 
-package orbit
+package json_test
 
-import "errors"
+import (
+	"testing"
 
-var (
-	// ErrInvalidVersion defines the error if the version of both peers do not match
-	// during the version exchange.
-	ErrIncompatibleVersion = errors.New("invalid version")
-
-	// ErrOpenTimeout defines the error if the opening of a stream timeouts.
-	ErrOpenTimeout = errors.New("open timeout")
-
-	// ErrClosed defines the error if a stream is unexpectedly closed.
-	ErrClosed = errors.New("closed")
+	"github.com/desertbit/orbit/pkg/codec"
+	"github.com/desertbit/orbit/pkg/codec/json"
 )
+
+func TestJSON(t *testing.T) {
+	codec.Tester(t, json.Codec)
+}

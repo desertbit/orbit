@@ -216,10 +216,11 @@ func genCallerInterface(s *strings.Builder, name string, calls []*parse.Call, st
 	s.WriteString(fmt.Sprintf("type %sCaller interface {\n", name))
 	s.WriteString("\t// Calls\n")
 	for _, c := range calls {
-		s.WriteString("\t" + c.Name())
+		s.WriteString("\t" + c.Name() + "(")
 		if c.Args != nil {
-			s.WriteString("(args *" + c.Args.Type.Name + ")")
+			s.WriteString("args *" + c.Args.Type.Name)
 		}
+		s.WriteString(")")
 		s.WriteString(" (")
 		if c.Ret != nil {
 			s.WriteString("ret *" + c.Ret.Type.Name + ", ")
@@ -237,10 +238,11 @@ func genHandlerInterface(s *strings.Builder, name string, calls []*parse.Call, s
 	s.WriteString(fmt.Sprintf("type %sHandler interface {\n", name))
 	s.WriteString("\t// Calls\n")
 	for _, c := range calls {
-		s.WriteString("\t" + c.Name())
+		s.WriteString("\t" + c.Name() + "(")
 		if c.Args != nil {
-			s.WriteString("(args *" + c.Args.Type.Name + ")")
+			s.WriteString("args *" + c.Args.Type.Name)
 		}
+		s.WriteString(")")
 		s.WriteString(" (")
 		if c.Ret != nil {
 			s.WriteString("ret *" + c.Ret.Type.Name + ", ")

@@ -3,8 +3,8 @@
  *
  * The MIT License (MIT)
  *
- * Copyright (c) 2018 Roland Singer <roland.singer[at]desertbit.com>
- * Copyright (c) 2018 Sebastian Borchers <sebastian[at]desertbit.com>
+ * Copyright (c) 2020 Roland Singer <roland.singer[at]desertbit.com>
+ * Copyright (c) 2020 Sebastian Borchers <sebastian[at]desertbit.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -25,18 +25,30 @@
  * SOFTWARE.
  */
 
-package orbit
+//go:generate msgp
+package api
 
-import "errors"
-
-var (
-	// ErrInvalidVersion defines the error if the version of both peers do not match
-	// during the version exchange.
-	ErrIncompatibleVersion = errors.New("invalid version")
-
-	// ErrOpenTimeout defines the error if the opening of a stream timeouts.
-	ErrOpenTimeout = errors.New("open timeout")
-
-	// ErrClosed defines the error if a stream is unexpectedly closed.
-	ErrClosed = errors.New("closed")
+const (
+	// The version of the application.
+	Version = 2
 )
+
+type InitStream struct {
+	Channel string
+}
+
+type ControlCall struct {
+	ID         string
+	Key        uint64
+	Cancelable bool
+}
+
+type ControlReturn struct {
+	Key  uint64
+	Msg  string
+	Code int
+}
+
+type ControlCancel struct {
+	Key uint64
+}

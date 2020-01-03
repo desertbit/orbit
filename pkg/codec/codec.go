@@ -25,18 +25,17 @@
  * SOFTWARE.
  */
 
-package orbit
+/*
+Package codec contains sub-packages with different codecs that can be used
+to encode/decode any entity to/from a byte stream.
+*/
+package codec
 
-import "errors"
+// Codec represents a codec used to encode and decode entities.
+type Codec interface {
+	// Encode encodes the value to a byte slice.
+	Encode(v interface{}) ([]byte, error)
 
-var (
-	// ErrInvalidVersion defines the error if the version of both peers do not match
-	// during the version exchange.
-	ErrIncompatibleVersion = errors.New("invalid version")
-
-	// ErrOpenTimeout defines the error if the opening of a stream timeouts.
-	ErrOpenTimeout = errors.New("open timeout")
-
-	// ErrClosed defines the error if a stream is unexpectedly closed.
-	ErrClosed = errors.New("closed")
-)
+	// Decode decodes the byte slice into the value.
+	Decode(b []byte, v interface{}) error
+}

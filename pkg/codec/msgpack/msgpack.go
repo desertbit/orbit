@@ -25,18 +25,45 @@
  * SOFTWARE.
  */
 
-package orbit
+/*
+Package msgpack offers an implementation of the codec.Codec interface
+for the msgpack data format.
 
-import "errors"
+It uses the faster https://github.com/tinylib/msgp/msgp Un-/Marshaler,
+if it is implemented on the entity. Otherwise, it falls back to
+using the Un-/Marshal funcs from the https://gopkg.in/vmihailenco/msgpack.v3 package.
+*/
+package msgpack
 
-var (
-	// ErrInvalidVersion defines the error if the version of both peers do not match
-	// during the version exchange.
-	ErrIncompatibleVersion = errors.New("invalid version")
-
-	// ErrOpenTimeout defines the error if the opening of a stream timeouts.
-	ErrOpenTimeout = errors.New("open timeout")
-
-	// ErrClosed defines the error if a stream is unexpectedly closed.
-	ErrClosed = errors.New("closed")
+import (
+	"github.com/tinylib/msgp/msgp"
+	msgpack "gopkg.in/vmihailenco/msgpack.v3"
 )
+
+// Codec that encodes to and decodes from msgpack.
+var Codec = &msgpackCodec{}
+
+// The msgpackCodec type is a private dummy struct used
+// to implement the codec.Codec interface using msgpack.
+type msgpackCodec struct{}
+
+// Implements the codec.Codec interface.
+// It uses the faster msgp.Marshaler if implemented.
+func (mc *msgpackCodec) Encode(v interface{}) ([]byte, error) {
+	if d, ok := v.(msgp.Marshaler); ok {
+		return d.MarshalMsg(nil)
+	}
+
+	return msgpack.Marshal(v)
+}
+
+// Implements the codec.Codec interface.
+// It uses the faster msgp.Unmarshaler if implemented.
+func (mc *msgpackCodec) Decode(b []byte, v interface{}) error {
+	if d, ok := v.(msgp.Unmarshaler); ok {
+		_, err := d.UnmarshalMsg(b)
+		return err
+	}
+
+	return msgpack.Unmarshal(b, v)
+}

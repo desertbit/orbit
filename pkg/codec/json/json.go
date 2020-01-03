@@ -25,18 +25,30 @@
  * SOFTWARE.
  */
 
-package orbit
+/*
+Package json offers an implementation of the codec.Codec interface
+for the json data format. It uses the https://golang.org/pkg/encoding/json/
+pkg to en-/decode an entity to/from a byte slice.
+*/
+package json
 
-import "errors"
+import "encoding/json"
 
-var (
-	// ErrInvalidVersion defines the error if the version of both peers do not match
-	// during the version exchange.
-	ErrIncompatibleVersion = errors.New("invalid version")
+// Codec that encodes to and decodes from JSON.
+var Codec = &jsonCodec{}
 
-	// ErrOpenTimeout defines the error if the opening of a stream timeouts.
-	ErrOpenTimeout = errors.New("open timeout")
+// The jsonCodec type is a private dummy struct used
+// to implement the codec.Codec interface using JSON.
+type jsonCodec struct{}
 
-	// ErrClosed defines the error if a stream is unexpectedly closed.
-	ErrClosed = errors.New("closed")
-)
+// Implements the codec.Codec interface.
+// It uses the json.Marshal func.
+func (j *jsonCodec) Encode(v interface{}) ([]byte, error) {
+	return json.Marshal(v)
+}
+
+// Implements the codec.Codec interface.
+// It uses the json.Unmarshal func.
+func (j *jsonCodec) Decode(b []byte, v interface{}) error {
+	return json.Unmarshal(b, v)
+}

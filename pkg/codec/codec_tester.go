@@ -25,18 +25,36 @@
  * SOFTWARE.
  */
 
-package orbit
+package codec
 
-import "errors"
+import (
+	"encoding/gob"
+	"testing"
 
-var (
-	// ErrInvalidVersion defines the error if the version of both peers do not match
-	// during the version exchange.
-	ErrIncompatibleVersion = errors.New("invalid version")
-
-	// ErrOpenTimeout defines the error if the opening of a stream timeouts.
-	ErrOpenTimeout = errors.New("open timeout")
-
-	// ErrClosed defines the error if a stream is unexpectedly closed.
-	ErrClosed = errors.New("closed")
+	"github.com/stretchr/testify/require"
 )
+
+type test struct {
+	Name string
+}
+
+// Tester is a test helper to test a Codec.
+// It encodes a test struct using the given codec and decodes
+// it into a second test struct afterwards.
+// It then uses the reflect pkg to check if both structs have
+// the exact same values.
+func Tester(t *testing.T, c Codec) {
+	val := &test{Name: "test"}
+	to := &test{}
+
+	encoded, err := c.Encode(val)
+	require.NoError(t, err)
+
+	err = c.Decode(encoded, to)
+	require.NoError(t, err)
+	require.Exactly(t, to, val)
+}
+
+func init() {
+	gob.Register(&test{})
+}

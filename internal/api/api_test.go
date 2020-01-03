@@ -3,8 +3,8 @@
  *
  * The MIT License (MIT)
  *
- * Copyright (c) 2018 Roland Singer <roland.singer[at]desertbit.com>
- * Copyright (c) 2018 Sebastian Borchers <sebastian[at]desertbit.com>
+ * Copyright (c) 2020 Roland Singer <roland.singer[at]desertbit.com>
+ * Copyright (c) 2020 Sebastian Borchers <sebastian[at]desertbit.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -25,18 +25,23 @@
  * SOFTWARE.
  */
 
-package orbit
+package api
 
-import "errors"
+import (
+	"testing"
 
-var (
-	// ErrInvalidVersion defines the error if the version of both peers do not match
-	// during the version exchange.
-	ErrIncompatibleVersion = errors.New("invalid version")
-
-	// ErrOpenTimeout defines the error if the opening of a stream timeouts.
-	ErrOpenTimeout = errors.New("open timeout")
-
-	// ErrClosed defines the error if a stream is unexpectedly closed.
-	ErrClosed = errors.New("closed")
+	"github.com/stretchr/testify/require"
+	"github.com/tinylib/msgp/msgp"
 )
+
+func TestMsgpImplementation(t *testing.T) {
+	t.Parallel()
+
+	testCases := []interface{}{
+		&InitStream{}, &ControlCall{}, &ControlReturn{}, &ControlCancel{},
+	}
+
+	for i, tc := range testCases {
+		require.Implements(t, (*msgp.Marshaler)(nil), tc, "Test Case %d", i+1)
+	}
+}

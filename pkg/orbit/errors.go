@@ -3,8 +3,8 @@
  *
  * The MIT License (MIT)
  *
- * Copyright (c) 2018 Roland Singer <roland.singer[at]desertbit.com>
- * Copyright (c) 2018 Sebastian Borchers <sebastian[at]desertbit.com>
+ * Copyright (c) 2020 Roland Singer <roland.singer[at]desertbit.com>
+ * Copyright (c) 2020 Sebastian Borchers <sebastian[at]desertbit.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -27,16 +27,18 @@
 
 package orbit
 
-import "errors"
+import (
+	"errors"
+)
 
 var (
+	// ErrClosed defines the error if a stream is unexpectedly closed.
+	ErrClosed = errors.New("closed")
+
 	// ErrInvalidVersion defines the error if the version of both peers do not match
 	// during the version exchange.
-	ErrIncompatibleVersion = errors.New("invalid version")
+	ErrInvalidVersion = errors.New("invalid version")
 
 	// ErrOpenTimeout defines the error if the opening of a stream timeouts.
 	ErrOpenTimeout = errors.New("open timeout")
-
-	// ErrClosed defines the error if a stream is unexpectedly closed.
-	ErrClosed = errors.New("closed")
 )
