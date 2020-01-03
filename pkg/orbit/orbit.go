@@ -28,6 +28,7 @@
 package orbit
 
 import (
+	"context"
 	"net"
 
 	"github.com/desertbit/closer/v3"
@@ -37,12 +38,12 @@ type Conn interface {
 	closer.Closer
 
 	// AcceptStream returns the next stream opened by the peer, blocking until one is available.
-	AcceptStream() (net.Conn, error)
+	AcceptStream(context.Context) (net.Conn, error)
 
 	// OpenStream opens a new bidirectional stream.
 	// There is no signaling to the peer about new streams:
 	// The peer can only accept the stream after data has been sent on the stream.
-	OpenStream() (net.Conn, error)
+	OpenStream(context.Context) (net.Conn, error)
 
 	// LocalAddr returns the local address.
 	LocalAddr() net.Addr
