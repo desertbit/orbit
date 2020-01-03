@@ -28,6 +28,7 @@
 package yamux
 
 import (
+	"context"
 	glog "log"
 	"net"
 
@@ -46,7 +47,7 @@ type session struct {
 	ys   *yamux.Session
 }
 
-func newSession(cl closer.Closer, conn net.Conn, isServer bool, cfg *yamux.Config) (s *session, err error) {
+func newSession(cl closer.Closer, conn net.Conn, isServer bool, conf *yamux.Config) (s *session, err error) {
 	s = &session{
 		Closer: cl,
 		conn:   conn,
@@ -61,17 +62,17 @@ func newSession(cl closer.Closer, conn net.Conn, isServer bool, cfg *yamux.Confi
 	}()
 
 	// Prepare yamux config.
-	if cfg == nil {
-		cfg = yamux.DefaultConfig()
-		cfg.Logger = glog.New(log.With().Logger(), "yamux: ", 0)
-		cfg.LogOutput = nil
+	if conf == nil {
+		conf = yamux.DefaultConfig()
+		conf.Logger = glog.New(log.With().Logger(), "yamux: ", 0)
+		conf.LogOutput = nil
 	}
 
 	// Create a new yamux session.
 	if isServer {
-		s.ys, err = yamux.Server(conn, cfg)
+		s.ys, err = yamux.Server(conn, conf)
 	} else {
-		s.ys, err = yamux.Client(conn, cfg)
+		s.ys, err = yamux.Client(conn, conf)
 	}
 	if err != nil {
 		return
@@ -101,13 +102,15 @@ func (s *session) RemoteAddr() net.Addr {
 }
 
 // AcceptStream returns the next stream opened by the peer, blocking until one is available.
-func (s *session) AcceptStream() (net.Conn, error) {
+func (s *session) AcceptStream(ctx context.Context) (net.Conn, error) {
+	// TODO: Fork the yamux package and implement the context cancel handling.
 	return s.ys.Accept()
 }
 
 // OpenStream opens a new bidirectional stream.
 // There is no signaling to the peer about new streams:
 // The peer can only accept the stream after data has been sent on the stream.
-func (s *session) OpenStream() (net.Conn, error) {
+func (s *session) OpenStream(ctx context.Context) (net.Conn, error) {
+	// TODO: Fork the yamux package and implement the context cancel handling.
 	return s.ys.Open()
 }
