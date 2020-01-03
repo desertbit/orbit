@@ -27,6 +27,35 @@
 
 package main
 
+import (
+	"net"
+
+	"github.com/desertbit/orbit/examples/simple/api"
+	"github.com/desertbit/orbit/old/orbit"
+)
+
+type Server struct {
+	api.ExampleProviderCaller
+}
+
+func NewServer(so *orbit.Server) (s *Server, err error) {
+	s = &Server{}
+	s.ExampleProviderCaller, err = api.RegisterExampleProvider(so, s)
+	if err != nil {
+		return
+	}
+
+	return
+}
+
+func (s *Server) Test(args *api.Plate) (ret *api.Rect, err error) {
+	panic("implement me")
+}
+
+func (s *Server) Hello(conn net.Conn) (err error) {
+	panic("implement me")
+}
+
 func main() {
 
 }

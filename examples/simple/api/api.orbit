@@ -1,4 +1,4 @@
-service bencher {
+service example {
     call test(Plate) (stream Rect)
     revcall test2({
         i int

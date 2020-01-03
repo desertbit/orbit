@@ -27,6 +27,36 @@
 
 package main
 
+import (
+	"net"
+
+	"github.com/desertbit/orbit/examples/simple/api"
+	"github.com/desertbit/orbit/old/orbit"
+)
+
+type Client struct {
+	api.ExampleConsumerCaller
+}
+
+func NewClient(co *orbit.Client) (caller api.ExampleConsumerCaller, err error) {
+	c := &Client{}
+	c.ExampleConsumerCaller, err = api.RegisterExampleConsumer(co, c)
+	if err != nil {
+		return
+	}
+
+	caller = c
+	return
+}
+
+func (c *Client) Test2(args *api.Test2Args) (ret *api.Test2Ret, err error) {
+	panic("implement me")
+}
+
+func (c *Client) Hello2(conn net.Conn) (err error) {
+	panic("implement me")
+}
+
 func main() {
 
 }
