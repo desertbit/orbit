@@ -30,15 +30,16 @@ package main
 import (
 	"net"
 
+	"github.com/desertbit/closer/v3"
 	"github.com/desertbit/orbit/examples/simple/api"
-	"github.com/desertbit/orbit/old/orbit"
+	"github.com/desertbit/orbit/pkg/orbit"
 )
 
 type Client struct {
 	api.ExampleConsumerCaller
 }
 
-func NewClient(co *orbit.Client) (caller api.ExampleConsumerCaller, err error) {
+func NewClient(co *orbit.Session) (caller api.ExampleConsumerCaller, err error) {
 	c := &Client{}
 	c.ExampleConsumerCaller, err = api.RegisterExampleConsumer(co, c)
 	if err != nil {
@@ -58,5 +59,16 @@ func (c *Client) Hello2(conn net.Conn) (err error) {
 }
 
 func main() {
+	cl := closer.New()
 
+	var conn orbit.Conn
+	co, err := orbit.NewClient(cl.CloserTwoWay(), conn, &orbit.Config{PrintPanicStackTraces: true})
+	if err != nil {
+		return
+	}
+
+	c, err := NewClient(co)
+	if err != nil {
+		return
+	}
 }

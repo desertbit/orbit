@@ -62,8 +62,8 @@ type Server struct {
 // been set will be initialized with a default value.
 // That makes it possible to overwrite only the interesting properties
 // for the caller.
-func NewServer(cl closer.Closer, ln Listener, config *ServerConfig) *Server {
-	return newServer(cl, ln, config)
+func NewServer(cl closer.Closer, ln Listener, cf *ServerConfig) *Server {
+	return newServer(cl, ln, cf)
 }
 
 // newServer is the internal helper to create a new orbit server.

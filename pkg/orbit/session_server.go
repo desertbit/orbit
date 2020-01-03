@@ -33,7 +33,7 @@ import (
 	"time"
 
 	"github.com/desertbit/closer/v3"
-	"github.com/desertbit/orbit/old/api"
+	"github.com/desertbit/orbit/internal/api"
 )
 
 const (
@@ -43,7 +43,7 @@ const (
 )
 
 // serverSession is the internal helper to initialize a new server-side session.
-func newServerSession(cl closer.Closer, conn Conn, config *Config) (s *Session, err error) {
+func newServerSession(cl closer.Closer, conn Conn, cf *Config) (s *Session, err error) {
 	// Always close the conn on error.
 	defer func() {
 		if err != nil {
@@ -52,7 +52,7 @@ func newServerSession(cl closer.Closer, conn Conn, config *Config) (s *Session, 
 	}()
 
 	// Prepare the config with default values, where needed.
-	config = prepareConfig(config)
+	cf = prepareConfig(cf)
 
 	// Create new context with a timeout.
 	ctx, cancel := context.WithTimeout(context.Background(), streamInitTimeout)
@@ -85,7 +85,7 @@ func newServerSession(cl closer.Closer, conn Conn, config *Config) (s *Session, 
 	// TODO: auth hook?
 
 	// Finally, create the orbit server session.
-	s = newSession(cl, conn, config, false)
+	s = newSession(cl, conn, cf, false)
 
 	// Save the arbitrary data from the auth func.
 	//s.Value = value TODO

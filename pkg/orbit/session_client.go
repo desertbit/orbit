@@ -33,7 +33,7 @@ import (
 	"time"
 
 	"github.com/desertbit/closer/v3"
-	"github.com/desertbit/orbit/old/api"
+	"github.com/desertbit/orbit/internal/api"
 )
 
 const (
