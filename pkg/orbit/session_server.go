@@ -36,6 +36,12 @@ import (
 	"github.com/hashicorp/yamux"
 )
 
+const (
+	// The time duration after which we timeout if the version byte could
+	// not be written to the stream.
+	streamVersionReadTimeout = 20 * time.Second
+)
+
 // serverSession is the internal helper to initialize a new server-side session.
 func newServerSession(cl closer.Closer, conn Conn, config *Config) (s *Session, err error) {
 	// Always close the conn on error.
@@ -48,8 +54,13 @@ func newServerSession(cl closer.Closer, conn Conn, config *Config) (s *Session, 
 	// Prepare the config with default values, where needed.
 	config = prepareConfig(config)
 
+	stream, err := conn.AcceptStream()
+	if err != nil {
+		return
+	}
+
 	// Set a read timeout.
-	err = conn.SetReadDeadline(time.Now().Add(streamVersionReadTimeout))
+	err = stream.SetReadDeadline(time.Now().Add(streamVersionReadTimeout))
 	if err != nil {
 		return
 	}

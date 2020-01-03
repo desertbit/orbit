@@ -56,7 +56,7 @@ func newSession(cl closer.Closer, conn net.Conn, isServer bool, cfg *yamux.Confi
 	// Always close on error.
 	defer func() {
 		if err != nil {
-			s.Close()
+			s.Close_()
 		}
 	}()
 
@@ -84,7 +84,7 @@ func newSession(cl closer.Closer, conn net.Conn, isServer bool, cfg *yamux.Confi
 		case <-s.ClosingChan():
 		case <-s.ys.CloseChan():
 		}
-		s.Close()
+		s.Close_()
 	}()
 
 	return s, nil
