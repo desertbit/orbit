@@ -91,6 +91,7 @@ func newClientSession(cl closer.Closer, conn Conn, cf *Config) (s *Session, err 
 	// Finally, create the orbit client session.
 	s = newSession(cl, conn, cf, true)
 
+	// TODO: remove?
 	// Save the arbitrary data from the auth func.
 	//s.Value = value TODO
 	return

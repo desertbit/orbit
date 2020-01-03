@@ -59,6 +59,7 @@ const (
 	// The maximum size the initial data sent over a new stream may have.
 	acceptStreamMaxHeaderSize = 2 * 1024 // 2 KB
 
+	// TODO: remove?
 	// The timeout for the connection flusher.
 	flushTimeout = 7 * time.Second
 )
@@ -181,6 +182,7 @@ func (s *Session) OpenStreamTimeout(channel string, timeout time.Duration) (stre
 //### Private ###//
 //###############//
 
+// TODO: Not called?
 // startRoutines signalizes the session that the initialization is done.
 // The session starts accepting new incoming channel streams.
 func (s *Session) startRoutines() {
