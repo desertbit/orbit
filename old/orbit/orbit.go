@@ -26,3 +26,17 @@
  */
 
 package orbit
+
+import "errors"
+
+var (
+	// ErrInvalidVersion defines the error if the version of both peers do not match
+	// during the version exchange.
+	ErrInvalidVersion = errors.New("invalid version")
+
+	// ErrOpenTimeout defines the error if the opening of a stream timeouts.
+	ErrOpenTimeout = errors.New("open timeout")
+
+	// ErrClosed defines the error if a stream is unexpectedly closed.
+	ErrClosed = errors.New("closed")
+)
