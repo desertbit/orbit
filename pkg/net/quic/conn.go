@@ -25,39 +25,41 @@
  * SOFTWARE.
  */
 
-package yamux
+package quic
 
 import (
 	"crypto/tls"
 	"net"
 
+	"github.com/lucas-clemente/quic-go"
+
 	"github.com/desertbit/closer/v3"
 	"github.com/desertbit/orbit/pkg/orbit"
-	"github.com/hashicorp/yamux"
 )
 
-func NewConn(conn net.Conn, conf *yamux.Config) (orbit.Conn, error) {
-	return NewConnWithCloser(conn, conf, closer.New())
+func NewConn(
+	conn net.PacketConn,
+	remoteAddr net.Addr,
+	host string,
+	tlsConf *tls.Config,
+	conf *quic.Config,
+	cl closer.Closer,
+) (orbit.Conn, error) {
+	return NewConnWithCloser(conn, remoteAddr, tlsConf, conf, closer.New())
 }
 
-func NewConnWithCloser(conn net.Conn, conf *yamux.Config, cl closer.Closer) (orbit.Conn, error) {
-	return newSession(cl, conn, false, conf)
-}
-
-func NewTCPConn(remoteAddr string, conf *yamux.Config) (orbit.Conn, error) {
-	conn, err := net.Dial("tcp", remoteAddr)
+func NewConnWithCloser(
+	conn net.PacketConn,
+	remoteAddr net.Addr,
+	host string,
+	tlsConf *tls.Config,
+	conf *quic.Config,
+	cl closer.Closer,
+) (orbit.Conn, error) {
+	qs, err := quic.Dial(conn, remoteAddr, host, tlsConf, conf)
 	if err != nil {
 		return nil, err
 	}
 
-	return NewConn(conn, conf)
-}
-
-func NewTLSConn(remoteAddr string, tlsConf *tls.Config, conf *yamux.Config) (orbit.Conn, error) {
-	conn, err := tls.Dial("tcp", remoteAddr, tlsConf)
-	if err != nil {
-		return nil, err
-	}
-
-	return NewConn(conn, conf)
+	return newSession(qs)
 }

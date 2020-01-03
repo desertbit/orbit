@@ -36,43 +36,45 @@ import (
 	"github.com/hashicorp/yamux"
 )
 
+var _ orbit.Listener = &listener{}
+
 type listener struct {
 	closer.Closer
 
-	ln  net.Listener
-	cfg *yamux.Config
+	ln   net.Listener
+	conf *yamux.Config
 }
 
-func NewListener(ln net.Listener, cfg *yamux.Config) (orbit.Listener, error) {
-	return NewListenerWithCloser(ln, cfg, closer.New())
+func NewListener(ln net.Listener, conf *yamux.Config) (orbit.Listener, error) {
+	return NewListenerWithCloser(ln, conf, closer.New())
 }
 
-func NewListenerWithCloser(ln net.Listener, cfg *yamux.Config, cl closer.Closer) (orbit.Listener, error) {
+func NewListenerWithCloser(ln net.Listener, conf *yamux.Config, cl closer.Closer) (orbit.Listener, error) {
 	l := &listener{
 		Closer: cl,
 		ln:     ln,
-		cfg:    cfg,
+		conf:   conf,
 	}
 	l.OnClosing(ln.Close)
 	return l, nil
 }
 
-func NewTCPListener(listenAddr string, cfg *yamux.Config) (orbit.Listener, error) {
+func NewTCPListener(listenAddr string, conf *yamux.Config) (orbit.Listener, error) {
 	ln, err := net.Listen("tcp", listenAddr)
 	if err != nil {
 		return nil, err
 	}
 
-	return NewListener(ln, cfg)
+	return NewListener(ln, conf)
 }
 
-func NewTLSListener(listenAddr string, tlsCfg *tls.Config, cfg *yamux.Config) (orbit.Listener, error) {
-	ln, err := tls.Listen("tcp", listenAddr, tlsCfg)
+func NewTLSListener(listenAddr string, tlsConf *tls.Config, conf *yamux.Config) (orbit.Listener, error) {
+	ln, err := tls.Listen("tcp", listenAddr, tlsConf)
 	if err != nil {
 		return nil, err
 	}
 
-	return NewListener(ln, cfg)
+	return NewListener(ln, conf)
 }
 
 // Accept waits for and returns the next connection to the listener.
@@ -82,7 +84,7 @@ func (l *listener) Accept() (orbit.Conn, error) {
 		return nil, err
 	}
 
-	return newSession(l.CloserOneWay(), c, true, l.cfg)
+	return newSession(l.CloserOneWay(), c, true, l.conf)
 }
 
 // Addr returns the listener's network address.
