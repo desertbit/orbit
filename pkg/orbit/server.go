@@ -82,7 +82,7 @@ func newServer(cl closer.Closer, ln Listener, cf *ServerConfig) *Server {
 	s.OnClosing(ln.Close)
 
 	// Start the workers that listen for incoming connections.
-	for w := 0; w < cf.NewConnNumberWorkers; w++ {
+	for i := 0; i < cf.NewConnNumberWorkers; i++ {
 		go s.handleConnectionLoop()
 	}
 

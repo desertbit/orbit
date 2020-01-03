@@ -44,7 +44,7 @@ import (
 
 const (
 	// TODO:
-	streamAcceptTimout = 10 * time.Second
+	streamInitTimeout = 10 * time.Second
 
 	// The time duration after which a new opened stream timeouts if the initial
 	// data could not be written to the stream.
