@@ -33,6 +33,8 @@ package utils
 
 import (
 	"crypto/rand"
+	"strings"
+	"unicode"
 )
 
 // alphanum defines the possible characters for the RandomString() function.
@@ -60,4 +62,16 @@ func IsOneOfStr(s string, poss ...string) bool {
 		}
 	}
 	return false
+}
+
+// TODO: doc
+func ToLowerFirst(s string) string {
+	done := false
+	return strings.Map(func(r rune) rune {
+		if !done {
+			done = true
+			return unicode.ToLower(r)
+		}
+		return r
+	}, s)
 }

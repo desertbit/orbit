@@ -35,6 +35,7 @@ import (
 	"strings"
 
 	"github.com/desertbit/orbit/internal/parse"
+	"github.com/desertbit/orbit/internal/utils"
 )
 
 const (
@@ -199,12 +200,13 @@ func genService(s *strings.Builder, imports map[string]struct{}, srvc *parse.Ser
 
 	// Create the interfaces.
 	genCallerInterface(s, srvc.Name+"Consumer", calls, streams)
-	s.WriteString("\n")
 	genHandlerInterface(s, srvc.Name+"Consumer", revCalls, revStreams)
-	s.WriteString("\n")
 	genCallerInterface(s, srvc.Name+"Provider", revCalls, revStreams)
-	s.WriteString("\n")
 	genHandlerInterface(s, srvc.Name+"Provider", calls, streams)
+
+	// Create the private structs implementing the caller interfaces.
+	genCallerStruct(s, srvc.Name+"Consumer", calls, streams)
+	genCallerStruct(s, srvc.Name+"Provider", revCalls, revStreams)
 
 	s.WriteString("// ---------------------\n\n")
 	return
@@ -214,24 +216,64 @@ func genCallerInterface(s *strings.Builder, name string, calls []*parse.Call, st
 	s.WriteString(fmt.Sprintf("type %sCaller interface {\n", name))
 	s.WriteString("\t// Calls\n")
 	for _, c := range calls {
-		s.WriteString(fmt.Sprintf("\t%s(args *%s) (ret *%s, err error)\n", c.Name(), c.Args.Type.Name, c.Ret.Type.Name))
+		s.WriteString("\t" + c.Name())
+		if c.Args != nil {
+			s.WriteString("(args *" + c.Args.Type.Name + ")")
+		}
+		s.WriteString(" (")
+		if c.Ret != nil {
+			s.WriteString("ret *" + c.Ret.Type.Name + ", ")
+		}
+		s.WriteString("err error)\n")
 	}
 	s.WriteString("\t// Streams\n")
 	for _, st := range streams {
 		s.WriteString(fmt.Sprintf("\t%s(conn net.Conn) (err error)\n", st.Name()))
 	}
-	s.WriteString("}\n")
+	s.WriteString("}\n\n")
 }
 
 func genHandlerInterface(s *strings.Builder, name string, calls []*parse.Call, streams []*parse.Stream) {
 	s.WriteString(fmt.Sprintf("type %sHandler interface {\n", name))
 	s.WriteString("\t// Calls\n")
 	for _, c := range calls {
-		s.WriteString(fmt.Sprintf("\t%s(args *%s) (ret *%s, err error)\n", c.Name(), c.Args.Type.Name, c.Ret.Type.Name))
+		s.WriteString("\t" + c.Name())
+		if c.Args != nil {
+			s.WriteString("(args *" + c.Args.Type.Name + ")")
+		}
+		s.WriteString(" (")
+		if c.Ret != nil {
+			s.WriteString("ret *" + c.Ret.Type.Name + ", ")
+		}
+		s.WriteString("err error)\n")
 	}
 	s.WriteString("\t// Streams\n")
 	for _, st := range streams {
 		s.WriteString(fmt.Sprintf("\t%s(conn net.Conn) (err error)\n", st.Name()))
 	}
-	s.WriteString("}\n")
+	s.WriteString("}\n\n")
+}
+
+func genCallerStruct(s *strings.Builder, name string, calls []*parse.Call, streams []*parse.Stream) {
+	// Write struct.
+	strName := utils.ToLowerFirst(name) + "Caller"
+	s.WriteString("type " + strName + " struct {\n")
+	s.WriteString("\th " + name + "Handler\n")
+	s.WriteString("}\n\n")
+
+	// Implement Caller interface.
+	const recv = "v1"
+	for _, c := range calls {
+		s.WriteString("func (" + recv + " *" + strName + ") " + c.Name())
+		if c.Args != nil {
+			s.WriteString("(args *" + c.Args.Type.Name + ")")
+		}
+		s.WriteString(" (")
+		if c.Ret != nil {
+			s.WriteString("ret *" + c.Ret.Type.Name + ", ")
+		}
+		s.WriteString("err error) {\n")
+		// TODO:
+		s.WriteString("}\n\n")
+	}
 }
