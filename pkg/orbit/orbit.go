@@ -27,5 +27,26 @@
 
 package orbit
 
+import (
+	"context"
+	"io"
+	"net"
+)
+
 type Conn interface {
+	io.Closer
+
+	// AcceptStream returns the next stream opened by the peer, blocking until one is available.
+	AcceptStream(context.Context) (Stream, error)
+
+	// OpenStream opens a new bidirectional stream.
+	// There is no signaling to the peer about new streams:
+	// The peer can only accept the stream after data has been sent on the stream.
+	OpenStream() (Stream, error)
+
+	// LocalAddr returns the local address.
+	LocalAddr() net.Addr
+
+	// RemoteAddr returns the address of the peer.
+	RemoteAddr() net.Addr
 }
