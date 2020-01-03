@@ -25,38 +25,39 @@
  * SOFTWARE.
  */
 
-package orbit
+package yamux
 
 import (
+	"crypto/tls"
 	"net"
 
 	"github.com/desertbit/closer/v3"
+	"github.com/desertbit/orbit/pkg/orbit"
+	"github.com/hashicorp/yamux"
 )
 
-type Conn interface {
-	closer.Closer
-
-	// AcceptStream returns the next stream opened by the peer, blocking until one is available.
-	AcceptStream() (net.Conn, error)
-
-	// OpenStream opens a new bidirectional stream.
-	// There is no signaling to the peer about new streams:
-	// The peer can only accept the stream after data has been sent on the stream.
-	OpenStream() (net.Conn, error)
-
-	// LocalAddr returns the local address.
-	LocalAddr() net.Addr
-
-	// RemoteAddr returns the address of the peer.
-	RemoteAddr() net.Addr
+func NewConn(conn net.Conn, cfg *yamux.Config) (orbit.Conn, error) {
+	return NewConnWithCloser(conn, cfg, closer.New())
 }
 
-type Listener interface {
-	closer.Closer
+func NewConnWithCloser(conn net.Conn, cfg *yamux.Config, cl closer.Closer) (orbit.Conn, error) {
+	return newSession(cl, conn, false, cfg)
+}
 
-	// Accept waits for and returns the next connection to the listener.
-	Accept() (Conn, error)
+func NewTCPConn(remoteAddr string, cfg *yamux.Config) (orbit.Conn, error) {
+	conn, err := net.Dial("tcp", remoteAddr)
+	if err != nil {
+		return nil, err
+	}
 
-	// Addr returns the listener's network address.
-	Addr() net.Addr
+	return NewConn(conn, cfg)
+}
+
+func NewTLSConn(remoteAddr string, tlsCfg *tls.Config, cfg *yamux.Config) (orbit.Conn, error) {
+	conn, err := tls.Dial("tcp", remoteAddr, tlsCfg)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewConn(conn, cfg)
 }
