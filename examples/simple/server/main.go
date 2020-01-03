@@ -25,7 +25,8 @@
  * SOFTWARE.
  */
 
-package orbit
+package main
 
-type Conn interface {
+func main() {
+
 }
