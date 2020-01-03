@@ -4,6 +4,7 @@ go 1.13
 
 require (
 	github.com/davecgh/go-spew v1.1.1
+	github.com/desertbit/closer v2.0.1+incompatible
 	github.com/desertbit/closer/v3 v3.1.1
 	github.com/desertbit/grumble v1.0.3
 	github.com/hashicorp/yamux v0.0.0-20181012175058-2f1d1f20f75d
