@@ -25,38 +25,67 @@
  * SOFTWARE.
  */
 
-package orbit
+package yamux
 
 import (
+	"crypto/tls"
 	"net"
 
 	"github.com/desertbit/closer/v3"
+	"github.com/desertbit/orbit/pkg/orbit"
+	"github.com/hashicorp/yamux"
 )
 
-type Conn interface {
+type listener struct {
 	closer.Closer
 
-	// AcceptStream returns the next stream opened by the peer, blocking until one is available.
-	AcceptStream() (net.Conn, error)
-
-	// OpenStream opens a new bidirectional stream.
-	// There is no signaling to the peer about new streams:
-	// The peer can only accept the stream after data has been sent on the stream.
-	OpenStream() (net.Conn, error)
-
-	// LocalAddr returns the local address.
-	LocalAddr() net.Addr
-
-	// RemoteAddr returns the address of the peer.
-	RemoteAddr() net.Addr
+	ln  net.Listener
+	cfg *yamux.Config
 }
 
-type Listener interface {
-	closer.Closer
+func NewListener(ln net.Listener, cfg *yamux.Config) (orbit.Listener, error) {
+	return NewListenerWithCloser(ln, cfg, closer.New())
+}
 
-	// Accept waits for and returns the next connection to the listener.
-	Accept() (Conn, error)
+func NewListenerWithCloser(ln net.Listener, cfg *yamux.Config, cl closer.Closer) (orbit.Listener, error) {
+	l := &listener{
+		Closer: cl,
+		ln:     ln,
+		cfg:    cfg,
+	}
+	l.OnClosing(ln.Close)
+	return l, nil
+}
 
-	// Addr returns the listener's network address.
-	Addr() net.Addr
+func NewTCPListener(listenAddr string, cfg *yamux.Config) (orbit.Listener, error) {
+	ln, err := net.Listen("tcp", listenAddr)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewListener(ln, cfg)
+}
+
+func NewTLSListener(listenAddr string, tlsCfg *tls.Config, cfg *yamux.Config) (orbit.Listener, error) {
+	ln, err := tls.Listen("tcp", listenAddr, tlsCfg)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewListener(ln, cfg)
+}
+
+// Accept waits for and returns the next connection to the listener.
+func (l *listener) Accept() (orbit.Conn, error) {
+	c, err := l.ln.Accept()
+	if err != nil {
+		return nil, err
+	}
+
+	return newSession(l.CloserOneWay(), c, true, l.cfg)
+}
+
+// Addr returns the listener's network address.
+func (l *listener) Addr() net.Addr {
+	return l.ln.Addr()
 }
