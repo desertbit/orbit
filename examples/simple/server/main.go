@@ -57,5 +57,6 @@ func (s *Server) Hello(conn net.Conn) (err error) {
 }
 
 func main() {
-
+	so := orbit.NewServer()
+	s := NewServer(so)
 }
