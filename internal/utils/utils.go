@@ -55,16 +55,6 @@ func RandomString(n uint) (string, error) {
 }
 
 // TODO: doc
-func IsOneOfStr(s string, poss ...string) bool {
-	for _, p := range poss {
-		if p == s {
-			return true
-		}
-	}
-	return false
-}
-
-// TODO: doc
 func ToLowerFirst(s string) string {
 	done := false
 	return strings.Map(func(r rune) rune {

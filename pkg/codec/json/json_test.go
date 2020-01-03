@@ -3,8 +3,8 @@
  *
  * The MIT License (MIT)
  *
- * Copyright (c) 2020 Roland Singer <roland.singer[at]desertbit.com>
- * Copyright (c) 2020 Sebastian Borchers <sebastian[at]desertbit.com>
+ * Copyright (c) 2018 Roland Singer <roland.singer[at]desertbit.com>
+ * Copyright (c) 2018 Sebastian Borchers <sebastian[at]desertbit.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -25,35 +25,15 @@
  * SOFTWARE.
  */
 
-package orbit
+package json_test
 
 import (
-	"os"
+	"testing"
 
 	"github.com/desertbit/orbit/pkg/codec"
-	"github.com/desertbit/orbit/pkg/codec/msgpack"
-	"github.com/rs/zerolog"
+	"github.com/desertbit/orbit/pkg/codec/json"
 )
 
-type Config struct {
-	Codec codec.Codec
-
-	Log *zerolog.Logger
-
-	PrintPanicStackTraces bool
-}
-
-func prepareConfig(c *Config) *Config {
-	if c == nil {
-		c = &Config{}
-	}
-
-	if c.Codec == nil {
-		c.Codec = msgpack.Codec
-	}
-	if c.Log == nil {
-		l := zerolog.New(os.Stderr).With().Timestamp().Logger()
-		c.Log = &l
-	}
-	return c
+func TestJSON(t *testing.T) {
+	codec.Tester(t, json.Codec)
 }

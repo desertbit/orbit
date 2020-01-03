@@ -3,8 +3,8 @@
  *
  * The MIT License (MIT)
  *
- * Copyright (c) 2020 Roland Singer <roland.singer[at]desertbit.com>
- * Copyright (c) 2020 Sebastian Borchers <sebastian[at]desertbit.com>
+ * Copyright (c) 2018 Roland Singer <roland.singer[at]desertbit.com>
+ * Copyright (c) 2018 Sebastian Borchers <sebastian[at]desertbit.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -25,35 +25,17 @@
  * SOFTWARE.
  */
 
-package orbit
+/*
+Package codec contains sub-packages with different codecs that can be used
+to encode/decode any entity to/from a byte stream.
+*/
+package codec
 
-import (
-	"os"
+// Codec represents a codec used to encode and decode entities.
+type Codec interface {
+	// Encode encodes the value to a byte slice.
+	Encode(v interface{}) ([]byte, error)
 
-	"github.com/desertbit/orbit/pkg/codec"
-	"github.com/desertbit/orbit/pkg/codec/msgpack"
-	"github.com/rs/zerolog"
-)
-
-type Config struct {
-	Codec codec.Codec
-
-	Log *zerolog.Logger
-
-	PrintPanicStackTraces bool
-}
-
-func prepareConfig(c *Config) *Config {
-	if c == nil {
-		c = &Config{}
-	}
-
-	if c.Codec == nil {
-		c.Codec = msgpack.Codec
-	}
-	if c.Log == nil {
-		l := zerolog.New(os.Stderr).With().Timestamp().Logger()
-		c.Log = &l
-	}
-	return c
+	// Decode decodes the byte slice into the value.
+	Decode(b []byte, v interface{}) error
 }

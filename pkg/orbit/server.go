@@ -170,11 +170,11 @@ func (s *Server) handleConnectionLoop() {
 // once it has been closed.
 // The session is finally passed to the new session channel.
 // This method recovers from panics.
-func (l *Server) handleConnection(conn Conn) (err error) {
+func (s *Server) handleConnection(conn Conn) (err error) {
 	// Catch panics.
 	defer func() {
 		if e := recover(); e != nil {
-			if l.cf.PrintPanicStackTraces {
+			if s.cf.PrintPanicStackTraces {
 				err = fmt.Errorf("catched panic: %v\n%s", e, string(debug.Stack()))
 			} else {
 				err = fmt.Errorf("catched panic: %v", e)
@@ -183,7 +183,7 @@ func (l *Server) handleConnection(conn Conn) (err error) {
 	}()
 
 	// Create a new server session.
-	s, err := ServerSession(conn, l.cf.Config)
+	sn, err := newServerSession(s.CloserOneWay(), conn, s.cf.Config)
 	if err != nil {
 		return
 	}
@@ -191,7 +191,7 @@ func (l *Server) handleConnection(conn Conn) (err error) {
 	// Close the session on error.
 	defer func() {
 		if err != nil {
-			s.Close()
+			sn.Close_()
 		}
 	}()
 
@@ -205,15 +205,15 @@ func (l *Server) handleConnection(conn Conn) (err error) {
 		}
 
 		added := func() bool {
-			l.sessionsMutex.Lock()
-			defer l.sessionsMutex.Unlock()
+			s.sessionsMutex.Lock()
+			defer s.sessionsMutex.Unlock()
 
-			if _, ok := l.sessions[id]; ok {
+			if _, ok := s.sessions[id]; ok {
 				return false
 			}
 
-			s.SetID(id)
-			l.sessions[id] = s
+			sn.id = id
+			s.sessions[id] = sn
 			return true
 		}()
 		if added {
@@ -221,27 +221,20 @@ func (l *Server) handleConnection(conn Conn) (err error) {
 		}
 	}
 
-	// Remove the session from the active sessions map during close.
-	// Also close the session if the server closes.
-	go func() {
-		defer s.Close()
-
-		// Wait for the session or server to close.
-		select {
-		case <-l.ClosingChan():
-			// Speed up the closing process when the server closes
-			// by returning directly from here.
-			return
-		case <-s.ClosingChan():
+	sn.OnClosing(func() error {
+		// Speed up the closing process when the server closes by returning directly.
+		if s.IsClosing() {
+			return nil
 		}
 
-		l.sessionsMutex.Lock()
-		delete(l.sessions, id)
-		l.sessionsMutex.Unlock()
-	}()
+		s.sessionsMutex.Lock()
+		delete(s.sessions, id)
+		s.sessionsMutex.Unlock()
+		return nil
+	})
 
 	// Finally, pass the new session to the channel.
-	l.newSessionChan <- s
+	s.newSessionChan <- sn
 
 	return
 }

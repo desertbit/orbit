@@ -3,8 +3,8 @@
  *
  * The MIT License (MIT)
  *
- * Copyright (c) 2020 Roland Singer <roland.singer[at]desertbit.com>
- * Copyright (c) 2020 Sebastian Borchers <sebastian[at]desertbit.com>
+ * Copyright (c) 2018 Roland Singer <roland.singer[at]desertbit.com>
+ * Copyright (c) 2018 Sebastian Borchers <sebastian[at]desertbit.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -25,35 +25,36 @@
  * SOFTWARE.
  */
 
-package orbit
+package codec
 
 import (
-	"os"
+	"encoding/gob"
+	"testing"
 
-	"github.com/desertbit/orbit/pkg/codec"
-	"github.com/desertbit/orbit/pkg/codec/msgpack"
-	"github.com/rs/zerolog"
+	"github.com/stretchr/testify/require"
 )
 
-type Config struct {
-	Codec codec.Codec
-
-	Log *zerolog.Logger
-
-	PrintPanicStackTraces bool
+type test struct {
+	Name string
 }
 
-func prepareConfig(c *Config) *Config {
-	if c == nil {
-		c = &Config{}
-	}
+// Tester is a test helper to test a Codec.
+// It encodes a test struct using the given codec and decodes
+// it into a second test struct afterwards.
+// It then uses the reflect pkg to check if both structs have
+// the exact same values.
+func Tester(t *testing.T, c Codec) {
+	val := &test{Name: "test"}
+	to := &test{}
 
-	if c.Codec == nil {
-		c.Codec = msgpack.Codec
-	}
-	if c.Log == nil {
-		l := zerolog.New(os.Stderr).With().Timestamp().Logger()
-		c.Log = &l
-	}
-	return c
+	encoded, err := c.Encode(val)
+	require.NoError(t, err)
+
+	err = c.Decode(encoded, to)
+	require.NoError(t, err)
+	require.Exactly(t, to, val)
+}
+
+func init() {
+	gob.Register(&test{})
 }

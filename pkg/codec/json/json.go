@@ -3,8 +3,8 @@
  *
  * The MIT License (MIT)
  *
- * Copyright (c) 2020 Roland Singer <roland.singer[at]desertbit.com>
- * Copyright (c) 2020 Sebastian Borchers <sebastian[at]desertbit.com>
+ * Copyright (c) 2018 Roland Singer <roland.singer[at]desertbit.com>
+ * Copyright (c) 2018 Sebastian Borchers <sebastian[at]desertbit.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -25,35 +25,30 @@
  * SOFTWARE.
  */
 
-package orbit
+/*
+Package json offers an implementation of the codec.Codec interface
+for the json data format. It uses the https://golang.org/pkg/encoding/json/
+pkg to en-/decode an entity to/from a byte slice.
+*/
+package json
 
-import (
-	"os"
+import "encoding/json"
 
-	"github.com/desertbit/orbit/pkg/codec"
-	"github.com/desertbit/orbit/pkg/codec/msgpack"
-	"github.com/rs/zerolog"
-)
+// Codec that encodes to and decodes from JSON.
+var Codec = &jsonCodec{}
 
-type Config struct {
-	Codec codec.Codec
+// The jsonCodec type is a private dummy struct used
+// to implement the codec.Codec interface using JSON.
+type jsonCodec struct{}
 
-	Log *zerolog.Logger
-
-	PrintPanicStackTraces bool
+// Implements the codec.Codec interface.
+// It uses the json.Marshal func.
+func (j *jsonCodec) Encode(v interface{}) ([]byte, error) {
+	return json.Marshal(v)
 }
 
-func prepareConfig(c *Config) *Config {
-	if c == nil {
-		c = &Config{}
-	}
-
-	if c.Codec == nil {
-		c.Codec = msgpack.Codec
-	}
-	if c.Log == nil {
-		l := zerolog.New(os.Stderr).With().Timestamp().Logger()
-		c.Log = &l
-	}
-	return c
+// Implements the codec.Codec interface.
+// It uses the json.Unmarshal func.
+func (j *jsonCodec) Decode(b []byte, v interface{}) error {
+	return json.Unmarshal(b, v)
 }

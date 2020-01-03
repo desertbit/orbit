@@ -1,14 +1,18 @@
 service example {
-    call test(Plate) (stream Rect)
-    revcall test2({
+    call test(Plate) (Rect)
+    async call test2(Rect)
+    revcall test3({
         i int
         v float64
         c map[int][]Rect
     }) ({
         lol string
     })
+    async revcall test4() (Rect)
+
     stream hello
-    revstream hello2
+    stream hello2 (Char)
+    revstream hello3 () (Plate)
 }
 
 type Plate {

@@ -25,35 +25,30 @@
  * SOFTWARE.
  */
 
-package orbit
+//go:generate msgp
+package api
 
-import (
-	"os"
-
-	"github.com/desertbit/orbit/pkg/codec"
-	"github.com/desertbit/orbit/pkg/codec/msgpack"
-	"github.com/rs/zerolog"
+const (
+	// The version of the application.
+	Version = 2
 )
 
-type Config struct {
-	Codec codec.Codec
-
-	Log *zerolog.Logger
-
-	PrintPanicStackTraces bool
+type InitStream struct {
+	Channel string
 }
 
-func prepareConfig(c *Config) *Config {
-	if c == nil {
-		c = &Config{}
-	}
+type ControlCall struct {
+	ID         string
+	Key        uint64
+	Cancelable bool
+}
 
-	if c.Codec == nil {
-		c.Codec = msgpack.Codec
-	}
-	if c.Log == nil {
-		l := zerolog.New(os.Stderr).With().Timestamp().Logger()
-		c.Log = &l
-	}
-	return c
+type ControlReturn struct {
+	Key  uint64
+	Msg  string
+	Code int
+}
+
+type ControlCancel struct {
+	Key uint64
 }

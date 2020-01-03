@@ -25,35 +25,23 @@
  * SOFTWARE.
  */
 
-package orbit
+package api
 
 import (
-	"os"
+	"testing"
 
-	"github.com/desertbit/orbit/pkg/codec"
-	"github.com/desertbit/orbit/pkg/codec/msgpack"
-	"github.com/rs/zerolog"
+	"github.com/stretchr/testify/require"
+	"github.com/tinylib/msgp/msgp"
 )
 
-type Config struct {
-	Codec codec.Codec
+func TestMsgpImplementation(t *testing.T) {
+	t.Parallel()
 
-	Log *zerolog.Logger
-
-	PrintPanicStackTraces bool
-}
-
-func prepareConfig(c *Config) *Config {
-	if c == nil {
-		c = &Config{}
+	testCases := []interface{}{
+		&InitStream{}, &ControlCall{}, &ControlReturn{}, &ControlCancel{},
 	}
 
-	if c.Codec == nil {
-		c.Codec = msgpack.Codec
+	for i, tc := range testCases {
+		require.Implements(t, (*msgp.Marshaler)(nil), tc, "Test Case %d", i+1)
 	}
-	if c.Log == nil {
-		l := zerolog.New(os.Stderr).With().Timestamp().Logger()
-		c.Log = &l
-	}
-	return c
 }

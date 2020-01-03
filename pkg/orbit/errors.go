@@ -28,32 +28,17 @@
 package orbit
 
 import (
-	"os"
-
-	"github.com/desertbit/orbit/pkg/codec"
-	"github.com/desertbit/orbit/pkg/codec/msgpack"
-	"github.com/rs/zerolog"
+	"errors"
 )
 
-type Config struct {
-	Codec codec.Codec
+var (
+	// ErrClosed defines the error if a stream is unexpectedly closed.
+	ErrClosed = errors.New("closed")
 
-	Log *zerolog.Logger
+	// ErrInvalidVersion defines the error if the version of both peers do not match
+	// during the version exchange.
+	ErrInvalidVersion = errors.New("invalid version")
 
-	PrintPanicStackTraces bool
-}
-
-func prepareConfig(c *Config) *Config {
-	if c == nil {
-		c = &Config{}
-	}
-
-	if c.Codec == nil {
-		c.Codec = msgpack.Codec
-	}
-	if c.Log == nil {
-		l := zerolog.New(os.Stderr).With().Timestamp().Logger()
-		c.Log = &l
-	}
-	return c
-}
+	// ErrOpenTimeout defines the error if the opening of a stream timeouts.
+	ErrOpenTimeout = errors.New("open timeout")
+)

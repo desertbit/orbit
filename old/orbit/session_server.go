@@ -89,7 +89,7 @@ func serverSession(conn net.Conn, config *Config, cl closer.Closer) (s *Session,
 	} else if n != 1 {
 		return nil, fmt.Errorf("failed to read version byte from connection")
 	} else if v[0] != api.Version {
-		return nil, ErrInvalidVersion
+		return nil, ErrIncompatibleVersion
 	}
 
 	// Authenticate if required.

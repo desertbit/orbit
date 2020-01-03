@@ -2,8 +2,8 @@
 package api
 
 import (
-	"net"
 	"time"
+	"net"
 )
 
 //#############//
@@ -15,31 +15,31 @@ type Char struct {
 }
 
 type Plate struct {
-	name    string
-	rect    *Rect
-	test    map[int]*Rect
-	test2   []*Rect
-	test3   []float32
-	test4   map[string]map[int][]*Rect
-	ts      time.Time
+	name string
+	rect *Rect
+	test map[int]*Rect
+	test2 []*Rect
+	test3 []float32
+	test4 map[string]map[int][]*Rect
+	ts time.Time
 	version int
 }
 
 type Rect struct {
-	c  *Char
+	c *Char
 	x1 float32
 	x2 float32
 	y1 float32
 	y2 float32
 }
 
-type Test2Args struct {
+type Test3Args struct {
 	c map[int][]*Rect
 	i int
 	v float64
 }
 
-type Test2Ret struct {
+type Test3Ret struct {
 	lol string
 }
 
@@ -51,29 +51,35 @@ type Test2Ret struct {
 type ExampleConsumerCaller interface {
 	// Calls
 	Test(args *Plate) (ret *Rect, err error)
+	Test2(args *Rect) (err error)
 	// Streams
 	Hello(conn net.Conn) (err error)
+	Hello2(conn net.Conn) (err error)
 }
 
 type ExampleConsumerHandler interface {
 	// Calls
-	Test2(args *Test2Args) (ret *Test2Ret, err error)
+	Test3(args *Test3Args) (ret *Test3Ret, err error)
+	Test4() (ret *Rect, err error)
 	// Streams
-	Hello2(conn net.Conn) (err error)
+	Hello3(conn net.Conn) (err error)
 }
 
 type ExampleProviderCaller interface {
 	// Calls
-	Test2(args *Test2Args) (ret *Test2Ret, err error)
+	Test3(args *Test3Args) (ret *Test3Ret, err error)
+	Test4() (ret *Rect, err error)
 	// Streams
-	Hello2(conn net.Conn) (err error)
+	Hello3(conn net.Conn) (err error)
 }
 
 type ExampleProviderHandler interface {
 	// Calls
 	Test(args *Plate) (ret *Rect, err error)
+	Test2(args *Rect) (err error)
 	// Streams
 	Hello(conn net.Conn) (err error)
+	Hello2(conn net.Conn) (err error)
 }
 
 type exampleConsumerCaller struct {
@@ -81,15 +87,20 @@ type exampleConsumerCaller struct {
 }
 
 func (v1 *exampleConsumerCaller) Test(args *Plate) (ret *Rect, err error) {
-	return
+}
+
+func (v1 *exampleConsumerCaller) Test2(args *Rect) (err error) {
 }
 
 type exampleProviderCaller struct {
 	h ExampleProviderHandler
 }
 
-func (v1 *exampleProviderCaller) Test2(args *Test2Args) (ret *Test2Ret, err error) {
-	return
+func (v1 *exampleProviderCaller) Test3(args *Test3Args) (ret *Test3Ret, err error) {
+}
+
+func (v1 *exampleProviderCaller) Test4 (ret *Rect, err error) {
 }
 
 // ---------------------
+

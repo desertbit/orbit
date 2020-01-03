@@ -38,16 +38,20 @@ type Entry interface {
 }
 
 type EntryParam struct {
-	Type     *StructType
-	IsStream bool
+	Type *StructType
+}
+
+func (ep *EntryParam) Empty() bool {
+	return ep.Type == nil
 }
 
 type Call struct {
 	name string
 	rev  bool
 
-	Args *EntryParam
-	Ret  *EntryParam
+	Async bool
+	Args  *EntryParam
+	Ret   *EntryParam
 }
 
 func (c *Call) Name() string {
@@ -61,6 +65,9 @@ func (c *Call) Rev() bool {
 type Stream struct {
 	name string
 	rev  bool
+
+	Args *EntryParam
+	Ret  *EntryParam
 }
 
 func (s *Stream) Name() string {

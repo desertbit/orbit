@@ -30,7 +30,6 @@ package bytes_test
 import (
 	"testing"
 
-	"github.com/desertbit/orbit/internal/bytes"
 	"github.com/stretchr/testify/require"
 )
 
@@ -39,20 +38,20 @@ func TestUInt16Conversion(t *testing.T) {
 	numbers := []uint16{5251, uint16Max, 0, 1, 101, 2387, 219}
 
 	for _, i := range numbers {
-		data := bytes.FromUint16(i)
+		data := FromUint16(i)
 		require.Len(t, data, 2)
 
-		ii, err := bytes.ToUint16(data)
+		ii, err := ToUint16(data)
 		require.NoError(t, err)
 		require.Equal(t, i, ii)
 	}
 
-	ii, err := bytes.ToUint16(nil)
-	require.Equal(t, bytes.ErrInvalidLen, err)
+	ii, err := ToUint16(nil)
+	require.Equal(t, ErrInvalidLen, err)
 	require.EqualValues(t, 0, ii)
 
-	ii, err = bytes.ToUint16(make([]byte, 1))
-	require.Equal(t, bytes.ErrInvalidLen, err)
+	ii, err = ToUint16(make([]byte, 1))
+	require.Equal(t, ErrInvalidLen, err)
 	require.EqualValues(t, 0, ii)
 }
 
@@ -61,20 +60,20 @@ func TestUInt32Conversion(t *testing.T) {
 	numbers := []uint32{5251, uint32Max, 0, 1, 101, 2387, 219}
 
 	for _, i := range numbers {
-		data := bytes.FromUint32(i)
+		data := FromUint32(i)
 		require.Len(t, data, 4)
 
-		ii, err := bytes.ToUint32(data)
+		ii, err := ToUint32(data)
 		require.NoError(t, err)
 		require.Equal(t, i, ii)
 	}
 
-	ii, err := bytes.ToUint32(nil)
-	require.Equal(t, bytes.ErrInvalidLen, err)
+	ii, err := ToUint32(nil)
+	require.Equal(t, ErrInvalidLen, err)
 	require.EqualValues(t, 0, ii)
 
-	ii, err = bytes.ToUint32(make([]byte, 1))
-	require.Equal(t, bytes.ErrInvalidLen, err)
+	ii, err = ToUint32(make([]byte, 1))
+	require.Equal(t, ErrInvalidLen, err)
 	require.EqualValues(t, 0, ii)
 }
 
@@ -83,19 +82,19 @@ func TestUInt64Conversion(t *testing.T) {
 	numbers := []uint64{5251, uint64Max, 0, 1, 101, 2387, 219, 213613871263}
 
 	for _, i := range numbers {
-		data := bytes.FromUint64(i)
+		data := FromUint64(i)
 		require.Len(t, data, 8)
 
-		ii, err := bytes.ToUint64(data)
+		ii, err := ToUint64(data)
 		require.NoError(t, err)
 		require.Equal(t, i, ii)
 	}
 
-	ii, err := bytes.ToUint64(nil)
-	require.Equal(t, bytes.ErrInvalidLen, err)
+	ii, err := ToUint64(nil)
+	require.Equal(t, ErrInvalidLen, err)
 	require.EqualValues(t, 0, ii)
 
-	ii, err = bytes.ToUint64(make([]byte, 1))
-	require.Equal(t, bytes.ErrInvalidLen, err)
+	ii, err = ToUint64(make([]byte, 1))
+	require.Equal(t, ErrInvalidLen, err)
 	require.EqualValues(t, 0, ii)
 }

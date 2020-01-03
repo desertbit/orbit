@@ -32,18 +32,16 @@ import (
 	"fmt"
 	"strings"
 	"unicode"
-
-	"github.com/desertbit/orbit/internal/utils"
 )
 
 const (
-	tkService          = "service"
-	tkType             = "type"
-	tkEntryCall        = "call"
-	tkEntryRevCall     = "revcall"
-	tkEntryStream      = "stream"
-	tkEntryRevStream   = "revstream"
-	tkEntryParamStream = "stream"
+	tkService        = "service"
+	tkType           = "type"
+	tkEntryAsync     = "async"
+	tkEntryCall      = "call"
+	tkEntryRevCall   = "revcall"
+	tkEntryStream    = "stream"
+	tkEntryRevStream = "revstream"
 
 	tkBraceL   = "{"
 	tkBraceR   = "}"
@@ -194,16 +192,27 @@ func (p *parser) expectEntry() (e Entry, err error) {
 		}
 	}()
 
+	// Check, if async.
+	async := p.checkSymbol(tkEntryAsync)
+
 	// Expect the type.
 	if !p.next() {
-		err = &Error{msg: "expected entry type, but is missing", line: p.ck.line}
-		return
-	}
-	if !utils.IsOneOfStr(p.ck.value, tkEntryCall, tkEntryRevCall, tkEntryStream, tkEntryRevStream) {
-		err = fmt.Errorf("expected entry type, but got '%s'", p.ck.value)
+		err = errors.New("expected entry type, but is missing")
 		return
 	}
 	t := p.ck.value
+
+	// Validate type.
+	if t != tkEntryCall && t != tkEntryRevCall && t != tkEntryStream && t != tkEntryRevStream {
+		err = fmt.Errorf("expected entry type, but got '%s'", p.ck.value)
+		return
+	}
+
+	// Async is only allowed for calls and revcalls.
+	if async && (t == tkEntryStream || t == tkEntryRevStream) {
+		err = errors.New("async not allowed here")
+		return
+	}
 
 	// Expect name.
 	name, err := p.expectName()
@@ -212,52 +221,49 @@ func (p *parser) expectEntry() (e Entry, err error) {
 	}
 	name = strings.Title(name)
 
-	// If a stream, then no arguments.
-	if t == tkEntryStream || t == tkEntryRevStream {
-		e = &Stream{name: name, rev: t == tkEntryRevStream}
-		return
-	}
-
 	// Check for arguments.
-	// Check '('.
 	var args, ret *EntryParam
-	if p.checkSymbol(tkParenL) {
-		args, err = p.expectEntryParam(name, "Args")
+	args, empty, err := p.checkEntryParam(name, "Args")
+	if err != nil {
+		return
+	} else if empty || args != nil {
+		ret, _, err = p.checkEntryParam(name, "Ret")
 		if err != nil {
 			return
-		} else if args != nil && p.checkSymbol(tkParenL) {
-			// arguments provided, check for returns.
-			ret, err = p.expectEntryParam(name, "Ret")
-			if err != nil {
-				return
-			}
 		}
 	}
 
 	// Create entry based on type.
-	e = &Call{name: name, rev: t == tkEntryRevCall, Args: args, Ret: ret}
+	if t == tkEntryCall || t == tkEntryRevCall {
+		e = &Call{name: name, rev: t == tkEntryRevCall, Args: args, Ret: ret}
+	} else {
+		e = &Stream{name: name, rev: t == tkEntryRevStream, Args: args, Ret: ret}
+	}
 	return
 }
 
 // Opening parenthesis must already be consumed!
 // Closing parenthesis is consumed in this method.
 // Returns Error.
-func (p *parser) expectEntryParam(entryName, inPlaceSuffix string) (ep *EntryParam, err error) {
-	// Check ')' (empty params).
-	if p.checkSymbol(tkParenR) {
+func (p *parser) checkEntryParam(entryName, inPlaceSuffix string) (ep *EntryParam, empty bool, err error) {
+	// Check '('.
+	if !p.checkSymbol(tkParenL) {
 		return
 	}
 
-	// Check 'stream'.
-	isStream := p.checkSymbol(tkEntryParamStream)
+	// Check ')' (empty params).
+	if p.checkSymbol(tkParenR) {
+		empty = true
+		return
+	}
+	ep = &EntryParam{}
 
 	// Check '{' (in-place type).
 	// Otherwise, expect struct type reference.
-	var t *StructType
 	if p.checkSymbol(tkBraceL) {
-		t, err = p.expectStructType(entryName + inPlaceSuffix)
+		ep.Type, err = p.expectStructType(entryName + inPlaceSuffix)
 	} else {
-		t, err = p.expectStructTypeRef()
+		ep.Type, err = p.expectStructTypeRef()
 	}
 	if err != nil {
 		return
@@ -269,7 +275,6 @@ func (p *parser) expectEntryParam(entryName, inPlaceSuffix string) (ep *EntryPar
 		return
 	}
 
-	ep = &EntryParam{Type: t, IsStream: isStream}
 	return
 }
 

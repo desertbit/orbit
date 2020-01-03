@@ -37,13 +37,13 @@ import (
 )
 
 const (
-	// The time duration after which we timeout if the version byte could
-	// not be written to the stream.
-	streamVersionReadTimeout = 10 * time.Second
+	// The time duration after which we timeout if the version byte could not
+	// be written to the stream.
+	streamVersionWriteTimeout = 10 * time.Second
 )
 
-// serverSession is the internal helper to initialize a new server-side session.
-func newServerSession(cl closer.Closer, conn Conn, config *Config) (s *Session, err error) {
+// newClientSession is the internal helper to initialize a new client-side session.
+func newClientSession(cl closer.Closer, conn Conn, cf *Config) (s *Session, err error) {
 	// Always close the conn on error.
 	defer func() {
 		if err != nil {
@@ -52,40 +52,44 @@ func newServerSession(cl closer.Closer, conn Conn, config *Config) (s *Session, 
 	}()
 
 	// Prepare the config with default values, where needed.
-	config = prepareConfig(config)
+	cf = prepareConfig(cf)
 
-	// Create new context with a timeout.
+	// Create new timeout context.
 	ctx, cancel := context.WithTimeout(context.Background(), streamAcceptTimout)
 	defer cancel()
 
-	// Wait for an incoming stream.
-	stream, err := conn.AcceptStream(ctx)
-	if err != nil {
-		return
-	}
-	defer stream.Close()
-
-	// Set a read timeout.
-	err = stream.SetReadDeadline(time.Now().Add(streamVersionReadTimeout))
+	// Open the stream to the server.
+	stream, err := conn.OpenStream(ctx)
 	if err != nil {
 		return
 	}
 
-	// Ensure client has the same protocol version.
-	v := make([]byte, 1)
-	n, err := stream.Read(v)
+	// Set a write timeout.
+	err = stream.SetWriteDeadline(time.Now().Add(streamVersionWriteTimeout))
+	if err != nil {
+		return
+	}
+
+	// Tell the server our protocol version.
+	v := []byte{api.Version}
+	n, err := stream.Write(v)
 	if err != nil {
 		return
 	} else if n != 1 {
-		return nil, errors.New("failed to read version byte from connection")
-	} else if v[0] != api.Version {
-		return nil, ErrInvalidVersion
+		return nil, errors.New("failed to write version byte to connection")
 	}
 
-	// TODO: auth hook?
+	// Authenticate if required.
+	// TODO:
 
-	// Finally, create the orbit server session.
-	s = newSession(cl, conn, config, false)
+	// Reset the deadlines.
+	err = stream.SetDeadline(time.Time{})
+	if err != nil {
+		return
+	}
+
+	// Finally, create the orbit client session.
+	s = newSession(cl, conn, cf, true)
 
 	// Save the arbitrary data from the auth func.
 	//s.Value = value TODO
