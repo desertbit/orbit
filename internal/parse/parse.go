@@ -30,19 +30,23 @@ package parse
 import (
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"unicode"
 )
 
 const (
-	tkService        = "service"
-	tkType           = "type"
+	tkErrors  = "errors"
+	tkService = "service"
+	tkType    = "type"
+
 	tkEntryAsync     = "async"
 	tkEntryCall      = "call"
 	tkEntryRevCall   = "revcall"
 	tkEntryStream    = "stream"
 	tkEntryRevStream = "revstream"
 
+	tkEqual    = "="
 	tkBraceL   = "{"
 	tkBraceR   = "}"
 	tkBracketL = "["
@@ -54,7 +58,7 @@ const (
 	tkMap = "map"
 )
 
-func Parse(data string) (services []*Service, types []*StructType, err error) {
+func Parse(data string) (errors []*Error, services []*Service, types []*StructType, err error) {
 	// Tokenize the file.
 	tks, err := tokenize(data)
 	if err != nil {
@@ -66,7 +70,7 @@ func Parse(data string) (services []*Service, types []*StructType, err error) {
 		return
 	}
 
-	services, err = p.parse()
+	errors, services, err = p.parse()
 	if err != nil {
 		return
 	}
@@ -95,16 +99,42 @@ func newParser(tks []*token) (p *parser, err error) {
 	}
 	p = &parser{
 		tks:   tks,
+		ti:    -1,
 		ck:    tks[0],
 		types: make(map[string]*StructType),
 	}
 	return
 }
 
-func (p *parser) parse() (srvcs []*Service, err error) {
+func (p *parser) parse() (errors []*Error, srvcs []*Service, err error) {
 	for {
-		// Either a service or a type can be declared top-level.
-		if p.ck.value == tkService {
+		// Either an error, service or a type can be declared top-level.
+		if p.checkSymbol(tkErrors) {
+			// Expect error definitions.
+			var newErrors []*Error
+			newErrors, err = p.expectErrors()
+			if err != nil {
+				return
+			}
+
+			// Check for duplicates.
+			for _, ne := range newErrors {
+				for _, e := range errors {
+					if ne.Name == e.Name {
+						err = &Err{msg: fmt.Sprintf("errors '%s' declared twice", ne.Name), line: p.ck.line}
+						return
+					} else if ne.ID == e.ID {
+						err = &Err{
+							msg:  fmt.Sprintf("errors '%s' and '%s' share same identifier", ne.Name, e.Name),
+							line: p.ck.line,
+						}
+						return
+					}
+				}
+			}
+
+			errors = append(errors, newErrors...)
+		} else if p.checkSymbol(tkService) {
 			// Expect service.
 			var srvc *Service
 			srvc, err = p.expectService()
@@ -115,13 +145,13 @@ func (p *parser) parse() (srvcs []*Service, err error) {
 			// Check, if the service has already been defined.
 			for _, sr := range srvcs {
 				if sr.Name == srvc.Name {
-					err = &Error{msg: fmt.Sprintf("service '%s' declared twice"), line: p.ck.line}
+					err = &Err{msg: fmt.Sprintf("service '%s' declared twice"), line: p.ck.line}
 					return
 				}
 			}
 
 			srvcs = append(srvcs, srvc)
-		} else if p.ck.value == tkType {
+		} else if p.checkSymbol(tkType) {
 			// Expect name.
 			var name string
 			name, err = p.expectName()
@@ -141,16 +171,51 @@ func (p *parser) parse() (srvcs []*Service, err error) {
 				return
 			}
 		} else {
-			err = &Error{msg: fmt.Sprintf("unknown top-level keyword '%s'", p.ck.value), line: p.ck.line}
+			if !p.empty() {
+				err = &Err{msg: fmt.Sprintf("unknown top-level keyword '%s'", p.ck.value), line: p.ck.line}
+			}
+			return
+		}
+	}
+}
+
+func (p *parser) expectErrors() (errors []*Error, err error) {
+	// Expect "{".
+	err = p.expectSymbol(tkBraceL)
+	if err != nil {
+		return
+	}
+
+	for {
+		// Check for end of service.
+		if p.checkSymbol(tkBraceR) {
 			return
 		}
 
-		if !p.next() {
-			// End.
-			break
+		// Expect name.
+		var name string
+		name, err = p.expectName()
+		if err != nil {
+			return
 		}
+		// Ensure CamelCase.
+		name = strings.Title(name)
+
+		// Expect "=".
+		err = p.expectSymbol(tkEqual)
+		if err != nil {
+			return
+		}
+
+		// Expect identifier.
+		var id int
+		id, err = p.expectInt()
+		if err != nil {
+			return
+		}
+
+		errors = append(errors, &Error{Name: name, ID: id})
 	}
-	return
 }
 
 func (p *parser) expectService() (srvc *Service, err error) {
@@ -159,6 +224,7 @@ func (p *parser) expectService() (srvc *Service, err error) {
 	if err != nil {
 		return
 	}
+	// Ensure CamelCase.
 	srvc = &Service{Name: strings.Title(name)}
 
 	// Expecting "{"
@@ -186,9 +252,9 @@ func (p *parser) expectService() (srvc *Service, err error) {
 
 func (p *parser) expectEntry() (e Entry, err error) {
 	defer func() {
-		var Err *Error
-		if err != nil && !errors.As(err, &Err) {
-			err = &Error{msg: err.Error(), line: p.ck.line}
+		var pErr *Err
+		if err != nil && !errors.As(err, &pErr) {
+			err = &Err{msg: pErr.Error(), line: p.ck.line}
 		}
 	}()
 
@@ -219,6 +285,7 @@ func (p *parser) expectEntry() (e Entry, err error) {
 	if err != nil {
 		return
 	}
+	// Ensure CamelCase.
 	name = strings.Title(name)
 
 	// Check for arguments.
@@ -235,7 +302,7 @@ func (p *parser) expectEntry() (e Entry, err error) {
 
 	// Create entry based on type.
 	if t == tkEntryCall || t == tkEntryRevCall {
-		e = &Call{name: name, rev: t == tkEntryRevCall, Args: args, Ret: ret}
+		e = &Call{name: name, rev: t == tkEntryRevCall, Async: async, Args: args, Ret: ret}
 	} else {
 		e = &Stream{name: name, rev: t == tkEntryRevStream, Args: args, Ret: ret}
 	}
@@ -244,7 +311,7 @@ func (p *parser) expectEntry() (e Entry, err error) {
 
 // Opening parenthesis must already be consumed!
 // Closing parenthesis is consumed in this method.
-// Returns Error.
+// Returns Err.
 func (p *parser) checkEntryParam(entryName, inPlaceSuffix string) (ep *EntryParam, empty bool, err error) {
 	// Check '('.
 	if !p.checkSymbol(tkParenL) {
@@ -320,30 +387,6 @@ func (p *parser) expectType() (t Type, err error) {
 	return
 }
 
-// Returns Error.
-func (p *parser) expectName() (name string, err error) {
-	defer func() {
-		if err != nil {
-			err = &Error{msg: err.Error(), line: p.ck.line}
-		}
-	}()
-
-	if !p.next() || p.ck.value == "" {
-		err = errors.New("expected name, but is missing")
-		return
-	}
-
-	for _, r := range p.ck.value {
-		if !unicode.IsDigit(r) && !unicode.IsLetter(r) {
-			err = fmt.Errorf("invalid char '%s' in name '%s'", string(r), p.ck.value)
-			return
-		}
-	}
-
-	name = p.ck.value
-	return
-}
-
 func (p *parser) checkBaseType() (b *BaseType, ok bool) {
 	switch p.peek() {
 	case TypeByte, TypeString, TypeTime,
@@ -403,7 +446,7 @@ func (p *parser) expectArrType() (a *ArrType, err error) {
 func (p *parser) expectBaseType() (b *BaseType, err error) {
 	b, ok := p.checkBaseType()
 	if !ok {
-		err = &Error{msg: fmt.Sprintf("expected base type, but got '%s'", p.ck.value), line: p.ck.line}
+		err = &Err{msg: fmt.Sprintf("expected base type, but got '%s'", p.ck.value), line: p.ck.line}
 		return
 	}
 	return
@@ -418,7 +461,7 @@ func (p *parser) expectStructType(name string) (s *StructType, err error) {
 		s = &StructType{Name: name}
 		p.types[name] = s
 	} else if s.Fields != nil {
-		err = &Error{msg: fmt.Sprintf("type '%s' declared twice", name), line: p.ck.line}
+		err = &Err{msg: fmt.Sprintf("type '%s' declared twice", name), line: p.ck.line}
 		return
 	}
 
@@ -467,6 +510,45 @@ func (p *parser) expectStructTypeRef() (s *StructType, err error) {
 	return
 }
 
+// Returns Err.
+func (p *parser) expectName() (name string, err error) {
+	defer func() {
+		if err != nil {
+			err = &Err{msg: err.Error(), line: p.ck.line}
+		}
+	}()
+
+	if !p.next() || p.ck.value == "" {
+		err = errors.New("expected name, but is missing")
+		return
+	}
+
+	for _, r := range p.ck.value {
+		if !unicode.IsDigit(r) && !unicode.IsLetter(r) {
+			err = fmt.Errorf("invalid char '%s' in name '%s'", string(r), p.ck.value)
+			return
+		}
+	}
+
+	name = p.ck.value
+	return
+}
+
+func (p *parser) expectInt() (i int, err error) {
+	defer func() {
+		if err != nil {
+			err = &Err{msg: err.Error(), line: p.ck.line}
+		}
+	}()
+
+	if !p.next() || p.ck.value == "" {
+		err = errors.New("expected int, but is missing")
+		return
+	}
+
+	return strconv.Atoi(p.ck.value)
+}
+
 func (p *parser) checkSymbol(sym string) bool {
 	if p.peek() == sym {
 		// Consume token.
@@ -476,11 +558,11 @@ func (p *parser) checkSymbol(sym string) bool {
 	return false
 }
 
-// Returns Error.
+// Returns Err.
 func (p *parser) expectSymbol(sym string) (err error) {
 	defer func() {
 		if err != nil {
-			err = &Error{msg: err.Error(), line: p.ck.line}
+			err = &Err{msg: err.Error(), line: p.ck.line}
 		}
 	}()
 
@@ -493,8 +575,12 @@ func (p *parser) expectSymbol(sym string) (err error) {
 	return
 }
 
+func (p *parser) empty() bool {
+	return p.ti >= len(p.tks)-1
+}
+
 func (p *parser) next() (ok bool) {
-	if p.ti == len(p.tks)-1 {
+	if p.empty() {
 		return false
 	}
 	p.ti++
@@ -503,7 +589,7 @@ func (p *parser) next() (ok bool) {
 }
 
 func (p *parser) peek() (v string) {
-	if p.ti == len(p.tks)-1 {
+	if p.empty() {
 		return
 	}
 	v = p.tks[p.ti+1].value

@@ -3,8 +3,8 @@
  *
  * The MIT License (MIT)
  *
- * Copyright (c) 2019 Roland Singer <roland.singer[at]desertbit.com>
- * Copyright (c) 2019 Sebastian Borchers <sebastian[at]desertbit.com>
+ * Copyright (c) 2020 Roland Singer <roland.singer[at]desertbit.com>
+ * Copyright (c) 2020 Sebastian Borchers <sebastian[at]desertbit.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -25,17 +25,25 @@
  * SOFTWARE.
  */
 
-package parse
+package gen
 
 import (
-	"fmt"
+	"unicode"
 )
 
-type Err struct {
-	msg  string
-	line int
-}
-
-func (e *Err) Error() string {
-	return fmt.Sprintf("%s --- line: %d", e.msg, e.line)
+// strExplode splits up s, so that every uppercase rune is converted to lowercase
+// and gets prepended a space.
+func strExplode(s string) string {
+	n := make([]rune, 0, len(s))
+	for _, r := range s {
+		if unicode.IsUpper(r) {
+			if len(n) > 0 {
+				n = append(n, ' ')
+			}
+			n = append(n, unicode.ToLower(r))
+		} else {
+			n = append(n, r)
+		}
+	}
+	return string(n)
 }

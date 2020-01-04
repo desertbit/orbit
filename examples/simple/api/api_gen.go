@@ -2,8 +2,35 @@
 package api
 
 import (
-	"time"
 	"net"
+	"github.com/desertbit/orbit/internal/control"
+	"errors"
+	"time"
+)
+
+//##############//
+//### Errors ###//
+//##############//
+
+const (
+	ErrCodeNotFound = 1
+	ErrCodeDatasetDoesNotExist = 2
+)
+var (
+	ErrNotFound = errors.New("not found")
+	orbitErrNotFound = control.Err(
+		ErrNotFound,
+		ErrNotFound.Error(),
+		ErrCodeNotFound,
+	)
+	
+	ErrDatasetDoesNotExist = errors.New("dataset does not exist")
+	orbitErrDatasetDoesNotExist = control.Err(
+		ErrDatasetDoesNotExist,
+		ErrDatasetDoesNotExist.Error(),
+		ErrCodeDatasetDoesNotExist,
+	)
+	
 )
 
 //#############//
@@ -47,7 +74,17 @@ type Test3Ret struct {
 //### Services ###//
 //################//
 
-// Example ---------------------
+// Example  ---------------------
+const (
+	Test = "Test"
+	Test2 = "Test2"
+	Test3 = "Test3"
+	Test4 = "Test4"
+	Hello = "Hello"
+	Hello2 = "Hello2"
+	Hello3 = "Hello3"
+)
+
 type ExampleConsumerCaller interface {
 	// Calls
 	Test(args *Plate) (ret *Rect, err error)
@@ -56,7 +93,6 @@ type ExampleConsumerCaller interface {
 	Hello(conn net.Conn) (err error)
 	Hello2(conn net.Conn) (err error)
 }
-
 type ExampleConsumerHandler interface {
 	// Calls
 	Test3(args *Test3Args) (ret *Test3Ret, err error)
@@ -64,7 +100,6 @@ type ExampleConsumerHandler interface {
 	// Streams
 	Hello3(conn net.Conn) (err error)
 }
-
 type ExampleProviderCaller interface {
 	// Calls
 	Test3(args *Test3Args) (ret *Test3Ret, err error)
@@ -72,7 +107,6 @@ type ExampleProviderCaller interface {
 	// Streams
 	Hello3(conn net.Conn) (err error)
 }
-
 type ExampleProviderHandler interface {
 	// Calls
 	Test(args *Plate) (ret *Rect, err error)
@@ -81,26 +115,60 @@ type ExampleProviderHandler interface {
 	Hello(conn net.Conn) (err error)
 	Hello2(conn net.Conn) (err error)
 }
-
-type exampleConsumerCaller struct {
+type exampleConsumer struct {
 	h ExampleConsumerHandler
+	ctrls [2]*control.Control
 }
 
-func (v1 *exampleConsumerCaller) Test(args *Plate) (ret *Rect, err error) {
+func (v1 *exampleConsumer) Test(args *Plate) (ret *Rect, err error) {
+	ctx, err := v1.ctrls[0].Call(Test, args)
+	if err != nil {
+		return
+	}
+	err = ctx.Decode(ret)
+	if err != nil {
+		return
+	}
+	return
 }
 
-func (v1 *exampleConsumerCaller) Test2(args *Rect) (err error) {
+func (v1 *exampleConsumer) Test2(args *Rect) (err error) {
+	_, err = v1.ctrls[1].Call(Test2, args)
+	if err != nil {
+		return
+	}
+	return
 }
 
-type exampleProviderCaller struct {
+type exampleProvider struct {
 	h ExampleProviderHandler
+	ctrls [2]*control.Control
 }
 
-func (v1 *exampleProviderCaller) Test3(args *Test3Args) (ret *Test3Ret, err error) {
+func (v1 *exampleProvider) Test3(args *Test3Args) (ret *Test3Ret, err error) {
+	ctx, err := v1.ctrls[0].Call(Test3, args)
+	if err != nil {
+		return
+	}
+	err = ctx.Decode(ret)
+	if err != nil {
+		return
+	}
+	return
 }
 
-func (v1 *exampleProviderCaller) Test4 (ret *Rect, err error) {
+func (v1 *exampleProvider) Test4() (ret *Rect, err error) {
+	ctx, err := v1.ctrls[1].Call(Test4, nil)
+	if err != nil {
+		return
+	}
+	err = ctx.Decode(ret)
+	if err != nil {
+		return
+	}
+	return
 }
 
 // ---------------------
+
 

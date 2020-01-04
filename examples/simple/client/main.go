@@ -50,11 +50,15 @@ func NewClient(co *orbit.Session) (caller api.ExampleConsumerCaller, err error) 
 	return
 }
 
-func (c *Client) Test2(args *api.Test2Args) (ret *api.Test2Ret, err error) {
+func (c *Client) Test3(args *api.Test3Args) (ret *api.Test3Ret, err error) {
 	panic("implement me")
 }
 
-func (c *Client) Hello2(conn net.Conn) (err error) {
+func (c *Client) Test4() (ret *api.Rect, err error) {
+	panic("implement me")
+}
+
+func (c *Client) Hello3(conn net.Conn) (err error) {
 	panic("implement me")
 }
 
