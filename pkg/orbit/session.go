@@ -40,6 +40,8 @@ import (
 	"github.com/desertbit/closer/v3"
 	"github.com/desertbit/orbit/internal/api"
 	"github.com/desertbit/orbit/internal/packet"
+	"github.com/desertbit/orbit/pkg/codec"
+	"github.com/rs/zerolog"
 )
 
 const (
@@ -109,6 +111,15 @@ func newSession(cl closer.Closer, conn Conn, cf *Config, isClient bool) (s *Sess
 // This must be set manually.
 func (s *Session) ID() string {
 	return s.id
+}
+
+// Todo:
+func (s *Session) Codec() codec.Codec {
+	return s.cf.Codec
+}
+
+func (s *Session) Log() *zerolog.Logger {
+	return s.cf.Log
 }
 
 // IsClient returns whether this session is a client connection.

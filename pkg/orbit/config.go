@@ -35,6 +35,7 @@ import (
 	"github.com/rs/zerolog"
 )
 
+// todo:
 type Config struct {
 	Codec codec.Codec
 

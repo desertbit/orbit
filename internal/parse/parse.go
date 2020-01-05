@@ -246,6 +246,16 @@ func (p *parser) expectService() (srvc *Service, err error) {
 			return
 		}
 
+		// Check for duplicates.
+		for _, en := range srvc.Entries {
+			if en.Name() == e.Name() {
+				err = &Err{
+					msg:  fmt.Sprintf("entry '%s' declared twice in service '%s'", e.Name(), srvc.Name),
+					line: p.ck.line,
+				}
+			}
+		}
+
 		srvc.Entries = append(srvc.Entries, e)
 	}
 }

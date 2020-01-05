@@ -18,6 +18,7 @@ service example {
     stream hello
     stream hello2 (Char)
     revstream hello3 () (Plate)
+    revstream hello4 (Char) (Plate)
 }
 
 type Plate {

@@ -56,7 +56,7 @@ func Generate(filePath string) (err error) {
 	// Parse the file data.
 	errs, services, types, err := parse.Parse(string(data))
 	if err != nil {
-		err = fmt.Errorf("could not parse %s: %v", filePath, err)
+		err = fmt.Errorf("could not parse %s\n-> %v", filePath, err)
 		return
 	}
 
@@ -263,6 +263,7 @@ func (g *generator) genService(srvc *parse.Service, errs []*parse.Error) {
 	// Imports!
 	if len(streams) > 0 || len(revStreams) > 0 {
 		g.imps.Add("net")
+		g.imps.Add("github.com/desertbit/orbit/pkg/orbit")
 	}
 
 	// Create the interfaces.
@@ -319,6 +320,7 @@ func (g *generator) genServiceStruct(
 
 	g.indent(func() {
 		g.writeLn("h %sHandler", srvcName+name)
+		g.writeLn("os *orbit.Session")
 		g.writeLn("ctrls [%d]*control.Control", numControls)
 	})
 
@@ -443,30 +445,63 @@ func (g *generator) genServiceStream(s *parse.Stream, structName, srvcName strin
 	g.writeLn(" {")
 	g.indent(func() {
 		// Method body.
-		// First, make the call.
-		/*if c.Ret != nil {
-			g.write("ctx, err := ")
-		} else {
-			g.write("_, err = ")
-		}
-		g.write("%s.ctrls[%d].Call(%s, ", recv, ctrlIndex, c.Name())
-		if c.Args != nil {
-			g.writeLn("args)")
-		} else {
-			g.writeLn("nil)")
+		// First, open the stream.
+		if s.Args == nil && s.Ret == nil {
+			g.writeLn("return %s.os.OpenStream(%s)", recv, srvcName+s.Name())
+			return
 		}
 
-		// Check error and parse control.ErrorCodes.
-		g.writeErrCheckOrbitCaller(errs)
+		g.writeLn("conn, err := %s.os.OpenStream(%s)", recv, srvcName+s.Name())
+		g.writeErrCheck()
 
-		// If return arguments are expected, decode them.
-		if c.Ret != nil {
-			g.writeLn("err = ctx.Decode(ret)")
-			g.writeErrCheck()
+		if s.Args != nil {
+			// todo: max msg size, timeout
+			/*
+				go func() {
+					closingChan := v1.os.ClosingChan()
+					for {
+						select {
+						case <-closingChan:
+							return
+						case arg := <-args:
+							err = packet.WriteEncode(conn, arg, v1.os.Codec(), 1024*1024, 30*time.Second)
+							if err != nil && !v1.os.IsClosing() {
+								v1.os.Log().Error().Err(err).Str("channel", ExampleHello4).Msg("writing packet")
+							}
+						}
+					}
+				}()
+			*/
 		}
 
-		// Return.
-		g.writeLn("return")*/
+		if s.Ret != nil {
+			// todo: retChan size
+			/*
+				retChan := make(chan *Plate)
+				ret = retChan
+				go func() {
+					closingChan := v1.os.ClosingChan()
+					for {
+						select {
+						case <-closingChan:
+							return
+						default:
+							var data *Plate
+							err = packet.ReadDecode(conn, data, v1.os.Codec(), 1024*1024, 30*time.Second)
+							if err != nil && !v1.os.IsClosing() {
+								v1.os.Log().Error().Err(err).Str("channel", ExampleHello4).Msg("reading packet")
+							}
+							select {
+							case <-closingChan:
+								return
+							case retChan <- data:
+							}
+						}
+					}
+				}()
+				return
+			*/
+		}
 	})
 	g.writeLn("}")
 	g.writeLn("")
