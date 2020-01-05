@@ -30,6 +30,7 @@ package packet_test
 import (
 	"bytes"
 	"net"
+	"sync"
 	"testing"
 	"time"
 
@@ -57,14 +58,14 @@ func TestWriteEncode(t *testing.T) {
 	// Needed, since net.Pipe() returns conn with no internal buffering.
 	done := make(chan struct{})
 	go func() {
-		err := packet.ReadDecode(connR, &ret, msgpack.Codec, 16384, time.Second)
+		err := packet.ReadDecode(connR, &ret, msgpack.Codec, 16384, 50*time.Millisecond)
 		if err != nil {
 			t.Fatal(err)
 		}
 		done <- struct{}{}
 	}()
 
-	err := packet.WriteEncode(connW, data, msgpack.Codec, 16384, time.Second)
+	err := packet.WriteEncode(connW, data, msgpack.Codec, 16384, 50*time.Millisecond)
 	require.NoError(t, err)
 
 	// Wait for the read to finish.
@@ -102,7 +103,7 @@ func TestWriteTimeout(t *testing.T) {
 		done <- struct{}{}
 	}()
 
-	err := packet.WriteTimeout(connW, data, 16384, time.Second)
+	err := packet.WriteTimeout(connW, data, 16384, 50*time.Millisecond)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -219,15 +220,19 @@ func TestReadDecode(t *testing.T) {
 	}()
 
 	// Write in a goroutine, because net.Pipe() does not buffer.
+	wg := sync.WaitGroup{}
+	wg.Add(1)
 	go func() {
-		err := packet.WriteEncode(connW, data, msgpack.Codec, 16384, time.Second)
+		err := packet.WriteEncode(connW, data, msgpack.Codec, 16384, 50*time.Millisecond)
 		require.NoError(t, err)
+		wg.Done()
 	}()
 
 	var ret test
-	err := packet.ReadDecode(connR, &ret, msgpack.Codec, 16384, time.Second)
+	err := packet.ReadDecode(connR, &ret, msgpack.Codec, 16384, 50*time.Millisecond)
 	require.NoError(t, err)
 	require.Equal(t, data.Msg, ret.Msg)
+	wg.Wait()
 }
 
 func TestReadTimeout(t *testing.T) {
@@ -254,7 +259,7 @@ func TestReadTimeout(t *testing.T) {
 	}
 
 	// Read normally.
-	ret, err := packet.ReadTimeout(connR, nil, 16384, time.Second)
+	ret, err := packet.ReadTimeout(connR, nil, 16384, 50*time.Millisecond)
 	require.NoError(t, err)
 	require.Equal(t, data, ret)
 }
@@ -345,4 +350,105 @@ func TestRead(t *testing.T) {
 		require.NoErrorf(t, err, "case %d", i+1)
 		require.Equalf(t, c.data, ret, "case %d", i+1)
 	}
+}
+
+func TestStream(t *testing.T) {
+	t.Parallel()
+
+	connW, connR := net.Pipe()
+
+	testData := []byte("This is some test data")
+	dst := &bytes.Buffer{}
+
+	// Start a writing goroutine.
+	go func() {
+		// Write some normal test data.
+		err := packet.WriteStream(connW, bytes.NewReader(testData))
+		require.NoError(t, err)
+
+		// Write some normal test data again.
+		err = packet.WriteStream(connW, bytes.NewReader(testData))
+		require.NoError(t, err)
+
+		// Now close the connection and try again.
+		require.NoError(t, connW.Close())
+		err = packet.WriteStream(connW, bytes.NewReader(testData))
+		require.Error(t, err)
+	}()
+
+	// Read the normal test data.
+	err := packet.ReadStream(connR, dst)
+	require.NoError(t, err)
+	require.Equal(t, testData, dst.Bytes())
+	dst.Reset()
+
+	// Try a destination writer that is closed.
+	dstClosed, _ := net.Pipe()
+	require.NoError(t, dstClosed.Close())
+	err = packet.ReadStream(connR, dstClosed)
+	require.Error(t, err)
+
+	// Read the data from the closed connection. There should be no error
+	// as the other side closed the connection.
+	err = packet.ReadStream(connR, dst)
+	require.NoError(t, err)
+}
+
+func TestStreamTimeout(t *testing.T) {
+	t.Parallel()
+
+	connW, connR := net.Pipe()
+
+	testData := []byte("This is some test data")
+	dst := &bytes.Buffer{}
+
+	// Start a writing goroutine.
+	continueChan := make(chan struct{})
+	go func() {
+		// Write some normal test data without a timeout.
+		buf := make([]byte, 8)
+		err := packet.WriteStreamBufTimeout(connW, bytes.NewReader(testData), buf, 0)
+		require.NoError(t, err)
+
+		// Write some normal test data without a timeout and buffer.
+		err = packet.WriteStreamBufTimeout(connW, bytes.NewReader(testData), nil, -1)
+		require.NoError(t, err)
+
+		// Wait for a continue signal.
+		<-continueChan
+
+		// Write with a timeout.
+		err = packet.WriteStreamBufTimeout(connW, bytes.NewReader(testData), nil, 1)
+		require.Error(t, err)
+		require.Implements(t, (*net.Error)(nil), err)
+		require.True(t, (err.(net.Error)).Timeout())
+
+		// Signal the read routine to continue.
+		continueChan <- struct{}{}
+	}()
+
+	// Read the normal test data without a timeout.
+	buf := make([]byte, 8)
+	err := packet.ReadStreamBufTimeout(connR, dst, buf, 0)
+	require.NoError(t, err)
+	require.Equal(t, testData, dst.Bytes())
+	dst.Reset()
+
+	// Read the normal test data without a timeout and buffer.
+	err = packet.ReadStreamBufTimeout(connR, dst, nil, -1)
+	require.NoError(t, err)
+	require.Equal(t, testData, dst.Bytes())
+	dst.Reset()
+
+	// Read with a timeout.
+	err = packet.ReadStreamBufTimeout(connR, dst, nil, 1)
+	require.Error(t, err)
+	require.Implements(t, (*net.Error)(nil), err)
+	require.True(t, (err.(net.Error)).Timeout())
+
+	// Signal the write routine to continue.
+	continueChan <- struct{}{}
+
+	// Wait for a continue signal.
+	<-continueChan
 }
