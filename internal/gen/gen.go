@@ -240,7 +240,7 @@ func (g *generator) genService(srvc *parse.Service, errs []*parse.Error) {
 	g.writeLn("const (")
 	g.indent(func() {
 		for _, e := range srvc.Entries {
-			g.writeLn("%s = \"%s\"", e.Name(), e.Name())
+			g.writeLn("%s = \"%s\"", srvc.Name+e.Name(), srvc.Name+e.Name())
 			switch v := e.(type) {
 			case *parse.Call:
 				if v.Rev() {
@@ -266,38 +266,44 @@ func (g *generator) genService(srvc *parse.Service, errs []*parse.Error) {
 	}
 
 	// Create the interfaces.
-	g.genServiceInterface(srvc.Name+"ConsumerCaller", calls, streams)
-	g.genServiceInterface(srvc.Name+"ConsumerHandler", revCalls, revStreams)
-	g.genServiceInterface(srvc.Name+"ProviderCaller", revCalls, revStreams)
-	g.genServiceInterface(srvc.Name+"ProviderHandler", calls, streams)
+	g.genServiceInterface("ConsumerCaller", srvc.Name, calls, streams)
+	g.genServiceInterface("ConsumerHandler", srvc.Name, revCalls, revStreams)
+	g.genServiceInterface("ProviderCaller", srvc.Name, revCalls, revStreams)
+	g.genServiceInterface("ProviderHandler", srvc.Name, calls, streams)
 
 	// Create the private structs implementing the caller interfaces and providing the orbit handlers.
-	g.genServiceStruct(srvc.Name+"Consumer", calls, streams)
-	g.genServiceStruct(srvc.Name+"Provider", revCalls, revStreams)
+	g.genServiceStruct("Consumer", srvc.Name, calls, revCalls, streams, revStreams, errs)
+	g.genServiceStruct("Provider", srvc.Name, revCalls, calls, revStreams, streams, errs)
 
 	g.writeLn("// ---------------------\n")
 	g.writeLn("")
 	return
 }
 
-func (g *generator) genServiceInterface(name string, calls []*parse.Call, streams []*parse.Stream) {
-	g.writeLn("type %s interface {", name)
+func (g *generator) genServiceInterface(name, srvcName string, calls []*parse.Call, streams []*parse.Stream) {
+	g.writeLn("type %s interface {", srvcName+name)
 	g.indent(func() {
 		g.writeLn("// Calls")
 		for _, c := range calls {
-			g.genServiceCallSignature(c.Name(), c.Args, c.Ret)
+			g.genServiceCallSignature(c)
 			g.writeLn("")
 		}
 		g.writeLn("// Streams")
-		for _, st := range streams {
-			g.writeLn("%s(conn net.Conn) (err error)", st.Name())
+		for _, s := range streams {
+			g.genServiceStreamSignature(s)
+			g.writeLn("")
 		}
 	})
 	g.writeLn("}")
 	g.write("")
 }
 
-func (g *generator) genServiceStruct(name string, calls []*parse.Call, streams []*parse.Stream) {
+func (g *generator) genServiceStruct(
+	name, srvcName string,
+	calls, revCalls []*parse.Call,
+	streams, revStreams []*parse.Stream,
+	errs []*parse.Error,
+) {
 	// One service has one control for all normal calls.
 	// But every async call gets its own control.
 	numControls := 1
@@ -308,17 +314,18 @@ func (g *generator) genServiceStruct(name string, calls []*parse.Call, streams [
 	}
 
 	// Write struct.
-	strName := utils.ToLowerFirst(name)
+	strName := utils.ToLowerFirst(srvcName + name)
 	g.writeLn("type %s struct {", strName)
 
 	g.indent(func() {
-		g.writeLn("h %sHandler", name)
+		g.writeLn("h %sHandler", srvcName+name)
 		g.writeLn("ctrls [%d]*control.Control", numControls)
 	})
 
 	g.writeLn("}")
 	g.writeLn("")
 
+	// Generate the calls.
 	asyncCount := 1
 	for _, c := range calls {
 		ctrlIndex := 0
@@ -328,19 +335,116 @@ func (g *generator) genServiceStruct(name string, calls []*parse.Call, streams [
 			asyncCount++
 		}
 
-		g.genServiceCall(c, strName, ctrlIndex)
+		g.genServiceCall(c, strName, srvcName, ctrlIndex, errs)
+	}
+
+	// Generate the rev calls.
+	for _, rc := range revCalls {
+		g.genServiceCallOrbitHandler(rc, strName, errs)
+	}
+
+	// Generate the streams.
+	for _, s := range streams {
+		g.genServiceStream(s, strName, srvcName, errs)
 	}
 }
 
-func (g *generator) genServiceCall(c *parse.Call, structName string, ctrlIndex int) {
+func (g *generator) genServiceCall(c *parse.Call, structName, srvcName string, ctrlIndex int, errs []*parse.Error) {
 	// Method declaration.
 	g.write("func (%s *%s) ", recv, structName)
-	g.genServiceCallSignature(c.Name(), c.Args, c.Ret)
+	g.genServiceCallSignature(c)
 	g.writeLn(" {")
 	g.indent(func() {
 		// Method body.
 		// First, make the call.
 		if c.Ret != nil {
+			g.write("ctx, err := ")
+		} else {
+			g.write("_, err = ")
+		}
+		g.write("%s.ctrls[%d].Call(%s, ", recv, ctrlIndex, srvcName+c.Name())
+		if c.Args != nil {
+			g.writeLn("args)")
+		} else {
+			g.writeLn("nil)")
+		}
+
+		// Check error and parse control.ErrorCodes.
+		g.writeErrCheckOrbitCaller(errs)
+
+		// If return arguments are expected, decode them.
+		if c.Ret != nil {
+			g.writeLn("err = ctx.Decode(ret)")
+			g.writeErrCheck()
+		}
+
+		// Return.
+		g.writeLn("return")
+	})
+	g.writeLn("}")
+	g.writeLn("")
+}
+
+func (g *generator) genServiceCallOrbitHandler(c *parse.Call, structName string, errs []*parse.Error) {
+	// Method declaration.
+	g.writeLn(
+		"func (%s *%s) %s(ctx *control.Context) (v interface{}, err error) {",
+		recv, structName, utils.ToLowerFirst(c.Name()),
+	)
+	g.indent(func() {
+		// Method body.
+		// Parse the args.
+		handlerArgs := ""
+		if c.Args != nil {
+			handlerArgs = "args"
+			g.writeLn("var args *%s", c.Args.Type.Name)
+			g.writeLn("err = ctx.Decode(args)")
+			g.writeErrCheck()
+		}
+
+		// Call the handler.
+		if c.Ret != nil {
+			g.writeLn("ret, err := %s.h.%s(%s)", recv, c.Name(), handlerArgs)
+		} else {
+			g.writeLn("err = %s.h.%s(%s)", recv, c.Name(), handlerArgs)
+		}
+
+		// Check error and convert to orbit errors.
+		g.writeErrCheckOrbitHandler(errs)
+
+		// Assign return value.
+		if c.Ret != nil {
+			g.writeLn("v = ret")
+		}
+
+		// Return.
+		g.writeLn("return")
+	})
+	g.writeLn("}")
+	g.writeLn("")
+}
+
+func (g *generator) genServiceCallSignature(c *parse.Call) {
+	g.write("%s(", c.Name())
+	if c.Args != nil {
+		g.write("args *%s", c.Args.Type.Name)
+	}
+	g.write(") (")
+	if c.Ret != nil {
+		g.write("ret *%s, ", c.Ret.Type.Name)
+	}
+	g.write("err error)")
+}
+
+func (g *generator) genServiceStream(s *parse.Stream, structName, srvcName string, errs []*parse.Error) {
+	// Method declaration.
+	g.write("func (%s *%s) ", recv, structName)
+	g.genServiceStreamSignature(s)
+	g.writeLn(" {")
+	g.indent(func() {
+		// Method body.
+		// First, make the call.
+		/*if c.Ret != nil {
 			g.write("ctx, err := ")
 		} else {
 			g.write("_, err = ")
@@ -352,73 +456,88 @@ func (g *generator) genServiceCall(c *parse.Call, structName string, ctrlIndex i
 			g.writeLn("nil)")
 		}
 
-		// Check error.
-		g.writeErrNilCheck(nil) // todo;
+		// Check error and parse control.ErrorCodes.
+		g.writeErrCheckOrbitCaller(errs)
 
 		// If return arguments are expected, decode them.
 		if c.Ret != nil {
 			g.writeLn("err = ctx.Decode(ret)")
-			g.writeErrNilCheck(nil) // todo;
+			g.writeErrCheck()
 		}
 
 		// Return.
-		g.writeLn("return")
+		g.writeLn("return")*/
 	})
 	g.writeLn("}")
 	g.writeLn("")
 }
 
-func (g *generator) genServiceCallOrbitHandler(c *parse.Call, structName string) {
-	cname := utils.ToLowerFirst(c.Name())
-
-	// Method declaration.
-	g.writeLn("func (%s *%s) %s(ctx *control.Context) (v interface{}, err error) {", recv, structName, cname)
-	g.indent(func() {
-		// Method body.
-		// Parse the args.
-		if c.Args != nil {
-			g.writeLn("var args %s", c.Args.Type.Name)
-			g.writeLn("err = ctx.Decode(args)")
-			g.writeErrNilCheck(nil) // todo;
-		}
-
-		// Call the handler.
-		g.writeLn("ret, err := %s.h.%s(args)", recv, cname)
-		g.writeErrNilCheck(nil) // todo;
-
-		// Return.
-		g.writeLn("return")
-	})
-	g.writeLn("}")
-	g.writeLn("")
-}
-
-func (g *generator) genServiceCallSignature(name string, args, ret *parse.EntryParam) {
-	g.write("%s(", name)
-	if args != nil {
-		g.write("args *%s", args.Type.Name)
+func (g *generator) genServiceStreamSignature(s *parse.Stream) {
+	g.write("%s(", s.Name())
+	if s.Args != nil {
+		g.write("args <-chan *%s", s.Args.Type.Name)
 	}
 	g.write(") (")
-	if ret != nil {
-		g.write("ret *%s, ", ret.Type.Name)
+	if s.Ret != nil {
+		g.write("ret <-chan *%s, ", s.Ret.Type.Name)
+	} else if s.Args == nil {
+		g.write("conn net.Conn, ")
 	}
 	g.write("err error)")
 }
 
-func (g *generator) writeErrNilCheck(errs []*parse.Error) {
+func (g *generator) writeErrCheck() {
 	g.writeLn("if err != nil {")
 	g.indent(func() {
-		// Check, if an control.ErrorCode has been returned.
-		if errs != nil {
+		g.writeLn("return")
+	})
+	g.writeLn("}")
+}
+
+func (g *generator) writeErrCheckOrbitCaller(errs []*parse.Error) {
+	g.writeLn("if err != nil {")
+	g.indent(func() {
+		// Check, if a control.ErrorCode has been returned.
+		if len(errs) > 0 {
 			g.imps.Add("errors")
 
 			g.writeLn("var cErr *control.ErrorCode")
 			g.writeLn("if errors.As(err, &cErr) {")
-
 			g.indent(func() {
 				g.writeLn("switch cErr.Code {")
-				// todo:
+				for _, e := range errs {
+					g.writeLn("case %d:", e.ID)
+					g.indent(func() {
+						g.writeLn("err = Err%s", e.Name)
+					})
+				}
+				g.writeLn("}")
 			})
+			g.writeLn("}")
+		}
+		g.writeLn("return")
+	})
+	g.writeLn("}")
+}
+
+func (g *generator) writeErrCheckOrbitHandler(errs []*parse.Error) {
+	g.writeLn("if err != nil {")
+	g.indent(func() {
+		// Check, if a api error has been returned and convert it to a control.ErrorCode.
+		if len(errs) > 0 {
+			g.imps.Add("errors")
+
+			for i, e := range errs {
+				g.writeLn("if errors.Is(err, Err%s) {", e.Name)
+				g.indent(func() {
+					g.writeLn("err = orbitErr%s", e.Name)
+				})
+				if i < len(errs)-1 {
+					g.write("} else ")
+				} else {
+					g.writeLn("}")
+				}
+			}
 		}
 		g.writeLn("return")
 	})

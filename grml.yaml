@@ -1,0 +1,29 @@
+env:
+    BINDIR:    ${ROOT}/bin
+
+commands:
+    clean:
+        help: clean the build files
+        exec: |
+            chmod -R 0750 "${BINDIR}" | true
+            rm -rf "${BINDIR}"
+    test:
+        help: run all go tests
+        exec: |
+            go test -race ./pkg/... ./internal/... ./cmd/...
+
+    build:
+        help: build commands
+        commands:
+            orbit:
+                help: build the orbit application.
+                exec: |
+                    go build -o "${BINDIR}/orbit" "${ROOT}/cmd/orbit/"
+            simple:
+                help: build the simple example application.
+                deps:
+                    - build.orbit
+                exec: |
+                    "${BINDIR}/orbit" gen "${ROOT}/examples/simple/api"
+                    #go build -o "${BINDIR}/simple-client" "${ROOT}/examples/simple/client"
+                    #go build -o "${BINDIR}/simple-server" "${ROOT}/examples/simple/server"
