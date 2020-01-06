@@ -29,6 +29,7 @@ package orbit
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -75,20 +76,44 @@ type control struct {
 	callRetChain *chain
 }
 
-func newControl(s *Session, stream net.Conn, log *zerolog.Logger) *control {
-	return &control{
+func newControl(s *Session, stream net.Conn, once bool) *control {
+	c := &control{
 		s:            s,
 		closingChan:  s.ClosingChan(),
 		codec:        s.cf.Codec,
-		log:          log,
+		log:          s.cf.Log,
 		stream:       stream,
 		callRetChain: newChain(),
 	}
+	go c.readRoutine(stream, once)
+	return c
 }
 
-func (c *control) call()
+func (c *control) call(ctx context.Context, id string, data interface{}) (d *Data, err error) {
+	// Create a new channel with its key. This will be used to send
+	// the data over that forms the response to the call.
+	key, channel := c.callRetChain.new()
+	defer c.callRetChain.delete(key)
 
-func (c *control) write(reqType byte, headerI interface{}, dataI interface{}) (err error) {
+	// Write to the client.
+	err = c.write(
+		ctx,
+		typeCall,
+		&api.ControlCall{
+			ID:  id,
+			Key: key,
+		},
+		data,
+	)
+	if err != nil {
+		return
+	}
+
+	// Wait, until the response has arrived, and return its result.
+	return c.waitForResponse(ctx, key, channel)
+}
+
+func (c *control) write(ctx context.Context, reqType byte, headerI interface{}, dataI interface{}) (err error) {
 	var header, payload []byte
 
 	// Marshal the header data.
@@ -117,11 +142,13 @@ func (c *control) write(reqType byte, headerI interface{}, dataI interface{}) (e
 	defer c.streamWriteMx.Unlock()
 
 	// Set the deadline when all write operations must be finished.
-	// todo: timeout
-	/*err = c.conn.SetWriteDeadline(time.Now().Add(c.config.WriteTimeout))
-	if err != nil {
-		return err
-	}*/
+	deadline, ok := ctx.Deadline()
+	if ok {
+		err = c.stream.SetWriteDeadline(deadline)
+		if err != nil {
+			return err
+		}
+	}
 
 	// Write the request type.
 	_, err = c.stream.Write([]byte{reqType})
@@ -130,26 +157,26 @@ func (c *control) write(reqType byte, headerI interface{}, dataI interface{}) (e
 	}
 
 	// Write the header.
-	// todo: timeout
-	err = packet.Write(c.stream, header, 0)
+	err = packet.Write(c.stream, header)
 	if err != nil {
 		return err
 	}
 
 	// Write the payload.
-	// todo: timeout
-	err = packet.Write(c.stream, payload, 0)
+	err = packet.Write(c.stream, payload)
 	if err != nil {
 		return err
 	}
 
-	return nil
+	// Reset the deadline.
+	return c.stream.SetWriteDeadline(time.Time{})
 }
 
 // cancelCall sends a request to the remote peer in order to cancel an ongoing request
 // identified by the given key.
 func (c *control) cancelCall(key uint64) {
 	err := c.write(
+		context.TODO(),
 		typeCallCancel,
 		&api.ControlCancel{Key: key},
 		nil,
@@ -172,9 +199,9 @@ func (c *control) cancelCall(key uint64) {
 //
 // If a request could be successfully read, it is passed to the
 // handleRequest() method to process it.
-func (c *control) readRoutine(conn net.Conn, once bool) {
+func (c *control) readRoutine(once bool) {
 	// Close the control on exit.
-	defer conn.Close()
+	defer c.stream.Close()
 
 	// Warning: don't shadow the error.
 	// Otherwise the deferred logging won't work!
@@ -194,8 +221,8 @@ func (c *control) readRoutine(conn net.Conn, once bool) {
 		}
 
 		// Only log if not closed.
-		if err != nil && err != io.EOF && !c.s.IsClosing() {
-			c.log.Printf("control: read: %v", err)
+		if err != nil && !errors.Is(err, io.EOF) && !c.s.IsClosing() {
+			c.log.Error().Err(err).Msg("control read")
 		}
 	}()
 
@@ -222,13 +249,13 @@ func (c *control) readRoutine(conn net.Conn, once bool) {
 		reqType = reqTypeBuf[0]
 
 		// Read the header from the stream.
-		headerData, err = packet.Read(c.stream, nil, 0)
+		headerData, err = packet.Read(c.stream, nil)
 		if err != nil {
 			return
 		}
 
 		// Read the payload from the stream.
-		payloadData, err = packet.Read(c.stream, nil, 0)
+		payloadData, err = packet.Read(c.stream, nil)
 		if err != nil {
 			return
 		}

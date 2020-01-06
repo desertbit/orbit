@@ -49,7 +49,6 @@ package packet
 
 import (
 	"net"
-	"time"
 
 	"github.com/desertbit/orbit/internal/bytes"
 	"github.com/desertbit/orbit/pkg/codec"
@@ -66,10 +65,9 @@ func ReadDecode(
 	conn net.Conn,
 	value interface{},
 	codec codec.Codec,
-	timeout time.Duration,
 ) error {
 	// Read the packet from the connection with a timeout.
-	payload, err := Read(conn, nil, timeout)
+	payload, err := Read(conn, nil)
 	if err != nil {
 		return err
 	}
@@ -88,28 +86,11 @@ func ReadDecode(
 func Read(
 	conn net.Conn,
 	buffer []byte,
-	timeout time.Duration,
 ) ([]byte, error) {
-	deadline := time.Time{}
-	if timeout > 0 {
-		deadline = time.Now().Add(timeout)
-	}
-
-	err := conn.SetReadDeadline(deadline)
-	if err != nil {
-		return nil, err
-	}
-	if timeout > 0 {
-		defer func() {
-			cErr := conn.SetReadDeadline(time.Time{})
-			if err == nil {
-				err = cErr
-			}
-		}()
-	}
-
 	var (
-		n, bytesRead   int
+		err          error
+		n, bytesRead int
+
 		payloadSizeBuf = make([]byte, 4)
 	)
 
@@ -156,7 +137,6 @@ func WriteEncode(
 	conn net.Conn,
 	value interface{},
 	codec codec.Codec,
-	timeout time.Duration,
 ) error {
 	// Encode the value using the codec.
 	data, err := codec.Encode(value)
@@ -165,7 +145,7 @@ func WriteEncode(
 	}
 
 	// Write the data to the connection with a timeout.
-	return Write(conn, data, timeout)
+	return Write(conn, data)
 }
 
 // Write writes the packet data to the connection, without
@@ -178,45 +158,26 @@ func WriteEncode(
 func Write(
 	conn net.Conn,
 	data []byte,
-	timeout time.Duration,
-) error {
+) (err error) {
 	payloadLen := len(data)
 	if payloadLen > maxSize {
 		panic("maximum packet size exceeded in write")
-	}
-
-	var deadline time.Time
-	if timeout > 0 {
-		deadline = time.Now().Add(timeout)
-	}
-
-	err := conn.SetWriteDeadline(deadline)
-	if err != nil {
-		return err
-	}
-	if timeout > 0 {
-		defer func() {
-			cErr := conn.SetWriteDeadline(time.Time{})
-			if err == nil {
-				err = cErr
-			}
-		}()
 	}
 
 	// Write the payload length.
 	payloadBufLen := bytes.FromUint32(uint32(payloadLen))
 	_, err = conn.Write(payloadBufLen)
 	if err != nil {
-		return err
+		return
 	}
 
 	// Write the payload data if present.
 	if payloadLen > 0 {
 		_, err = conn.Write(data)
 		if err != nil {
-			return err
+			return
 		}
 	}
 
-	return nil
+	return
 }

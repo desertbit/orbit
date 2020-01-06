@@ -39,8 +39,9 @@ import (
 
 	"github.com/desertbit/closer/v3"
 	"github.com/desertbit/orbit/internal/api"
-	"github.com/desertbit/orbit/internal/control"
 	"github.com/desertbit/orbit/internal/packet"
+    "github.com/desertbit/orbit/pkg/codec"
+    "github.com/rs/zerolog"
 )
 
 const (
@@ -67,10 +68,10 @@ const (
 
 type CallFunc func(ctx *Data) (data interface{}, err error)
 
-// The StreamHandler type describes the function that is called whenever
+// The StreamFunc type describes the function that is called whenever
 // a new connection is requested on a peer. It must then handle the new
 // connection, if it could be set up correctly.
-type StreamHandler func(net.Conn) error
+type StreamFunc func(net.Conn) error
 
 type Session struct {
 	closer.Closer
@@ -85,14 +86,15 @@ type Session struct {
 
 	callFuncsMx sync.RWMutex
 	callFuncs   map[string]CallFunc
+	ctrl *control
 
 	// Synchronises the access to the stream handlers map.
-	streamHandlersMx sync.Mutex
+	streamFuncsMx sync.Mutex
 	// The handler functions that have been registered to new streams.
 	// When a new stream has been opened, the first data sent on the stream must
 	// contain the key into this map to retrieve the correct function to handle
 	// the stream.
-	streamHandlers map[string]StreamHandler
+	streamFuncs map[string]StreamFunc
 }
 
 // newSession creates a new orbit session from the given parameters.
@@ -102,8 +104,8 @@ func newSession(cl closer.Closer, conn Conn, initStream net.Conn, cf *Config) (s
 		Closer: cl,
 		cf:     cf,
 		conn:   conn,
-		ctrl:   control.New(cl.CloserTwoWay(), initStream, cf.Ctrl),
 	}
+	s.ctrl = newControl(s, initStream, false)
 	s.OnClosing(conn.Close)
 	return
 }
@@ -112,11 +114,6 @@ func newSession(cl closer.Closer, conn Conn, initStream net.Conn, cf *Config) (s
 // This must be set manually.
 func (s *Session) ID() string {
 	return s.id
-}
-
-// TOdo:
-func (s *Session) Ctrl() *control.Control {
-	return s.ctrl
 }
 
 // Todo:
@@ -144,14 +141,16 @@ func (s *Session) Ready() {
 	go s.acceptStreamRoutine()
 }
 
+func (s *Session) RegisterStream(id string, f StreamFunc) {
+    s.streamFuncsMx.Lock()
+    s.streamFuncs[id] = f
+    s.streamFuncsMx.Unlock()
+}
+
 // OpenStream opens a new stream with the given channel ID.
 // Expires after the timeout and returns a net.Error with Timeout() == true.
 // TODO: remove init stream write timeout
-func (s *Session) OpenStream(service, id string, call bool, timeout time.Duration) (stream net.Conn, err error) {
-	// Create a timeout context.
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-
+func (s *Session) OpenStream(ctx context.Context, id string, t api.StreamType) (stream net.Conn, err error) {
 	// Open the stream through our conn.
 	stream, err = s.conn.OpenStream(ctx)
 	if err != nil {
@@ -161,8 +160,8 @@ func (s *Session) OpenStream(service, id string, call bool, timeout time.Duratio
 	// Create the initial data that signals to the remote peer,
 	// which stream we want to open.
 	data := api.InitStream{
-		ID:   service + "." + id,
-		Call: call,
+		ID:   id,
+		Type: t,
 	}
 
 	// Write the initial request to the stream.
@@ -174,8 +173,23 @@ func (s *Session) OpenStream(service, id string, call bool, timeout time.Duratio
 	return
 }
 
-func (s *Session) RegisterCall(id string, h CallFunc) {
+func (s *Session) RegisterCall(id string, f CallFunc) {
+    s.callFuncsMx.Lock()
+    s.callFuncs[id] = f
+    s.callFuncsMx.Unlock()
+}
 
+func (s *Session) Call(ctx context.Context, id string, data interface{}) (d *Data, err error) {
+    return s.ctrl.call(ctx, id, data)
+}
+
+func (s *Session) CallAsync(ctx context.Context, id string, data interface{}) (d *Data, err error) {
+    stream, err := s.OpenStream(ctx, id, api.StreamTypeCallAsync)
+    if err != nil {
+        return
+    }
+
+    return newControl(s, stream, true).call(ctx, id, data)
 }
 
 //###############//
@@ -225,7 +239,7 @@ func (s *Session) acceptStreamRoutine() {
 
 // handleNewStream handles a new incoming stream. It first reads the initial
 // stream data from the connection, which tells us the id of the channel that
-// should be opened. With this id, we can retrieve the StreamHandler from the
+// should be opened. With this id, we can retrieve the StreamFunc from the
 // session's map and pass it the new stream.
 // Recovers from panics.
 func (s *Session) handleNewStream(stream net.Conn) (err error) {
@@ -277,13 +291,13 @@ func (s *Session) handleNewStream(stream net.Conn) (err error) {
 	return
 }
 
-// streamHandler retrieves the StreamHandler from the session's map
+// streamHandler retrieves the StreamFunc from the session's map
 // that corresponds to the given channel id.
 // This method is thread-safe.
-func (s *Session) streamHandler(id string) (f StreamHandler, err error) {
-	s.streamHandlersMx.Lock()
-	f = s.streamHandlers[id]
-	s.streamHandlersMx.Unlock()
+func (s *Session) streamHandler(id string) (f StreamFunc, err error) {
+	s.streamFuncsMx.Lock()
+	f = s.streamFuncs[id]
+	s.streamFuncsMx.Unlock()
 
 	if f == nil {
 		err = fmt.Errorf("stream handler for id '%s' does not exist", id)
