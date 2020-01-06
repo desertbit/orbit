@@ -15,25 +15,14 @@ import (
 //### Errors ###//
 //##############//
 
-const (
-	ErrCodeNotFound            = 1
-	ErrCodeDatasetDoesNotExist = 2
-)
+const ErrCodeNotFound = 1
+const ErrCodeDatasetDoesNotExist = 2
 
 var (
-	ErrNotFound      = errors.New("not found")
-	orbitErrNotFound = control.Err(
-		ErrNotFound,
-		ErrNotFound.Error(),
-		ErrCodeNotFound,
-	)
-
+	ErrNotFound                 = errors.New("not found")
+	orbitErrNotFound            = control.Err(ErrNotFound, ErrNotFound.Error(), ErrCodeNotFound)
 	ErrDatasetDoesNotExist      = errors.New("dataset does not exist")
-	orbitErrDatasetDoesNotExist = control.Err(
-		ErrDatasetDoesNotExist,
-		ErrDatasetDoesNotExist.Error(),
-		ErrCodeDatasetDoesNotExist,
-	)
+	orbitErrDatasetDoesNotExist = control.Err(ErrDatasetDoesNotExist, ErrDatasetDoesNotExist.Error(), ErrCodeDatasetDoesNotExist)
 )
 
 //#############//
@@ -121,10 +110,11 @@ type ExampleProviderHandler interface {
 	Hello() (conn net.Conn, err error)
 	Hello2(args <-chan *Char) (err error)
 }
+
 type exampleConsumer struct {
 	h     ExampleConsumerHandler
 	os    *orbit.Session
-	ctrls [2]*control.Control
+	ctrls [3]*control.Control
 }
 
 func (v1 *exampleConsumer) Test(args *Plate) (ret *Rect, err error) {
@@ -201,18 +191,32 @@ func (v1 *exampleConsumer) test4(ctx *control.Context) (v interface{}, err error
 func (v1 *exampleConsumer) Hello() (conn net.Conn, err error) {
 	return v1.os.OpenStream(ExampleHello)
 }
-
 func (v1 *exampleConsumer) Hello2(args <-chan *Char) (err error) {
 	conn, err := v1.os.OpenStream(ExampleHello2)
 	if err != nil {
 		return
 	}
+	go func() {
+		closingChan := v1.os.ClosingChan()
+		for {
+			select {
+			case <-closingChan:
+				return
+			case arg := <-args:
+				err := packet.WriteEncode(conn, arg, v1.os.Codec(), 0)
+				if err != nil && !v1.os.IsClosing() {
+					v1.os.Log().Error().Err(err).Str("channel", ExampleHello2).Msg("writing packet")
+				}
+			}
+		}
+	}()
+	return
 }
 
 type exampleProvider struct {
 	h     ExampleProviderHandler
 	os    *orbit.Session
-	ctrls [2]*control.Control
+	ctrls [3]*control.Control
 }
 
 func (v1 *exampleProvider) Test3(args *Test3Args) (ret *Test3Ret, err error) {
@@ -299,29 +303,6 @@ func (v1 *exampleProvider) Hello3() (ret <-chan *Plate, err error) {
 	if err != nil {
 		return
 	}
-}
-
-func (v1 *exampleProvider) Hello4(args <-chan *Char) (ret <-chan *Plate, err error) {
-	conn, err := v1.os.OpenStream(ExampleHello4)
-	if err != nil {
-		return
-	}
-
-	go func() {
-		closingChan := v1.os.ClosingChan()
-		for {
-			select {
-			case <-closingChan:
-				return
-			case arg := <-args:
-				err = packet.WriteEncode(conn, arg, v1.os.Codec(), 1024*1024, 30*time.Second)
-				if err != nil && !v1.os.IsClosing() {
-					v1.os.Log().Error().Err(err).Str("channel", ExampleHello4).Msg("writing packet")
-				}
-			}
-		}
-	}()
-
 	retChan := make(chan *Plate)
 	ret = retChan
 	go func() {
@@ -332,7 +313,51 @@ func (v1 *exampleProvider) Hello4(args <-chan *Char) (ret <-chan *Plate, err err
 				return
 			default:
 				var data *Plate
-				err = packet.ReadDecode(conn, data, v1.os.Codec(), 1024*1024, 30*time.Second)
+				err := packet.ReadDecode(conn, data, v1.os.Codec(), 0)
+				if err != nil && !v1.os.IsClosing() {
+					v1.os.Log().Error().Err(err).Str("channel", ExampleHello3).Msg("reading packet")
+				}
+				select {
+				case <-closingChan:
+					return
+				case retChan <- data:
+				}
+			}
+		}
+	}()
+	return
+}
+
+func (v1 *exampleProvider) Hello4(args <-chan *Char) (ret <-chan *Plate, err error) {
+	conn, err := v1.os.OpenStream(ExampleHello4)
+	if err != nil {
+		return
+	}
+	go func() {
+		closingChan := v1.os.ClosingChan()
+		for {
+			select {
+			case <-closingChan:
+				return
+			case arg := <-args:
+				err := packet.WriteEncode(conn, arg, v1.os.Codec(), 0)
+				if err != nil && !v1.os.IsClosing() {
+					v1.os.Log().Error().Err(err).Str("channel", ExampleHello4).Msg("writing packet")
+				}
+			}
+		}
+	}()
+	retChan := make(chan *Plate)
+	ret = retChan
+	go func() {
+		closingChan := v1.os.ClosingChan()
+		for {
+			select {
+			case <-closingChan:
+				return
+			default:
+				var data *Plate
+				err := packet.ReadDecode(conn, data, v1.os.Codec(), 0)
 				if err != nil && !v1.os.IsClosing() {
 					v1.os.Log().Error().Err(err).Str("channel", ExampleHello4).Msg("reading packet")
 				}

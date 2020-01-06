@@ -63,7 +63,6 @@ func newServerSession(cl closer.Closer, conn Conn, cf *Config) (s *Session, err 
 	if err != nil {
 		return
 	}
-	defer stream.Close()
 
 	// Set a read timeout.
 	err = stream.SetReadDeadline(time.Now().Add(streamVersionReadTimeout))
@@ -82,10 +81,16 @@ func newServerSession(cl closer.Closer, conn Conn, cf *Config) (s *Session, err 
 		return nil, ErrInvalidVersion
 	}
 
+	// Reset the deadline.
+	err = stream.SetReadDeadline(time.Time{})
+	if err != nil {
+		return
+	}
+
 	// TODO: auth hook?
 
 	// Finally, create the orbit server session.
-	s = newSession(cl, conn, cf, false)
+	s = newSession(cl, conn, stream, cf)
 
 	// TODO: remove?
 	// Save the arbitrary data from the auth func.

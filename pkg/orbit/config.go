@@ -30,6 +30,7 @@ package orbit
 import (
 	"os"
 
+	"github.com/desertbit/orbit/internal/control"
 	"github.com/desertbit/orbit/pkg/codec"
 	"github.com/desertbit/orbit/pkg/codec/msgpack"
 	"github.com/rs/zerolog"
@@ -37,6 +38,8 @@ import (
 
 // todo:
 type Config struct {
+	Ctrl *control.Config
+
 	Codec codec.Codec
 
 	Log *zerolog.Logger
@@ -49,6 +52,7 @@ func prepareConfig(c *Config) *Config {
 		c = &Config{}
 	}
 
+	// todo: ctrl config
 	if c.Codec == nil {
 		c.Codec = msgpack.Codec
 	}

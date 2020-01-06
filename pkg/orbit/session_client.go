@@ -79,17 +79,17 @@ func newClientSession(cl closer.Closer, conn Conn, cf *Config) (s *Session, err 
 		return nil, errors.New("failed to write version byte to connection")
 	}
 
-	// Authenticate if required.
-	// TODO:
-
-	// Reset the deadlines.
-	err = stream.SetDeadline(time.Time{})
+	// Reset the deadline.
+	err = stream.SetWriteDeadline(time.Time{})
 	if err != nil {
 		return
 	}
 
+	// Authenticate if required.
+	// TODO:
+
 	// Finally, create the orbit client session.
-	s = newSession(cl, conn, cf, true)
+	s = newSession(cl, conn, stream, cf)
 
 	// TODO: remove?
 	// Save the arbitrary data from the auth func.

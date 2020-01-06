@@ -39,6 +39,9 @@ import (
 const (
 	// The length of the randomly created session ids.
 	sessionIDLength = 20
+
+	// The maximum number of times it is tried to generate a unique random session id.
+	maxRetriesGenSessionID = 10
 )
 
 // Server implements a simple orbit server. It listens with serverWorkers many
@@ -195,13 +198,12 @@ func (s *Server) handleConnection(conn Conn) (err error) {
 		}
 	}()
 
-	// Add the new session to the active sessions map.
-	// If the ID is already present, then generate a new one.
+	// Generate a unique random id for the new session.
 	var (
 		id    string
 		added bool
 	)
-	for i := 0; i < 10; i++ {
+	for i := 0; i < maxRetriesGenSessionID; i++ {
 		id, err = utils.RandomString(sessionIDLength)
 		if err != nil {
 			return
@@ -224,8 +226,7 @@ func (s *Server) handleConnection(conn Conn) (err error) {
 		}
 	}
 	if !added {
-		err = fmt.Errorf("failed generate unique random session ID")
-		return
+		return fmt.Errorf("failed to generate unique random session id")
 	}
 
 	sn.OnClosing(func() error {

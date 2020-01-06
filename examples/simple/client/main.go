@@ -28,12 +28,12 @@
 package main
 
 import (
-	"net"
-
 	"github.com/desertbit/closer/v3"
 	"github.com/desertbit/orbit/examples/simple/api"
 	"github.com/desertbit/orbit/pkg/orbit"
 )
+
+var _ api.ExampleConsumerHandler = &Client{}
 
 type Client struct {
 	api.ExampleConsumerCaller
@@ -58,7 +58,11 @@ func (c *Client) Test4() (ret *api.Rect, err error) {
 	panic("implement me")
 }
 
-func (c *Client) Hello3(conn net.Conn) (err error) {
+func (c *Client) Hello3() (ret <-chan *api.Plate, err error) {
+	panic("implement me")
+}
+
+func (c *Client) Hello4(args <-chan *api.Char) (ret <-chan *api.Plate, err error) {
 	panic("implement me")
 }
 

@@ -28,8 +28,10 @@
 package gen
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
+	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -95,18 +97,43 @@ func Generate(filePath string) (err error) {
 	}
 
 	// Write the contents to the file.
-	return ioutil.WriteFile(
-		filepath.Join(dir, strings.TrimSuffix(filepath.Base(filePath), OrbitSuffix)+genSuffix),
-		[]byte(code+g.s.String()),
-		filePerm,
-	)
+	goFilePath := filepath.Join(dir, strings.TrimSuffix(filepath.Base(filePath), OrbitSuffix)+genSuffix)
+	err = ioutil.WriteFile(goFilePath, []byte(code+g.s.String()), filePerm)
+	if err != nil {
+		return
+	}
+
+	// Exec goimports, if available.
+	cmd := exec.Command("goimports", "-w", goFilePath)
+	err = cmd.Run()
+	if err != nil {
+		var eErr *exec.ExitError
+		if errors.Is(err, exec.ErrNotFound) {
+			err = nil
+		} else if errors.As(err, &eErr) {
+			err = fmt.Errorf("goimports: %v", string(eErr.Stderr))
+		}
+		return
+	}
+
+	// Exec gofmt, if available.
+	cmd = exec.Command("gofmt", "-s", "-w", goFilePath)
+	err = cmd.Run()
+	if err != nil {
+		var eErr *exec.ExitError
+		if errors.Is(err, exec.ErrNotFound) {
+			err = nil
+		} else if errors.As(err, &eErr) {
+			err = fmt.Errorf("gofmt: %v", string(eErr.Stderr))
+		}
+		return
+	}
+	return
 }
 
 type generator struct {
-	s           strings.Builder
-	ind         int
-	writeIndent bool
-	imps        imports
+	s    strings.Builder
+	imps imports
 }
 
 func newGenerator() *generator {
@@ -128,36 +155,20 @@ func (g *generator) genErrors(errs []*parse.Error) {
 	// Add import.
 	g.imps.Add("errors")
 
-	// Open const block.
+	// Write error codes.
 	g.writeLn("const (")
-	g.indent(func() {
-		// Write error codes.
-		for _, e := range errs {
-			g.writeLn("ErrCode%s = %d", e.Name, e.ID)
-		}
-	})
-	// Close const block.
+	for _, e := range errs {
+		g.writeLn("ErrCode%s = %d", e.Name, e.ID)
+	}
 	g.writeLn(")")
 
-	// Open var block.
+	// Write standard error variables along with the orbit control.ErrorCode ones.
 	g.writeLn("var (")
-	g.indent(func() {
-		// Write standard error variables along with the orbit control.ErrorCode ones.
-		for _, e := range errs {
-			g.writeLn("Err%s = errors.New(\"%s\")", e.Name, strExplode(e.Name))
-			g.writeLn("orbitErr%s = control.Err(", e.Name)
-			g.indent(func() {
-				g.writeLn("Err%s,", e.Name)
-				g.writeLn("Err%s.Error(),", e.Name)
-				g.writeLn("ErrCode%s,", e.Name)
-			})
-			g.writeLn(")")
-			g.writeLn("")
-		}
-	})
-	// Close var block.
+	for _, e := range errs {
+		g.writeLn("Err%s = errors.New(\"%s\")", e.Name, strExplode(e.Name))
+		g.writeLn("orbitErr%s = control.Err(Err%s, Err%s.Error(), ErrCode%s)", e.Name, e.Name, e.Name, e.Name)
+	}
 	g.writeLn(")")
-	g.writeLn("")
 }
 
 func (g *generator) genStructTypes(ts []*parse.StructType) {
@@ -173,13 +184,11 @@ func (g *generator) genStructTypes(ts []*parse.StructType) {
 		})
 
 		g.writeLn("type %s struct {", t.Name)
-		g.indent(func() {
-			for _, f := range t.Fields {
-				g.write("%s ", f.Name)
-				g.genType(f.Type)
-				g.writeLn("")
-			}
-		})
+		for _, f := range t.Fields {
+			g.write("%s ", f.Name)
+			g.genType(f.Type)
+			g.writeLn("")
+		}
 		g.writeLn("}")
 		g.writeLn("")
 	}
@@ -238,25 +247,23 @@ func (g *generator) genService(srvc *parse.Service, errs []*parse.Error) {
 	// Sort the entries into the respective categories.
 	// Also create the call ids.
 	g.writeLn("const (")
-	g.indent(func() {
-		for _, e := range srvc.Entries {
-			g.writeLn("%s = \"%s\"", srvc.Name+e.Name(), srvc.Name+e.Name())
-			switch v := e.(type) {
-			case *parse.Call:
-				if v.Rev() {
-					revCalls = append(revCalls, v)
-				} else {
-					calls = append(calls, v)
-				}
-			case *parse.Stream:
-				if v.Rev() {
-					revStreams = append(revStreams, v)
-				} else {
-					streams = append(streams, v)
-				}
+	for _, e := range srvc.Entries {
+		g.writeLn("%s = \"%s\"", srvc.Name+e.Name(), srvc.Name+e.Name())
+		switch v := e.(type) {
+		case *parse.Call:
+			if v.Rev() {
+				revCalls = append(revCalls, v)
+			} else {
+				calls = append(calls, v)
+			}
+		case *parse.Stream:
+			if v.Rev() {
+				revStreams = append(revStreams, v)
+			} else {
+				streams = append(streams, v)
 			}
 		}
-	})
+	}
 	g.writeLn(")")
 	g.writeLn("")
 
@@ -271,6 +278,7 @@ func (g *generator) genService(srvc *parse.Service, errs []*parse.Error) {
 	g.genServiceInterface("ConsumerHandler", srvc.Name, revCalls, revStreams)
 	g.genServiceInterface("ProviderCaller", srvc.Name, revCalls, revStreams)
 	g.genServiceInterface("ProviderHandler", srvc.Name, calls, streams)
+	g.writeLn("")
 
 	// Create the private structs implementing the caller interfaces and providing the orbit handlers.
 	g.genServiceStruct("Consumer", srvc.Name, calls, revCalls, streams, revStreams, errs)
@@ -283,18 +291,16 @@ func (g *generator) genService(srvc *parse.Service, errs []*parse.Error) {
 
 func (g *generator) genServiceInterface(name, srvcName string, calls []*parse.Call, streams []*parse.Stream) {
 	g.writeLn("type %s interface {", srvcName+name)
-	g.indent(func() {
-		g.writeLn("// Calls")
-		for _, c := range calls {
-			g.genServiceCallSignature(c)
-			g.writeLn("")
-		}
-		g.writeLn("// Streams")
-		for _, s := range streams {
-			g.genServiceStreamSignature(s)
-			g.writeLn("")
-		}
-	})
+	g.writeLn("// Calls")
+	for _, c := range calls {
+		g.genServiceCallSignature(c)
+		g.writeLn("")
+	}
+	g.writeLn("// Streams")
+	for _, s := range streams {
+		g.genServiceStreamSignature(s)
+		g.writeLn("")
+	}
 	g.writeLn("}")
 	g.write("")
 }
@@ -305,27 +311,38 @@ func (g *generator) genServiceStruct(
 	streams, revStreams []*parse.Stream,
 	errs []*parse.Error,
 ) {
-	// One service has one control for all normal calls.
-	// But every async call gets its own control.
-	numControls := 1
+	// One service has one default control for all normal calls and revcalls.
+	// But every async call and revcall get their own control.
+	numCtrls := 0
+	addedDefault := false
 	for _, c := range calls {
 		if c.Async {
-			numControls++
+			numCtrls++
+		} else if !addedDefault {
+			numCtrls++
+			addedDefault = true
+		}
+	}
+	for _, rc := range revCalls {
+		if rc.Async {
+			numCtrls++
+		} else if !addedDefault {
+			numCtrls++
+			addedDefault = true
 		}
 	}
 
 	// Write struct.
 	strName := utils.ToLowerFirst(srvcName + name)
 	g.writeLn("type %s struct {", strName)
-
-	g.indent(func() {
-		g.writeLn("h %sHandler", srvcName+name)
-		g.writeLn("os *orbit.Session")
-		g.writeLn("ctrls [%d]*control.Control", numControls)
-	})
-
+	g.writeLn("h %sHandler", srvcName+name)
+	g.writeLn("os *orbit.Session")
+	g.writeLn("ctrls [%d]*control.Control", numCtrls)
 	g.writeLn("}")
 	g.writeLn("")
+
+	// Generate constructor.
+	//g.genServiceStructConstructor(strName, srvcName, numCtrls)
 
 	// Generate the calls.
 	asyncCount := 1
@@ -351,38 +368,49 @@ func (g *generator) genServiceStruct(
 	}
 }
 
+func (g *generator) genServiceStructConstructor(name, srvcName string, numCtrls int) {
+	nameUp := strings.Title(name)
+	g.writeLn("func Register%s(os *orbit.Session, h %sHandler) (c %sCaller) {", nameUp, nameUp, nameUp)
+	g.writeLn("cc := &%s{", name)
+	g.writeLn("h: h,")
+	g.writeLn("os: os,")
+	g.writeLn("ctrls: [%d]*control.Control{}", numCtrls)
+	g.writeLn("}")
+	g.writeLn("}")
+}
+
 func (g *generator) genServiceCall(c *parse.Call, structName, srvcName string, ctrlIndex int, errs []*parse.Error) {
 	// Method declaration.
 	g.write("func (%s *%s) ", recv, structName)
 	g.genServiceCallSignature(c)
 	g.writeLn(" {")
-	g.indent(func() {
-		// Method body.
-		// First, make the call.
-		if c.Ret != nil {
-			g.write("ctx, err := ")
-		} else {
-			g.write("_, err = ")
-		}
-		g.write("%s.ctrls[%d].Call(%s, ", recv, ctrlIndex, srvcName+c.Name())
-		if c.Args != nil {
-			g.writeLn("args)")
-		} else {
-			g.writeLn("nil)")
-		}
 
-		// Check error and parse control.ErrorCodes.
-		g.writeErrCheckOrbitCaller(errs)
+	// Method body.
+	// First, make the call.
+	if c.Ret != nil {
+		g.write("ctx, err := ")
+	} else {
+		g.write("_, err = ")
+	}
+	g.write("%s.ctrls[%d].Call(%s, ", recv, ctrlIndex, srvcName+c.Name())
+	if c.Args != nil {
+		g.writeLn("args)")
+	} else {
+		g.writeLn("nil)")
+	}
 
-		// If return arguments are expected, decode them.
-		if c.Ret != nil {
-			g.writeLn("err = ctx.Decode(ret)")
-			g.writeErrCheck()
-		}
+	// Check error and parse control.ErrorCodes.
+	g.writeErrCheckOrbitCaller(errs)
 
-		// Return.
-		g.writeLn("return")
-	})
+	// If return arguments are expected, decode them.
+	if c.Ret != nil {
+		g.writeLn("err = ctx.Decode(ret)")
+		g.writeErrCheck()
+	}
+
+	// Return.
+	g.writeLn("return")
+
 	g.writeLn("}")
 	g.writeLn("")
 }
@@ -393,35 +421,35 @@ func (g *generator) genServiceCallOrbitHandler(c *parse.Call, structName string,
 		"func (%s *%s) %s(ctx *control.Context) (v interface{}, err error) {",
 		recv, structName, utils.ToLowerFirst(c.Name()),
 	)
-	g.indent(func() {
-		// Method body.
-		// Parse the args.
-		handlerArgs := ""
-		if c.Args != nil {
-			handlerArgs = "args"
-			g.writeLn("var args *%s", c.Args.Type.Name)
-			g.writeLn("err = ctx.Decode(args)")
-			g.writeErrCheck()
-		}
 
-		// Call the handler.
-		if c.Ret != nil {
-			g.writeLn("ret, err := %s.h.%s(%s)", recv, c.Name(), handlerArgs)
-		} else {
-			g.writeLn("err = %s.h.%s(%s)", recv, c.Name(), handlerArgs)
-		}
+	// Method body.
+	// Parse the args.
+	handlerArgs := ""
+	if c.Args != nil {
+		handlerArgs = "args"
+		g.writeLn("var args *%s", c.Args.Type.Name)
+		g.writeLn("err = ctx.Decode(args)")
+		g.writeErrCheck()
+	}
 
-		// Check error and convert to orbit errors.
-		g.writeErrCheckOrbitHandler(errs)
+	// Call the handler.
+	if c.Ret != nil {
+		g.writeLn("ret, err := %s.h.%s(%s)", recv, c.Name(), handlerArgs)
+	} else {
+		g.writeLn("err = %s.h.%s(%s)", recv, c.Name(), handlerArgs)
+	}
 
-		// Assign return value.
-		if c.Ret != nil {
-			g.writeLn("v = ret")
-		}
+	// Check error and convert to orbit errors.
+	g.writeErrCheckOrbitHandler(errs)
 
-		// Return.
-		g.writeLn("return")
-	})
+	// Assign return value.
+	if c.Ret != nil {
+		g.writeLn("v = ret")
+	}
+
+	// Return.
+	g.writeLn("return")
+
 	g.writeLn("}")
 	g.writeLn("")
 }
@@ -443,66 +471,70 @@ func (g *generator) genServiceStream(s *parse.Stream, structName, srvcName strin
 	g.write("func (%s *%s) ", recv, structName)
 	g.genServiceStreamSignature(s)
 	g.writeLn(" {")
-	g.indent(func() {
-		// Method body.
-		// First, open the stream.
-		if s.Args == nil && s.Ret == nil {
-			g.writeLn("return %s.os.OpenStream(%s)", recv, srvcName+s.Name())
-			return
-		}
 
-		g.writeLn("conn, err := %s.os.OpenStream(%s)", recv, srvcName+s.Name())
-		g.writeErrCheck()
+	// Method body.
+	// First, open the stream.
+	if s.Args == nil && s.Ret == nil {
+		g.writeLn("return %s.os.OpenStream(%s)", recv, srvcName+s.Name())
+		g.writeLn("}")
+		return
+	}
 
-		if s.Args != nil {
-			// todo: max msg size, timeout
-			/*
-				go func() {
-					closingChan := v1.os.ClosingChan()
-					for {
-						select {
-						case <-closingChan:
-							return
-						case arg := <-args:
-							err = packet.WriteEncode(conn, arg, v1.os.Codec(), 1024*1024, 30*time.Second)
-							if err != nil && !v1.os.IsClosing() {
-								v1.os.Log().Error().Err(err).Str("channel", ExampleHello4).Msg("writing packet")
-							}
-						}
-					}
-				}()
-			*/
-		}
+	g.writeLn("conn, err := %s.os.OpenStream(%s)", recv, srvcName+s.Name())
+	g.writeErrCheck()
 
-		if s.Ret != nil {
-			// todo: retChan size
-			/*
-				retChan := make(chan *Plate)
-				ret = retChan
-				go func() {
-					closingChan := v1.os.ClosingChan()
-					for {
-						select {
-						case <-closingChan:
-							return
-						default:
-							var data *Plate
-							err = packet.ReadDecode(conn, data, v1.os.Codec(), 1024*1024, 30*time.Second)
-							if err != nil && !v1.os.IsClosing() {
-								v1.os.Log().Error().Err(err).Str("channel", ExampleHello4).Msg("reading packet")
-							}
-							select {
-							case <-closingChan:
-								return
-							case retChan <- data:
-							}
-						}
-					}
-				}()
-				return
-			*/
-		}
-	})
+	if s.Args != nil {
+		g.imps.Add("github.com/desertbit/orbit/internal/packet")
+
+		// todo: timeout
+		g.writeLn("go func() {")
+		g.writeLn("closingChan := %s.os.ClosingChan()", recv)
+		g.writeLn("for {")
+		g.writeLn("select {")
+		g.writeLn("case <- closingChan:")
+		g.writeLn("return")
+		g.writeLn("case arg := <-args:")
+		g.writeLn("err := packet.WriteEncode(conn, arg, %s.os.Codec(), 0)", recv)
+		g.writeLn("if err != nil && !%s.os.IsClosing() {", recv)
+		g.writeLn("%s.os.Log().Error().Err(err).Str(\"channel\", %s).Msg(\"writing packet\")", recv, srvcName+s.Name())
+		g.writeLn("}")
+		g.writeLn("}")
+		g.writeLn("}")
+		g.writeLn("}()")
+	}
+
+	if s.Ret != nil {
+		g.imps.Add("github.com/desertbit/orbit/internal/packet")
+
+		// todo: retChan size
+		// todo: timeout
+		g.writeLn("retChan := make(chan *%s)", s.Ret.Type.Name)
+		g.writeLn("ret = retChan")
+		g.writeLn("go func() {")
+		g.writeLn("closingChan := %s.os.ClosingChan()", recv)
+		g.writeLn("for {")
+		g.writeLn("select {")
+		g.writeLn("case <- closingChan:")
+		g.writeLn("return")
+		g.writeLn("default:")
+		g.writeLn("var data *Plate")
+		g.writeLn("err := packet.ReadDecode(conn, data, %s.os.Codec(), 0)", recv)
+		g.writeLn("if err != nil && !%s.os.IsClosing() {", recv)
+		g.writeLn("%s.os.Log().Error().Err(err).Str(\"channel\", %s).Msg(\"reading packet\")", recv, srvcName+s.Name())
+		g.writeLn("}")
+		g.writeLn("select {")
+		g.writeLn("case <-closingChan:")
+		g.writeLn("return")
+		g.writeLn("case retChan <- data:")
+		g.writeLn("}")
+		g.writeLn("}")
+		g.writeLn("}")
+		g.writeLn("}()")
+	}
+
+	// Return.
+	g.writeLn("return")
+
 	g.writeLn("}")
 	g.writeLn("")
 }
@@ -522,83 +554,55 @@ func (g *generator) genServiceStreamSignature(s *parse.Stream) {
 }
 
 func (g *generator) writeErrCheck() {
-	g.writeLn("if err != nil {")
-	g.indent(func() {
-		g.writeLn("return")
-	})
-	g.writeLn("}")
+	g.writeLn("if err != nil { return }")
 }
 
 func (g *generator) writeErrCheckOrbitCaller(errs []*parse.Error) {
 	g.writeLn("if err != nil {")
-	g.indent(func() {
-		// Check, if a control.ErrorCode has been returned.
-		if len(errs) > 0 {
-			g.imps.Add("errors")
+	// Check, if a control.ErrorCode has been returned.
+	if len(errs) > 0 {
+		g.imps.Add("errors")
 
-			g.writeLn("var cErr *control.ErrorCode")
-			g.writeLn("if errors.As(err, &cErr) {")
-			g.indent(func() {
-				g.writeLn("switch cErr.Code {")
-				for _, e := range errs {
-					g.writeLn("case %d:", e.ID)
-					g.indent(func() {
-						g.writeLn("err = Err%s", e.Name)
-					})
-				}
-				g.writeLn("}")
-			})
-			g.writeLn("}")
+		g.writeLn("var cErr *control.ErrorCode")
+		g.writeLn("if errors.As(err, &cErr) {")
+		g.writeLn("switch cErr.Code {")
+		for _, e := range errs {
+			g.writeLn("case %d:", e.ID)
+			g.writeLn("err = Err%s", e.Name)
 		}
-		g.writeLn("return")
-	})
+		g.writeLn("}")
+		g.writeLn("}")
+	}
+	g.writeLn("return")
 	g.writeLn("}")
 }
 
 func (g *generator) writeErrCheckOrbitHandler(errs []*parse.Error) {
 	g.writeLn("if err != nil {")
-	g.indent(func() {
-		// Check, if a api error has been returned and convert it to a control.ErrorCode.
-		if len(errs) > 0 {
-			g.imps.Add("errors")
+	// Check, if a api error has been returned and convert it to a control.ErrorCode.
+	if len(errs) > 0 {
+		g.imps.Add("errors")
 
-			for i, e := range errs {
-				g.writeLn("if errors.Is(err, Err%s) {", e.Name)
-				g.indent(func() {
-					g.writeLn("err = orbitErr%s", e.Name)
-				})
-				if i < len(errs)-1 {
-					g.write("} else ")
-				} else {
-					g.writeLn("}")
-				}
+		for i, e := range errs {
+			g.writeLn("if errors.Is(err, Err%s) {", e.Name)
+			g.writeLn("err = orbitErr%s", e.Name)
+			if i < len(errs)-1 {
+				g.write("} else ")
+			} else {
+				g.writeLn("}")
 			}
 		}
-		g.writeLn("return")
-	})
+	}
+	g.writeLn("return")
 	g.writeLn("}")
-}
-
-func (g *generator) indent(f func()) {
-	g.ind++
-	f()
-	g.ind--
 }
 
 func (g *generator) writeLn(format string, a ...interface{}) {
 	g.write(format, a...)
 	g.s.WriteString("\n")
-	g.writeIndent = true
 }
 
 func (g *generator) write(format string, a ...interface{}) {
-	if g.writeIndent {
-		for i := 0; i < g.ind; i++ {
-			g.s.WriteString("\t")
-		}
-		g.writeIndent = false
-	}
-
 	if len(a) == 0 {
 		g.s.WriteString(format)
 		return

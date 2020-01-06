@@ -34,7 +34,8 @@ const (
 )
 
 type InitStream struct {
-	Channel string
+	ID   string
+	Call bool
 }
 
 type ControlCall struct {

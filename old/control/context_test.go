@@ -45,14 +45,14 @@ func TestContext_Control(t *testing.T) {
 	}()
 
 	const call = "callControl"
-	ctrl1.AddFunc(call, func(ctx *control.Context) (data interface{}, err error) {
+	ctrl1.AddFunc(call, func(ctx *call.Context) (data interface{}, err error) {
 		// Check, if the Control is correctly set.
 		if ctx.Control() != ctrl1 {
 			err = errors.New("control was not set to the expected control")
 		}
 		return
 	})
-	ctrl2.AddFunc(call, func(ctx *control.Context) (data interface{}, err error) {
+	ctrl2.AddFunc(call, func(ctx *call.Context) (data interface{}, err error) {
 		// Check, if the Control is correctly set.
 		if ctx.Control() != ctrl2 {
 			err = errors.New("control was not set to the expected control")
@@ -77,14 +77,14 @@ func TestContext_Decode(t *testing.T) {
 	}()
 
 	const call = "callDecode"
-	ctrl1.AddFunc(call, func(ctx *control.Context) (data interface{}, err error) {
+	ctrl1.AddFunc(call, func(ctx *call.Context) (data interface{}, err error) {
 		var test string
 		err = ctx.Decode(&test)
 		return
 	})
 
 	_, err := ctrl2.Call(call, nil)
-	require.EqualError(t, err, control.ErrNoContextData.Error())
+	require.EqualError(t, err, call.ErrNoContextData.Error())
 
 	_, err = ctrl2.Call(call, []byte{54, 51, 50, 1, 5, 2})
 	require.Error(t, err, "expected decode to fail")

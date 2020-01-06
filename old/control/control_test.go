@@ -178,7 +178,7 @@ func TestControl_CallOpts(t *testing.T) {
 
 	// Timeout exceeded.
 	ctx, err = defCtrl2.CallOpts(call, input, 100*time.Millisecond, nil)
-	require.Exactly(t, control.ErrCallTimeout, err)
+	require.Exactly(t, call.ErrCallTimeout, err)
 
 	// Cancel request.
 	canceller := closer.New()
@@ -187,7 +187,7 @@ func TestControl_CallOpts(t *testing.T) {
 		_ = canceller.Close()
 	}()
 	ctx, err = defCtrl2.CallOpts(call2, input, 100*time.Millisecond, canceller.ClosingChan())
-	require.Equal(t, control.ErrCallCanceled, err)
+	require.Equal(t, call.ErrCallCanceled, err)
 }
 
 func TestControl_CallOneWay(t *testing.T) {
@@ -217,8 +217,8 @@ func TestControl_CallOneWay(t *testing.T) {
 	}
 
 	const call = "callOneWay"
-	defCtrl1.AddFuncs(map[string]control.Func{call: f})
-	defCtrl2.AddFuncs(map[string]control.Func{call: f})
+	defCtrl1.AddFuncs(map[string]call.Func{call: f})
+	defCtrl2.AddFuncs(map[string]call.Func{call: f})
 
 	err := defCtrl1.CallOneWay(call, input)
 	require.NoError(t, err)
@@ -255,11 +255,11 @@ func TestControl_CallAsync(t *testing.T) {
 	}
 
 	const call = "callAsync"
-	defCtrl1.AddFuncs(map[string]control.Func{call: f})
-	defCtrl2.AddFuncs(map[string]control.Func{call: f})
+	defCtrl1.AddFuncs(map[string]call.Func{call: f})
+	defCtrl2.AddFuncs(map[string]call.Func{call: f})
 
 	errChan := make(chan error)
-	cb := func(ctx *control.Context, err error) {
+	cb := func(ctx *call.Context, err error) {
 		// We can not fail in another routine, therefore report whatever
 		// happened back to the test thread by using the channel.
 		defer func() {
@@ -313,16 +313,16 @@ func TestControl_CallAsyncOpts(t *testing.T) {
 	}
 
 	const call = "callAsyncOpts"
-	defCtrl1.AddFuncs(map[string]control.Func{call: f})
+	defCtrl1.AddFuncs(map[string]call.Func{call: f})
 	defCtrl2.AddFunc(call, fCancel)
 
-	cb := func(ctx *control.Context, err error) {
+	cb := func(ctx *call.Context, err error) {
 		errChan <- err
 	}
 
 	err := defCtrl2.CallAsyncOpts(call, nil, 10*time.Millisecond, cb, nil)
 	require.NoError(t, err)
-	require.EqualError(t, <-errChan, control.ErrCallTimeout.Error())
+	require.EqualError(t, <-errChan, call.ErrCallTimeout.Error())
 
 	// Test a cancellation of the request.
 	canceller := closer.New()
@@ -339,7 +339,7 @@ func TestControl_ErrorClose(t *testing.T) {
 	defer closeControls(ctrl1, ctrl2)
 
 	const call = "callErrorClose"
-	ctrl1.AddFunc(call, func(ctx *control.Context) (data interface{}, err error) {
+	ctrl1.AddFunc(call, func(ctx *call.Context) (data interface{}, err error) {
 		time.Sleep(100 * time.Millisecond)
 		return
 	})
@@ -348,7 +348,7 @@ func TestControl_ErrorClose(t *testing.T) {
 		_ = ctrl1.Close()
 	})
 	_, err := ctrl2.Call(call, nil)
-	require.EqualError(t, err, control.ErrClosed.Error())
+	require.EqualError(t, err, call.ErrClosed.Error())
 }
 
 func TestControl_Error_And_Hooks(t *testing.T) {
@@ -361,7 +361,7 @@ func TestControl_Error_And_Hooks(t *testing.T) {
 	callHookChan := make(chan error, 1)
 	input := "args"
 
-	ctrl1.SetCallHook(func(c *control.Control, funcID string, ctx *control.Context) {
+	ctrl1.SetCallHook(func(c *call.Control, funcID string, ctx *call.Context) {
 		var err error
 		// Report the result back over the channel.
 		defer func() {
@@ -391,7 +391,7 @@ func TestControl_Error_And_Hooks(t *testing.T) {
 
 	errHookChan := make(chan error, 1)
 
-	ctrl1.SetErrorHook(func(c *control.Control, funcID string, err error) {
+	ctrl1.SetErrorHook(func(c *call.Control, funcID string, err error) {
 		// Report the result back over the channel.
 		defer func() {
 			errHookChan <- err
@@ -410,16 +410,16 @@ func TestControl_Error_And_Hooks(t *testing.T) {
 	errMsg := "error"
 	msg := "msg"
 
-	ctrl1.AddFunc(call, func(ctx *control.Context) (data interface{}, err error) {
+	ctrl1.AddFunc(call, func(ctx *call.Context) (data interface{}, err error) {
 		// Test a default control error.
-		err = control.Err(errors.New(errMsg), msg, errCode)
+		err = call.Err(errors.New(errMsg), msg, errCode)
 		return
 	})
 
 	_, err := ctrl2.Call(call, input)
 	// Check if the error contains the correct code and message.
-	require.IsType(t, (*control.ErrorCode)(nil), err)
-	cerr, _ := err.(*control.ErrorCode)
+	require.IsType(t, (*call.ErrorCode)(nil), err)
+	cerr, _ := err.(*call.ErrorCode)
 	require.Equal(t, errCode, cerr.Code)
 	require.EqualError(t, cerr, msg)
 
@@ -427,16 +427,16 @@ func TestControl_Error_And_Hooks(t *testing.T) {
 	require.NoError(t, <-callHookChan)
 	require.EqualError(t, <-errHookChan, errMsg)
 
-	ctrl2.AddFunc(call, func(ctx *control.Context) (data interface{}, err error) {
+	ctrl2.AddFunc(call, func(ctx *call.Context) (data interface{}, err error) {
 		// Test, whether a nil error is accepted.
-		err = control.Err(nil, msg, errCode)
+		err = call.Err(nil, msg, errCode)
 		return
 	})
 
 	_, err = ctrl1.Call(call, input)
 	// Check if the error contains the correct code and message.
-	require.IsType(t, (*control.ErrorCode)(nil), err)
-	cerr, _ = err.(*control.ErrorCode)
+	require.IsType(t, (*call.ErrorCode)(nil), err)
+	cerr, _ = err.(*call.ErrorCode)
 	require.Equal(t, errCode, cerr.Code)
 	require.EqualError(t, cerr, msg)
 }
@@ -449,18 +449,18 @@ func TestControl_WriteTimeout(t *testing.T) {
 	defer closeControls(ctrl1, ctrl2)
 
 	const call = "callReadWriteTimeout"
-	ctrl1.AddFunc(call, func(ctx *control.Context) (data interface{}, err error) {
+	ctrl1.AddFunc(call, func(ctx *call.Context) (data interface{}, err error) {
 		time.Sleep(time.Microsecond)
 		return
 	})
 
 	// Trigger a write timeout during Call.
 	_, err := ctrl2.Call(call, "Hello this is a test case")
-	require.Equal(t, control.ErrWriteTimeout, err)
+	require.Equal(t, call.ErrWriteTimeout, err)
 
 	// Trigger a write timeout during CallAsync.
 	err = ctrl2.CallAsync(call, "Hello this is a test case", nil)
-	require.Equal(t, control.ErrWriteTimeout, err)
+	require.Equal(t, call.ErrWriteTimeout, err)
 }
 
 func TestControl_MaxMessageSize(t *testing.T) {
@@ -473,10 +473,10 @@ func TestControl_MaxMessageSize(t *testing.T) {
 	defer closeControls(ctrl1, ctrl2)
 
 	const call = "callMaxMessageSize"
-	ctrl1.AddFunc(call, func(ctx *control.Context) (data interface{}, err error) {
+	ctrl1.AddFunc(call, func(ctx *call.Context) (data interface{}, err error) {
 		return
 	})
-	ctrl2.AddFunc(call, func(ctx *control.Context) (data interface{}, err error) {
+	ctrl2.AddFunc(call, func(ctx *call.Context) (data interface{}, err error) {
 		return
 	})
 
@@ -513,41 +513,41 @@ func TestControl_Panic(t *testing.T) {
 	defer closeControls(ctrl1, ctrl2)
 
 	const call = "callPanic"
-	ctrl1.AddFunc(call, func(ctx *control.Context) (data interface{}, err error) {
+	ctrl1.AddFunc(call, func(ctx *call.Context) (data interface{}, err error) {
 		// Cause a panic (err is nil).
 		panic("test")
 	})
-	ctrl2.AddFunc(call, func(ctx *control.Context) (data interface{}, err error) {
+	ctrl2.AddFunc(call, func(ctx *call.Context) (data interface{}, err error) {
 		// Return an error to trigger the error hook.
 		return nil, errors.New("test")
 	})
 
 	// Test a panic in a handler func.
 	_, err := ctrl2.Call(call, nil)
-	require.Equal(t, control.ErrCallTimeout, err)
+	require.Equal(t, call.ErrCallTimeout, err)
 
 	// Test a panic in the hooks.
 	// Start with the call hook.
-	ctrl2.SetCallHook(func(c *control.Control, funcID string, ctx *control.Context) {
+	ctrl2.SetCallHook(func(c *call.Control, funcID string, ctx *call.Context) {
 		panic("test")
 	})
 	_, err = ctrl1.Call(call, nil)
 	require.Equal(
 		t,
-		control.ErrCallTimeout, err,
+		call.ErrCallTimeout, err,
 		"expected call timeout due to panic in call hook",
 	)
 	// Reset the hook.
 	ctrl2.SetCallHook(nil)
 
 	// Now the error hook.
-	ctrl2.SetErrorHook(func(c *control.Control, funcID string, err error) {
+	ctrl2.SetErrorHook(func(c *call.Control, funcID string, err error) {
 		panic("test")
 	})
 	_, err = ctrl1.Call(call, nil)
 	require.Equal(
 		t,
-		control.ErrCallTimeout, err,
+		call.ErrCallTimeout, err,
 		"expected call timeout due to panic in error hook",
 	)
 }

@@ -34,8 +34,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/desertbit/orbit/internal/api"
-	"github.com/desertbit/orbit/pkg/packet"
+	"github.com/desertbit/orbit/old/api"
+	"github.com/desertbit/orbit/old/packet"
 
 	"github.com/desertbit/closer/v3"
 	"github.com/hashicorp/yamux"
@@ -193,7 +193,7 @@ func (s *Session) OpenStreamTimeout(channel string, timeout time.Duration) (stre
 	// Create the initial data that signals to the remote peer,
 	// which channel we want to open.
 	data := api.InitStream{
-		Channel: channel,
+		ID: channel,
 	}
 
 	// Write the initial request to the stream.
@@ -293,7 +293,7 @@ func (s *Session) handleNewStream(stream net.Conn) (err error) {
 	}
 
 	// Obtain the accept stream func.
-	f, err := s.getAcceptStreamFunc(data.Channel)
+	f, err := s.getAcceptStreamFunc(data.ID)
 	if err != nil {
 		return
 	}
@@ -301,7 +301,7 @@ func (s *Session) handleNewStream(stream net.Conn) (err error) {
 	// Pass it the new stream.
 	err = f(stream)
 	if err != nil {
-		return fmt.Errorf("channel='%v': %v", data.Channel, err)
+		return fmt.Errorf("channel='%v': %v", data.ID, err)
 	}
 
 	return
