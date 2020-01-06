@@ -25,38 +25,51 @@
  * SOFTWARE.
  */
 
-//go:generate msgp
-package api
+package orbit
 
-const (
-	// The version of the application.
-	Version = 2
+import (
+	"errors"
+	"fmt"
+
+	"github.com/desertbit/orbit/pkg/codec"
 )
 
-type StreamType int
-
-const (
-	StreamTypeRaw       = 0
-	StreamTypeCall      = 1
-	StreamTypeCallAsync = 2
+var (
+	// ErrNoData defines the error if no context data is available.
+	ErrNoData = errors.New("no data available to decode")
 )
 
-type InitStream struct {
-	ID   string
-	Type StreamType
+type Data struct {
+	codec codec.Codec
+
+	// Raw is the byte representation of the encoded data.
+	Raw []byte
 }
 
-type ControlCall struct {
-	ID  string
-	Key uint64
+// newData creates a new Data from the given Control and the
+// payload data.
+func newData(data []byte, codec codec.Codec) *Data {
+	return &Data{
+		codec: codec,
+
+		Raw: data,
+	}
 }
 
-type ControlReturn struct {
-	Key  uint64
-	Msg  string
-	Code int
-}
+// Decode the context data to a custom value.
+// The value has to be passed as pointer.
+// Returns ErrNoContextData, if there is no context data available to decode.
+func (d *Data) Decode(v interface{}) error {
+	// Check if no data was passed.
+	if len(d.Raw) == 0 {
+		return ErrNoData
+	}
 
-type ControlCancel struct {
-	Key uint64
+	// Decode the data.
+	err := d.codec.Decode(d.Raw, v)
+	if err != nil {
+		return fmt.Errorf("data decode: %v", err)
+	}
+
+	return nil
 }

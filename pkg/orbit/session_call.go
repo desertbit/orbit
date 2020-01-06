@@ -25,38 +25,36 @@
  * SOFTWARE.
  */
 
-//go:generate msgp
-package api
+package orbit
 
-const (
-	// The version of the application.
-	Version = 2
+import (
+	"context"
+
+	"github.com/desertbit/orbit/internal/api"
+	c "github.com/json-iterator/go/benchmarks"
 )
 
-type StreamType int
+func (s *Session) Call(ctx context.Context, id string, data interface{}) (data *Data, err error) {
+	// Create a new channel with its key. This will be used to send
+	// the data over that forms the response to the call.
+	key, channel := c.callRetChain.new()
+	defer c.callRetChain.delete(key)
 
-const (
-	StreamTypeRaw       = 0
-	StreamTypeCall      = 1
-	StreamTypeCallAsync = 2
-)
+	// Write to the client.
+	err = c.write(
+		typeCall,
+		&api.ControlCall{
+			ID:  id,
+			Key: key,
+		},
+		data,
+	)
+	if err != nil {
+		return
+	}
 
-type InitStream struct {
-	ID   string
-	Type StreamType
+	// Wait, until the response has arrived, and return its result.
+	return c.waitForResponse(key, timeout, channel, cancelChan)
 }
 
-type ControlCall struct {
-	ID  string
-	Key uint64
-}
-
-type ControlReturn struct {
-	Key  uint64
-	Msg  string
-	Code int
-}
-
-type ControlCancel struct {
-	Key uint64
-}
+func (s *Session) CallAsync(ctx context.Context)

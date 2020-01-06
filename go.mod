@@ -8,6 +8,7 @@ require (
 	github.com/desertbit/closer/v3 v3.1.1
 	github.com/desertbit/grumble v1.0.3
 	github.com/hashicorp/yamux v0.0.0-20181012175058-2f1d1f20f75d
+	github.com/json-iterator/go v1.1.9 // indirect
 	github.com/kr/pretty v0.1.0 // indirect
 	github.com/lucas-clemente/quic-go v0.14.1
 	github.com/philhofer/fwd v1.0.0 // indirect

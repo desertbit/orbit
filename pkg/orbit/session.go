@@ -41,8 +41,6 @@ import (
 	"github.com/desertbit/orbit/internal/api"
 	"github.com/desertbit/orbit/internal/control"
 	"github.com/desertbit/orbit/internal/packet"
-	"github.com/desertbit/orbit/pkg/codec"
-	"github.com/rs/zerolog"
 )
 
 const (
@@ -67,6 +65,8 @@ const (
 	flushTimeout = 7 * time.Second
 )
 
+type CallFunc func(ctx *Data) (data interface{}, err error)
+
 // The StreamHandler type describes the function that is called whenever
 // a new connection is requested on a peer. It must then handle the new
 // connection, if it could be set up correctly.
@@ -82,6 +82,9 @@ type Session struct {
 	// The id of the session. The id must be set after the session has been
 	// created using SetID().
 	id string
+
+	callFuncsMx sync.RWMutex
+	callFuncs   map[string]CallFunc
 
 	// Synchronises the access to the stream handlers map.
 	streamHandlersMx sync.Mutex
@@ -138,24 +141,12 @@ func (s *Session) RemoteAddr() net.Addr {
 // Ready signalizes the session that the initialization is done.
 // The session starts accepting new incoming streams.
 func (s *Session) Ready() {
-	s.ctrl.Ready()
 	go s.acceptStreamRoutine()
-}
-
-// todo:
-func (s *Session) RegisterCall(service, id string, f control.Func) {
-	s.ctrl.AddFunc(service+"."+id, f)
-}
-
-// todo:
-func (s *Session) RegisterStream(service, id string, f StreamHandler) {
-	s.streamHandlersMx.Lock()
-	s.streamHandlers[service+"."+id] = f
-	s.streamHandlersMx.Unlock()
 }
 
 // OpenStream opens a new stream with the given channel ID.
 // Expires after the timeout and returns a net.Error with Timeout() == true.
+// TODO: remove init stream write timeout
 func (s *Session) OpenStream(service, id string, call bool, timeout time.Duration) (stream net.Conn, err error) {
 	// Create a timeout context.
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
@@ -181,6 +172,10 @@ func (s *Session) OpenStream(service, id string, call bool, timeout time.Duratio
 	}
 
 	return
+}
+
+func (s *Session) RegisterCall(id string, h CallFunc) {
+
 }
 
 //###############//

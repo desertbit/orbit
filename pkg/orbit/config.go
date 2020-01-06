@@ -45,6 +45,8 @@ type Config struct {
 	Log *zerolog.Logger
 
 	PrintPanicStackTraces bool
+
+	SendErrToCaller bool
 }
 
 func prepareConfig(c *Config) *Config {
