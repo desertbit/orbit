@@ -145,7 +145,7 @@ func (p *parser) parse() (errors []*Error, srvcs []*Service, err error) {
 			// Check, if the service has already been defined.
 			for _, sr := range srvcs {
 				if sr.Name == srvc.Name {
-					err = &Err{msg: fmt.Sprintf("service '%s' declared twice"), line: p.ck.line}
+					err = &Err{msg: fmt.Sprintf("service '%s' declared twice", sr.Name), line: p.ck.line}
 					return
 				}
 			}

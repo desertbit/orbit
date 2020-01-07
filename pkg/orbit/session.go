@@ -40,6 +40,8 @@ import (
 
 const (
 	initStreamHeaderTimeout = 7 * time.Second
+
+	writeCallReturnTimeout = 7 * time.Second
 )
 
 type CallFunc func(ctx context.Context, s *Session, args *Data) (ret interface{}, err error)
@@ -67,19 +69,23 @@ type Session struct {
 
 	callFuncsMx sync.RWMutex
 	callFuncs   map[string]CallFunc
+
+	callActiveCtxsMx sync.Mutex
+	callActiveCtxs   map[uint32]*callContext
 }
 
 // newSession creates a new orbit session from the given parameters.
 // The created session closes, if the underlying connection is closed.
 func newSession(cl closer.Closer, conn Conn, initStream net.Conn, cf *Config) (s *Session) {
 	s = &Session{
-		Closer:       cl,
-		cf:           cf,
-		log:          cf.Log,
-		codec:        cf.Codec,
-		conn:         conn,
-		callStream:   newMxStream(initStream),
-		callRetChain: newChain(),
+		Closer:         cl,
+		cf:             cf,
+		log:            cf.Log,
+		codec:          cf.Codec,
+		conn:           conn,
+		callStream:     newMxStream(initStream),
+		callRetChain:   newChain(),
+		callActiveCtxs: make(map[uint32]*callContext),
 	}
 	s.OnClosing(conn.Close)
 	return
@@ -92,7 +98,7 @@ func (s *Session) ID() string {
 
 // Codec returns the used transmission codec.
 func (s *Session) Codec() codec.Codec {
-	return s.cf.Codec
+	return s.codec
 }
 
 func (s *Session) StreamChanSize() int {
@@ -113,5 +119,4 @@ func (s *Session) RemoteAddr() net.Addr {
 // The session starts accepting new incoming streams and calls.
 func (s *Session) Ready() {
 	go s.acceptStreamRoutine()
-	s.ctrl.Ready()
 }

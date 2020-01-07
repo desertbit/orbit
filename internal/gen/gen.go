@@ -69,7 +69,7 @@ func Generate(filePath string) (err error) {
 	g.genErrors(errs)
 
 	// Generate the type definitions.
-	g.genTypes(types)
+	g.genTypes(types, services)
 
 	// Generate the service definitions.
 	g.genServices(services, errs)
@@ -96,27 +96,24 @@ func Generate(filePath string) (err error) {
 	}
 
 	// Exec goimports, if available.
-	cmd := exec.Command("goimports", "-w", goFilePath)
-	err = cmd.Run()
+	err = execCmdIfExists("goimports", "-w", goFilePath)
 	if err != nil {
-		var eErr *exec.ExitError
-		if errors.Is(err, exec.ErrNotFound) {
-			err = nil
-		} else if errors.As(err, &eErr) {
-			err = fmt.Errorf("goimports: %v", string(eErr.Stderr))
-		}
 		return
 	}
 
 	// Exec gofmt, if available.
-	cmd = exec.Command("gofmt", "-s", "-w", goFilePath)
+	return execCmdIfExists("gofmt", "-s", "-w", goFilePath)
+}
+
+func execCmdIfExists(name string, args ...string) (err error) {
+	cmd := exec.Command(name, args...)
 	err = cmd.Run()
 	if err != nil {
 		var eErr *exec.ExitError
 		if errors.Is(err, exec.ErrNotFound) {
 			err = nil
 		} else if errors.As(err, &eErr) {
-			err = fmt.Errorf("gofmt: %v", string(eErr.Stderr))
+			err = fmt.Errorf("%s: %v", name, string(eErr.Stderr))
 		}
 		return
 	}
@@ -163,7 +160,7 @@ func (g *generator) genErrors(errs []*parse.Error) {
 	g.writeLn(")")
 }
 
-func (g *generator) genTypes(ts []*parse.StructType) {
+func (g *generator) genTypes(ts []*parse.StructType, srvcs []*parse.Service) {
 	g.writeLn("//#############//")
 	g.writeLn("//### Types ###//")
 	g.writeLn("//#############//")
@@ -174,6 +171,7 @@ func (g *generator) genTypes(ts []*parse.StructType) {
 		return ts[i].Name < ts[j].Name
 	})
 
+NextType:
 	for _, t := range ts {
 		// Sort its fields in alphabetical order.
 		sort.Slice(t.Fields, func(i, j int) bool {
@@ -188,6 +186,27 @@ func (g *generator) genTypes(ts []*parse.StructType) {
 		}
 		g.writeLn("}")
 		g.writeLn("")
+
+		// Generate a chan type, if it is used in a stream as arg or ret value.
+		var generatedArgs, generatedRet bool
+		for _, srvc := range srvcs {
+			for _, e := range srvc.Entries {
+				if s, ok := e.(*parse.Stream); ok {
+					if s.Args != nil && s.Args.Type == t && !generatedArgs {
+						g.genChanType(t.Name, false)
+						generatedArgs = true
+					}
+					if s.Ret != nil && s.Ret.Type == t && !generatedRet {
+						g.genChanType(t.Name, true)
+						generatedRet = true
+					}
+
+					if generatedArgs && generatedRet {
+						continue NextType
+					}
+				}
+			}
+		}
 	}
 }
 
@@ -323,26 +342,22 @@ func (g *generator) genServiceStruct(
 
 	// Generate the calls.
 	for _, c := range calls {
-		g.genServiceCall(c, strName, srvcName, errs)
+		g.genServiceCallClient(c, strName, srvcName, errs)
 	}
 
 	// Generate the rev calls.
 	for _, rc := range revCalls {
-		g.genServiceCallOrbitHandler(rc, strName, errs)
+		g.genServiceCallServer(rc, strName, errs)
 	}
 
 	// Generate the streams.
 	for _, s := range streams {
-		// Generate the channel types, if needed.
-		if s.Args != nil {
-			g.genChanType(s.Args.Type.Name, false)
-		}
-		if s.Ret != nil {
-			g.genChanType(s.Ret.Type.Name, true)
-		}
+		g.genServiceStreamClient(s, strName, srvcName, errs)
+	}
 
-		// Generate the stream.
-		g.genServiceStream(s, strName, srvcName, errs)
+	// generate the rev streams.
+	for _, rs := range revStreams {
+		g.genServiceStreamServer(rs, strName, srvcName, errs)
 	}
 }
 
@@ -354,7 +369,7 @@ func (g *generator) genServiceStructConstructor(name, srvcName string) {
 	g.writeLn("}")
 }
 
-func (g *generator) genServiceCall(c *parse.Call, structName, srvcName string, errs []*parse.Error) {
+func (g *generator) genServiceCallClient(c *parse.Call, structName, srvcName string, errs []*parse.Error) {
 	// Method declaration.
 	g.write("func (%s *%s) ", recv, structName)
 	g.genServiceCallSignature(c)
@@ -390,7 +405,7 @@ func (g *generator) genServiceCall(c *parse.Call, structName, srvcName string, e
 	g.writeLn("")
 }
 
-func (g *generator) genServiceCallOrbitHandler(c *parse.Call, structName string, errs []*parse.Error) {
+func (g *generator) genServiceCallServer(c *parse.Call, structName string, errs []*parse.Error) {
 	// Method declaration.
 	g.writeLn(
 		"func (%s *%s) %s(ctx context.Context, s *orbit.Session, ad *orbit.Data) (r interface{}, err error) {",
@@ -444,30 +459,37 @@ func (g *generator) genServiceCallSignature(c *parse.Call) {
 }
 
 func (g *generator) genChanType(name string, ro bool) {
+	tName := name
+	if ro {
+		name += "Ret"
+	} else {
+		name += "Args"
+	}
+
 	g.imps.Add("sync")
-	g.writeLn("type Chan%sArgs struct {", name)
+	g.writeLn("type Chan%s struct {", name)
 	g.write("C ")
 	if ro {
 		g.write("<-chan ")
 	} else {
 		g.write("chan<- ")
 	}
-	g.writeLn("*%s", name)
-	g.writeLn("c chan *%s", name)
+	g.writeLn("*%s", tName)
+	g.writeLn("c chan *%s", tName)
 	g.writeLn("close chan struct{}")
 	g.writeLn("mx sync.Mutex")
 	g.writeLn("err error")
 	g.writeLn("}")
 	g.writeLn("")
 
-	g.writeLn("func newChan%sArgs(chanSize int) *Chan%sArgs {", name, name)
-	g.writeLn("c := &Chan%sArgs{c: make(chan *%s, chanSize), close: make(chan struct{})}", name, name)
+	g.writeLn("func newChan%s(chanSize int) *Chan%s {", name, name)
+	g.writeLn("c := &Chan%s{c: make(chan *%s, chanSize), close: make(chan struct{})}", name, tName)
 	g.writeLn("c.C = c.c")
 	g.writeLn("return c")
 	g.writeLn("}")
 	g.writeLn("")
 
-	g.writeLn("func (c *Chan%sArgs) setError(err error)", name)
+	g.writeLn("func (c *Chan%s) setError(err error) {", name)
 	g.writeLn("c.mx.Lock()")
 	g.writeLn("c.err = err")
 	g.writeLn("c.mx.Unlock()")
@@ -475,12 +497,12 @@ func (g *generator) genChanType(name string, ro bool) {
 	g.writeLn("}")
 	g.writeLn("")
 
-	g.writeLn("func (c *Chan%sArgs) Close()", name)
+	g.writeLn("func (c *Chan%s) Close() {", name)
 	g.writeLn("close(c.close)")
 	g.writeLn("}")
 	g.writeLn("")
 
-	g.writeLn("func (c *Chan%sArgs) Err() (err error)", name)
+	g.writeLn("func (c *Chan%s) Err() (err error) {", name)
 	g.writeLn("c.mx.Lock()")
 	g.writeLn("err = c.err")
 	g.writeLn("c.mx.Unlock()")
@@ -489,7 +511,7 @@ func (g *generator) genChanType(name string, ro bool) {
 	g.writeLn("")
 }
 
-func (g *generator) genServiceStream(s *parse.Stream, structName, srvcName string, errs []*parse.Error) {
+func (g *generator) genServiceStreamClient(s *parse.Stream, structName, srvcName string, errs []*parse.Error) {
 	// Method declaration.
 	g.write("func (%s *%s) ", recv, structName)
 	g.genServiceStreamSignature(s)
@@ -498,27 +520,29 @@ func (g *generator) genServiceStream(s *parse.Stream, structName, srvcName strin
 	// Method body.
 	// First, open the stream.
 	if s.Args == nil && s.Ret == nil {
-		g.writeLn("return %s.os.OpenStream(%s)", recv, srvcName+s.Name())
+		g.writeLn("return %s.os.OpenStream(ctx, %s)", recv, srvcName+s.Name())
 		g.writeLn("}")
 		return
 	}
 
-	g.writeLn("conn, err := %s.os.OpenStream(%s)", recv, srvcName+s.Name())
+	g.writeLn("conn, err := %s.os.OpenStream(ctx, %s)", recv, srvcName+s.Name())
 	g.writeErrCheck()
 
 	if s.Args != nil {
 		g.imps.Add("github.com/desertbit/orbit/internal/packet")
 
+		g.writeLn("args = newChan%sArgs(%s.os.StreamChanSize())", s.Args.Type.Name, recv)
 		g.writeLn("go func() {")
 		g.writeLn("closingChan := %s.os.ClosingChan()", recv)
 		g.writeLn("for {")
 		g.writeLn("select {")
 		g.writeLn("case <- closingChan:")
 		g.writeLn("return")
-		g.writeLn("case arg := <-args:")
+		g.writeLn("case arg := <-args.c:")
 		g.writeLn("err := packet.WriteEncode(conn, arg, %s.os.Codec())", recv)
 		g.writeLn("if err != nil && !%s.os.IsClosing() {", recv)
-		g.writeLn("%s.os.Log().Error().Err(err).Str(\"channel\", %s).Msg(\"writing packet\")", recv, srvcName+s.Name())
+		g.writeLn("args.setError(err)")
+		g.writeLn("return")
 		g.writeLn("}")
 		g.writeLn("}")
 		g.writeLn("}")
@@ -528,8 +552,7 @@ func (g *generator) genServiceStream(s *parse.Stream, structName, srvcName strin
 	if s.Ret != nil {
 		g.imps.Add("github.com/desertbit/orbit/internal/packet")
 
-		g.writeLn("retChan := make(chan *%s, %s.os.StreamChanSize())", s.Ret.Type.Name, recv)
-		g.writeLn("ret = retChan")
+		g.writeLn("ret = newChan%sRet(%s.os.StreamChanSize())", s.Ret.Type.Name, recv)
 		g.writeLn("go func() {")
 		g.writeLn("closingChan := %s.os.ClosingChan()", recv)
 		g.writeLn("for {")
@@ -540,12 +563,12 @@ func (g *generator) genServiceStream(s *parse.Stream, structName, srvcName strin
 		g.writeLn("var data *Plate")
 		g.writeLn("err := packet.ReadDecode(conn, data, %s.os.Codec())", recv)
 		g.writeLn("if err != nil && !%s.os.IsClosing() {", recv)
-		g.writeLn("%s.os.Log().Error().Err(err).Str(\"channel\", %s).Msg(\"reading packet\")", recv, srvcName+s.Name())
+		g.writeLn("ret.setError(err)")
 		g.writeLn("}")
 		g.writeLn("select {")
 		g.writeLn("case <-closingChan:")
 		g.writeLn("return")
-		g.writeLn("case retChan <- data:")
+		g.writeLn("case ret.c <- data:")
 		g.writeLn("}")
 		g.writeLn("}")
 		g.writeLn("}")
@@ -559,14 +582,19 @@ func (g *generator) genServiceStream(s *parse.Stream, structName, srvcName strin
 	g.writeLn("")
 }
 
+func (g *generator) genServiceStreamServer(s *parse.Stream, structName, srvcName string, errs []*parse.Error) {
+
+}
+
 func (g *generator) genServiceStreamSignature(s *parse.Stream) {
-	g.write("%s(", s.Name())
+	g.imps.Add("context")
+
+	g.write("%s(ctx context.Context) (", s.Name())
 	if s.Args != nil {
-		g.write("args <-chan *%s", s.Args.Type.Name)
+		g.write("args *Chan%sArgs, ", s.Args.Type.Name)
 	}
-	g.write(") (")
 	if s.Ret != nil {
-		g.write("ret <-chan *%s, ", s.Ret.Type.Name)
+		g.write("ret *Chan%sRet, ", s.Ret.Type.Name)
 	} else if s.Args == nil {
 		g.write("conn net.Conn, ")
 	}

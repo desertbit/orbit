@@ -35,11 +35,11 @@ import (
 type mxStream struct {
 	net.Conn
 
-	WriteMX sync.Mutex
+	WriteMx sync.Mutex
 }
 
 func newMxStream(stream net.Conn) *mxStream {
 	return &mxStream{
-		Conn: stream
+		Conn: stream,
 	}
 }

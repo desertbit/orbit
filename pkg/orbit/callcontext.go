@@ -31,12 +31,12 @@ import (
 	"context"
 )
 
-type controlContext struct {
+type callContext struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 }
 
-func newControlContext() *controlContext {
+func newCallContext() *callContext {
 	ctx, cancel := context.WithCancel(context.Background())
-	return &controlContext{ctx: ctx, cancel: cancel}
+	return &callContext{ctx: ctx, cancel: cancel}
 }
