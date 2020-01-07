@@ -65,9 +65,6 @@ func Generate(filePath string) (err error) {
 	// Create generator.
 	g := newGenerator()
 
-	// Add imports that we always need.
-	g.imps.Add("github.com/desertbit/orbit/internal/control")
-
 	// Sort the types in alphabetical order.
 	sort.Slice(types, func(i, j int) bool {
 		return types[i].Name < types[j].Name
@@ -166,7 +163,7 @@ func (g *generator) genErrors(errs []*parse.Error) {
 	g.writeLn("var (")
 	for _, e := range errs {
 		g.writeLn("Err%s = errors.New(\"%s\")", e.Name, strExplode(e.Name))
-		g.writeLn("orbitErr%s = control.Err(Err%s, Err%s.Error(), ErrCode%s)", e.Name, e.Name, e.Name, e.Name)
+		g.writeLn("orbitErr%s = orbit.Err(Err%s, Err%s.Error(), ErrCode%s)", e.Name, e.Name, e.Name, e.Name)
 	}
 	g.writeLn(")")
 }
@@ -268,9 +265,11 @@ func (g *generator) genService(srvc *parse.Service, errs []*parse.Error) {
 	g.writeLn("")
 
 	// Imports!
+	if len(srvc.Entries) > 0 {
+		g.imps.Add("github.com/desertbit/orbit/pkg/orbit")
+	}
 	if len(streams) > 0 || len(revStreams) > 0 {
 		g.imps.Add("net")
-		g.imps.Add("github.com/desertbit/orbit/pkg/orbit")
 	}
 
 	// Create the interfaces.
@@ -311,50 +310,20 @@ func (g *generator) genServiceStruct(
 	streams, revStreams []*parse.Stream,
 	errs []*parse.Error,
 ) {
-	// One service has one default control for all normal calls and revcalls.
-	// But every async call and revcall get their own control.
-	numCtrls := 0
-	addedDefault := false
-	for _, c := range calls {
-		if c.Async {
-			numCtrls++
-		} else if !addedDefault {
-			numCtrls++
-			addedDefault = true
-		}
-	}
-	for _, rc := range revCalls {
-		if rc.Async {
-			numCtrls++
-		} else if !addedDefault {
-			numCtrls++
-			addedDefault = true
-		}
-	}
-
 	// Write struct.
 	strName := utils.ToLowerFirst(srvcName + name)
 	g.writeLn("type %s struct {", strName)
 	g.writeLn("h %sHandler", srvcName+name)
 	g.writeLn("os *orbit.Session")
-	g.writeLn("ctrls [%d]*control.Control", numCtrls)
 	g.writeLn("}")
 	g.writeLn("")
 
 	// Generate constructor.
-	//g.genServiceStructConstructor(strName, srvcName, numCtrls)
+	g.genServiceStructConstructor(strName, srvcName)
 
 	// Generate the calls.
-	asyncCount := 1
 	for _, c := range calls {
-		ctrlIndex := 0
-
-		if c.Async {
-			ctrlIndex = asyncCount
-			asyncCount++
-		}
-
-		g.genServiceCall(c, strName, srvcName, ctrlIndex, errs)
+		g.genServiceCall(c, strName, srvcName, errs)
 	}
 
 	// Generate the rev calls.
@@ -368,18 +337,15 @@ func (g *generator) genServiceStruct(
 	}
 }
 
-func (g *generator) genServiceStructConstructor(name, srvcName string, numCtrls int) {
+func (g *generator) genServiceStructConstructor(name, srvcName string) {
 	nameUp := strings.Title(name)
-	g.writeLn("func Register%s(os *orbit.Session, h %sHandler) (c %sCaller) {", nameUp, nameUp, nameUp)
-	g.writeLn("cc := &%s{", name)
-	g.writeLn("h: h,")
-	g.writeLn("os: os,")
-	g.writeLn("ctrls: [%d]*control.Control{}", numCtrls)
-	g.writeLn("}")
+	g.writeLn("func Register%s(os *orbit.Session, h %sHandler) %sCaller {", nameUp, nameUp, nameUp)
+	g.writeLn("cc := &%s{h: h, os: os}", name)
+	g.writeLn("return cc")
 	g.writeLn("}")
 }
 
-func (g *generator) genServiceCall(c *parse.Call, structName, srvcName string, ctrlIndex int, errs []*parse.Error) {
+func (g *generator) genServiceCall(c *parse.Call, structName, srvcName string, errs []*parse.Error) {
 	// Method declaration.
 	g.write("func (%s *%s) ", recv, structName)
 	g.genServiceCallSignature(c)
@@ -388,11 +354,11 @@ func (g *generator) genServiceCall(c *parse.Call, structName, srvcName string, c
 	// Method body.
 	// First, make the call.
 	if c.Ret != nil {
-		g.write("ctx, err := ")
+		g.write("retData, err := ")
 	} else {
 		g.write("_, err = ")
 	}
-	g.write("%s.ctrls[%d].Call(%s, ", recv, ctrlIndex, srvcName+c.Name())
+	g.write("%s.os.Call(ctx, %s, ", recv, srvcName+c.Name())
 	if c.Args != nil {
 		g.writeLn("args)")
 	} else {
@@ -404,7 +370,7 @@ func (g *generator) genServiceCall(c *parse.Call, structName, srvcName string, c
 
 	// If return arguments are expected, decode them.
 	if c.Ret != nil {
-		g.writeLn("err = ctx.Decode(ret)")
+		g.writeLn("err = retData.Decode(ret)")
 		g.writeErrCheck()
 	}
 
@@ -418,17 +384,17 @@ func (g *generator) genServiceCall(c *parse.Call, structName, srvcName string, c
 func (g *generator) genServiceCallOrbitHandler(c *parse.Call, structName string, errs []*parse.Error) {
 	// Method declaration.
 	g.writeLn(
-		"func (%s *%s) %s(ctx *control.Context) (v interface{}, err error) {",
+		"func (%s *%s) %s(ctx context.Context, s *orbit.Session, ad *orbit.Data) (r interface{}, err error) {",
 		recv, structName, utils.ToLowerFirst(c.Name()),
 	)
 
 	// Method body.
 	// Parse the args.
-	handlerArgs := ""
+	handlerArgs := "ctx"
 	if c.Args != nil {
-		handlerArgs = "args"
+		handlerArgs += ", args"
 		g.writeLn("var args *%s", c.Args.Type.Name)
-		g.writeLn("err = ctx.Decode(args)")
+		g.writeLn("err = ad.Decode(args)")
 		g.writeErrCheck()
 	}
 
@@ -444,7 +410,7 @@ func (g *generator) genServiceCallOrbitHandler(c *parse.Call, structName string,
 
 	// Assign return value.
 	if c.Ret != nil {
-		g.writeLn("v = ret")
+		g.writeLn("r = ret")
 	}
 
 	// Return.
@@ -455,9 +421,11 @@ func (g *generator) genServiceCallOrbitHandler(c *parse.Call, structName string,
 }
 
 func (g *generator) genServiceCallSignature(c *parse.Call) {
-	g.write("%s(", c.Name())
+	g.imps.Add("context")
+
+	g.write("%s(ctx context.Context", c.Name())
 	if c.Args != nil {
-		g.write("args *%s", c.Args.Type.Name)
+		g.write(", args *%s", c.Args.Type.Name)
 	}
 	g.write(") (")
 	if c.Ret != nil {
@@ -486,7 +454,6 @@ func (g *generator) genServiceStream(s *parse.Stream, structName, srvcName strin
 	if s.Args != nil {
 		g.imps.Add("github.com/desertbit/orbit/internal/packet")
 
-		// todo: timeout
 		g.writeLn("go func() {")
 		g.writeLn("closingChan := %s.os.ClosingChan()", recv)
 		g.writeLn("for {")
@@ -494,7 +461,7 @@ func (g *generator) genServiceStream(s *parse.Stream, structName, srvcName strin
 		g.writeLn("case <- closingChan:")
 		g.writeLn("return")
 		g.writeLn("case arg := <-args:")
-		g.writeLn("err := packet.WriteEncode(conn, arg, %s.os.Codec(), 0)", recv)
+		g.writeLn("err := packet.WriteEncode(conn, arg, %s.os.Codec())", recv)
 		g.writeLn("if err != nil && !%s.os.IsClosing() {", recv)
 		g.writeLn("%s.os.Log().Error().Err(err).Str(\"channel\", %s).Msg(\"writing packet\")", recv, srvcName+s.Name())
 		g.writeLn("}")
@@ -506,9 +473,7 @@ func (g *generator) genServiceStream(s *parse.Stream, structName, srvcName strin
 	if s.Ret != nil {
 		g.imps.Add("github.com/desertbit/orbit/internal/packet")
 
-		// todo: retChan size
-		// todo: timeout
-		g.writeLn("retChan := make(chan *%s)", s.Ret.Type.Name)
+		g.writeLn("retChan := make(chan *%s, %s.os.StreamChanSize())", s.Ret.Type.Name, recv)
 		g.writeLn("ret = retChan")
 		g.writeLn("go func() {")
 		g.writeLn("closingChan := %s.os.ClosingChan()", recv)
@@ -518,7 +483,7 @@ func (g *generator) genServiceStream(s *parse.Stream, structName, srvcName strin
 		g.writeLn("return")
 		g.writeLn("default:")
 		g.writeLn("var data *Plate")
-		g.writeLn("err := packet.ReadDecode(conn, data, %s.os.Codec(), 0)", recv)
+		g.writeLn("err := packet.ReadDecode(conn, data, %s.os.Codec())", recv)
 		g.writeLn("if err != nil && !%s.os.IsClosing() {", recv)
 		g.writeLn("%s.os.Log().Error().Err(err).Str(\"channel\", %s).Msg(\"reading packet\")", recv, srvcName+s.Name())
 		g.writeLn("}")
@@ -563,7 +528,7 @@ func (g *generator) writeErrCheckOrbitCaller(errs []*parse.Error) {
 	if len(errs) > 0 {
 		g.imps.Add("errors")
 
-		g.writeLn("var cErr *control.ErrorCode")
+		g.writeLn("var cErr *orbit.ErrorCode")
 		g.writeLn("if errors.As(err, &cErr) {")
 		g.writeLn("switch cErr.Code {")
 		for _, e := range errs {

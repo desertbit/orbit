@@ -42,7 +42,7 @@ const (
 	initStreamHeaderTimeout = 7 * time.Second
 )
 
-type CallFunc func(ctx context.Context, s *Session, d *Data) (data interface{}, err error)
+type CallFunc func(ctx context.Context, s *Session, args *Data) (ret interface{}, err error)
 
 type StreamFunc func(s *Session, stream net.Conn) error
 
@@ -95,6 +95,10 @@ func (s *Session) Codec() codec.Codec {
 	return s.cf.Codec
 }
 
+func (s *Session) StreamChanSize() int {
+	return s.cf.StreamChanSize
+}
+
 // LocalAddr returns the local network address.
 func (s *Session) LocalAddr() net.Addr {
 	return s.conn.LocalAddr()
@@ -109,5 +113,5 @@ func (s *Session) RemoteAddr() net.Addr {
 // The session starts accepting new incoming streams and calls.
 func (s *Session) Ready() {
 	go s.acceptStreamRoutine()
-	// TODO: start call read routine routine!
+	s.ctrl.Ready()
 }
