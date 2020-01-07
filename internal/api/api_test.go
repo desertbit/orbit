@@ -38,7 +38,7 @@ func TestMsgpImplementation(t *testing.T) {
 	t.Parallel()
 
 	testCases := []interface{}{
-		&InitStream{}, &ControlCall{}, &ControlReturn{}, &ControlCancel{},
+		&InitStream{}, &Call{}, &CallReturn{}, &CallCancel{},
 	}
 
 	for i, tc := range testCases {

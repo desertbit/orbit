@@ -45,17 +45,17 @@ type InitStream struct {
 	Type StreamType
 }
 
-type ControlCall struct {
+type Call struct {
 	ID  string
 	Key uint32
 }
 
-type ControlReturn struct {
+type CallReturn struct {
 	Key  uint32
 	Msg  string
 	Code int
 }
 
-type ControlCancel struct {
+type CallCancel struct {
 	Key uint32
 }

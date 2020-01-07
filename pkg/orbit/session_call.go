@@ -81,10 +81,6 @@ func (s *Session) CallAsync(ctx context.Context, id string, data interface{}) (d
 	return s.call(ctx, newMxStream(stream), id, data)
 }
 
-func (s *Session) HandleCallAsync(stream net.Conn) {
-	go s.readCallRoutine(newMxStream(stream), true)
-}
-
 //###############//
 //### Private ###//
 //###############//
@@ -96,7 +92,7 @@ func (s *Session) call(ctx context.Context, ms *mxStream, id string, data interf
 	defer s.callRetChain.delete(key)
 
 	// Write to the client.
-	err = s.writeCall(ctx, ms, typeCall, &api.ControlCall{ID: id, Key: key}, data)
+	err = s.writeCall(ctx, ms, typeCall, &api.Call{ID: id, Key: key}, data)
 	if err != nil {
 		return
 	}
@@ -111,7 +107,7 @@ func (s *Session) writeCall(ctx context.Context, ms *mxStream, reqType byte, hea
 	// Marshal the header data.
 	header, err = msgpack.Codec.Encode(headerI)
 	if err != nil {
-		return fmt.Errorf("control write encode header: %v", err)
+		return fmt.Errorf("call: write encode header: %v", err)
 	}
 
 	// Marshal the payload data with the configured codec,
@@ -124,7 +120,7 @@ func (s *Session) writeCall(ctx context.Context, ms *mxStream, reqType byte, hea
 		default:
 			payload, err = s.codec.Encode(dataI)
 			if err != nil {
-				return fmt.Errorf("control write encode payload: %v", err)
+				return fmt.Errorf("call: write encode payload: %v", err)
 			}
 		}
 	}
@@ -174,11 +170,11 @@ func (s *Session) waitForCallResponse(
 	// Wait for a response.
 	select {
 	case <-s.ClosingChan():
-		// Abort, if the control closes.
+		// Abort, if the session closes.
 		err = ErrClosed
 	case <-ctx.Done():
 		// Cancel the call on the remote peer.
-		err = s.writeCall(ctx, ms, typeCallCancel, &api.ControlCancel{Key: key}, nil)
+		err = s.writeCall(ctx, ms, typeCallCancel, &api.CallCancel{Key: key}, nil)
 	case rData := <-channel:
 		// Response has arrived.
 		d = rData.Data
@@ -187,8 +183,12 @@ func (s *Session) waitForCallResponse(
 	return
 }
 
+func (s *Session) handleAsyncCall(stream net.Conn) {
+	go s.readCallRoutine(newMxStream(stream), true)
+}
+
 func (s *Session) readCallRoutine(ms *mxStream, once bool) {
-	// Close the control on exit.
+	// Close the stream on exit.
 	defer ms.Close()
 
 	// Warning: don't shadow the error.
@@ -216,7 +216,7 @@ func (s *Session) readCallRoutine(ms *mxStream, once bool) {
 		if err != nil && !errors.Is(err, io.EOF) && !s.IsClosing() {
 			s.log.Error().
 				Err(err).
-				Msg("control read")
+				Msg("call read error")
 		}
 	}()
 
@@ -254,7 +254,7 @@ func (s *Session) readCallRoutine(ms *mxStream, once bool) {
 			return
 		}
 
-		// Handle the received message in a new goroutine.
+		// Handle the received message in a new goroutine, if specified.
 		if once {
 			s.handleCallRequest(ms, reqType, headerData, payloadData)
 			return
@@ -280,7 +280,7 @@ func (s *Session) handleCallRequest(ms *mxStream, reqType byte, headerData, payl
 		if err != nil {
 			s.log.Error().
 				Err(err).
-				Msg("control handle request")
+				Msg("handle call request")
 		}
 	}()
 
@@ -299,7 +299,7 @@ func (s *Session) handleCallRequest(ms *mxStream, reqType byte, headerData, payl
 
 func (s *Session) handleCall(ms *mxStream, headerData, payloadData []byte) (err error) {
 	// Decode the request header.
-	var header api.ControlCall
+	var header api.Call
 	err = msgpack.Codec.Decode(headerData, &header)
 	if err != nil {
 		return fmt.Errorf("handle call decode header: %v", err)
@@ -365,7 +365,7 @@ func (s *Session) handleCall(ms *mxStream, headerData, payloadData []byte) (err 
 			s.log.Error().
 				Err(retErr).
 				Str("func", header.ID).
-				Msg("control handle call")
+				Msg("handle call")
 		}
 
 		// Call the error hook, if defined.
@@ -376,7 +376,7 @@ func (s *Session) handleCall(ms *mxStream, headerData, payloadData []byte) (err 
 	}
 
 	// Build the header for the response.
-	retHeader := &api.ControlReturn{
+	retHeader := &api.CallReturn{
 		Key:  header.Key,
 		Msg:  msg,
 		Code: code,
@@ -405,7 +405,7 @@ func (s *Session) handleCall(ms *mxStream, headerData, payloadData []byte) (err 
 // the "client-side".
 func (s *Session) handleCallReturn(headerData, payloadData []byte) (err error) {
 	// Decode the header.
-	var header api.ControlReturn
+	var header api.CallReturn
 	err = msgpack.Codec.Decode(headerData, &header)
 	if err != nil {
 		return fmt.Errorf("handle call return decode header: %v", err)
@@ -455,7 +455,7 @@ func (s *Session) handleCallReturn(headerData, payloadData []byte) (err error) {
 // the "server-side".
 func (s *Session) handleCallCancel(headerData []byte) (err error) {
 	// Decode the request header.
-	var header api.ControlCancel
+	var header api.CallCancel
 	err = msgpack.Codec.Decode(headerData, &header)
 	if err != nil {
 		return fmt.Errorf("handle call cancel decode header: %v", err)

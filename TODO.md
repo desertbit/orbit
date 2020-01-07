@@ -1,7 +1,8 @@
 # TODO:
 
 - api generated msgpack code missing! Add to grml!
-
+- update the comments and remove unneeded parts.
+- run tests and add a target for them to grml
 
 ## OLD:
 
