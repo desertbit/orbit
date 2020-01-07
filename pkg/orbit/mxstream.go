@@ -32,11 +32,14 @@ import (
 	"sync"
 )
 
-type controlStream struct {
-	writeMx sync.Mutex
-	stream  net.Conn
+type mxStream struct {
+	net.Conn
+
+	WriteMX sync.Mutex
 }
 
-func newControlStream(stream net.Conn) *controlStream {
-	return &controlStream{stream: stream}
+func newMxStream(stream net.Conn) *mxStream {
+	return &mxStream{
+		Conn: stream
+	}
 }
