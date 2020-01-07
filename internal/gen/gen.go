@@ -65,16 +65,11 @@ func Generate(filePath string) (err error) {
 	// Create generator.
 	g := newGenerator()
 
-	// Sort the types in alphabetical order.
-	sort.Slice(types, func(i, j int) bool {
-		return types[i].Name < types[j].Name
-	})
-
 	// Generate the errors.
 	g.genErrors(errs)
 
 	// Generate the type definitions.
-	g.genStructTypes(types)
+	g.genTypes(types)
 
 	// Generate the service definitions.
 	g.genServices(services, errs)
@@ -168,11 +163,16 @@ func (g *generator) genErrors(errs []*parse.Error) {
 	g.writeLn(")")
 }
 
-func (g *generator) genStructTypes(ts []*parse.StructType) {
+func (g *generator) genTypes(ts []*parse.StructType) {
 	g.writeLn("//#############//")
 	g.writeLn("//### Types ###//")
 	g.writeLn("//#############//")
 	g.writeLn("")
+
+	// Sort the types in alphabetical order.
+	sort.Slice(ts, func(i, j int) bool {
+		return ts[i].Name < ts[j].Name
+	})
 
 	for _, t := range ts {
 		// Sort its fields in alphabetical order.
@@ -333,6 +333,15 @@ func (g *generator) genServiceStruct(
 
 	// Generate the streams.
 	for _, s := range streams {
+		// Generate the channel types, if needed.
+		if s.Args != nil {
+			g.genChanType(s.Args.Type.Name, false)
+		}
+		if s.Ret != nil {
+			g.genChanType(s.Ret.Type.Name, true)
+		}
+
+		// Generate the stream.
 		g.genServiceStream(s, strName, srvcName, errs)
 	}
 }
@@ -432,6 +441,52 @@ func (g *generator) genServiceCallSignature(c *parse.Call) {
 		g.write("ret *%s, ", c.Ret.Type.Name)
 	}
 	g.write("err error)")
+}
+
+func (g *generator) genChanType(name string, ro bool) {
+	g.imps.Add("sync")
+	g.writeLn("type Chan%sArgs struct {", name)
+	g.write("C ")
+	if ro {
+		g.write("<-chan ")
+	} else {
+		g.write("chan<- ")
+	}
+	g.writeLn("*%s", name)
+	g.writeLn("c chan *%s", name)
+	g.writeLn("close chan struct{}")
+	g.writeLn("mx sync.Mutex")
+	g.writeLn("err error")
+	g.writeLn("}")
+	g.writeLn("")
+
+	g.writeLn("func newChan%sArgs(chanSize int) *Chan%sArgs {", name, name)
+	g.writeLn("c := &Chan%sArgs{c: make(chan *%s, chanSize), close: make(chan struct{})}", name, name)
+	g.writeLn("c.C = c.c")
+	g.writeLn("return c")
+	g.writeLn("}")
+	g.writeLn("")
+
+	g.writeLn("func (c *Chan%sArgs) setError(err error)", name)
+	g.writeLn("c.mx.Lock()")
+	g.writeLn("c.err = err")
+	g.writeLn("c.mx.Unlock()")
+	g.writeLn("close(c.c)")
+	g.writeLn("}")
+	g.writeLn("")
+
+	g.writeLn("func (c *Chan%sArgs) Close()", name)
+	g.writeLn("close(c.close)")
+	g.writeLn("}")
+	g.writeLn("")
+
+	g.writeLn("func (c *Chan%sArgs) Err() (err error)", name)
+	g.writeLn("c.mx.Lock()")
+	g.writeLn("err = c.err")
+	g.writeLn("c.mx.Unlock()")
+	g.writeLn("return")
+	g.writeLn("}")
+	g.writeLn("")
 }
 
 func (g *generator) genServiceStream(s *parse.Stream, structName, srvcName string, errs []*parse.Error) {
