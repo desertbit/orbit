@@ -58,23 +58,23 @@ type chain struct {
 	// Synchronises the access to the channel map and the idCount.
 	mutex sync.Mutex
 	// Stores the channels that are handled by this chain.
-	chanMap map[uint64]chainChan
+	chanMap map[uint32]chainChan
 	// A simple counter to create an unique key for new
 	// channels that is used to store them in the map.
-	idCount uint64
+	idCount uint32
 }
 
 // newChain creates a new chain.
 func newChain() *chain {
 	return &chain{
-		chanMap: make(map[uint64]chainChan),
+		chanMap: make(map[uint32]chainChan),
 	}
 }
 
 // new creates a new channel, adds it to the chain and returns
 // the channel along with its id. The id can later be used
 // to retrieve or delete the channel from the chain.
-func (c *chain) new() (id uint64, cc chainChan) {
+func (c *chain) new() (id uint32, cc chainChan) {
 	// Create new channel.
 	cc = make(chainChan)
 
@@ -97,7 +97,7 @@ func (c *chain) new() (id uint64, cc chainChan) {
 
 // get returns the channel with the given id.
 // Returns nil, if not found.
-func (c *chain) get(id uint64) (cc chainChan) {
+func (c *chain) get(id uint32) (cc chainChan) {
 	c.mutex.Lock()
 	cc = c.chanMap[id]
 	c.mutex.Unlock()
@@ -106,7 +106,7 @@ func (c *chain) get(id uint64) (cc chainChan) {
 
 // delete deletes the channel with the given id from the chain.
 // If the id does not exist, this is a no-op.
-func (c *chain) delete(id uint64) {
+func (c *chain) delete(id uint32) {
 	c.mutex.Lock()
 	delete(c.chanMap, id)
 	c.mutex.Unlock()

@@ -33,8 +33,10 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"sync"
 	"time"
 
+	"github.com/desertbit/closer/v3"
 	"github.com/desertbit/orbit/internal/api"
 	"github.com/desertbit/orbit/internal/packet"
 	"github.com/desertbit/orbit/pkg/codec"
@@ -63,25 +65,30 @@ const (
 )
 
 type control struct {
+	closer.Closer
+
 	s *Session
 
-	closingChan <-chan struct{}
-	codec       codec.Codec
-	log         *zerolog.Logger
+	codec codec.Codec
+	log   *zerolog.Logger
 
 	main *controlStream
 
 	callRetChain *chain
+
+	activeCtxsMx sync.Mutex
+	activeCtxs   map[uint32]*controlContext
 }
 
 func newControl(s *Session, stream net.Conn) *control {
 	c := &control{
+		Closer:       s,
 		s:            s,
-		closingChan:  s.ClosingChan(),
 		codec:        s.cf.Codec,
 		log:          s.cf.Log,
 		main:         newControlStream(stream),
 		callRetChain: newChain(),
+		activeCtxs:   make(map[uint32]*controlContext),
 	}
 
 	// Start the read routine.
@@ -188,12 +195,12 @@ func (c *control) write(ctx context.Context, cs *controlStream, reqType byte, he
 func (c *control) waitForResponse(
 	ctx context.Context,
 	cs *controlStream,
-	key uint64,
+	key uint32,
 	channel chainChan,
 ) (d *Data, err error) {
 	// Wait for a response.
 	select {
-	case <-c.closingChan:
+	case <-c.ClosingChan():
 		// Abort, if the control closes.
 		err = ErrClosed
 
@@ -359,25 +366,26 @@ func (c *control) handleCall(cs *controlStream, headerData, payloadData []byte) 
 	}
 
 	// Build the request data for the handler function.
-	ctx := newData(payloadData, c.codec)
+	data := newData(payloadData, c.codec)
 
-	// Save the context in our active contexts map, if the request is cancelable.
-	// todo: cancel
-	/*if header.Cancelable {
-		c.activeCallContextsMx.Lock()
-		c.activeCallContexts[header.Key] = ctx
-		c.activeCallContextsMx.Unlock()
+	// Save a context in our active contexts map so we can cancel it, if needed.
+	// TODO: context is not meant for canceling, see https://dave.cheney.net/2017/08/20/context-isnt-for-cancellation
+	// TODO: lets enhance our closer and bring it to the next level
+	cc := newControlContext()
+	c.activeCtxsMx.Lock()
+	c.activeCtxs[header.Key] = cc
+	c.activeCtxsMx.Unlock()
 
-		// Ensure to remove the context from the map.
-		defer func() {
-			c.activeCallContextsMx.Lock()
-			delete(c.activeCallContexts, header.Key)
-			c.activeCallContextsMx.Unlock()
-		}()
-	}*/
+	// Ensure to remove the context from the map and to cancel it.
+	defer func() {
+		c.activeCtxsMx.Lock()
+		delete(c.activeCtxs, header.Key)
+		c.activeCtxsMx.Unlock()
+		cc.cancel()
+	}()
 
 	// Call the call hook, if defined.
-	// todo: hook
+	// TODO: hook
 	/*if c.callHook != nil {
 		c.callHook(c, header.ID, ctx)
 	}*/
@@ -388,7 +396,7 @@ func (c *control) handleCall(cs *controlStream, headerData, payloadData []byte) 
 	)
 
 	// Execute the handler function.
-	retData, retErr := f(ctx)
+	retData, retErr := f(cc.ctx, c.s, data)
 	if retErr != nil {
 		// Decide what to send back to the caller.
 		var cErr Error
@@ -413,15 +421,10 @@ func (c *control) handleCall(cs *controlStream, headerData, payloadData []byte) 
 		}
 
 		// Call the error hook, if defined.
-		// todo: hook
+		// TODO: hook
 		/*if c.errorHook != nil {
 			c.errorHook(c, header.ID, retErr)
 		}*/
-	}
-
-	// Skip the return if this is a one way call.
-	if header.Key == 0 {
-		return nil
 	}
 
 	// Build the header for the response.
@@ -432,12 +435,13 @@ func (c *control) handleCall(cs *controlStream, headerData, payloadData []byte) 
 	}
 
 	// Send the response back to the caller.
-	err = c.write(context.TODO(), cs, typeCallReturn, retHeader, retData)
+	// TODO: set an own server timeout here?
+	err = c.write(cc.ctx, cs, typeCallReturn, retHeader, retData)
 	if err != nil {
 		return fmt.Errorf("handle call: send response: %v", err)
 	}
 
-	return nil
+	return
 }
 
 // handleCallReturn processes an incoming response with request type 'typeCallReturn'.
@@ -511,15 +515,14 @@ func (c *control) handleCallCancel(headerData []byte) (err error) {
 	// it right away from the map again to ensure that a context is
 	// canceled exactly once.
 	var (
-		//ctx *Data
+		cc *controlContext
 		ok bool
 	)
-	/*
-		// todo: cancel
-		c.activeCallContextsMx.Lock()
-		ctx, ok = c.activeCallContexts[header.Key]
-		delete(c.activeCallContexts, header.Key)
-		c.activeCallContextsMx.Unlock()*/
+
+	c.activeCtxsMx.Lock()
+	cc, ok = c.activeCtxs[header.Key]
+	delete(c.activeCtxs, header.Key)
+	c.activeCtxsMx.Unlock()
 
 	// If there is no context available for this key, do nothing.
 	if !ok {
@@ -528,8 +531,7 @@ func (c *control) handleCallCancel(headerData []byte) (err error) {
 
 	// Cancel the currently running request.
 	// Since we deleted the context from the map already, this code
-	// is executed exactly once and does not block on the buffered channel.
-	// todo: cancel
-	//ctx.cancelChan <- struct{}{}
+	// is executed exactly once.
+	cc.cancel()
 	return
 }

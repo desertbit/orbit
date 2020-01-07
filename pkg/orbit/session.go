@@ -48,17 +48,14 @@ const (
 	// TODO:
 	streamInitTimeout = 10 * time.Second
 
-	// TODO: remove?
+	// TODO: needed for auth?
 	// The timeout for the connection flusher.
 	flushTimeout = 7 * time.Second
 )
 
-type CallFunc func(ctx *Data) (data interface{}, err error)
+type CallFunc func(ctx context.Context, s *Session, d *Data) (data interface{}, err error)
 
-// The StreamFunc type describes the function that is called whenever
-// a new connection is requested on a peer. It must then handle the new
-// connection, if it could be set up correctly.
-type StreamFunc func(net.Conn) error
+type StreamFunc func(s *Session, stream net.Conn) error
 
 type Session struct {
 	closer.Closer
@@ -211,6 +208,8 @@ func (s *Session) CallAsync(ctx context.Context, id string, data interface{}) (d
 func (s *Session) acceptStreamRoutine() {
 	defer s.Close_()
 
+	// TODO: context is not meant for canceling, see https://dave.cheney.net/2017/08/20/context-isnt-for-cancellation
+	// TODO: lets enhance our closer and bring it to the next level
 	ctx, cancel := context.WithCancel(context.Background())
 	s.OnClosing(func() error {
 		cancel()
@@ -285,7 +284,7 @@ func (s *Session) handleNewStream(stream net.Conn) (err error) {
 		}
 
 		// Pass it the new stream.
-		err = f(stream)
+		err = f(s, stream)
 		if err != nil {
 			return fmt.Errorf("stream='%v': %v", data.ID, err)
 		}

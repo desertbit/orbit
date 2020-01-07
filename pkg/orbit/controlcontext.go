@@ -25,37 +25,18 @@
  * SOFTWARE.
  */
 
-//go:generate msgp
-package api
+package orbit
 
-const (
-	// The version of the application.
-	Version = 2
+import (
+	"context"
 )
 
-type StreamType int
-
-const (
-	StreamTypeRaw       = 0
-	StreamTypeCallAsync = 1
-)
-
-type InitStream struct {
-	ID   string
-	Type StreamType
+type controlContext struct {
+	ctx    context.Context
+	cancel context.CancelFunc
 }
 
-type ControlCall struct {
-	ID  string
-	Key uint32
-}
-
-type ControlReturn struct {
-	Key  uint32
-	Msg  string
-	Code int
-}
-
-type ControlCancel struct {
-	Key uint32
+func newControlContext() *controlContext {
+	ctx, cancel := context.WithCancel(context.Background())
+	return &controlContext{ctx: ctx, cancel: cancel}
 }
