@@ -519,6 +519,8 @@ func (c *control) handleCallCancel(headerData []byte) (err error) {
 		ok bool
 	)
 
+	// TODO: context is not meant for canceling, see https://dave.cheney.net/2017/08/20/context-isnt-for-cancellation
+	// TODO: lets enhance our closer and bring it to the next level
 	c.activeCtxsMx.Lock()
 	cc, ok = c.activeCtxs[header.Key]
 	delete(c.activeCtxs, header.Key)
