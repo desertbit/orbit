@@ -62,18 +62,18 @@ const (
 	typeCallCancel byte = 2
 )
 
-func (s *Session) RegisterCall(id string, f CallFunc) {
+func (s *Session) RegisterCall(service, id string, f CallFunc) {
 	s.callFuncsMx.Lock()
 	s.callFuncs[id] = f
 	s.callFuncsMx.Unlock()
 }
 
-func (s *Session) Call(ctx context.Context, id string, data interface{}) (d *Data, err error) {
+func (s *Session) Call(ctx context.Context, service, id string, data interface{}) (d *Data, err error) {
 	return s.call(ctx, s.callStream, id, data)
 }
 
 // TODO: BUG: the return data is not send over the new stream connection.
-func (s *Session) CallAsync(ctx context.Context, id string, data interface{}) (d *Data, err error) {
+func (s *Session) CallAsync(ctx context.Context, service, id string, data interface{}) (d *Data, err error) {
 	stream, err := s.openStream(ctx, "", api.StreamTypeCallAsync)
 	if err != nil {
 		return

@@ -55,6 +55,7 @@ type Config struct {
 	InitTimeout time.Duration
 
 	// StreamChanSize specifies the size of stream channels.
+	// TODO: move to orbit cmd
 	StreamChanSize int
 }
 

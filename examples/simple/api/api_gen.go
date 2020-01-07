@@ -12,6 +12,8 @@ import (
 	"github.com/desertbit/orbit/pkg/orbit"
 )
 
+// TODO: rename os to s
+
 //##############//
 //### Errors ###//
 //##############//
@@ -36,6 +38,8 @@ type Char struct {
 	lol string
 }
 
+// TODO: rename to CharChanArgs
+// TODO: use real closer.OneWay() from session
 type ChanCharArgs struct {
 	C     chan<- *Char
 	c     chan *Char
@@ -44,21 +48,36 @@ type ChanCharArgs struct {
 	err   error
 }
 
+// TODO: take chan size from orbit cmd
 func newChanCharArgs(chanSize int) *ChanCharArgs {
 	c := &ChanCharArgs{c: make(chan *Char, chanSize), close: make(chan struct{})}
 	c.C = c.c
 	return c
 }
 
+// TODO:
 func (c *ChanCharArgs) setError(err error) {
 	c.mx.Lock()
 	c.err = err
 	c.mx.Unlock()
-	close(c.c)
+	c.Close()
 }
 
+// TODO: remove
+func (c *ChanCharArgs) CloseChan() <-chan struct{} {
+	return c.close
+}
+
+// TODO: remove
 func (c *ChanCharArgs) Close() {
-	close(c.close)
+	c.mx.Lock()
+	defer c.mx.Unlock()
+	select {
+	case <-c.close:
+		return
+	default:
+		close(c.close)
+	}
 }
 
 func (c *ChanCharArgs) Err() (err error) {
@@ -135,6 +154,7 @@ type Test3Ret struct {
 
 // Example  ---------------------
 const (
+	// TODO: put . in there
 	ExampleTest   = "ExampleTest"
 	ExampleTest2  = "ExampleTest2"
 	ExampleTest3  = "ExampleTest3"
@@ -150,32 +170,32 @@ type ExampleConsumerCaller interface {
 	Test(ctx context.Context, args *Plate) (ret *Rect, err error)
 	Test2(ctx context.Context, args *Rect) (err error)
 	// Streams
-	Hello(ctx context.Context) (conn net.Conn, err error)
-	Hello2(ctx context.Context) (args *ChanCharArgs, err error)
+	Hello(s *orbit.Session, stream net.Conn) (conn net.Conn, err error)
+	Hello2(s *orbit.Session, stream net.Conn) (args *ChanCharArgs, err error)
 }
 type ExampleConsumerHandler interface {
 	// Calls
 	Test3(ctx context.Context, args *Test3Args) (ret *Test3Ret, err error)
 	Test4(ctx context.Context) (ret *Rect, err error)
 	// Streams
-	Hello3(ctx context.Context) (ret *ChanPlateRet, err error)
-	Hello4(ctx context.Context) (args *ChanCharArgs, ret *ChanPlateRet, err error)
+	Hello3(s *orbit.Session, stream net.Conn) (ret *ChanPlateRet, err error)
+	Hello4(s *orbit.Session, stream net.Conn) (args *ChanCharArgs, ret *ChanPlateRet, err error)
 }
 type ExampleProviderCaller interface {
 	// Calls
 	Test3(ctx context.Context, args *Test3Args) (ret *Test3Ret, err error)
 	Test4(ctx context.Context) (ret *Rect, err error)
 	// Streams
-	Hello3(ctx context.Context) (ret *ChanPlateRet, err error)
-	Hello4(ctx context.Context) (args *ChanCharArgs, ret *ChanPlateRet, err error)
+	Hello3(s *orbit.Session, stream net.Conn) (ret *ChanPlateRet, err error)
+	Hello4(s *orbit.Session, stream net.Conn) (args *ChanCharArgs, ret *ChanPlateRet, err error)
 }
 type ExampleProviderHandler interface {
 	// Calls
 	Test(ctx context.Context, args *Plate) (ret *Rect, err error)
 	Test2(ctx context.Context, args *Rect) (err error)
 	// Streams
-	Hello(ctx context.Context) (conn net.Conn, err error)
-	Hello2(ctx context.Context) (args *ChanCharArgs, err error)
+	Hello(s *orbit.Session, stream net.Conn) (conn net.Conn, err error)
+	Hello2(s *orbit.Session, stream net.Conn) (args *ChanCharArgs, err error)
 }
 
 type exampleConsumer struct {
@@ -258,10 +278,10 @@ func (v1 *exampleConsumer) test4(ctx context.Context, s *orbit.Session, ad *orbi
 	return
 }
 
-func (v1 *exampleConsumer) Hello(ctx context.Context) (conn net.Conn, err error) {
+func (v1 *exampleConsumer) Hello(s *orbit.Session, stream net.Conn) (conn net.Conn, err error) {
 	return v1.os.OpenStream(ctx, ExampleHello)
 }
-func (v1 *exampleConsumer) Hello2(ctx context.Context) (args *ChanCharArgs, err error) {
+func (v1 *exampleConsumer) Hello2(s *orbit.Session, stream net.Conn) (args *ChanCharArgs, err error) {
 	conn, err := v1.os.OpenStream(ctx, ExampleHello2)
 	if err != nil {
 		return
@@ -285,6 +305,13 @@ func (v1 *exampleConsumer) Hello2(ctx context.Context) (args *ChanCharArgs, err 
 	return
 }
 
+func (v1 *exampleConsumer) Hello3(s *orbit.Session, stream net.Conn) (err error) {
+
+}
+func (v1 *exampleConsumer) Hello4(s *orbit.Session, stream net.Conn) (err error) {
+
+}
+
 type exampleProvider struct {
 	h  ExampleProviderHandler
 	os *orbit.Session
@@ -292,7 +319,6 @@ type exampleProvider struct {
 
 func RegisterExampleProvider(os *orbit.Session, h ExampleProviderHandler) ExampleProviderCaller {
 	cc := &exampleProvider{h: h, os: os}
-	os.RegisterCall(ExampleTest, cc.test)
 	return cc
 }
 func (v1 *exampleProvider) Test3(ctx context.Context, args *Test3Args) (ret *Test3Ret, err error) {
@@ -374,7 +400,7 @@ func (v1 *exampleProvider) test2(ctx context.Context, s *orbit.Session, ad *orbi
 	return
 }
 
-func (v1 *exampleProvider) Hello3(ctx context.Context) (ret *ChanPlateRet, err error) {
+func (v1 *exampleProvider) Hello3(s *orbit.Session, stream net.Conn) (ret *ChanPlateRet, err error) {
 	conn, err := v1.os.OpenStream(ctx, ExampleHello3)
 	if err != nil {
 		return
@@ -403,7 +429,7 @@ func (v1 *exampleProvider) Hello3(ctx context.Context) (ret *ChanPlateRet, err e
 	return
 }
 
-func (v1 *exampleProvider) Hello4(ctx context.Context) (args *ChanCharArgs, ret *ChanPlateRet, err error) {
+func (v1 *exampleProvider) Hello4(s *orbit.Session, stream net.Conn) (args *ChanCharArgs, ret *ChanPlateRet, err error) {
 	conn, err := v1.os.OpenStream(ctx, ExampleHello4)
 	if err != nil {
 		return
@@ -446,6 +472,13 @@ func (v1 *exampleProvider) Hello4(ctx context.Context) (args *ChanCharArgs, ret 
 		}
 	}()
 	return
+}
+
+func (v1 *exampleProvider) Hello(s *orbit.Session, stream net.Conn) (err error) {
+
+}
+func (v1 *exampleProvider) Hello2(s *orbit.Session, stream net.Conn) (err error) {
+
 }
 
 // ---------------------
