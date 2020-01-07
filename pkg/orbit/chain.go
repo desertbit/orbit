@@ -40,7 +40,7 @@ type chainChan chan chainData
 // of this call.
 type chainData struct {
 	// The Data of a call.
-	Context *Data
+	Data *Data
 	// Contains the error message and an error code
 	// that the call may have produced.
 	Err error

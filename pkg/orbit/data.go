@@ -28,35 +28,48 @@
 package orbit
 
 import (
-	"os"
+	"errors"
+	"fmt"
 
 	"github.com/desertbit/orbit/pkg/codec"
-	"github.com/desertbit/orbit/pkg/codec/msgpack"
-	"github.com/rs/zerolog"
 )
 
-// todo:
-type Config struct {
-	Codec codec.Codec
+var (
+	// ErrNoData defines the error if no data is available.
+	ErrNoData = errors.New("no data available to decode")
+)
 
-	Log *zerolog.Logger
+type Data struct {
+	codec codec.Codec
 
-	PrintPanicStackTraces bool
-
-	SendErrToCaller bool
+	// Raw is the byte representation of the encoded data.
+	Raw []byte
 }
 
-func prepareConfig(c *Config) *Config {
-	if c == nil {
-		c = &Config{}
+// newData creates a new Data from the given Control and the
+// payload data.
+func newData(data []byte, codec codec.Codec) *Data {
+	return &Data{
+		codec: codec,
+
+		Raw: data,
+	}
+}
+
+// Decode the data to a custom value
+// The value has to be passed as pointer.
+// Returns ErrNoData, if there is no data available to decode.
+func (d *Data) Decode(v interface{}) error {
+	// Check if no data was passed.
+	if len(d.Raw) == 0 {
+		return ErrNoData
 	}
 
-	if c.Codec == nil {
-		c.Codec = msgpack.Codec
+	// Decode the data.
+	err := d.codec.Decode(d.Raw, v)
+	if err != nil {
+		return fmt.Errorf("data decode: %v", err)
 	}
-	if c.Log == nil {
-		l := zerolog.New(os.Stderr).With().Timestamp().Logger()
-		c.Log = &l
-	}
-	return c
+
+	return nil
 }

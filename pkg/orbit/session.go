@@ -40,26 +40,13 @@ import (
 	"github.com/desertbit/closer/v3"
 	"github.com/desertbit/orbit/internal/api"
 	"github.com/desertbit/orbit/internal/packet"
-    "github.com/desertbit/orbit/pkg/codec"
-    "github.com/rs/zerolog"
+	"github.com/desertbit/orbit/pkg/codec"
+	"github.com/rs/zerolog"
 )
 
 const (
 	// TODO:
 	streamInitTimeout = 10 * time.Second
-
-	// The time duration after which a new opened stream timeouts if the initial
-	// data could not be written to the stream.
-	// Used on the side that opens the stream.
-	streamInitWriteTimeout = 15 * time.Second
-
-	// The time duration after which a new opened stream timeouts if the initial
-	// data could not be read from the stream.
-	// Used on the side that accepts the stream.
-	streamInitReadTimeout = 20 * time.Second
-
-	// The maximum size the initial data sent over a new stream may have.
-	acceptStreamMaxHeaderSize = 2 * 1024 // 2 KB
 
 	// TODO: remove?
 	// The timeout for the connection flusher.
@@ -86,7 +73,7 @@ type Session struct {
 
 	callFuncsMx sync.RWMutex
 	callFuncs   map[string]CallFunc
-	ctrl *control
+	ctrl        *control
 
 	// Synchronises the access to the stream handlers map.
 	streamFuncsMx sync.Mutex
@@ -105,7 +92,7 @@ func newSession(cl closer.Closer, conn Conn, initStream net.Conn, cf *Config) (s
 		cf:     cf,
 		conn:   conn,
 	}
-	s.ctrl = newControl(s, initStream, false)
+	s.ctrl = newControl(s, initStream)
 	s.OnClosing(conn.Close)
 	return
 }
@@ -142,9 +129,9 @@ func (s *Session) Ready() {
 }
 
 func (s *Session) RegisterStream(id string, f StreamFunc) {
-    s.streamFuncsMx.Lock()
-    s.streamFuncs[id] = f
-    s.streamFuncsMx.Unlock()
+	s.streamFuncsMx.Lock()
+	s.streamFuncs[id] = f
+	s.streamFuncsMx.Unlock()
 }
 
 // OpenStream opens a new stream with the given channel ID.
@@ -156,6 +143,11 @@ func (s *Session) OpenStream(ctx context.Context, id string, t api.StreamType) (
 	if err != nil {
 		return
 	}
+	defer func() {
+		if err != nil {
+			_ = stream.Close()
+		}
+	}()
 
 	// Create the initial data that signals to the remote peer,
 	// which stream we want to open.
@@ -164,32 +156,49 @@ func (s *Session) OpenStream(ctx context.Context, id string, t api.StreamType) (
 		Type: t,
 	}
 
+	// Set a write deadline, if needed.
+	deadline, ok := ctx.Deadline()
+	if ok {
+		err = stream.SetWriteDeadline(deadline)
+		if err != nil {
+			return
+		}
+	}
+
 	// Write the initial request to the stream.
-	err = packet.WriteEncode(stream, &data, s.cf.Codec, streamInitWriteTimeout)
+	err = packet.WriteEncode(stream, &data, s.cf.Codec)
 	if err != nil {
 		return
+	}
+
+	// Reset the deadline.
+	if ok {
+		err = stream.SetWriteDeadline(time.Time{})
+		if err != nil {
+			return
+		}
 	}
 
 	return
 }
 
 func (s *Session) RegisterCall(id string, f CallFunc) {
-    s.callFuncsMx.Lock()
-    s.callFuncs[id] = f
-    s.callFuncsMx.Unlock()
+	s.callFuncsMx.Lock()
+	s.callFuncs[id] = f
+	s.callFuncsMx.Unlock()
 }
 
 func (s *Session) Call(ctx context.Context, id string, data interface{}) (d *Data, err error) {
-    return s.ctrl.call(ctx, id, data)
+	return s.ctrl.Call(ctx, id, data)
 }
 
 func (s *Session) CallAsync(ctx context.Context, id string, data interface{}) (d *Data, err error) {
-    stream, err := s.OpenStream(ctx, id, api.StreamTypeCallAsync)
-    if err != nil {
-        return
-    }
+	stream, err := s.OpenStream(ctx, id, api.StreamTypeCallAsync)
+	if err != nil {
+		return
+	}
 
-    return newControl(s, stream, true).call(ctx, id, data)
+	return s.ctrl.CallAsync(ctx, stream, id, data)
 }
 
 //###############//
@@ -261,31 +270,28 @@ func (s *Session) handleNewStream(stream net.Conn) (err error) {
 
 	// Read the initial data from the stream.
 	var data api.InitStream
-	err = packet.ReadDecode(
-		stream,
-		&data,
-		s.cf.Codec,
-		streamInitReadTimeout,
-	)
+	err = packet.ReadDecode(stream, &data, s.cf.Codec)
 	if err != nil {
 		return fmt.Errorf("init stream header: %v", err)
 	}
 
 	// Decide the type of stream.
-	if data.Call {
-		s.ctrl.
-	}
+	switch data.Type {
+	case api.StreamTypeRaw:
+		// Obtain the stream handler.
+		f, err := s.streamHandler(data.ID)
+		if err != nil {
+			return
+		}
 
-	// Obtain the stream handler.
-	f, err := s.streamHandler(data.ID)
-	if err != nil {
-		return
-	}
-
-	// Pass it the new stream.
-	err = f(stream)
-	if err != nil {
-		return fmt.Errorf("stream='%v': %v", data.ID, err)
+		// Pass it the new stream.
+		err = f(stream)
+		if err != nil {
+			return fmt.Errorf("stream='%v': %v", data.ID, err)
+		}
+	case api.StreamTypeCallAsync:
+		// Pass the stream to the control.
+		s.ctrl.HandleCallAsync(stream)
 	}
 
 	return

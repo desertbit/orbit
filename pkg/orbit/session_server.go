@@ -64,8 +64,11 @@ func newServerSession(cl closer.Closer, conn Conn, cf *Config) (s *Session, err 
 		return
 	}
 
+	// Deadline is certainly available.
+	deadline, _ := ctx.Deadline()
+
 	// Set a read timeout.
-	err = stream.SetReadDeadline(time.Now().Add(streamVersionReadTimeout))
+	err = stream.SetReadDeadline(deadline)
 	if err != nil {
 		return
 	}

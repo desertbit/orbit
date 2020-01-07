@@ -33,7 +33,6 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"sync"
 	"time"
 
 	"github.com/desertbit/orbit/internal/api"
@@ -70,56 +69,66 @@ type control struct {
 	codec       codec.Codec
 	log         *zerolog.Logger
 
-	streamWriteMx sync.Mutex
-	stream        net.Conn
+	main *controlStream
 
 	callRetChain *chain
 }
 
-func newControl(s *Session, stream net.Conn, once bool) *control {
+func newControl(s *Session, stream net.Conn) *control {
 	c := &control{
 		s:            s,
 		closingChan:  s.ClosingChan(),
 		codec:        s.cf.Codec,
 		log:          s.cf.Log,
-		stream:       stream,
+		main:         newControlStream(stream),
 		callRetChain: newChain(),
 	}
-	go c.readRoutine(stream, once)
+
+	// Start the read routine.
+	go c.readRoutine(c.main, false)
+
 	return c
 }
 
-func (c *control) call(ctx context.Context, id string, data interface{}) (d *Data, err error) {
+func (c *control) Call(ctx context.Context, id string, data interface{}) (d *Data, err error) {
+	return c.call(ctx, c.main, id, data)
+}
+
+func (c *control) CallAsync(ctx context.Context, stream net.Conn, id string, data interface{}) (d *Data, err error) {
+	return c.call(ctx, newControlStream(stream), id, data)
+}
+
+func (c *control) HandleCallAsync(stream net.Conn) {
+	go c.readRoutine(newControlStream(stream), true)
+}
+
+//###############//
+//### Private ###//
+//###############//
+
+func (c *control) call(ctx context.Context, cs *controlStream, id string, data interface{}) (d *Data, err error) {
 	// Create a new channel with its key. This will be used to send
 	// the data over that forms the response to the call.
 	key, channel := c.callRetChain.new()
 	defer c.callRetChain.delete(key)
 
 	// Write to the client.
-	err = c.write(
-		ctx,
-		typeCall,
-		&api.ControlCall{
-			ID:  id,
-			Key: key,
-		},
-		data,
-	)
+	err = c.write(ctx, cs, typeCall, &api.ControlCall{ID: id, Key: key}, data)
 	if err != nil {
 		return
 	}
 
 	// Wait, until the response has arrived, and return its result.
-	return c.waitForResponse(ctx, key, channel)
+	return c.waitForResponse(ctx, cs, key, channel)
 }
 
-func (c *control) write(ctx context.Context, reqType byte, headerI interface{}, dataI interface{}) (err error) {
+func (c *control) write(ctx context.Context, cs *controlStream, reqType byte, headerI, dataI interface{}) (err error) {
 	var header, payload []byte
 
 	// Marshal the header data.
 	header, err = msgpack.Codec.Encode(headerI)
 	if err != nil {
-		return fmt.Errorf("encode header: %v", err)
+		return fmt.Errorf("control write encode header: %v", err)
 	}
 
 	// Marshal the payload data with the configured codec,
@@ -132,58 +141,72 @@ func (c *control) write(ctx context.Context, reqType byte, headerI interface{}, 
 		default:
 			payload, err = c.codec.Encode(dataI)
 			if err != nil {
-				return fmt.Errorf("encode: %v", err)
+				return fmt.Errorf("control write encode payload: %v", err)
 			}
 		}
 	}
 
-	// Ensure only one write happens at a time.
-	c.streamWriteMx.Lock()
-	defer c.streamWriteMx.Unlock()
+	// Ensure only one write happens at a time on the stream.
+	cs.writeMx.Lock()
+	defer cs.writeMx.Unlock()
 
 	// Set the deadline when all write operations must be finished.
 	deadline, ok := ctx.Deadline()
 	if ok {
-		err = c.stream.SetWriteDeadline(deadline)
+		err = cs.stream.SetWriteDeadline(deadline)
 		if err != nil {
 			return err
 		}
 	}
 
 	// Write the request type.
-	_, err = c.stream.Write([]byte{reqType})
+	_, err = cs.stream.Write([]byte{reqType})
 	if err != nil {
 		return err
 	}
 
 	// Write the header.
-	err = packet.Write(c.stream, header)
+	err = packet.Write(cs.stream, header)
 	if err != nil {
 		return err
 	}
 
 	// Write the payload.
-	err = packet.Write(c.stream, payload)
+	err = packet.Write(cs.stream, payload)
 	if err != nil {
 		return err
 	}
 
 	// Reset the deadline.
-	return c.stream.SetWriteDeadline(time.Time{})
+	return cs.stream.SetWriteDeadline(time.Time{})
 }
 
-// cancelCall sends a request to the remote peer in order to cancel an ongoing request
-// identified by the given key.
-func (c *control) cancelCall(key uint64) {
-	err := c.write(
-		context.TODO(),
-		typeCallCancel,
-		&api.ControlCancel{Key: key},
-		nil,
-	)
-	if err != nil {
-		c.log.Error().Err(err).Msg("control cancel call")
+// waitForResponse waits for a response on the given chainChan channel.
+// Returns ErrClosed, if the control is closed before the response arrives.
+// Returns ErrCallTimeout, if the timeout exceeds before the response arrives.
+// Returns ErrCallCanceled, if the call is canceled by the caller.
+func (c *control) waitForResponse(
+	ctx context.Context,
+	cs *controlStream,
+	key uint64,
+	channel chainChan,
+) (d *Data, err error) {
+	// Wait for a response.
+	select {
+	case <-c.closingChan:
+		// Abort, if the control closes.
+		err = ErrClosed
+
+	case <-ctx.Done():
+		// Cancel the call on the remote peer.
+		err = c.write(ctx, cs, typeCallCancel, &api.ControlCancel{Key: key}, nil)
+
+	case rData := <-channel:
+		// Response has arrived.
+		d = rData.Data
+		err = rData.Err
 	}
+	return
 }
 
 // readRoutine listens on the control stream and reads the packets from it.
@@ -199,9 +222,9 @@ func (c *control) cancelCall(key uint64) {
 //
 // If a request could be successfully read, it is passed to the
 // handleRequest() method to process it.
-func (c *control) readRoutine(once bool) {
+func (c *control) readRoutine(cs *controlStream, once bool) {
 	// Close the control on exit.
-	defer c.stream.Close()
+	defer cs.stream.Close()
 
 	// Warning: don't shadow the error.
 	// Otherwise the deferred logging won't work!
@@ -222,7 +245,9 @@ func (c *control) readRoutine(once bool) {
 
 		// Only log if not closed.
 		if err != nil && !errors.Is(err, io.EOF) && !c.s.IsClosing() {
-			c.log.Error().Err(err).Msg("control read")
+			c.log.Error().
+				Err(err).
+				Msg("control read")
 		}
 	}()
 
@@ -239,7 +264,7 @@ func (c *control) readRoutine(once bool) {
 		// Read in a loop, as Read could potentially return 0 read bytes.
 		bytesRead = 0
 		for bytesRead == 0 {
-			n, err = c.stream.Read(reqTypeBuf)
+			n, err = cs.stream.Read(reqTypeBuf)
 			if err != nil {
 				return
 			}
@@ -249,51 +274,25 @@ func (c *control) readRoutine(once bool) {
 		reqType = reqTypeBuf[0]
 
 		// Read the header from the stream.
-		headerData, err = packet.Read(c.stream, nil)
+		headerData, err = packet.Read(cs.stream, nil)
 		if err != nil {
 			return
 		}
 
 		// Read the payload from the stream.
-		payloadData, err = packet.Read(c.stream, nil)
+		payloadData, err = packet.Read(cs.stream, nil)
 		if err != nil {
 			return
 		}
 
 		// Handle the received message in a new goroutine.
 		if once {
-			c.handleRequest(reqType, headerData, payloadData)
+			c.handleRequest(cs, reqType, headerData, payloadData)
 			return
 		} else {
-			go c.handleRequest(reqType, headerData, payloadData)
+			go c.handleRequest(cs, reqType, headerData, payloadData)
 		}
 	}
-}
-
-// waitForResponse waits for a response on the given chainChan channel.
-// Returns ErrClosed, if the control is closed before the response arrives.
-// Returns ErrCallTimeout, if the timeout exceeds before the response arrives.
-// Returns ErrCallCanceled, if the call is canceled by the caller.
-func (c *control) waitForResponse(
-	ctx context.Context,
-	key uint64,
-	channel chainChan,
-) (octx *Data, err error) {
-	// Wait for a response.
-	select {
-	case <-c.closingChan:
-		// Abort, if the control closes.
-		err = ErrClosed
-
-	case <-ctx.Done():
-		c.cancelCall(key)
-
-	case rData := <-channel:
-		// Response has arrived.
-		octx = rData.Context
-		err = rData.Err
-	}
-	return
 }
 
 // handleRequest handles an incoming request read by the readRoutine() function
@@ -303,7 +302,7 @@ func (c *control) waitForResponse(
 //
 // Panics are recovered and wrapped in an error.
 // Any error is logged using the control logger.
-func (c *control) handleRequest(reqType byte, headerData, payloadData []byte) {
+func (c *control) handleRequest(cs *controlStream, reqType byte, headerData, payloadData []byte) {
 	var err error
 
 	// Catch panics, caused by the handler func or one of the hooks.
@@ -312,21 +311,22 @@ func (c *control) handleRequest(reqType byte, headerData, payloadData []byte) {
 			err = fmt.Errorf("catched panic: %v", e)
 		}
 		if err != nil {
-
-			c.log.Printf("control: handleRequest: %v", err)
+			c.log.Error().
+				Err(err).
+				Msg("control")
 		}
 	}()
 
 	// Check the request type.
 	switch reqType {
 	case typeCall:
-		err = c.handleCall(headerData, payloadData)
+		err = c.handleCall(cs, headerData, payloadData)
 	case typeCallReturn:
 		err = c.handleCallReturn(headerData, payloadData)
 	case typeCallCancel:
 		err = c.handleCallCancel(headerData)
 	default:
-		err = fmt.Errorf("invalid request type: %v", reqType)
+		err = fmt.Errorf("handle request: invalid request type '%v'", reqType)
 	}
 }
 
@@ -342,12 +342,12 @@ func (c *control) handleRequest(reqType byte, headerData, payloadData []byte) {
 //
 // This function is executed on the side of the receiver of a request,
 // the "server-side".
-func (c *control) handleCall(headerData, payloadData []byte) (err error) {
+func (c *control) handleCall(cs *controlStream, headerData, payloadData []byte) (err error) {
 	// Decode the request header.
 	var header api.ControlCall
 	err = msgpack.Codec.Decode(headerData, &header)
 	if err != nil {
-		return fmt.Errorf("decode header call: %v", err)
+		return fmt.Errorf("handle call decode header: %v", err)
 	}
 
 	// Retrieve the handler function for this request.
@@ -355,7 +355,7 @@ func (c *control) handleCall(headerData, payloadData []byte) (err error) {
 	f, ok := c.s.callFuncs[header.ID]
 	c.s.callFuncsMx.RUnlock()
 	if !ok {
-		return fmt.Errorf("call request: requested function does not exist: id=%v", header.ID)
+		return fmt.Errorf("handle call: func '%v' does not exist", header.ID)
 	}
 
 	// Build the request data for the handler function.
@@ -391,7 +391,8 @@ func (c *control) handleCall(headerData, payloadData []byte) (err error) {
 	retData, retErr := f(ctx)
 	if retErr != nil {
 		// Decide what to send back to the caller.
-		if cErr, ok := retErr.(Error); ok {
+		var cErr Error
+		if errors.As(err, &cErr) {
 			code = cErr.Code()
 			msg = cErr.Msg()
 		} else if c.s.cf.SendErrToCaller {
@@ -405,7 +406,10 @@ func (c *control) handleCall(headerData, payloadData []byte) (err error) {
 
 		// Log the actual error here, but only if it contains a message.
 		if retErr.Error() != "" {
-			c.log.Error().Err(retErr).Str("callID", header.ID).Msg("handle call")
+			c.log.Error().
+				Err(retErr).
+				Str("func", header.ID).
+				Msg("control handle call")
 		}
 
 		// Call the error hook, if defined.
@@ -428,9 +432,9 @@ func (c *control) handleCall(headerData, payloadData []byte) (err error) {
 	}
 
 	// Send the response back to the caller.
-	err = c.write(typeCallReturn, retHeader, retData)
+	err = c.write(context.TODO(), cs, typeCallReturn, retHeader, retData)
 	if err != nil {
-		return fmt.Errorf("call request: send response: %v", err)
+		return fmt.Errorf("handle call: send response: %v", err)
 	}
 
 	return nil
@@ -450,20 +454,17 @@ func (c *control) handleCallReturn(headerData, payloadData []byte) (err error) {
 	var header api.ControlReturn
 	err = msgpack.Codec.Decode(headerData, &header)
 	if err != nil {
-		return fmt.Errorf("decode header call return: %v", err)
+		return fmt.Errorf("handle call return decode header: %v", err)
 	}
 
 	// Get the channel by the key.
 	channel := c.callRetChain.get(header.Key)
 	if channel == nil {
-		return fmt.Errorf("return request failed: no return channel set (call timeout exceeded?)")
+		return errors.New("call return: no handler func available")
 	}
 
-	// Create a new context.
-	ctx := newData(payloadData, c.codec)
-
 	// Create the channel data.
-	rData := chainData{Context: ctx}
+	rData := chainData{Data: newData(payloadData, c.codec)}
 
 	// Create an ErrorCode, if an error is present.
 	if header.Msg != "" {
@@ -475,7 +476,7 @@ func (c *control) handleCallReturn(headerData, payloadData []byte) (err error) {
 	// Otherwise we would have a lost blocking goroutine.
 	select {
 	case channel <- rData:
-		return nil
+		return
 
 	default:
 		// Retry with a timeout.
@@ -484,9 +485,9 @@ func (c *control) handleCallReturn(headerData, payloadData []byte) (err error) {
 
 		select {
 		case channel <- rData:
-			return nil
+			return
 		case <-timeout.C:
-			return fmt.Errorf("return request failed (call timeout exceeded?)")
+			return fmt.Errorf("call return: failed to deliver return data (timeout)")
 		}
 	}
 }
@@ -503,7 +504,7 @@ func (c *control) handleCallCancel(headerData []byte) (err error) {
 	var header api.ControlCancel
 	err = msgpack.Codec.Decode(headerData, &header)
 	if err != nil {
-		return fmt.Errorf("decode header call cancel: %v", err)
+		return fmt.Errorf("handle call cancel decode header: %v", err)
 	}
 
 	// Retrieve the context from the active contexts map and delete

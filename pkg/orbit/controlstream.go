@@ -28,48 +28,15 @@
 package orbit
 
 import (
-	"errors"
-	"fmt"
-
-	"github.com/desertbit/orbit/pkg/codec"
+	"net"
+	"sync"
 )
 
-var (
-	// ErrNoData defines the error if no context data is available.
-	ErrNoData = errors.New("no data available to decode")
-)
-
-type Data struct {
-	codec codec.Codec
-
-	// Raw is the byte representation of the encoded data.
-	Raw []byte
+type controlStream struct {
+	writeMx sync.Mutex
+	stream  net.Conn
 }
 
-// newData creates a new Data from the given Control and the
-// payload data.
-func newData(data []byte, codec codec.Codec) *Data {
-	return &Data{
-		codec: codec,
-
-		Raw: data,
-	}
-}
-
-// Decode the context data to a custom value.
-// The value has to be passed as pointer.
-// Returns ErrNoContextData, if there is no context data available to decode.
-func (d *Data) Decode(v interface{}) error {
-	// Check if no data was passed.
-	if len(d.Raw) == 0 {
-		return ErrNoData
-	}
-
-	// Decode the data.
-	err := d.codec.Decode(d.Raw, v)
-	if err != nil {
-		return fmt.Errorf("data decode: %v", err)
-	}
-
-	return nil
+func newControlStream(stream net.Conn) *controlStream {
+	return &controlStream{stream: stream}
 }
