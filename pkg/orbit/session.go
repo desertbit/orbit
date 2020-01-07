@@ -49,33 +49,38 @@ type StreamFunc func(s *Session, stream net.Conn) error
 type Session struct {
 	closer.Closer
 
-	cf  *Config
-	log *zerolog.Logger
+	cf    *Config
+	log   *zerolog.Logger
+	codec codec.Codec
 
-	conn Conn
 	id   string
-	ctrl *control
-
-	callFuncsMx sync.RWMutex
-	callFuncs   map[string]CallFunc
+	conn Conn
 
 	// When a new stream has been opened, the first data sent on the stream must
 	// contain the key into this map to retrieve the correct function to handle
 	// the stream.
 	streamFuncsMx sync.Mutex
 	streamFuncs   map[string]StreamFunc
+
+	callStream   *mxStream
+	callRetChain *chain
+
+	callFuncsMx sync.RWMutex
+	callFuncs   map[string]CallFunc
 }
 
 // newSession creates a new orbit session from the given parameters.
 // The created session closes, if the underlying connection is closed.
 func newSession(cl closer.Closer, conn Conn, initStream net.Conn, cf *Config) (s *Session) {
 	s = &Session{
-		Closer: cl,
-		cf:     cf,
-		log:    cf.Log,
-		conn:   conn,
+		Closer:       cl,
+		cf:           cf,
+		log:          cf.Log,
+		codec:        cf.Codec,
+		conn:         conn,
+		callStream:   newMxStream(initStream),
+		callRetChain: newChain(),
 	}
-	s.ctrl = newControl(s, initStream) // TODO: Don't start the read routine here!
 	s.OnClosing(conn.Close)
 	return
 }
