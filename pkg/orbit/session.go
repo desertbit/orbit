@@ -53,7 +53,7 @@ const (
 	flushTimeout = 7 * time.Second
 )
 
-type CallFunc func(ctx context.Context, s *Session, d *Data) (data interface{}, err error)
+type CallFunc func(ctx context.Context, s *Session, args *Data) (ret interface{}, err error)
 
 type StreamFunc func(s *Session, stream net.Conn) error
 
@@ -107,6 +107,10 @@ func (s *Session) Codec() codec.Codec {
 
 func (s *Session) Log() *zerolog.Logger {
 	return s.cf.Log
+}
+
+func (s *Session) StreamChanSize() int {
+	return s.cf.StreamChanSize
 }
 
 // LocalAddr returns the local network address.

@@ -35,11 +35,17 @@ import (
 	"github.com/rs/zerolog"
 )
 
+const (
+	defaultStreamChanSize = 3
+)
+
 // todo:
 type Config struct {
 	Codec codec.Codec
 
 	Log *zerolog.Logger
+
+	StreamChanSize int
 
 	PrintPanicStackTraces bool
 
@@ -57,6 +63,9 @@ func prepareConfig(c *Config) *Config {
 	if c.Log == nil {
 		l := zerolog.New(os.Stderr).With().Timestamp().Logger()
 		c.Log = &l
+	}
+	if c.StreamChanSize <= 0 {
+		c.StreamChanSize = defaultStreamChanSize
 	}
 	return c
 }

@@ -2,11 +2,12 @@
 package api
 
 import (
+	"context"
 	"errors"
 	"net"
+	"sync"
 	"time"
 
-	"github.com/desertbit/orbit/internal/control"
 	"github.com/desertbit/orbit/internal/packet"
 	"github.com/desertbit/orbit/pkg/orbit"
 )
@@ -15,14 +16,16 @@ import (
 //### Errors ###//
 //##############//
 
-const ErrCodeNotFound = 1
-const ErrCodeDatasetDoesNotExist = 2
+const (
+	ErrCodeNotFound            = 1
+	ErrCodeDatasetDoesNotExist = 2
+)
 
 var (
 	ErrNotFound                 = errors.New("not found")
-	orbitErrNotFound            = control.Err(ErrNotFound, ErrNotFound.Error(), ErrCodeNotFound)
+	orbitErrNotFound            = orbit.Err(ErrNotFound, ErrNotFound.Error(), ErrCodeNotFound)
 	ErrDatasetDoesNotExist      = errors.New("dataset does not exist")
-	orbitErrDatasetDoesNotExist = control.Err(ErrDatasetDoesNotExist, ErrDatasetDoesNotExist.Error(), ErrCodeDatasetDoesNotExist)
+	orbitErrDatasetDoesNotExist = orbit.Err(ErrDatasetDoesNotExist, ErrDatasetDoesNotExist.Error(), ErrCodeDatasetDoesNotExist)
 )
 
 //#############//
@@ -80,47 +83,50 @@ const (
 
 type ExampleConsumerCaller interface {
 	// Calls
-	Test(args *Plate) (ret *Rect, err error)
-	Test2(args *Rect) (err error)
+	Test(ctx context.Context, args *Plate) (ret *Rect, err error)
+	Test2(ctx context.Context, args *Rect) (err error)
 	// Streams
 	Hello() (conn net.Conn, err error)
 	Hello2(args <-chan *Char) (err error)
 }
 type ExampleConsumerHandler interface {
 	// Calls
-	Test3(args *Test3Args) (ret *Test3Ret, err error)
-	Test4() (ret *Rect, err error)
+	Test3(ctx context.Context, args *Test3Args) (ret *Test3Ret, err error)
+	Test4(ctx context.Context) (ret *Rect, err error)
 	// Streams
 	Hello3() (ret <-chan *Plate, err error)
 	Hello4(args <-chan *Char) (ret <-chan *Plate, err error)
 }
 type ExampleProviderCaller interface {
 	// Calls
-	Test3(args *Test3Args) (ret *Test3Ret, err error)
-	Test4() (ret *Rect, err error)
+	Test3(ctx context.Context, args *Test3Args) (ret *Test3Ret, err error)
+	Test4(ctx context.Context) (ret *Rect, err error)
 	// Streams
 	Hello3() (ret <-chan *Plate, err error)
 	Hello4(args <-chan *Char) (ret <-chan *Plate, err error)
 }
 type ExampleProviderHandler interface {
 	// Calls
-	Test(args *Plate) (ret *Rect, err error)
-	Test2(args *Rect) (err error)
+	Test(ctx context.Context, args *Plate) (ret *Rect, err error)
+	Test2(ctx context.Context, args *Rect) (err error)
 	// Streams
 	Hello() (conn net.Conn, err error)
 	Hello2(args <-chan *Char) (err error)
 }
 
 type exampleConsumer struct {
-	h     ExampleConsumerHandler
-	os    *orbit.Session
-	ctrls [3]*control.Control
+	h  ExampleConsumerHandler
+	os *orbit.Session
 }
 
-func (v1 *exampleConsumer) Test(args *Plate) (ret *Rect, err error) {
-	ctx, err := v1.ctrls[0].Call(ExampleTest, args)
+func RegisterExampleConsumer(os *orbit.Session, h ExampleConsumerHandler) ExampleConsumerCaller {
+	cc := &exampleConsumer{h: h, os: os}
+	return cc
+}
+func (v1 *exampleConsumer) Test(ctx context.Context, args *Plate) (ret *Rect, err error) {
+	retData, err := v1.os.Call(ctx, ExampleTest, args)
 	if err != nil {
-		var cErr *control.ErrorCode
+		var cErr *orbit.ErrorCode
 		if errors.As(err, &cErr) {
 			switch cErr.Code {
 			case 1:
@@ -131,17 +137,17 @@ func (v1 *exampleConsumer) Test(args *Plate) (ret *Rect, err error) {
 		}
 		return
 	}
-	err = ctx.Decode(ret)
+	err = retData.Decode(ret)
 	if err != nil {
 		return
 	}
 	return
 }
 
-func (v1 *exampleConsumer) Test2(args *Rect) (err error) {
-	_, err = v1.ctrls[1].Call(ExampleTest2, args)
+func (v1 *exampleConsumer) Test2(ctx context.Context, args *Rect) (err error) {
+	_, err = v1.os.Call(ctx, ExampleTest2, args)
 	if err != nil {
-		var cErr *control.ErrorCode
+		var cErr *orbit.ErrorCode
 		if errors.As(err, &cErr) {
 			switch cErr.Code {
 			case 1:
@@ -155,13 +161,13 @@ func (v1 *exampleConsumer) Test2(args *Rect) (err error) {
 	return
 }
 
-func (v1 *exampleConsumer) test3(ctx *control.Context) (v interface{}, err error) {
+func (v1 *exampleConsumer) test3(ctx context.Context, s *orbit.Session, ad *orbit.Data) (r interface{}, err error) {
 	var args *Test3Args
-	err = ctx.Decode(args)
+	err = ad.Decode(args)
 	if err != nil {
 		return
 	}
-	ret, err := v1.h.Test3(args)
+	ret, err := v1.h.Test3(ctx, args)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			err = orbitErrNotFound
@@ -170,12 +176,12 @@ func (v1 *exampleConsumer) test3(ctx *control.Context) (v interface{}, err error
 		}
 		return
 	}
-	v = ret
+	r = ret
 	return
 }
 
-func (v1 *exampleConsumer) test4(ctx *control.Context) (v interface{}, err error) {
-	ret, err := v1.h.Test4()
+func (v1 *exampleConsumer) test4(ctx context.Context, s *orbit.Session, ad *orbit.Data) (r interface{}, err error) {
+	ret, err := v1.h.Test4(ctx)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			err = orbitErrNotFound
@@ -184,7 +190,7 @@ func (v1 *exampleConsumer) test4(ctx *control.Context) (v interface{}, err error
 		}
 		return
 	}
-	v = ret
+	r = ret
 	return
 }
 
@@ -203,7 +209,7 @@ func (v1 *exampleConsumer) Hello2(args <-chan *Char) (err error) {
 			case <-closingChan:
 				return
 			case arg := <-args:
-				err := packet.WriteEncode(conn, arg, v1.os.Codec(), 0)
+				err := packet.WriteEncode(conn, arg, v1.os.Codec())
 				if err != nil && !v1.os.IsClosing() {
 					v1.os.Log().Error().Err(err).Str("channel", ExampleHello2).Msg("writing packet")
 				}
@@ -214,15 +220,18 @@ func (v1 *exampleConsumer) Hello2(args <-chan *Char) (err error) {
 }
 
 type exampleProvider struct {
-	h     ExampleProviderHandler
-	os    *orbit.Session
-	ctrls [3]*control.Control
+	h  ExampleProviderHandler
+	os *orbit.Session
 }
 
-func (v1 *exampleProvider) Test3(args *Test3Args) (ret *Test3Ret, err error) {
-	ctx, err := v1.ctrls[0].Call(ExampleTest3, args)
+func RegisterExampleProvider(os *orbit.Session, h ExampleProviderHandler) ExampleProviderCaller {
+	cc := &exampleProvider{h: h, os: os}
+	return cc
+}
+func (v1 *exampleProvider) Test3(ctx context.Context, args *Test3Args) (ret *Test3Ret, err error) {
+	retData, err := v1.os.Call(ctx, ExampleTest3, args)
 	if err != nil {
-		var cErr *control.ErrorCode
+		var cErr *orbit.ErrorCode
 		if errors.As(err, &cErr) {
 			switch cErr.Code {
 			case 1:
@@ -233,17 +242,17 @@ func (v1 *exampleProvider) Test3(args *Test3Args) (ret *Test3Ret, err error) {
 		}
 		return
 	}
-	err = ctx.Decode(ret)
+	err = retData.Decode(ret)
 	if err != nil {
 		return
 	}
 	return
 }
 
-func (v1 *exampleProvider) Test4() (ret *Rect, err error) {
-	ctx, err := v1.ctrls[1].Call(ExampleTest4, nil)
+func (v1 *exampleProvider) Test4(ctx context.Context) (ret *Rect, err error) {
+	retData, err := v1.os.Call(ctx, ExampleTest4, nil)
 	if err != nil {
-		var cErr *control.ErrorCode
+		var cErr *orbit.ErrorCode
 		if errors.As(err, &cErr) {
 			switch cErr.Code {
 			case 1:
@@ -254,20 +263,20 @@ func (v1 *exampleProvider) Test4() (ret *Rect, err error) {
 		}
 		return
 	}
-	err = ctx.Decode(ret)
+	err = retData.Decode(ret)
 	if err != nil {
 		return
 	}
 	return
 }
 
-func (v1 *exampleProvider) test(ctx *control.Context) (v interface{}, err error) {
+func (v1 *exampleProvider) test(ctx context.Context, s *orbit.Session, ad *orbit.Data) (r interface{}, err error) {
 	var args *Plate
-	err = ctx.Decode(args)
+	err = ad.Decode(args)
 	if err != nil {
 		return
 	}
-	ret, err := v1.h.Test(args)
+	ret, err := v1.h.Test(ctx, args)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			err = orbitErrNotFound
@@ -276,17 +285,17 @@ func (v1 *exampleProvider) test(ctx *control.Context) (v interface{}, err error)
 		}
 		return
 	}
-	v = ret
+	r = ret
 	return
 }
 
-func (v1 *exampleProvider) test2(ctx *control.Context) (v interface{}, err error) {
+func (v1 *exampleProvider) test2(ctx context.Context, s *orbit.Session, ad *orbit.Data) (r interface{}, err error) {
 	var args *Rect
-	err = ctx.Decode(args)
+	err = ad.Decode(args)
 	if err != nil {
 		return
 	}
-	err = v1.h.Test2(args)
+	err = v1.h.Test2(ctx, args)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			err = orbitErrNotFound
@@ -303,7 +312,7 @@ func (v1 *exampleProvider) Hello3() (ret <-chan *Plate, err error) {
 	if err != nil {
 		return
 	}
-	retChan := make(chan *Plate)
+	retChan := make(chan *Plate, v1.os.StreamChanSize())
 	ret = retChan
 	go func() {
 		closingChan := v1.os.ClosingChan()
@@ -313,7 +322,7 @@ func (v1 *exampleProvider) Hello3() (ret <-chan *Plate, err error) {
 				return
 			default:
 				var data *Plate
-				err := packet.ReadDecode(conn, data, v1.os.Codec(), 0)
+				err := packet.ReadDecode(conn, data, v1.os.Codec())
 				if err != nil && !v1.os.IsClosing() {
 					v1.os.Log().Error().Err(err).Str("channel", ExampleHello3).Msg("reading packet")
 				}
@@ -328,27 +337,106 @@ func (v1 *exampleProvider) Hello3() (ret <-chan *Plate, err error) {
 	return
 }
 
-func (v1 *exampleProvider) Hello4(args <-chan *Char) (ret <-chan *Plate, err error) {
+type ChanCharArgs struct {
+	C chan<- *Char
+
+	c     chan *Char
+	close chan struct{}
+	mx    sync.Mutex
+	err   error
+}
+
+func newChanCharArgs(chanSize int) *ChanCharArgs {
+	c := &ChanCharArgs{
+		c:     make(chan *Char, chanSize),
+		close: make(chan struct{}),
+	}
+	c.C = c.c
+	return c
+}
+
+func (c *ChanCharArgs) setErr(err error) {
+	c.mx.Lock()
+	c.err = err
+	c.mx.Unlock()
+	close(c.c)
+}
+
+func (c *ChanCharArgs) Close() {
+	close(c.close)
+}
+
+func (c *ChanCharArgs) Err() (err error) {
+	c.mx.Lock()
+	err = c.err
+	c.mx.Unlock()
+	return
+}
+
+type ChanPlateRet struct {
+	C <-chan *Plate
+
+	c     chan *Plate
+	close chan struct{}
+	mx    sync.Mutex
+	err   error
+}
+
+func newChanPlateRet(chanSize int) *ChanPlateRet {
+	c := &ChanPlateRet{
+		c:     make(chan *Plate, chanSize),
+		close: make(chan struct{}),
+	}
+	c.C = c.c
+	return c
+}
+
+func (c *ChanPlateRet) setErr(err error) {
+	c.mx.Lock()
+	c.err = err
+	c.mx.Unlock()
+	close(c.close)
+}
+
+func (c *ChanPlateRet) Close() {
+	close(c.close)
+}
+
+func (c *ChanPlateRet) ClosingChan() <-chan struct{} {
+	return c.close
+}
+
+func (c *ChanPlateRet) Err() (err error) {
+	c.mx.Lock()
+	err = c.err
+	c.mx.Unlock()
+	return
+}
+
+func (v1 *exampleProvider) Hello4() (args *ChanCharArgs, ret *ChanPlateRet, err error) {
 	conn, err := v1.os.OpenStream(ExampleHello4)
 	if err != nil {
 		return
 	}
+	args = newChanCharArgs(v1.os.StreamChanSize())
 	go func() {
 		closingChan := v1.os.ClosingChan()
 		for {
 			select {
 			case <-closingChan:
 				return
-			case arg := <-args:
-				err := packet.WriteEncode(conn, arg, v1.os.Codec(), 0)
+			case <-args.close:
+				return
+			case arg := <-args.c:
+				err := packet.WriteEncode(conn, arg, v1.os.Codec())
 				if err != nil && !v1.os.IsClosing() {
-					v1.os.Log().Error().Err(err).Str("channel", ExampleHello4).Msg("writing packet")
+					args.setErr(err)
+					return
 				}
 			}
 		}
 	}()
-	retChan := make(chan *Plate)
-	ret = retChan
+	ret = newChanPlateRet(v1.os.StreamChanSize())
 	go func() {
 		closingChan := v1.os.ClosingChan()
 		for {
@@ -357,14 +445,17 @@ func (v1 *exampleProvider) Hello4(args <-chan *Char) (ret <-chan *Plate, err err
 				return
 			default:
 				var data *Plate
-				err := packet.ReadDecode(conn, data, v1.os.Codec(), 0)
+				err := packet.ReadDecode(conn, data, v1.os.Codec())
 				if err != nil && !v1.os.IsClosing() {
-					v1.os.Log().Error().Err(err).Str("channel", ExampleHello4).Msg("reading packet")
+					ret.setErr(err)
+					return
 				}
 				select {
 				case <-closingChan:
 					return
-				case retChan <- data:
+				case <-ret.close:
+					return
+				case ret.c <- data:
 				}
 			}
 		}
