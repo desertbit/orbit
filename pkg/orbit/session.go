@@ -45,12 +45,7 @@ import (
 )
 
 const (
-	// TODO:
-	streamInitTimeout = 10 * time.Second
-
-	// TODO: needed for auth?
-	// The timeout for the connection flusher.
-	flushTimeout = 7 * time.Second
+	initStreamHeaderTimeout = 7 * time.Second
 )
 
 type CallFunc func(ctx context.Context, s *Session, d *Data) (data interface{}, err error)
@@ -60,25 +55,19 @@ type StreamFunc func(s *Session, stream net.Conn) error
 type Session struct {
 	closer.Closer
 
-	// The config of this session.
-	cf *Config
-	// The underlying connection to the remote peer.
+	cf   *Config
 	conn Conn
-	// The id of the session. The id must be set after the session has been
-	// created using SetID().
-	id string
+	id   string
+	ctrl *control
 
 	callFuncsMx sync.RWMutex
 	callFuncs   map[string]CallFunc
-	ctrl        *control
 
-	// Synchronises the access to the stream handlers map.
-	streamFuncsMx sync.Mutex
-	// The handler functions that have been registered to new streams.
 	// When a new stream has been opened, the first data sent on the stream must
 	// contain the key into this map to retrieve the correct function to handle
 	// the stream.
-	streamFuncs map[string]StreamFunc
+	streamFuncsMx sync.Mutex
+	streamFuncs   map[string]StreamFunc
 }
 
 // newSession creates a new orbit session from the given parameters.
@@ -100,11 +89,12 @@ func (s *Session) ID() string {
 	return s.id
 }
 
-// Todo:
+// TODO: remove?
 func (s *Session) Codec() codec.Codec {
 	return s.cf.Codec
 }
 
+// TODO: remove or rename to Logger?
 func (s *Session) Log() *zerolog.Logger {
 	return s.cf.Log
 }
@@ -132,9 +122,34 @@ func (s *Session) RegisterStream(id string, f StreamFunc) {
 }
 
 // OpenStream opens a new stream with the given channel ID.
-// Expires after the timeout and returns a net.Error with Timeout() == true.
-// TODO: remove init stream write timeout
-func (s *Session) OpenStream(ctx context.Context, id string, t api.StreamType) (stream net.Conn, err error) {
+func (s *Session) OpenStream(ctx context.Context, id string) (stream net.Conn, err error) {
+	return s.openStream(ctx, id, api.StreamTypeRaw)
+}
+
+func (s *Session) RegisterCall(id string, f CallFunc) {
+	s.callFuncsMx.Lock()
+	s.callFuncs[id] = f
+	s.callFuncsMx.Unlock()
+}
+
+func (s *Session) Call(ctx context.Context, id string, data interface{}) (d *Data, err error) {
+	return s.ctrl.Call(ctx, id, data)
+}
+
+func (s *Session) CallAsync(ctx context.Context, id string, data interface{}) (d *Data, err error) {
+	stream, err := s.openStream(ctx, id, api.StreamTypeCallAsync)
+	if err != nil {
+		return
+	}
+
+	return s.ctrl.CallAsync(ctx, stream, id, data)
+}
+
+//###############//
+//### Private ###//
+//###############//
+
+func (s *Session) openStream(ctx context.Context, id string, t api.StreamType) (stream net.Conn, err error) {
 	// Open the stream through our conn.
 	stream, err = s.conn.OpenStream(ctx)
 	if err != nil {
@@ -154,8 +169,8 @@ func (s *Session) OpenStream(ctx context.Context, id string, t api.StreamType) (
 	}
 
 	// Set a write deadline, if needed.
-	deadline, ok := ctx.Deadline()
-	if ok {
+	deadline, hasDeadline := ctx.Deadline()
+	if hasDeadline {
 		err = stream.SetWriteDeadline(deadline)
 		if err != nil {
 			return
@@ -169,7 +184,7 @@ func (s *Session) OpenStream(ctx context.Context, id string, t api.StreamType) (
 	}
 
 	// Reset the deadline.
-	if ok {
+	if hasDeadline {
 		err = stream.SetWriteDeadline(time.Time{})
 		if err != nil {
 			return
@@ -179,37 +194,9 @@ func (s *Session) OpenStream(ctx context.Context, id string, t api.StreamType) (
 	return
 }
 
-func (s *Session) RegisterCall(id string, f CallFunc) {
-	s.callFuncsMx.Lock()
-	s.callFuncs[id] = f
-	s.callFuncsMx.Unlock()
-}
-
-func (s *Session) Call(ctx context.Context, id string, data interface{}) (d *Data, err error) {
-	return s.ctrl.Call(ctx, id, data)
-}
-
-func (s *Session) CallAsync(ctx context.Context, id string, data interface{}) (d *Data, err error) {
-	stream, err := s.OpenStream(ctx, id, api.StreamTypeCallAsync)
-	if err != nil {
-		return
-	}
-
-	return s.ctrl.CallAsync(ctx, stream, id, data)
-}
-
-//###############//
-//### Private ###//
-//###############//
-
-// acceptStreamRoutine is a routine that accepts new connections and
-// calls handleNewStream() for each of them.
-// Closes together with the session.
 func (s *Session) acceptStreamRoutine() {
 	defer s.Close_()
 
-	// TODO: context is not meant for canceling, see https://dave.cheney.net/2017/08/20/context-isnt-for-cancellation
-	// TODO: lets enhance our closer and bring it to the next level
 	ctx, cancel := context.WithCancel(context.Background())
 	s.OnClosing(func() error {
 		cancel()
@@ -239,17 +226,12 @@ func (s *Session) acceptStreamRoutine() {
 			if err != nil {
 				s.cf.Log.Error().
 					Err(err).
-					Msg("session: failed to handle stream")
+					Msg("session: failed to handle new incoming stream")
 			}
 		}()
 	}
 }
 
-// handleNewStream handles a new incoming stream. It first reads the initial
-// stream data from the connection, which tells us the id of the channel that
-// should be opened. With this id, we can retrieve the StreamFunc from the
-// session's map and pass it the new stream.
-// Recovers from panics.
 func (s *Session) handleNewStream(stream net.Conn) (err error) {
 	defer func() {
 		// Catch panics. Might be caused by the channel interface.
@@ -267,6 +249,12 @@ func (s *Session) handleNewStream(stream net.Conn) (err error) {
 		}
 	}()
 
+	// Set a read the deadline for the header.
+	err = stream.SetReadDeadline(time.Now().Add(initStreamHeaderTimeout))
+	if err != nil {
+		return
+	}
+
 	// Read the initial data from the stream.
 	var data api.InitStream
 	err = packet.ReadDecode(stream, &data, s.cf.Codec)
@@ -274,13 +262,22 @@ func (s *Session) handleNewStream(stream net.Conn) (err error) {
 		return fmt.Errorf("init stream header: %v", err)
 	}
 
+	// Reset the deadline.
+	err = stream.SetReadDeadline(time.Time{})
+	if err != nil {
+		return
+	}
+
 	// Decide the type of stream.
 	switch data.Type {
 	case api.StreamTypeRaw:
 		// Obtain the stream handler.
-		f, err := s.streamHandler(data.ID)
-		if err != nil {
-			return
+		var f StreamFunc
+		s.streamFuncsMx.Lock()
+		f = s.streamFuncs[data.ID]
+		s.streamFuncsMx.Unlock()
+		if f == nil {
+			return fmt.Errorf("stream handler for id '%s' does not exist", data.ID)
 		}
 
 		// Pass it the new stream.
@@ -288,24 +285,14 @@ func (s *Session) handleNewStream(stream net.Conn) (err error) {
 		if err != nil {
 			return fmt.Errorf("stream='%v': %v", data.ID, err)
 		}
+
 	case api.StreamTypeCallAsync:
 		// Pass the stream to the control.
 		s.ctrl.HandleCallAsync(stream)
+
+	default:
+		return fmt.Errorf("invalid stream type: %v", data.Type)
 	}
 
-	return
-}
-
-// streamHandler retrieves the StreamFunc from the session's map
-// that corresponds to the given channel id.
-// This method is thread-safe.
-func (s *Session) streamHandler(id string) (f StreamFunc, err error) {
-	s.streamFuncsMx.Lock()
-	f = s.streamFuncs[id]
-	s.streamFuncsMx.Unlock()
-
-	if f == nil {
-		err = fmt.Errorf("stream handler for id '%s' does not exist", id)
-	}
 	return
 }

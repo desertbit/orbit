@@ -29,21 +29,26 @@ package orbit
 
 import (
 	"os"
+	"time"
 
 	"github.com/desertbit/orbit/pkg/codec"
 	"github.com/desertbit/orbit/pkg/codec/msgpack"
 	"github.com/rs/zerolog"
 )
 
-// todo:
+const (
+	defaultInitTimeout = 10 * time.Second
+)
+
 type Config struct {
+	Log   *zerolog.Logger
 	Codec codec.Codec
 
-	Log *zerolog.Logger
-
 	PrintPanicStackTraces bool
+	SendErrToCaller       bool
 
-	SendErrToCaller bool
+	// InitTimeout specifies the connection initialization timeout.
+	InitTimeout time.Duration
 }
 
 func prepareConfig(c *Config) *Config {
@@ -51,12 +56,15 @@ func prepareConfig(c *Config) *Config {
 		c = &Config{}
 	}
 
-	if c.Codec == nil {
-		c.Codec = msgpack.Codec
-	}
 	if c.Log == nil {
 		l := zerolog.New(os.Stderr).With().Timestamp().Logger()
 		c.Log = &l
+	}
+	if c.Codec == nil {
+		c.Codec = msgpack.Codec
+	}
+	if c.InitTimeout == 0 {
+		c.InitTimeout = defaultInitTimeout
 	}
 	return c
 }

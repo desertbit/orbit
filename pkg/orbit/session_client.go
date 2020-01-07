@@ -36,12 +36,6 @@ import (
 	"github.com/desertbit/orbit/internal/api"
 )
 
-const (
-	// The time duration after which we timeout if the version byte could not
-	// be written to the stream.
-	streamVersionWriteTimeout = 10 * time.Second
-)
-
 // newClientSession is the internal helper to initialize a new client-side session.
 func newClientSession(cl closer.Closer, conn Conn, cf *Config) (s *Session, err error) {
 	// Always close the conn on error.
@@ -55,7 +49,7 @@ func newClientSession(cl closer.Closer, conn Conn, cf *Config) (s *Session, err 
 	cf = prepareConfig(cf)
 
 	// Create new timeout context.
-	ctx, cancel := context.WithTimeout(context.Background(), streamInitTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), cf.InitTimeout)
 	defer cancel()
 
 	// Open the stream to the server.
