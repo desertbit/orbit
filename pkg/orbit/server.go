@@ -34,6 +34,7 @@ import (
 
 	"github.com/desertbit/closer/v3"
 	"github.com/desertbit/orbit/internal/utils"
+	"github.com/rs/zerolog"
 )
 
 const (
@@ -49,8 +50,9 @@ const (
 type Server struct {
 	closer.Closer
 
-	ln Listener
-	cf *ServerConfig
+	ln  Listener
+	cf  *ServerConfig
+	log *zerolog.Logger
 
 	sessionsMutex sync.RWMutex
 	sessions      map[string]*Session
@@ -78,6 +80,7 @@ func newServer(cl closer.Closer, ln Listener, cf *ServerConfig) *Server {
 		Closer:         cl,
 		ln:             ln,
 		cf:             cf,
+		log:            cf.Log,
 		sessions:       make(map[string]*Session),
 		newConnChan:    make(chan Conn, cf.NewConnChanSize),
 		newSessionChan: make(chan *Session, cf.NewSessionChanSize),
@@ -159,7 +162,7 @@ func (s *Server) handleConnectionLoop() {
 		case conn := <-s.newConnChan:
 			err := s.handleConnection(conn)
 			if err != nil {
-				s.cf.Log.Error().
+				s.log.Error().
 					Err(err).
 					Msg("server: handle new connection")
 			}
@@ -240,6 +243,10 @@ func (s *Server) handleConnection(conn Conn) (err error) {
 		s.sessionsMutex.Unlock()
 		return nil
 	})
+
+	s.log.Debug().
+		Str("ID", id).
+		Msg("server: new session")
 
 	// Finally, pass the new session to the channel.
 	s.newSessionChan <- sn

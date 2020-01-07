@@ -48,6 +48,7 @@ with value 0.
 package packet
 
 import (
+	"math"
 	"net"
 
 	"github.com/desertbit/orbit/internal/bytes"
@@ -55,7 +56,7 @@ import (
 )
 
 const (
-	maxSize = int((^uint(0)) >> 1)
+	maxSize = math.MaxUint32
 )
 
 // ReadDecode reads the packet from the connection using Read()

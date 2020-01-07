@@ -28,53 +28,26 @@
 package orbit
 
 import (
-	"os"
-	"time"
+	"context"
 
-	"github.com/desertbit/orbit/pkg/codec"
-	"github.com/desertbit/orbit/pkg/codec/msgpack"
-	"github.com/rs/zerolog"
+	"github.com/desertbit/orbit/internal/api"
 )
 
-const (
-	// todo:
-	defaultStreamChanSize = 3
-
-	// todo:
-	defaultInitTimeout = 10 * time.Second
-)
-
-type Config struct {
-	Log   *zerolog.Logger
-	Codec codec.Codec
-
-	PrintPanicStackTraces bool
-	SendErrToCaller       bool
-
-	// InitTimeout specifies the connection initialization timeout.
-	InitTimeout time.Duration
-
-	// StreamChanSize specifies the size of stream channels.
-	StreamChanSize int
+func (s *Session) RegisterCall(id string, f CallFunc) {
+	s.callFuncsMx.Lock()
+	s.callFuncs[id] = f
+	s.callFuncsMx.Unlock()
 }
 
-func prepareConfig(c *Config) *Config {
-	if c == nil {
-		c = &Config{}
+func (s *Session) Call(ctx context.Context, id string, data interface{}) (d *Data, err error) {
+	return s.ctrl.Call(ctx, id, data)
+}
+
+func (s *Session) CallAsync(ctx context.Context, id string, data interface{}) (d *Data, err error) {
+	stream, err := s.openStream(ctx, "", api.StreamTypeCallAsync)
+	if err != nil {
+		return
 	}
 
-	if c.Log == nil {
-		l := zerolog.New(os.Stderr).With().Timestamp().Str("component", "orbit").Logger()
-		c.Log = &l
-	}
-	if c.Codec == nil {
-		c.Codec = msgpack.Codec
-	}
-	if c.InitTimeout == 0 {
-		c.InitTimeout = defaultInitTimeout
-	}
-	if c.StreamChanSize <= 0 {
-		c.StreamChanSize = defaultStreamChanSize
-	}
-	return c
+	return s.ctrl.CallAsync(ctx, stream, id, data)
 }

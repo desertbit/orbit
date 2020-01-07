@@ -36,12 +36,6 @@ import (
 	"github.com/desertbit/orbit/internal/api"
 )
 
-const (
-	// The time duration after which we timeout if the version byte could
-	// not be written to the stream.
-	streamVersionReadTimeout = 10 * time.Second
-)
-
 // serverSession is the internal helper to initialize a new server-side session.
 func newServerSession(cl closer.Closer, conn Conn, cf *Config) (s *Session, err error) {
 	// Always close the conn on error.
@@ -55,7 +49,7 @@ func newServerSession(cl closer.Closer, conn Conn, cf *Config) (s *Session, err 
 	cf = prepareConfig(cf)
 
 	// Create new context with a timeout.
-	ctx, cancel := context.WithTimeout(context.Background(), streamInitTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), cf.InitTimeout)
 	defer cancel()
 
 	// Wait for an incoming stream.
