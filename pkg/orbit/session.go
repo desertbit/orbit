@@ -55,7 +55,9 @@ type StreamFunc func(s *Session, stream net.Conn) error
 type Session struct {
 	closer.Closer
 
-	cf   *Config
+	cf  *Config
+	log *zerolog.Logger
+
 	conn Conn
 	id   string
 	ctrl *control
@@ -76,6 +78,7 @@ func newSession(cl closer.Closer, conn Conn, initStream net.Conn, cf *Config) (s
 	s = &Session{
 		Closer: cl,
 		cf:     cf,
+		log:    cf.Log,
 		conn:   conn,
 	}
 	s.ctrl = newControl(s, initStream)
@@ -84,19 +87,13 @@ func newSession(cl closer.Closer, conn Conn, initStream net.Conn, cf *Config) (s
 }
 
 // ID returns the session ID.
-// This must be set manually.
 func (s *Session) ID() string {
 	return s.id
 }
 
-// TODO: remove?
+// Codec returns the used transmission codec.
 func (s *Session) Codec() codec.Codec {
 	return s.cf.Codec
-}
-
-// TODO: remove or rename to Logger?
-func (s *Session) Log() *zerolog.Logger {
-	return s.cf.Log
 }
 
 // LocalAddr returns the local network address.
@@ -137,7 +134,7 @@ func (s *Session) Call(ctx context.Context, id string, data interface{}) (d *Dat
 }
 
 func (s *Session) CallAsync(ctx context.Context, id string, data interface{}) (d *Data, err error) {
-	stream, err := s.openStream(ctx, id, api.StreamTypeCallAsync)
+	stream, err := s.openStream(ctx, "", api.StreamTypeCallAsync)
 	if err != nil {
 		return
 	}
@@ -213,7 +210,7 @@ func (s *Session) acceptStreamRoutine() {
 		stream, err := s.conn.AcceptStream(ctx)
 		if err != nil {
 			if !s.IsClosing() && !errors.Is(err, io.EOF) {
-				s.cf.Log.Error().
+				s.log.Error().
 					Err(err).
 					Msg("session: failed to accept stream")
 			}
@@ -224,7 +221,7 @@ func (s *Session) acceptStreamRoutine() {
 		go func() {
 			err := s.handleNewStream(stream)
 			if err != nil {
-				s.cf.Log.Error().
+				s.log.Error().
 					Err(err).
 					Msg("session: failed to handle new incoming stream")
 			}
@@ -279,6 +276,8 @@ func (s *Session) handleNewStream(stream net.Conn) (err error) {
 		if f == nil {
 			return fmt.Errorf("stream handler for id '%s' does not exist", data.ID)
 		}
+
+		s.log.Debug().Str("id", data.ID).Msg("new raw stream")
 
 		// Pass it the new stream.
 		err = f(s, stream)

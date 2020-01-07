@@ -67,13 +67,10 @@ const (
 type control struct {
 	closer.Closer
 
-	s *Session
-
-	codec codec.Codec
-	log   *zerolog.Logger
-
-	main *controlStream
-
+	s            *Session
+	log          *zerolog.Logger
+	codec        codec.Codec
+	main         *controlStream
 	callRetChain *chain
 
 	activeCtxsMx sync.Mutex
@@ -85,7 +82,7 @@ func newControl(s *Session, stream net.Conn) *control {
 		Closer:       s,
 		s:            s,
 		codec:        s.cf.Codec,
-		log:          s.cf.Log,
+		log:          s.log,
 		main:         newControlStream(stream),
 		callRetChain: newChain(),
 		activeCtxs:   make(map[uint32]*controlContext),
@@ -189,9 +186,6 @@ func (c *control) write(ctx context.Context, cs *controlStream, reqType byte, he
 }
 
 // waitForResponse waits for a response on the given chainChan channel.
-// Returns ErrClosed, if the control is closed before the response arrives.
-// Returns ErrCallTimeout, if the timeout exceeds before the response arrives.
-// Returns ErrCallCanceled, if the call is canceled by the caller.
 func (c *control) waitForResponse(
 	ctx context.Context,
 	cs *controlStream,
@@ -203,11 +197,9 @@ func (c *control) waitForResponse(
 	case <-c.ClosingChan():
 		// Abort, if the control closes.
 		err = ErrClosed
-
 	case <-ctx.Done():
 		// Cancel the call on the remote peer.
 		err = c.write(ctx, cs, typeCallCancel, &api.ControlCancel{Key: key}, nil)
-
 	case rData := <-channel:
 		// Response has arrived.
 		d = rData.Data
@@ -246,6 +238,7 @@ func (c *control) readRoutine(cs *controlStream, once bool) {
 	// hurt performance at all and is a safety net, to prevent the server
 	// from crashing, should anything panic during the reads.
 	defer func() {
+		// TODO: print stack trace...
 		if e := recover(); e != nil {
 			err = fmt.Errorf("catched panic: %v", e)
 		}
@@ -314,6 +307,7 @@ func (c *control) handleRequest(cs *controlStream, reqType byte, headerData, pay
 
 	// Catch panics, caused by the handler func or one of the hooks.
 	defer func() {
+		// TODO: print stack trace...
 		if e := recover(); e != nil {
 			err = fmt.Errorf("catched panic: %v", e)
 		}
@@ -433,6 +427,8 @@ func (c *control) handleCall(cs *controlStream, headerData, payloadData []byte) 
 		Msg:  msg,
 		Code: code,
 	}
+
+	// TODO: don;t pass the context to write! If canceled, then tell this the client!
 
 	// Send the response back to the caller.
 	// TODO: set an own server timeout here?

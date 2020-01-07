@@ -57,7 +57,7 @@ func prepareConfig(c *Config) *Config {
 	}
 
 	if c.Log == nil {
-		l := zerolog.New(os.Stderr).With().Timestamp().Logger()
+		l := zerolog.New(os.Stderr).With().Timestamp().Str("component", "orbit").Logger()
 		c.Log = &l
 	}
 	if c.Codec == nil {
