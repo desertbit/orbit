@@ -72,6 +72,7 @@ func (s *Session) Call(ctx context.Context, id string, data interface{}) (d *Dat
 	return s.call(ctx, s.callStream, id, data)
 }
 
+// TODO: BUG: the return data is not send over the new stream connection.
 func (s *Session) CallAsync(ctx context.Context, id string, data interface{}) (d *Data, err error) {
 	stream, err := s.openStream(ctx, "", api.StreamTypeCallAsync)
 	if err != nil {
