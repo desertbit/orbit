@@ -103,24 +103,16 @@ func Generate(filePath string, streamChanSize uint) (err error) {
 		return
 	}
 
-	// Exec goimports, if available.
-	err = execCmd("goimports", false, "-w", goFilePath)
-	if err != nil {
-		return
-	}
-
-	// Exec gofmt.
-	return execCmd("gofmt", true, "-s", "-w", goFilePath)
+	// Exec goimports.
+	return execCmd("goimports", "-w", goFilePath)
 }
 
-func execCmd(name string, mustExist bool, args ...string) (err error) {
+func execCmd(name string, args ...string) (err error) {
 	cmd := exec.Command(name, args...)
 	err = cmd.Run()
 	if err != nil {
 		var eErr *exec.ExitError
-		if errors.Is(err, exec.ErrNotFound) && !mustExist {
-			err = nil
-		} else if errors.As(err, &eErr) {
+		if errors.As(err, &eErr) {
 			err = fmt.Errorf("%s: %v", name, string(eErr.Stderr))
 		}
 		return
@@ -149,7 +141,7 @@ func (g *generator) genErrors(errs []*parse.Error) {
 	}
 	g.writeLn(")")
 
-	// Write standard error variables along with the orbit control.ErrorCode ones.
+	// Write standard error variables along with the orbit Error ones.
 	g.writeLn("var (")
 	for _, e := range errs {
 		g.writeLn("Err%s = errors.New(\"%s\")", e.Name, strExplode(e.Name))
@@ -219,7 +211,6 @@ func (g *generator) genType(t parse.Type) {
 	case *parse.BaseType:
 		dt := v.DataType()
 
-		// Check, if an import is needed.
 		if dt == parse.TypeTime {
 			g.write("time.Time")
 		} else {
@@ -321,7 +312,6 @@ func (g *generator) genService(srvc *parse.Service, errs []*parse.Error) {
 	// Create the interfaces.
 	g.genServiceInterface("Consumer", srvc.Name, calls, revCalls, streams, revStreams)
 	g.genServiceInterface("Provider", srvc.Name, revCalls, calls, revStreams, streams)
-	g.writeLn("")
 
 	// Create the private structs implementing the caller interfaces and providing the orbit handlers.
 	g.genServiceStruct("Consumer", srvc.Name, calls, revCalls, streams, revStreams, errs)

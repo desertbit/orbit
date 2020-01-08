@@ -21,6 +21,17 @@ service example {
     revstream hello4 (Char) (Plate)
 }
 
+service trainer {
+    call start(Plate)
+    async call update(Char) (Char)
+
+    stream upload
+    stream download (Char)
+    revstream send (Plate)
+    revstream receive () (Char)
+    revstream link(Plate) (Char)
+}
+
 type Plate {
     version int
     name string
