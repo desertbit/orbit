@@ -38,11 +38,18 @@ import (
 	"github.com/desertbit/orbit/internal/gen"
 )
 
+const (
+	flagStreamChanSize = "stream-chan-size"
+)
+
 var cmdGen = &grumble.Command{
 	Name:      "gen",
 	Help:      "generate go code from .orbit file. Args: <dirs>...",
 	AllowArgs: true,
 	Run:       runGen,
+	Flags: func(f *grumble.Flags) {
+		f.UintL(flagStreamChanSize, 3, "size of channels used as stream argument and return values")
+	},
 }
 
 func init() {
@@ -78,7 +85,7 @@ func runGen(ctx *grumble.Context) (err error) {
 		}
 
 		// Generate the go code for this file.
-		err = gen.Generate(filepath.Join(dir, fileName))
+		err = gen.Generate(filepath.Join(dir, fileName), ctx.Flags.Uint(flagStreamChanSize))
 		if err != nil {
 			return
 		}

@@ -48,7 +48,7 @@ const (
 	recv      = "v1"
 )
 
-func Generate(filePath string) (err error) {
+func Generate(filePath string, streamChanSize uint) (err error) {
 	// Read the file.
 	data, err := ioutil.ReadFile(filePath)
 	if err != nil {
@@ -69,7 +69,7 @@ func Generate(filePath string) (err error) {
 	g.genErrors(errs)
 
 	// Generate the type definitions.
-	g.genTypes(types, services)
+	g.genTypes(types, services, streamChanSize)
 
 	// Generate the service definitions.
 	g.genServices(services, errs)
@@ -160,7 +160,7 @@ func (g *generator) genErrors(errs []*parse.Error) {
 	g.writeLn(")")
 }
 
-func (g *generator) genTypes(ts []*parse.StructType, srvcs []*parse.Service) {
+func (g *generator) genTypes(ts []*parse.StructType, srvcs []*parse.Service, streamChanSize uint) {
 	g.writeLn("//#############//")
 	g.writeLn("//### Types ###//")
 	g.writeLn("//#############//")
@@ -193,11 +193,11 @@ NextType:
 			for _, e := range srvc.Entries {
 				if s, ok := e.(*parse.Stream); ok {
 					if s.Args != nil && s.Args.Type == t && !generatedArgs {
-						g.genChanType(t.Name, false)
+						g.genChanType(t.Name, false, streamChanSize)
 						generatedArgs = true
 					}
 					if s.Ret != nil && s.Ret.Type == t && !generatedRet {
-						g.genChanType(t.Name, true)
+						g.genChanType(t.Name, true, streamChanSize)
 						generatedRet = true
 					}
 
@@ -239,6 +239,54 @@ func (g *generator) genType(t parse.Type) {
 	}
 }
 
+func (g *generator) genChanType(name string, ro bool, streamChanSize uint) {
+	suffix := "Args"
+	if ro {
+		suffix = "Ret"
+	}
+
+	g.imps.Add("sync")
+	g.imps.Add("github.com/desertbit/closer/v3")
+
+	g.writeLn("type %sChan%s struct {", name, suffix)
+	g.writeLn("closer.Closer")
+	g.write("C ")
+	if ro {
+		g.write("<-chan ")
+	} else {
+		g.write("chan<- ")
+	}
+	g.writeLn("*%s", name)
+	g.writeLn("c chan *%s", name)
+	g.writeLn("mx sync.Mutex")
+	g.writeLn("err error")
+	g.writeLn("}")
+	g.writeLn("")
+
+	g.writeLn("func new%sChan%s(cl closer.Closer) *%sChan%s {", name, suffix, name, suffix)
+	g.writeLn("c := &%sChan%s{Closer: cl, c: make(chan *%s, %d)}", name, suffix, name, streamChanSize)
+	g.writeLn("c.C = c.c")
+	g.writeLn("return c")
+	g.writeLn("}")
+	g.writeLn("")
+
+	g.writeLn("func (c *%sChan%s) setError(err error) {", name, suffix)
+	g.writeLn("c.mx.Lock()")
+	g.writeLn("c.err = err")
+	g.writeLn("c.mx.Unlock()")
+	g.writeLn("c.Close_()")
+	g.writeLn("}")
+	g.writeLn("")
+
+	g.writeLn("func (c *%sChan%s) Err() (err error) {", name, suffix)
+	g.writeLn("c.mx.Lock()")
+	g.writeLn("err = c.err")
+	g.writeLn("c.mx.Unlock()")
+	g.writeLn("return")
+	g.writeLn("}")
+	g.writeLn("")
+}
+
 func (g *generator) genServices(services []*parse.Service, errs []*parse.Error) {
 	g.writeLn("//################//")
 	g.writeLn("//### Services ###//")
@@ -264,7 +312,7 @@ func (g *generator) genService(srvc *parse.Service, errs []*parse.Error) {
 	// Also create the call ids.
 	g.writeLn("const (")
 	for _, e := range srvc.Entries {
-		g.writeLn("%s = \"%s\"", srvc.Name+e.Name(), srvc.Name+e.Name())
+		g.writeLn("%s = \"%s\"", srvc.Name+e.Name(), e.Name())
 		switch v := e.(type) {
 		case *parse.Call:
 			if v.Rev() {
@@ -333,7 +381,7 @@ func (g *generator) genServiceStruct(
 	strName := utils.ToLowerFirst(srvcName + name)
 	g.writeLn("type %s struct {", strName)
 	g.writeLn("h %sHandler", srvcName+name)
-	g.writeLn("os *orbit.Session")
+	g.writeLn("s *orbit.Session")
 	g.writeLn("}")
 	g.writeLn("")
 
@@ -363,8 +411,8 @@ func (g *generator) genServiceStruct(
 
 func (g *generator) genServiceStructConstructor(name, srvcName string) {
 	nameUp := strings.Title(name)
-	g.writeLn("func Register%s(os *orbit.Session, h %sHandler) %sCaller {", nameUp, nameUp, nameUp)
-	g.writeLn("cc := &%s{h: h, os: os}", name)
+	g.writeLn("func Register%s(s *orbit.Session, h %sHandler) %sCaller {", nameUp, nameUp, nameUp)
+	g.writeLn("cc := &%s{h: h, s: s}", name)
 	g.writeLn("return cc")
 	g.writeLn("}")
 	g.writeLn("")
@@ -383,7 +431,7 @@ func (g *generator) genServiceCallClient(c *parse.Call, structName, srvcName str
 	} else {
 		g.write("_, err = ")
 	}
-	g.write("%s.os.Call(ctx, %s, ", recv, srvcName+c.Name())
+	g.write("%s.s.Call(ctx, %s, ", recv, srvcName+c.Name())
 	if c.Args != nil {
 		g.writeLn("args)")
 	} else {
@@ -459,59 +507,6 @@ func (g *generator) genServiceCallSignature(c *parse.Call) {
 	g.write("err error)")
 }
 
-func (g *generator) genChanType(name string, ro bool) {
-	tName := name
-	if ro {
-		name += "Ret"
-	} else {
-		name += "Args"
-	}
-
-	g.imps.Add("sync")
-	g.writeLn("type Chan%s struct {", name)
-	g.write("C ")
-	if ro {
-		g.write("<-chan ")
-	} else {
-		g.write("chan<- ")
-	}
-	g.writeLn("*%s", tName)
-	g.writeLn("c chan *%s", tName)
-	g.writeLn("close chan struct{}")
-	g.writeLn("mx sync.Mutex")
-	g.writeLn("err error")
-	g.writeLn("}")
-	g.writeLn("")
-
-	g.writeLn("func newChan%s(chanSize int) *Chan%s {", name, name)
-	g.writeLn("c := &Chan%s{c: make(chan *%s, chanSize), close: make(chan struct{})}", name, tName)
-	g.writeLn("c.C = c.c")
-	g.writeLn("return c")
-	g.writeLn("}")
-	g.writeLn("")
-
-	g.writeLn("func (c *Chan%s) setError(err error) {", name)
-	g.writeLn("c.mx.Lock()")
-	g.writeLn("c.err = err")
-	g.writeLn("c.mx.Unlock()")
-	g.writeLn("close(c.c)")
-	g.writeLn("}")
-	g.writeLn("")
-
-	g.writeLn("func (c *Chan%s) Close() {", name)
-	g.writeLn("close(c.close)")
-	g.writeLn("}")
-	g.writeLn("")
-
-	g.writeLn("func (c *Chan%s) Err() (err error) {", name)
-	g.writeLn("c.mx.Lock()")
-	g.writeLn("err = c.err")
-	g.writeLn("c.mx.Unlock()")
-	g.writeLn("return")
-	g.writeLn("}")
-	g.writeLn("")
-}
-
 func (g *generator) genServiceStreamClient(s *parse.Stream, structName, srvcName string, errs []*parse.Error) {
 	// Method declaration.
 	g.write("func (%s *%s) ", recv, structName)
@@ -521,28 +516,28 @@ func (g *generator) genServiceStreamClient(s *parse.Stream, structName, srvcName
 	// Method body.
 	// First, open the stream.
 	if s.Args == nil && s.Ret == nil {
-		g.writeLn("return %s.os.OpenStream(ctx, %s)", recv, srvcName+s.Name())
+		g.writeLn("return %s.s.OpenStream(ctx, %s)", recv, srvcName+s.Name())
 		g.writeLn("}")
 		g.writeLn("")
 		return
 	}
 
-	g.writeLn("conn, err := %s.os.OpenStream(ctx, %s)", recv, srvcName+s.Name())
+	g.writeLn("conn, err := %s.s.OpenStream(ctx, %s)", recv, srvcName+s.Name())
 	g.writeErrCheck()
 
 	if s.Args != nil {
 		g.imps.Add("github.com/desertbit/orbit/internal/packet")
 
-		g.writeLn("args = newChan%sArgs(%s.os.StreamChanSize())", s.Args.Type.Name, recv)
+		g.writeLn("args = new%sChanArgs(%s.s.CloserOneWay())", s.Args.Type.Name, recv)
 		g.writeLn("go func() {")
-		g.writeLn("closingChan := %s.os.ClosingChan()", recv)
+		g.writeLn("closingChan := args.ClosingChan()")
 		g.writeLn("for {")
 		g.writeLn("select {")
 		g.writeLn("case <- closingChan:")
 		g.writeLn("return")
 		g.writeLn("case arg := <-args.c:")
-		g.writeLn("err := packet.WriteEncode(conn, arg, %s.os.Codec())", recv)
-		g.writeLn("if err != nil && !%s.os.IsClosing() {", recv)
+		g.writeLn("err := packet.WriteEncode(conn, arg, %s.s.Codec())", recv)
+		g.writeLn("if err != nil && !%s.s.IsClosing() {", recv)
 		g.writeLn("args.setError(err)")
 		g.writeLn("return")
 		g.writeLn("}")
@@ -554,17 +549,17 @@ func (g *generator) genServiceStreamClient(s *parse.Stream, structName, srvcName
 	if s.Ret != nil {
 		g.imps.Add("github.com/desertbit/orbit/internal/packet")
 
-		g.writeLn("ret = newChan%sRet(%s.os.StreamChanSize())", s.Ret.Type.Name, recv)
+		g.writeLn("ret = new%sChanRet(%s.s.CloserOneWay())", s.Ret.Type.Name, recv)
 		g.writeLn("go func() {")
-		g.writeLn("closingChan := %s.os.ClosingChan()", recv)
+		g.writeLn("closingChan := ret.ClosingChan()")
 		g.writeLn("for {")
 		g.writeLn("select {")
 		g.writeLn("case <- closingChan:")
 		g.writeLn("return")
 		g.writeLn("default:")
 		g.writeLn("var data *Plate")
-		g.writeLn("err := packet.ReadDecode(conn, data, %s.os.Codec())", recv)
-		g.writeLn("if err != nil && !%s.os.IsClosing() {", recv)
+		g.writeLn("err := packet.ReadDecode(conn, data, %s.s.Codec())", recv)
+		g.writeLn("if err != nil && !%s.s.IsClosing() {", recv)
 		g.writeLn("ret.setError(err)")
 		g.writeLn("}")
 		g.writeLn("select {")

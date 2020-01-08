@@ -8,11 +8,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/desertbit/closer/v3"
 	"github.com/desertbit/orbit/internal/packet"
 	"github.com/desertbit/orbit/pkg/orbit"
 )
-
-// TODO: rename os to s
 
 //##############//
 //### Errors ###//
@@ -38,46 +37,25 @@ type Char struct {
 	lol string
 }
 
-// TODO: rename to CharChanArgs
-// TODO: use real closer.OneWay() from session
 type ChanCharArgs struct {
-	C     chan<- *Char
-	c     chan *Char
-	close chan struct{}
-	mx    sync.Mutex
-	err   error
+	closer.Closer
+	C   chan<- *Char
+	c   chan *Char
+	mx  sync.Mutex
+	err error
 }
 
-// TODO: take chan size from orbit cmd
-func newChanCharArgs(chanSize int) *ChanCharArgs {
-	c := &ChanCharArgs{c: make(chan *Char, chanSize), close: make(chan struct{})}
+func newChanCharArgs(cl closer.Closer) *ChanCharArgs {
+	c := &ChanCharArgs{Closer: cl, c: make(chan *Char, 3)}
 	c.C = c.c
 	return c
 }
 
-// TODO:
 func (c *ChanCharArgs) setError(err error) {
 	c.mx.Lock()
 	c.err = err
 	c.mx.Unlock()
-	c.Close()
-}
-
-// TODO: remove
-func (c *ChanCharArgs) CloseChan() <-chan struct{} {
-	return c.close
-}
-
-// TODO: remove
-func (c *ChanCharArgs) Close() {
-	c.mx.Lock()
-	defer c.mx.Unlock()
-	select {
-	case <-c.close:
-		return
-	default:
-		close(c.close)
-	}
+	c.Close_()
 }
 
 func (c *ChanCharArgs) Err() (err error) {
@@ -154,7 +132,6 @@ type Test3Ret struct {
 
 // Example  ---------------------
 const (
-	// TODO: put . in there
 	ExampleTest   = "ExampleTest"
 	ExampleTest2  = "ExampleTest2"
 	ExampleTest3  = "ExampleTest3"

@@ -40,14 +40,14 @@ import (
 	"github.com/desertbit/orbit/internal/packet"
 )
 
-func (s *Session) RegisterStream(id string, f StreamFunc) {
+func (s *Session) RegisterStream(service, id string, f StreamFunc) {
 	s.streamFuncsMx.Lock()
 	s.streamFuncs[id] = f
 	s.streamFuncsMx.Unlock()
 }
 
 // OpenStream opens a new stream with the given channel ID.
-func (s *Session) OpenStream(ctx context.Context, id string) (stream net.Conn, err error) {
+func (s *Session) OpenStream(ctx context.Context, service, id string) (stream net.Conn, err error) {
 	return s.openStream(ctx, id, api.StreamTypeRaw)
 }
 
