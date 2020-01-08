@@ -27,6 +27,12 @@
 
 package parse
 
+import (
+	"strings"
+
+	"github.com/desertbit/orbit/internal/utils"
+)
+
 type Error struct {
 	Name string
 	ID   int
@@ -38,7 +44,8 @@ type Service struct {
 }
 
 type Entry interface {
-	Name() string
+	NamePub() string
+	NamePrv() string
 	Rev() bool
 }
 
@@ -59,8 +66,12 @@ type Call struct {
 	Ret   *EntryParam
 }
 
-func (c *Call) Name() string {
-	return c.name
+func (c *Call) NamePub() string {
+	return strings.Title(c.name)
+}
+
+func (c *Call) NamePrv() string {
+	return utils.ToLowerFirst(c.name)
 }
 
 func (c *Call) Rev() bool {
@@ -75,8 +86,12 @@ type Stream struct {
 	Ret  *EntryParam
 }
 
-func (s *Stream) Name() string {
-	return s.name
+func (s *Stream) NamePub() string {
+	return strings.Title(s.name)
+}
+
+func (s *Stream) NamePrv() string {
+	return utils.ToLowerFirst(s.name)
 }
 
 func (s *Stream) Rev() bool {

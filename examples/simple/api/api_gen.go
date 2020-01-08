@@ -37,7 +37,7 @@ type Char struct {
 	lol string
 }
 
-type ChanCharArgs struct {
+type CharWriteChan struct {
 	closer.Closer
 	C   chan<- *Char
 	c   chan *Char
@@ -45,20 +45,48 @@ type ChanCharArgs struct {
 	err error
 }
 
-func newChanCharArgs(cl closer.Closer) *ChanCharArgs {
-	c := &ChanCharArgs{Closer: cl, c: make(chan *Char, 3)}
+func newCharWriteChan(cl closer.Closer) *CharWriteChan {
+	c := &CharWriteChan{Closer: cl, c: make(chan *Char, 3)}
 	c.C = c.c
 	return c
 }
 
-func (c *ChanCharArgs) setError(err error) {
+func (c *CharWriteChan) setError(err error) {
 	c.mx.Lock()
 	c.err = err
 	c.mx.Unlock()
 	c.Close_()
 }
 
-func (c *ChanCharArgs) Err() (err error) {
+func (c *CharWriteChan) Err() (err error) {
+	c.mx.Lock()
+	err = c.err
+	c.mx.Unlock()
+	return
+}
+
+type CharReadChan struct {
+	closer.Closer
+	C   <-chan *Char
+	c   chan *Char
+	mx  sync.Mutex
+	err error
+}
+
+func newCharReadChan(cl closer.Closer) *CharReadChan {
+	c := &CharReadChan{Closer: cl, c: make(chan *Char, 3)}
+	c.C = c.c
+	return c
+}
+
+func (c *CharReadChan) setError(err error) {
+	c.mx.Lock()
+	c.err = err
+	c.mx.Unlock()
+	c.Close_()
+}
+
+func (c *CharReadChan) Err() (err error) {
 	c.mx.Lock()
 	err = c.err
 	c.mx.Unlock()
@@ -76,32 +104,56 @@ type Plate struct {
 	version int
 }
 
-type ChanPlateRet struct {
-	C     <-chan *Plate
-	c     chan *Plate
-	close chan struct{}
-	mx    sync.Mutex
-	err   error
+type PlateWriteChan struct {
+	closer.Closer
+	C   chan<- *Plate
+	c   chan *Plate
+	mx  sync.Mutex
+	err error
 }
 
-func newChanPlateRet(chanSize int) *ChanPlateRet {
-	c := &ChanPlateRet{c: make(chan *Plate, chanSize), close: make(chan struct{})}
+func newPlateWriteChan(cl closer.Closer) *PlateWriteChan {
+	c := &PlateWriteChan{Closer: cl, c: make(chan *Plate, 3)}
 	c.C = c.c
 	return c
 }
 
-func (c *ChanPlateRet) setError(err error) {
+func (c *PlateWriteChan) setError(err error) {
 	c.mx.Lock()
 	c.err = err
 	c.mx.Unlock()
-	close(c.c)
+	c.Close_()
 }
 
-func (c *ChanPlateRet) Close() {
-	close(c.close)
+func (c *PlateWriteChan) Err() (err error) {
+	c.mx.Lock()
+	err = c.err
+	c.mx.Unlock()
+	return
 }
 
-func (c *ChanPlateRet) Err() (err error) {
+type PlateReadChan struct {
+	closer.Closer
+	C   <-chan *Plate
+	c   chan *Plate
+	mx  sync.Mutex
+	err error
+}
+
+func newPlateReadChan(cl closer.Closer) *PlateReadChan {
+	c := &PlateReadChan{Closer: cl, c: make(chan *Plate, 3)}
+	c.C = c.c
+	return c
+}
+
+func (c *PlateReadChan) setError(err error) {
+	c.mx.Lock()
+	c.err = err
+	c.mx.Unlock()
+	c.Close_()
+}
+
+func (c *PlateReadChan) Err() (err error) {
 	c.mx.Lock()
 	err = c.err
 	c.mx.Unlock()
@@ -132,14 +184,15 @@ type Test3Ret struct {
 
 // Example  ---------------------
 const (
-	ExampleTest   = "ExampleTest"
-	ExampleTest2  = "ExampleTest2"
-	ExampleTest3  = "ExampleTest3"
-	ExampleTest4  = "ExampleTest4"
-	ExampleHello  = "ExampleHello"
-	ExampleHello2 = "ExampleHello2"
-	ExampleHello3 = "ExampleHello3"
-	ExampleHello4 = "ExampleHello4"
+	Example       = "Example"
+	ExampleTest   = "Test"
+	ExampleTest2  = "Test2"
+	ExampleTest3  = "Test3"
+	ExampleTest4  = "Test4"
+	ExampleHello  = "Hello"
+	ExampleHello2 = "Hello2"
+	ExampleHello3 = "Hello3"
+	ExampleHello4 = "Hello4"
 )
 
 type ExampleConsumerCaller interface {
@@ -147,45 +200,53 @@ type ExampleConsumerCaller interface {
 	Test(ctx context.Context, args *Plate) (ret *Rect, err error)
 	Test2(ctx context.Context, args *Rect) (err error)
 	// Streams
-	Hello(s *orbit.Session, stream net.Conn) (conn net.Conn, err error)
-	Hello2(s *orbit.Session, stream net.Conn) (args *ChanCharArgs, err error)
+	Hello(ctx context.Context) (stream net.Conn, err error)
+	Hello2(ctx context.Context) (args *CharWriteChan, err error)
 }
+
 type ExampleConsumerHandler interface {
 	// Calls
 	Test3(ctx context.Context, args *Test3Args) (ret *Test3Ret, err error)
 	Test4(ctx context.Context) (ret *Rect, err error)
 	// Streams
-	Hello3(s *orbit.Session, stream net.Conn) (ret *ChanPlateRet, err error)
-	Hello4(s *orbit.Session, stream net.Conn) (args *ChanCharArgs, ret *ChanPlateRet, err error)
+	Hello3(ret *PlateWriteChan) (err error)
+	Hello4(args *CharReadChan, ret *PlateWriteChan) (err error)
 }
+
 type ExampleProviderCaller interface {
 	// Calls
 	Test3(ctx context.Context, args *Test3Args) (ret *Test3Ret, err error)
 	Test4(ctx context.Context) (ret *Rect, err error)
 	// Streams
-	Hello3(s *orbit.Session, stream net.Conn) (ret *ChanPlateRet, err error)
-	Hello4(s *orbit.Session, stream net.Conn) (args *ChanCharArgs, ret *ChanPlateRet, err error)
+	Hello3(ctx context.Context) (ret *PlateReadChan, err error)
+	Hello4(ctx context.Context) (args *CharWriteChan, ret *PlateReadChan, err error)
 }
+
 type ExampleProviderHandler interface {
 	// Calls
 	Test(ctx context.Context, args *Plate) (ret *Rect, err error)
 	Test2(ctx context.Context, args *Rect) (err error)
 	// Streams
-	Hello(s *orbit.Session, stream net.Conn) (conn net.Conn, err error)
-	Hello2(s *orbit.Session, stream net.Conn) (args *ChanCharArgs, err error)
+	Hello(stream net.Conn) (err error)
+	Hello2(args *CharReadChan) (err error)
 }
 
 type exampleConsumer struct {
-	h  ExampleConsumerHandler
-	os *orbit.Session
+	h ExampleConsumerHandler
+	s *orbit.Session
 }
 
-func RegisterExampleConsumer(os *orbit.Session, h ExampleConsumerHandler) ExampleConsumerCaller {
-	cc := &exampleConsumer{h: h, os: os}
+func RegisterExampleConsumer(s *orbit.Session, h ExampleConsumerHandler) ExampleConsumerCaller {
+	cc := &exampleConsumer{h: h, s: s}
+	s.RegisterCall(Example, ExampleTest3, cc.test3)
+	s.RegisterCall(Example, ExampleTest4, cc.test4)
+	s.RegisterStream(Example, ExampleHello3, cc.hello3)
+	s.RegisterStream(Example, ExampleHello4, cc.hello4)
 	return cc
 }
+
 func (v1 *exampleConsumer) Test(ctx context.Context, args *Plate) (ret *Rect, err error) {
-	retData, err := v1.os.Call(ctx, ExampleTest, args)
+	retData, err := v1.s.Call(ctx, Example, ExampleTest, args)
 	if err != nil {
 		var cErr *orbit.ErrorCode
 		if errors.As(err, &cErr) {
@@ -206,7 +267,7 @@ func (v1 *exampleConsumer) Test(ctx context.Context, args *Plate) (ret *Rect, er
 }
 
 func (v1 *exampleConsumer) Test2(ctx context.Context, args *Rect) (err error) {
-	_, err = v1.os.Call(ctx, ExampleTest2, args)
+	_, err = v1.s.Call(ctx, Example, ExampleTest2, args)
 	if err != nil {
 		var cErr *orbit.ErrorCode
 		if errors.As(err, &cErr) {
@@ -255,24 +316,29 @@ func (v1 *exampleConsumer) test4(ctx context.Context, s *orbit.Session, ad *orbi
 	return
 }
 
-func (v1 *exampleConsumer) Hello(s *orbit.Session, stream net.Conn) (conn net.Conn, err error) {
-	return v1.os.OpenStream(ctx, ExampleHello)
+func (v1 *exampleConsumer) Hello(ctx context.Context) (stream net.Conn, err error) {
+	return v1.s.OpenStream(ctx, Example, ExampleHello)
 }
-func (v1 *exampleConsumer) Hello2(s *orbit.Session, stream net.Conn) (args *ChanCharArgs, err error) {
-	conn, err := v1.os.OpenStream(ctx, ExampleHello2)
+
+func (v1 *exampleConsumer) Hello2(ctx context.Context) (args *CharWriteChan, err error) {
+	stream, err := v1.s.OpenStream(ctx, Example, ExampleHello2)
 	if err != nil {
 		return
 	}
-	args = newChanCharArgs(v1.os.StreamChanSize())
+	args = newCharWriteChan(v1.s.CloserOneWay())
 	go func() {
-		closingChan := v1.os.ClosingChan()
+		closingChan := args.ClosingChan()
+		codec := v1.s.Codec()
 		for {
 			select {
 			case <-closingChan:
 				return
 			case arg := <-args.c:
-				err := packet.WriteEncode(conn, arg, v1.os.Codec())
-				if err != nil && !v1.os.IsClosing() {
+				err := packet.WriteEncode(stream, arg, codec)
+				if err != nil {
+					if v1.s.IsClosing() {
+						err = nil
+					}
 					args.setError(err)
 					return
 				}
@@ -282,24 +348,100 @@ func (v1 *exampleConsumer) Hello2(s *orbit.Session, stream net.Conn) (args *Chan
 	return
 }
 
-func (v1 *exampleConsumer) Hello3(s *orbit.Session, stream net.Conn) (err error) {
-
+func (v1 *exampleConsumer) hello3(s *orbit.Session, stream net.Conn) (err error) {
+	ret := newPlateWriteChan(v1.s.CloserOneWay())
+	go func() {
+		closingChan := ret.ClosingChan()
+		codec := v1.s.Codec()
+		for {
+			select {
+			case <-closingChan:
+				return
+			case data := <-ret.c:
+				err := packet.WriteEncode(stream, data, codec)
+				if err != nil {
+					if v1.s.IsClosing() {
+						err = nil
+					}
+					ret.setError(err)
+					return
+				}
+			}
+		}
+	}()
+	err = v1.h.Hello3(ret)
+	if err != nil {
+		return
+	}
+	return
 }
-func (v1 *exampleConsumer) Hello4(s *orbit.Session, stream net.Conn) (err error) {
 
+func (v1 *exampleConsumer) hello4(s *orbit.Session, stream net.Conn) (err error) {
+	args := newCharReadChan(v1.s.CloserOneWay())
+	go func() {
+		closingChan := args.ClosingChan()
+		codec := v1.s.Codec()
+		for {
+			var arg *Char
+			err := packet.ReadDecode(stream, arg, codec)
+			if err != nil {
+				if v1.s.IsClosing() {
+					err = nil
+				}
+				args.setError(err)
+				return
+			}
+			select {
+			case <-closingChan:
+				return
+			case args.c <- arg:
+			}
+		}
+	}()
+
+	ret := newPlateWriteChan(v1.s.CloserOneWay())
+	go func() {
+		closingChan := ret.ClosingChan()
+		codec := v1.s.Codec()
+		for {
+			select {
+			case <-closingChan:
+				return
+			case data := <-ret.c:
+				err := packet.WriteEncode(stream, data, codec)
+				if err != nil {
+					if v1.s.IsClosing() {
+						err = nil
+					}
+					ret.setError(err)
+					return
+				}
+			}
+		}
+	}()
+	err = v1.h.Hello4(args, ret)
+	if err != nil {
+		return
+	}
+	return
 }
 
 type exampleProvider struct {
-	h  ExampleProviderHandler
-	os *orbit.Session
+	h ExampleProviderHandler
+	s *orbit.Session
 }
 
-func RegisterExampleProvider(os *orbit.Session, h ExampleProviderHandler) ExampleProviderCaller {
-	cc := &exampleProvider{h: h, os: os}
+func RegisterExampleProvider(s *orbit.Session, h ExampleProviderHandler) ExampleProviderCaller {
+	cc := &exampleProvider{h: h, s: s}
+	s.RegisterCall(Example, ExampleTest, cc.test)
+	s.RegisterCall(Example, ExampleTest2, cc.test2)
+	s.RegisterStream(Example, ExampleHello, cc.hello)
+	s.RegisterStream(Example, ExampleHello2, cc.hello2)
 	return cc
 }
+
 func (v1 *exampleProvider) Test3(ctx context.Context, args *Test3Args) (ret *Test3Ret, err error) {
-	retData, err := v1.os.Call(ctx, ExampleTest3, args)
+	retData, err := v1.s.Call(ctx, Example, ExampleTest3, args)
 	if err != nil {
 		var cErr *orbit.ErrorCode
 		if errors.As(err, &cErr) {
@@ -320,7 +462,7 @@ func (v1 *exampleProvider) Test3(ctx context.Context, args *Test3Args) (ret *Tes
 }
 
 func (v1 *exampleProvider) Test4(ctx context.Context) (ret *Rect, err error) {
-	retData, err := v1.os.Call(ctx, ExampleTest4, nil)
+	retData, err := v1.s.Call(ctx, Example, ExampleTest4, nil)
 	if err != nil {
 		var cErr *orbit.ErrorCode
 		if errors.As(err, &cErr) {
@@ -377,85 +519,120 @@ func (v1 *exampleProvider) test2(ctx context.Context, s *orbit.Session, ad *orbi
 	return
 }
 
-func (v1 *exampleProvider) Hello3(s *orbit.Session, stream net.Conn) (ret *ChanPlateRet, err error) {
-	conn, err := v1.os.OpenStream(ctx, ExampleHello3)
+func (v1 *exampleProvider) Hello3(ctx context.Context) (ret *PlateReadChan, err error) {
+	stream, err := v1.s.OpenStream(ctx, Example, ExampleHello3)
 	if err != nil {
 		return
 	}
-	ret = newChanPlateRet(v1.os.StreamChanSize())
+	ret = newPlateReadChan(v1.s.CloserOneWay())
 	go func() {
-		closingChan := v1.os.ClosingChan()
+		closingChan := ret.ClosingChan()
+		codec := v1.s.Codec()
 		for {
+			var data *Plate
+			err := packet.ReadDecode(stream, data, codec)
+			if err != nil {
+				if v1.s.IsClosing() {
+					err = nil
+				}
+				ret.setError(err)
+				return
+			}
 			select {
 			case <-closingChan:
 				return
-			default:
-				var data *Plate
-				err := packet.ReadDecode(conn, data, v1.os.Codec())
-				if err != nil && !v1.os.IsClosing() {
-					ret.setError(err)
-				}
-				select {
-				case <-closingChan:
-					return
-				case ret.c <- data:
-				}
+			case ret.c <- data:
 			}
 		}
 	}()
 	return
 }
 
-func (v1 *exampleProvider) Hello4(s *orbit.Session, stream net.Conn) (args *ChanCharArgs, ret *ChanPlateRet, err error) {
-	conn, err := v1.os.OpenStream(ctx, ExampleHello4)
+func (v1 *exampleProvider) Hello4(ctx context.Context) (args *CharWriteChan, ret *PlateReadChan, err error) {
+	stream, err := v1.s.OpenStream(ctx, Example, ExampleHello4)
 	if err != nil {
 		return
 	}
-	args = newChanCharArgs(v1.os.StreamChanSize())
+	args = newCharWriteChan(v1.s.CloserOneWay())
 	go func() {
-		closingChan := v1.os.ClosingChan()
+		closingChan := args.ClosingChan()
+		codec := v1.s.Codec()
 		for {
 			select {
 			case <-closingChan:
 				return
 			case arg := <-args.c:
-				err := packet.WriteEncode(conn, arg, v1.os.Codec())
-				if err != nil && !v1.os.IsClosing() {
+				err := packet.WriteEncode(stream, arg, codec)
+				if err != nil {
+					if v1.s.IsClosing() {
+						err = nil
+					}
 					args.setError(err)
 					return
 				}
 			}
 		}
 	}()
-	ret = newChanPlateRet(v1.os.StreamChanSize())
+	ret = newPlateReadChan(v1.s.CloserOneWay())
 	go func() {
-		closingChan := v1.os.ClosingChan()
+		closingChan := ret.ClosingChan()
+		codec := v1.s.Codec()
 		for {
+			var data *Plate
+			err := packet.ReadDecode(stream, data, codec)
+			if err != nil {
+				if v1.s.IsClosing() {
+					err = nil
+				}
+				ret.setError(err)
+				return
+			}
 			select {
 			case <-closingChan:
 				return
-			default:
-				var data *Plate
-				err := packet.ReadDecode(conn, data, v1.os.Codec())
-				if err != nil && !v1.os.IsClosing() {
-					ret.setError(err)
-				}
-				select {
-				case <-closingChan:
-					return
-				case ret.c <- data:
-				}
+			case ret.c <- data:
 			}
 		}
 	}()
 	return
 }
 
-func (v1 *exampleProvider) Hello(s *orbit.Session, stream net.Conn) (err error) {
-
+func (v1 *exampleProvider) hello(s *orbit.Session, stream net.Conn) (err error) {
+	err = v1.h.Hello(stream)
+	if err != nil {
+		return
+	}
+	return
 }
-func (v1 *exampleProvider) Hello2(s *orbit.Session, stream net.Conn) (err error) {
 
+func (v1 *exampleProvider) hello2(s *orbit.Session, stream net.Conn) (err error) {
+	args := newCharReadChan(v1.s.CloserOneWay())
+	go func() {
+		closingChan := args.ClosingChan()
+		codec := v1.s.Codec()
+		for {
+			var arg *Char
+			err := packet.ReadDecode(stream, arg, codec)
+			if err != nil {
+				if v1.s.IsClosing() {
+					err = nil
+				}
+				args.setError(err)
+				return
+			}
+			select {
+			case <-closingChan:
+				return
+			case args.c <- arg:
+			}
+		}
+	}()
+
+	err = v1.h.Hello2(args)
+	if err != nil {
+		return
+	}
+	return
 }
 
 // ---------------------
