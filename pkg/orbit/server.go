@@ -28,6 +28,7 @@
 package orbit
 
 import (
+	"errors"
 	"fmt"
 	"runtime/debug"
 	"sync"
@@ -239,7 +240,7 @@ func (s *Server) handleConnection(conn Conn) (err error) {
 		}
 	}
 	if !added {
-		return fmt.Errorf("failed to generate unique random session id")
+		return errors.New("failed to generate unique random session id")
 	}
 
 	sn.OnClosing(func() error {
