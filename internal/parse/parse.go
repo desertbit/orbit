@@ -59,6 +59,7 @@ const (
 )
 
 func Parse(data string) (errors []*Error, services []*Service, types []*StructType, err error) {
+	println("wtf")
 	// Tokenize the file.
 	tks, err := tokenize(data)
 	if err != nil {
