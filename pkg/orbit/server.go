@@ -255,7 +255,12 @@ func (s *Server) handleConnection(conn Conn) (err error) {
 	})
 
 	// Session created, call hooks.
-	for _, f := range s.newSessionCreatedFuncs {
+	s.newSessionCreatedFuncsMx.RLock()
+	funcs := make([]NewSessionCreatedFunc, len(s.newSessionCreatedFuncs))
+	copy(funcs, s.newSessionCreatedFuncs)
+	s.newSessionCreatedFuncsMx.RUnlock()
+
+	for _, f := range funcs {
 		f(sn)
 	}
 
