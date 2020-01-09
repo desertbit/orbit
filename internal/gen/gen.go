@@ -327,7 +327,7 @@ func (g *generator) genServiceInterface(name, srvcName string, calls, revCalls [
 	g.writeLn("type %s%sCaller interface {", srvcName, name)
 	g.writeLn("// Calls")
 	for _, c := range calls {
-		g.genServiceCallClientSignature(c)
+		g.genServiceCallCallerSignature(c)
 		g.writeLn("")
 	}
 	g.writeLn("// Streams")
@@ -351,12 +351,12 @@ func (g *generator) genServiceInterface(name, srvcName string, calls, revCalls [
 	g.writeLn("type %s%sHandler interface {", srvcName, name)
 	g.writeLn("// Calls")
 	for _, rc := range revCalls {
-		g.genServiceCallClientSignature(rc)
+		g.genServiceCallHandlerSignature(rc)
 		g.writeLn("")
 	}
 	g.writeLn("// Streams")
 	for _, rs := range revStreams {
-		g.write("%s(", rs.NamePub())
+		g.write("%s(s *orbit.Session, ", rs.NamePub())
 		if rs.Args != nil {
 			g.write("args *%sReadChan, ", rs.Args.Type.Name)
 		}
@@ -428,7 +428,7 @@ func (g *generator) genServiceStructConstructor(name, srvcName string, revCalls 
 func (g *generator) genServiceCallClient(c *parse.Call, structName, srvcName string, errs []*parse.Error) {
 	// Method declaration.
 	g.write("func (%s *%s) ", recv, structName)
-	g.genServiceCallClientSignature(c)
+	g.genServiceCallCallerSignature(c)
 	g.writeLn(" {")
 
 	// Method body.
@@ -461,8 +461,20 @@ func (g *generator) genServiceCallClient(c *parse.Call, structName, srvcName str
 	g.writeLn("")
 }
 
-func (g *generator) genServiceCallClientSignature(c *parse.Call) {
+func (g *generator) genServiceCallCallerSignature(c *parse.Call) {
 	g.write("%s(ctx context.Context", c.NamePub())
+	if c.Args != nil {
+		g.write(", args *%s", c.Args.Type.Name)
+	}
+	g.write(") (")
+	if c.Ret != nil {
+		g.write("ret *%s, ", c.Ret.Type.Name)
+	}
+	g.write("err error)")
+}
+
+func (g *generator) genServiceCallHandlerSignature(c *parse.Call) {
+	g.write("%s(ctx context.Context, s *orbit.Session", c.NamePub())
 	if c.Args != nil {
 		g.write(", args *%s", c.Args.Type.Name)
 	}
@@ -482,7 +494,7 @@ func (g *generator) genServiceCallServer(c *parse.Call, structName string, errs 
 
 	// Method body.
 	// Parse the args.
-	handlerArgs := "ctx"
+	handlerArgs := "ctx, s"
 	if c.Args != nil {
 		handlerArgs += ", args"
 		g.writeLn("var args *%s", c.Args.Type.Name)
@@ -596,10 +608,12 @@ func (g *generator) genServiceStreamServer(s *parse.Stream, structName, srvcName
 	g.writeLn("func (%s *%s) %s(s *orbit.Session, stream net.Conn) (err error) {", recv, structName, s.NamePrv())
 	g.writeLn("defer stream.Close()")
 
-	handlerArgs := ""
+	handlerArgs := "s"
 
-	if s.Args != nil {
-		handlerArgs += "args,"
+	if s.Args == nil && s.Ret == nil {
+		handlerArgs += ", stream"
+	} else if s.Args != nil {
+		handlerArgs += ", args"
 
 		g.writeLn("args := new%sReadChan(%s.s.CloserOneWay())", s.Args.Type.Name, recv)
 		g.writeLn("go func() {")
@@ -624,7 +638,7 @@ func (g *generator) genServiceStreamServer(s *parse.Stream, structName, srvcName
 	}
 
 	if s.Ret != nil {
-		handlerArgs += "ret"
+		handlerArgs += ", ret"
 
 		g.writeLn("ret := new%sWriteChan(%s.s.CloserOneWay())", s.Ret.Type.Name, recv)
 		g.writeLn("go func() {")
@@ -644,10 +658,6 @@ func (g *generator) genServiceStreamServer(s *parse.Stream, structName, srvcName
 		g.writeLn("}")
 		g.writeLn("}")
 		g.writeLn("}()")
-	}
-
-	if s.Args == nil && s.Ret == nil {
-		handlerArgs += "stream"
 	}
 
 	g.writeLn("err = %s.h.%s(%s)", recv, s.NamePub(), handlerArgs)

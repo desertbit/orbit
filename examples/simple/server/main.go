@@ -29,34 +29,56 @@ package main
 
 import (
 	"context"
+	"net"
+	"sync"
 
 	"github.com/desertbit/closer/v3"
 	"github.com/desertbit/orbit/examples/simple/api"
 	"github.com/desertbit/orbit/pkg/orbit"
 )
 
-type Server struct {
+type Session struct {
 	api.ExampleProviderCaller
-	api.TrainerProviderCaller
 }
 
-func NewServer(so *orbit.Server) (s *Server, err error) {
-	s = &Server{}
+type Server struct {
+	sessionsMx sync.RWMutex
+	sessions   map[string]*Session
+}
 
-	s.ExampleProviderCaller = api.RegisterExampleProvider(so, s)
+func NewServer(orbServ *orbit.Server) (s *Server, err error) {
+	s = &Server{
+		sessions: make(map[string]*Session),
+	}
+
+	orbServ.OnNewSessionCreated(func(orbSess *orbit.Session) {
+		// Create new session.
+		userID := orbSess.ID() // TODO: cast value from auth
+		session := &Session{}
+		s.sessionsMx.Lock()
+		s.sessions[userID] = session
+		s.sessionsMx.Unlock()
+
+		session.ExampleProviderCaller = api.RegisterExampleProvider(orbSess, session)
+	})
 
 	return
 }
 
-func (s *Server) Test(ctx context.Context, args *api.Plate) (ret *api.Rect, err error) {
+// TODO: session as first arg?
+func (*Session) Test(ctx context.Context, s *orbit.Session, args *api.Plate) (ret *api.Rect, err error) {
 	panic("implement me")
 }
 
-func (s *Server) Test2(ctx context.Context, args *api.Rect) (err error) {
+func (*Session) Test2(ctx context.Context, s *orbit.Session, args *api.Rect) (err error) {
 	panic("implement me")
 }
 
-func (s *Server) Hello2(args *api.CharReadChan) (err error) {
+func (*Session) Hello(s *orbit.Session, stream net.Conn) (err error) {
+	panic("implement me")
+}
+
+func (*Session) Hello2(s *orbit.Session, args *api.CharReadChan) (err error) {
 	panic("implement me")
 }
 
@@ -64,9 +86,9 @@ func main() {
 	cl := closer.New()
 
 	var ln orbit.Listener
-	so := orbit.NewServer(cl, ln, &orbit.ServerConfig{Config: &orbit.Config{PrintPanicStackTraces: true}})
+	orbServ := orbit.NewServer(cl, ln, &orbit.ServerConfig{Config: &orbit.Config{PrintPanicStackTraces: true}})
 
-	s, err := NewServer(so)
+	_, err := NewServer(orbServ)
 	if err != nil {
 		return
 	}

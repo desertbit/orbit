@@ -206,11 +206,11 @@ type ExampleConsumerCaller interface {
 
 type ExampleConsumerHandler interface {
 	// Calls
-	Test3(ctx context.Context, args *Test3Args) (ret *Test3Ret, err error)
-	Test4(ctx context.Context) (ret *Rect, err error)
+	Test3(ctx context.Context, s *orbit.Session, args *Test3Args) (ret *Test3Ret, err error)
+	Test4(ctx context.Context, s *orbit.Session) (ret *Rect, err error)
 	// Streams
-	Hello3(ret *PlateWriteChan) (err error)
-	Hello4(args *CharReadChan, ret *PlateWriteChan) (err error)
+	Hello3(s *orbit.Session, ret *PlateWriteChan) (err error)
+	Hello4(s *orbit.Session, args *CharReadChan, ret *PlateWriteChan) (err error)
 }
 
 type ExampleProviderCaller interface {
@@ -224,11 +224,11 @@ type ExampleProviderCaller interface {
 
 type ExampleProviderHandler interface {
 	// Calls
-	Test(ctx context.Context, args *Plate) (ret *Rect, err error)
-	Test2(ctx context.Context, args *Rect) (err error)
+	Test(ctx context.Context, s *orbit.Session, args *Plate) (ret *Rect, err error)
+	Test2(ctx context.Context, s *orbit.Session, args *Rect) (err error)
 	// Streams
-	Hello(stream net.Conn) (err error)
-	Hello2(args *CharReadChan) (err error)
+	Hello(s *orbit.Session, stream net.Conn) (err error)
+	Hello2(s *orbit.Session, args *CharReadChan) (err error)
 }
 
 type exampleConsumer struct {
@@ -289,7 +289,7 @@ func (v1 *exampleConsumer) test3(ctx context.Context, s *orbit.Session, ad *orbi
 	if err != nil {
 		return
 	}
-	ret, err := v1.h.Test3(ctx, args)
+	ret, err := v1.h.Test3(ctx, s, args)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			err = orbitErrNotFound
@@ -303,7 +303,7 @@ func (v1 *exampleConsumer) test3(ctx context.Context, s *orbit.Session, ad *orbi
 }
 
 func (v1 *exampleConsumer) test4(ctx context.Context, s *orbit.Session, ad *orbit.Data) (r interface{}, err error) {
-	ret, err := v1.h.Test4(ctx)
+	ret, err := v1.h.Test4(ctx, s)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			err = orbitErrNotFound
@@ -371,7 +371,7 @@ func (v1 *exampleConsumer) hello3(s *orbit.Session, stream net.Conn) (err error)
 			}
 		}
 	}()
-	err = v1.h.Hello3(ret)
+	err = v1.h.Hello3(s, ret)
 	if err != nil {
 		return
 	}
@@ -422,7 +422,7 @@ func (v1 *exampleConsumer) hello4(s *orbit.Session, stream net.Conn) (err error)
 			}
 		}
 	}()
-	err = v1.h.Hello4(args, ret)
+	err = v1.h.Hello4(s, args, ret)
 	if err != nil {
 		return
 	}
@@ -491,7 +491,7 @@ func (v1 *exampleProvider) test(ctx context.Context, s *orbit.Session, ad *orbit
 	if err != nil {
 		return
 	}
-	ret, err := v1.h.Test(ctx, args)
+	ret, err := v1.h.Test(ctx, s, args)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			err = orbitErrNotFound
@@ -510,7 +510,7 @@ func (v1 *exampleProvider) test2(ctx context.Context, s *orbit.Session, ad *orbi
 	if err != nil {
 		return
 	}
-	err = v1.h.Test2(ctx, args)
+	err = v1.h.Test2(ctx, s, args)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			err = orbitErrNotFound
@@ -605,7 +605,7 @@ func (v1 *exampleProvider) Hello4(ctx context.Context) (args *CharWriteChan, ret
 
 func (v1 *exampleProvider) hello(s *orbit.Session, stream net.Conn) (err error) {
 	defer stream.Close()
-	err = v1.h.Hello(stream)
+	err = v1.h.Hello(s, stream)
 	if err != nil {
 		return
 	}
@@ -636,7 +636,7 @@ func (v1 *exampleProvider) hello2(s *orbit.Session, stream net.Conn) (err error)
 		}
 	}()
 
-	err = v1.h.Hello2(args)
+	err = v1.h.Hello2(s, args)
 	if err != nil {
 		return
 	}
@@ -669,9 +669,9 @@ type TrainerConsumerCaller interface {
 type TrainerConsumerHandler interface {
 	// Calls
 	// Streams
-	Send(args *PlateReadChan) (err error)
-	Receive(ret *CharWriteChan) (err error)
-	Link(args *PlateReadChan, ret *CharWriteChan) (err error)
+	Send(s *orbit.Session, args *PlateReadChan) (err error)
+	Receive(s *orbit.Session, ret *CharWriteChan) (err error)
+	Link(s *orbit.Session, args *PlateReadChan, ret *CharWriteChan) (err error)
 }
 
 type TrainerProviderCaller interface {
@@ -684,11 +684,11 @@ type TrainerProviderCaller interface {
 
 type TrainerProviderHandler interface {
 	// Calls
-	Start(ctx context.Context, args *Plate) (err error)
-	Update(ctx context.Context, args *Char) (ret *Char, err error)
+	Start(ctx context.Context, s *orbit.Session, args *Plate) (err error)
+	Update(ctx context.Context, s *orbit.Session, args *Char) (ret *Char, err error)
 	// Streams
-	Upload(stream net.Conn) (err error)
-	Download(args *CharReadChan) (err error)
+	Upload(s *orbit.Session, stream net.Conn) (err error)
+	Download(s *orbit.Session, args *CharReadChan) (err error)
 }
 
 type trainerConsumer struct {
@@ -799,7 +799,7 @@ func (v1 *trainerConsumer) send(s *orbit.Session, stream net.Conn) (err error) {
 		}
 	}()
 
-	err = v1.h.Send(args)
+	err = v1.h.Send(s, args)
 	if err != nil {
 		return
 	}
@@ -828,7 +828,7 @@ func (v1 *trainerConsumer) receive(s *orbit.Session, stream net.Conn) (err error
 			}
 		}
 	}()
-	err = v1.h.Receive(ret)
+	err = v1.h.Receive(s, ret)
 	if err != nil {
 		return
 	}
@@ -879,7 +879,7 @@ func (v1 *trainerConsumer) link(s *orbit.Session, stream net.Conn) (err error) {
 			}
 		}
 	}()
-	err = v1.h.Link(args, ret)
+	err = v1.h.Link(s, args, ret)
 	if err != nil {
 		return
 	}
@@ -906,7 +906,7 @@ func (v1 *trainerProvider) start(ctx context.Context, s *orbit.Session, ad *orbi
 	if err != nil {
 		return
 	}
-	err = v1.h.Start(ctx, args)
+	err = v1.h.Start(ctx, s, args)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			err = orbitErrNotFound
@@ -924,7 +924,7 @@ func (v1 *trainerProvider) update(ctx context.Context, s *orbit.Session, ad *orb
 	if err != nil {
 		return
 	}
-	ret, err := v1.h.Update(ctx, args)
+	ret, err := v1.h.Update(ctx, s, args)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			err = orbitErrNotFound
@@ -1049,7 +1049,7 @@ func (v1 *trainerProvider) Link(ctx context.Context) (args *PlateWriteChan, ret 
 
 func (v1 *trainerProvider) upload(s *orbit.Session, stream net.Conn) (err error) {
 	defer stream.Close()
-	err = v1.h.Upload(stream)
+	err = v1.h.Upload(s, stream)
 	if err != nil {
 		return
 	}
@@ -1080,7 +1080,7 @@ func (v1 *trainerProvider) download(s *orbit.Session, stream net.Conn) (err erro
 		}
 	}()
 
-	err = v1.h.Download(args)
+	err = v1.h.Download(s, args)
 	if err != nil {
 		return
 	}
