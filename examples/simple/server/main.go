@@ -41,31 +41,6 @@ type Session struct {
 	api.ExampleProviderCaller
 }
 
-type Server struct {
-	sessionsMx sync.RWMutex
-	sessions   map[string]*Session
-}
-
-func NewServer(orbServ *orbit.Server) (s *Server, err error) {
-	s = &Server{
-		sessions: make(map[string]*Session),
-	}
-
-	orbServ.OnNewSessionCreated(func(orbSess *orbit.Session) {
-		// Create new session.
-		userID := orbSess.ID() // TODO: cast value from auth
-		session := &Session{}
-		s.sessionsMx.Lock()
-		s.sessions[userID] = session
-		s.sessionsMx.Unlock()
-
-		session.ExampleProviderCaller = api.RegisterExampleProvider(orbSess, session)
-	})
-
-	return
-}
-
-// TODO: session as first arg?
 func (*Session) Test(ctx context.Context, s *orbit.Session, args *api.Plate) (ret *api.Rect, err error) {
 	panic("implement me")
 }
@@ -80,6 +55,30 @@ func (*Session) Hello(s *orbit.Session, stream net.Conn) (err error) {
 
 func (*Session) Hello2(s *orbit.Session, args *api.CharReadChan) (err error) {
 	panic("implement me")
+}
+
+type Server struct {
+	sessionsMx sync.RWMutex
+	sessions   map[string]*Session
+}
+
+func NewServer(orbServ *orbit.Server) (s *Server, err error) {
+	s = &Server{
+		sessions: make(map[string]*Session),
+	}
+
+	orbServ.OnNewSessionCreated(func(orbSess *orbit.Session) {
+		// Create new session.
+		userID := orbSess.ID() // TODO: dummy, need to cast value from auth
+		session := &Session{}
+		s.sessionsMx.Lock()
+		s.sessions[userID] = session
+		s.sessionsMx.Unlock()
+
+		session.ExampleProviderCaller = api.RegisterExampleProvider(orbSess, session)
+	})
+
+	return
 }
 
 func main() {
