@@ -264,7 +264,7 @@ func (p *parser) expectEntry() (e Entry, err error) {
 	defer func() {
 		var pErr *Err
 		if err != nil && !errors.As(err, &pErr) {
-			err = &Err{msg: pErr.Error(), line: p.ck.line}
+			err = &Err{msg: err.Error(), line: p.ck.line}
 		}
 	}()
 
