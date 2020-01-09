@@ -489,6 +489,7 @@ func (p *parser) expectStructType(name string) (s *StructType, err error) {
 		if err != nil {
 			return
 		}
+		f.Name = strings.Title(f.Name)
 
 		// Expect type.
 		f.Type, err = p.expectType()

@@ -45,6 +45,8 @@ const (
 	maxRetriesGenSessionID = 10
 )
 
+type NewSessionCreatedFunc func(s *Session)
+
 // Server implements a simple orbit server. It listens with serverWorkers many
 // routines for incoming connections.
 type Server struct {
@@ -59,6 +61,9 @@ type Server struct {
 
 	newConnChan    chan Conn
 	newSessionChan chan *Session
+
+	newSessionCreatedFuncsMx sync.RWMutex
+	newSessionCreatedFuncs   []NewSessionCreatedFunc
 }
 
 // NewServer creates a new orbit server. A listener is required
@@ -77,13 +82,12 @@ func newServer(cl closer.Closer, ln Listener, cf *ServerConfig) *Server {
 	cf = prepareServerConfig(cf)
 
 	s := &Server{
-		Closer:         cl,
-		ln:             ln,
-		cf:             cf,
-		log:            cf.Log,
-		sessions:       make(map[string]*Session),
-		newConnChan:    make(chan Conn, cf.NewConnChanSize),
-		newSessionChan: make(chan *Session, cf.NewSessionChanSize),
+		Closer:      cl,
+		ln:          ln,
+		cf:          cf,
+		log:         cf.Log,
+		sessions:    make(map[string]*Session),
+		newConnChan: make(chan Conn, cf.NewConnChanSize),
 	}
 	s.OnClosing(ln.Close)
 
@@ -140,6 +144,12 @@ func (s *Server) Sessions() []*Session {
 	}
 
 	return list
+}
+
+func (s *Server) OnNewSessionCreated(f NewSessionCreatedFunc) {
+	s.newSessionCreatedFuncsMx.Lock()
+	s.newSessionCreatedFuncs = append(s.newSessionCreatedFuncs, f)
+	s.newSessionCreatedFuncsMx.Unlock()
 }
 
 //###############//
@@ -244,12 +254,14 @@ func (s *Server) handleConnection(conn Conn) (err error) {
 		return nil
 	})
 
+	// Session created, call hooks.
+	for _, f := range s.newSessionCreatedFuncs {
+		f(sn)
+	}
+
 	s.log.Debug().
 		Str("ID", id).
 		Msg("server: new session")
-
-	// Finally, pass the new session to the channel.
-	s.newSessionChan <- sn
 
 	return
 }

@@ -32,14 +32,16 @@ import (
 	"sync"
 )
 
-type mxStream struct {
+type callStream struct {
 	net.Conn
 
+	// Synchronises write access to the net.Conn.
 	WriteMx sync.Mutex
+
+	// Stores channels, where return values are expected during calls.
+	RetChain *chain
 }
 
-func newMxStream(stream net.Conn) *mxStream {
-	return &mxStream{
-		Conn: stream,
-	}
+func newCallStream(stream net.Conn, retChain *chain) *callStream {
+	return &callStream{Conn: stream, RetChain: retChain}
 }

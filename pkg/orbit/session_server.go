@@ -57,6 +57,7 @@ func newServerSession(cl closer.Closer, conn Conn, cf *Config) (s *Session, err 
 	if err != nil {
 		return
 	}
+	defer stream.Close()
 
 	// Deadline is certainly available.
 	deadline, _ := ctx.Deadline()
@@ -87,7 +88,7 @@ func newServerSession(cl closer.Closer, conn Conn, cf *Config) (s *Session, err 
 	// TODO: auth hook?
 
 	// Finally, create the orbit server session.
-	s = newSession(cl, conn, stream, cf)
+	s = newSession(cl, conn, cf)
 
 	// TODO: remove?
 	// Save the arbitrary data from the auth func.

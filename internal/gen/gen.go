@@ -541,6 +541,7 @@ func (g *generator) genServiceStreamClient(s *parse.Stream, structName, srvcName
 
 	if s.Args != nil {
 		g.writeLn("args = new%sWriteChan(%s.s.CloserOneWay())", s.Args.Type.Name, recv)
+		g.writeLn("args.OnClosing(func() error { return stream.Close() })")
 		g.writeLn("go func() {")
 		g.writeLn("closingChan := args.ClosingChan()")
 		g.writeLn("codec := %s.s.Codec()", recv)
@@ -562,6 +563,7 @@ func (g *generator) genServiceStreamClient(s *parse.Stream, structName, srvcName
 
 	if s.Ret != nil {
 		g.writeLn("ret = new%sReadChan(%s.s.CloserOneWay())", s.Ret.Type.Name, recv)
+		g.writeLn("ret.OnClosing(func() error { return stream.Close() })")
 		g.writeLn("go func() {")
 		g.writeLn("closingChan := ret.ClosingChan()")
 		g.writeLn("codec := %s.s.Codec()", recv)
@@ -592,6 +594,7 @@ func (g *generator) genServiceStreamClient(s *parse.Stream, structName, srvcName
 func (g *generator) genServiceStreamServer(s *parse.Stream, structName, srvcName string, errs []*parse.Error) {
 	// Method declaration.
 	g.writeLn("func (%s *%s) %s(s *orbit.Session, stream net.Conn) (err error) {", recv, structName, s.NamePrv())
+	g.writeLn("defer stream.Close()")
 
 	handlerArgs := ""
 

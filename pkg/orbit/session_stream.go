@@ -195,8 +195,16 @@ func (s *Session) handleNewStream(stream net.Conn) (err error) {
 		}
 
 	case api.StreamTypeCallAsync:
-		// Pass the stream to the control.
+		s.log.Debug().Msg("new call async stream")
+
+		// Handle the new async call stream.
 		s.handleAsyncCall(stream)
+
+	case api.StreamTypeCallInit:
+		s.log.Debug().Msg("new call init stream")
+
+		// Handle the new init call stream.
+		s.handleInitCall(stream)
 
 	default:
 		return fmt.Errorf("invalid stream type: %v", data.Type)

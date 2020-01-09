@@ -34,7 +34,7 @@ var (
 //#############//
 
 type Char struct {
-	lol string
+	Lol string
 }
 
 type CharWriteChan struct {
@@ -94,14 +94,14 @@ func (c *CharReadChan) Err() (err error) {
 }
 
 type Plate struct {
-	name    string
-	rect    *Rect
-	test    map[int]*Rect
-	test2   []*Rect
-	test3   []float32
-	test4   map[string]map[int][]*Rect
-	ts      time.Time
-	version int
+	Name    string
+	Rect    *Rect
+	Test    map[int]*Rect
+	Test2   []*Rect
+	Test3   []float32
+	Test4   map[string]map[int][]*Rect
+	Ts      time.Time
+	Version int
 }
 
 type PlateWriteChan struct {
@@ -161,21 +161,21 @@ func (c *PlateReadChan) Err() (err error) {
 }
 
 type Rect struct {
-	c  *Char
-	x1 float32
-	x2 float32
-	y1 float32
-	y2 float32
+	C  *Char
+	X1 float32
+	X2 float32
+	Y1 float32
+	Y2 float32
 }
 
 type Test3Args struct {
-	c map[int][]*Rect
-	i int
-	v float64
+	C map[int][]*Rect
+	I int
+	V float64
 }
 
 type Test3Ret struct {
-	lol string
+	Lol string
 }
 
 //################//
@@ -326,6 +326,7 @@ func (v1 *exampleConsumer) Hello2(ctx context.Context) (args *CharWriteChan, err
 		return
 	}
 	args = newCharWriteChan(v1.s.CloserOneWay())
+	args.OnClosing(func() error { return stream.Close() })
 	go func() {
 		closingChan := args.ClosingChan()
 		codec := v1.s.Codec()
@@ -349,6 +350,7 @@ func (v1 *exampleConsumer) Hello2(ctx context.Context) (args *CharWriteChan, err
 }
 
 func (v1 *exampleConsumer) hello3(s *orbit.Session, stream net.Conn) (err error) {
+	defer stream.Close()
 	ret := newPlateWriteChan(v1.s.CloserOneWay())
 	go func() {
 		closingChan := ret.ClosingChan()
@@ -377,6 +379,7 @@ func (v1 *exampleConsumer) hello3(s *orbit.Session, stream net.Conn) (err error)
 }
 
 func (v1 *exampleConsumer) hello4(s *orbit.Session, stream net.Conn) (err error) {
+	defer stream.Close()
 	args := newCharReadChan(v1.s.CloserOneWay())
 	go func() {
 		closingChan := args.ClosingChan()
@@ -525,6 +528,7 @@ func (v1 *exampleProvider) Hello3(ctx context.Context) (ret *PlateReadChan, err 
 		return
 	}
 	ret = newPlateReadChan(v1.s.CloserOneWay())
+	ret.OnClosing(func() error { return stream.Close() })
 	go func() {
 		closingChan := ret.ClosingChan()
 		codec := v1.s.Codec()
@@ -554,6 +558,7 @@ func (v1 *exampleProvider) Hello4(ctx context.Context) (args *CharWriteChan, ret
 		return
 	}
 	args = newCharWriteChan(v1.s.CloserOneWay())
+	args.OnClosing(func() error { return stream.Close() })
 	go func() {
 		closingChan := args.ClosingChan()
 		codec := v1.s.Codec()
@@ -574,6 +579,7 @@ func (v1 *exampleProvider) Hello4(ctx context.Context) (args *CharWriteChan, ret
 		}
 	}()
 	ret = newPlateReadChan(v1.s.CloserOneWay())
+	ret.OnClosing(func() error { return stream.Close() })
 	go func() {
 		closingChan := ret.ClosingChan()
 		codec := v1.s.Codec()
@@ -598,6 +604,7 @@ func (v1 *exampleProvider) Hello4(ctx context.Context) (args *CharWriteChan, ret
 }
 
 func (v1 *exampleProvider) hello(s *orbit.Session, stream net.Conn) (err error) {
+	defer stream.Close()
 	err = v1.h.Hello(stream)
 	if err != nil {
 		return
@@ -606,6 +613,7 @@ func (v1 *exampleProvider) hello(s *orbit.Session, stream net.Conn) (err error) 
 }
 
 func (v1 *exampleProvider) hello2(s *orbit.Session, stream net.Conn) (err error) {
+	defer stream.Close()
 	args := newCharReadChan(v1.s.CloserOneWay())
 	go func() {
 		closingChan := args.ClosingChan()
@@ -744,6 +752,7 @@ func (v1 *trainerConsumer) Download(ctx context.Context) (args *CharWriteChan, e
 		return
 	}
 	args = newCharWriteChan(v1.s.CloserOneWay())
+	args.OnClosing(func() error { return stream.Close() })
 	go func() {
 		closingChan := args.ClosingChan()
 		codec := v1.s.Codec()
@@ -767,6 +776,7 @@ func (v1 *trainerConsumer) Download(ctx context.Context) (args *CharWriteChan, e
 }
 
 func (v1 *trainerConsumer) send(s *orbit.Session, stream net.Conn) (err error) {
+	defer stream.Close()
 	args := newPlateReadChan(v1.s.CloserOneWay())
 	go func() {
 		closingChan := args.ClosingChan()
@@ -797,6 +807,7 @@ func (v1 *trainerConsumer) send(s *orbit.Session, stream net.Conn) (err error) {
 }
 
 func (v1 *trainerConsumer) receive(s *orbit.Session, stream net.Conn) (err error) {
+	defer stream.Close()
 	ret := newCharWriteChan(v1.s.CloserOneWay())
 	go func() {
 		closingChan := ret.ClosingChan()
@@ -825,6 +836,7 @@ func (v1 *trainerConsumer) receive(s *orbit.Session, stream net.Conn) (err error
 }
 
 func (v1 *trainerConsumer) link(s *orbit.Session, stream net.Conn) (err error) {
+	defer stream.Close()
 	args := newPlateReadChan(v1.s.CloserOneWay())
 	go func() {
 		closingChan := args.ClosingChan()
@@ -931,6 +943,7 @@ func (v1 *trainerProvider) Send(ctx context.Context) (args *PlateWriteChan, err 
 		return
 	}
 	args = newPlateWriteChan(v1.s.CloserOneWay())
+	args.OnClosing(func() error { return stream.Close() })
 	go func() {
 		closingChan := args.ClosingChan()
 		codec := v1.s.Codec()
@@ -959,6 +972,7 @@ func (v1 *trainerProvider) Receive(ctx context.Context) (ret *CharReadChan, err 
 		return
 	}
 	ret = newCharReadChan(v1.s.CloserOneWay())
+	ret.OnClosing(func() error { return stream.Close() })
 	go func() {
 		closingChan := ret.ClosingChan()
 		codec := v1.s.Codec()
@@ -988,6 +1002,7 @@ func (v1 *trainerProvider) Link(ctx context.Context) (args *PlateWriteChan, ret 
 		return
 	}
 	args = newPlateWriteChan(v1.s.CloserOneWay())
+	args.OnClosing(func() error { return stream.Close() })
 	go func() {
 		closingChan := args.ClosingChan()
 		codec := v1.s.Codec()
@@ -1008,6 +1023,7 @@ func (v1 *trainerProvider) Link(ctx context.Context) (args *PlateWriteChan, ret 
 		}
 	}()
 	ret = newCharReadChan(v1.s.CloserOneWay())
+	ret.OnClosing(func() error { return stream.Close() })
 	go func() {
 		closingChan := ret.ClosingChan()
 		codec := v1.s.Codec()
@@ -1032,6 +1048,7 @@ func (v1 *trainerProvider) Link(ctx context.Context) (args *PlateWriteChan, ret 
 }
 
 func (v1 *trainerProvider) upload(s *orbit.Session, stream net.Conn) (err error) {
+	defer stream.Close()
 	err = v1.h.Upload(stream)
 	if err != nil {
 		return
@@ -1040,6 +1057,7 @@ func (v1 *trainerProvider) upload(s *orbit.Session, stream net.Conn) (err error)
 }
 
 func (v1 *trainerProvider) download(s *orbit.Session, stream net.Conn) (err error) {
+	defer stream.Close()
 	args := newCharReadChan(v1.s.CloserOneWay())
 	go func() {
 		closingChan := args.ClosingChan()

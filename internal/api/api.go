@@ -38,6 +38,7 @@ type StreamType int
 const (
 	StreamTypeRaw       = 0
 	StreamTypeCallAsync = 1
+	StreamTypeCallInit  = 2
 )
 
 type InitStream struct {

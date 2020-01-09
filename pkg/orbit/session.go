@@ -64,8 +64,8 @@ type Session struct {
 	streamFuncsMx sync.Mutex
 	streamFuncs   map[string]StreamFunc
 
-	callStream   *mxStream
-	callRetChain *chain
+	callStreamsMx sync.Mutex
+	callStreams   map[string]*callStream // Key: service id
 
 	callFuncsMx sync.RWMutex
 	callFuncs   map[string]CallFunc
@@ -76,15 +76,16 @@ type Session struct {
 
 // newSession creates a new orbit session from the given parameters.
 // The created session closes, if the underlying connection is closed.
-func newSession(cl closer.Closer, conn Conn, initStream net.Conn, cf *Config) (s *Session) {
+func newSession(cl closer.Closer, conn Conn, cf *Config) (s *Session) {
 	s = &Session{
 		Closer:         cl,
 		cf:             cf,
 		log:            cf.Log,
 		codec:          cf.Codec,
 		conn:           conn,
-		callStream:     newMxStream(initStream),
-		callRetChain:   newChain(),
+		streamFuncs:    make(map[string]StreamFunc),
+		callStreams:    make(map[string]*callStream),
+		callFuncs:      make(map[string]CallFunc),
 		callActiveCtxs: make(map[uint32]*callContext),
 	}
 	s.OnClosing(conn.Close)
@@ -99,10 +100,6 @@ func (s *Session) ID() string {
 // Codec returns the used transmission codec.
 func (s *Session) Codec() codec.Codec {
 	return s.codec
-}
-
-func (s *Session) StreamChanSize() int {
-	return s.cf.StreamChanSize
 }
 
 // LocalAddr returns the local network address.

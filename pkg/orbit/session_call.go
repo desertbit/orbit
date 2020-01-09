@@ -47,8 +47,7 @@ const (
 	// our Error interface.
 	// This is done to prevent sensitive information to leak to the outside that
 	// is usually carried in normal errors.
-	// TODO: Rename to defaultCallErrorMessage
-	defaultErrorMessage = "method call failed"
+	defaultCallErrorMessage = "method call failed"
 
 	// The first byte send in a request to indicate a call to a remote function.
 	typeCall byte = 0
@@ -69,40 +68,77 @@ func (s *Session) RegisterCall(service, id string, f CallFunc) {
 }
 
 func (s *Session) Call(ctx context.Context, service, id string, data interface{}) (d *Data, err error) {
-	return s.call(ctx, s.callStream, id, data)
+	// Retrieve the single call stream per service for this basic call.
+	var (
+		cs *callStream
+		ok bool
+	)
+
+	s.callStreamsMx.Lock()
+	cs, ok = s.callStreams[service]
+	s.callStreamsMx.Unlock()
+
+	if !ok {
+		s.log.Debug().Str("service", service).Msg("init call stream")
+
+		// First call, initialize the call stream.
+		stream, err := s.openStream(ctx, "", api.StreamTypeCallInit)
+		if err != nil {
+			return
+		}
+
+		// Create new call stream.
+		cs = newCallStream(stream, newChain())
+
+		// Stream opened, start a read routine to receive responses and revcalls.
+		go s.readCallRoutine(cs, false)
+
+		// Save the call stream for the provided service id.
+		s.callStreamsMx.Lock()
+		s.callStreams[service] = cs
+		s.callStreamsMx.Unlock()
+	}
+
+	return s.call(ctx, cs, id, data)
 }
 
-// TODO: BUG: the return data is not send over the new stream connection.
 func (s *Session) CallAsync(ctx context.Context, service, id string, data interface{}) (d *Data, err error) {
+	// Open a new stream connection.
 	stream, err := s.openStream(ctx, "", api.StreamTypeCallAsync)
 	if err != nil {
 		return
 	}
 
-	return s.call(ctx, newMxStream(stream), id, data)
+	// Create a temporary call stream, which lives only until the return data arrives.
+	cs := newCallStream(stream, newChain())
+
+	// Start a read routine to receive the response.
+	go s.readCallRoutine(cs, true)
+
+	return s.call(ctx, cs, id, data)
 }
 
 //###############//
 //### Private ###//
 //###############//
 
-func (s *Session) call(ctx context.Context, ms *mxStream, id string, data interface{}) (d *Data, err error) {
+func (s *Session) call(ctx context.Context, cs *callStream, id string, data interface{}) (d *Data, err error) {
 	// Create a new channel with its key. This will be used to send
 	// the data over that forms the response to the call.
-	key, channel := s.callRetChain.new()
-	defer s.callRetChain.delete(key)
+	key, channel := cs.RetChain.new()
+	defer cs.RetChain.delete(key)
 
 	// Write to the client.
-	err = s.writeCall(ctx, ms, typeCall, &api.Call{ID: id, Key: key}, data)
+	err = s.writeCall(ctx, cs, typeCall, &api.Call{ID: id, Key: key}, data)
 	if err != nil {
 		return
 	}
 
 	// Wait, until the response has arrived, and return its result.
-	return s.waitForCallResponse(ctx, ms, key, channel)
+	return s.waitForCallResponse(ctx, cs, key, channel)
 }
 
-func (s *Session) writeCall(ctx context.Context, ms *mxStream, reqType byte, headerI, dataI interface{}) (err error) {
+func (s *Session) writeCall(ctx context.Context, cs *callStream, reqType byte, headerI, dataI interface{}) (err error) {
 	var header, payload []byte
 
 	// Marshal the header data.
@@ -127,44 +163,44 @@ func (s *Session) writeCall(ctx context.Context, ms *mxStream, reqType byte, hea
 	}
 
 	// Ensure only one write happens at a time on the stream.
-	ms.WriteMx.Lock()
-	defer ms.WriteMx.Unlock()
+	cs.WriteMx.Lock()
+	defer cs.WriteMx.Unlock()
 
 	// Set the deadline when all write operations must be finished.
 	deadline, ok := ctx.Deadline()
 	if ok {
-		err = ms.SetWriteDeadline(deadline)
+		err = cs.SetWriteDeadline(deadline)
 		if err != nil {
 			return err
 		}
 	}
 
 	// Write the request type.
-	_, err = ms.Write([]byte{reqType})
+	_, err = cs.Write([]byte{reqType})
 	if err != nil {
 		return err
 	}
 
 	// Write the header.
-	err = packet.Write(ms, header)
+	err = packet.Write(cs, header)
 	if err != nil {
 		return err
 	}
 
 	// Write the payload.
-	err = packet.Write(ms, payload)
+	err = packet.Write(cs, payload)
 	if err != nil {
 		return err
 	}
 
 	// Reset the deadline.
-	return ms.SetWriteDeadline(time.Time{})
+	return cs.SetWriteDeadline(time.Time{})
 }
 
 // waitForCallResponse waits for a response on the given chainChan channel.
 func (s *Session) waitForCallResponse(
 	ctx context.Context,
-	ms *mxStream,
+	cs *callStream,
 	key uint32,
 	channel chainChan,
 ) (d *Data, err error) {
@@ -175,7 +211,7 @@ func (s *Session) waitForCallResponse(
 		err = ErrClosed
 	case <-ctx.Done():
 		// Cancel the call on the remote peer.
-		err = s.writeCall(ctx, ms, typeCallCancel, &api.CallCancel{Key: key}, nil)
+		err = s.writeCall(ctx, cs, typeCallCancel, &api.CallCancel{Key: key}, nil)
 	case rData := <-channel:
 		// Response has arrived.
 		d = rData.Data
@@ -185,12 +221,18 @@ func (s *Session) waitForCallResponse(
 }
 
 func (s *Session) handleAsyncCall(stream net.Conn) {
-	go s.readCallRoutine(newMxStream(stream), true)
+	// No need to create a chain for return values. Not used on the server side.
+	go s.readCallRoutine(newCallStream(stream, nil), true)
 }
 
-func (s *Session) readCallRoutine(ms *mxStream, once bool) {
+func (s *Session) handleInitCall(stream net.Conn) {
+	// A fixed call stream, create a chain for it.
+	go s.readCallRoutine(newCallStream(stream, newChain()), false)
+}
+
+func (s *Session) readCallRoutine(cs *callStream, once bool) {
 	// Close the stream on exit.
-	defer ms.Close()
+	defer cs.Close()
 
 	// Warning: don't shadow the error.
 	// Otherwise the deferred logging won't work!
@@ -234,7 +276,7 @@ func (s *Session) readCallRoutine(ms *mxStream, once bool) {
 		// Read in a loop, as Read could potentially return 0 read bytes.
 		bytesRead = 0
 		for bytesRead == 0 {
-			n, err = ms.Read(reqTypeBuf)
+			n, err = cs.Read(reqTypeBuf)
 			if err != nil {
 				return
 			}
@@ -244,28 +286,29 @@ func (s *Session) readCallRoutine(ms *mxStream, once bool) {
 		reqType = reqTypeBuf[0]
 
 		// Read the header from the stream.
-		headerData, err = packet.Read(ms, nil)
+		headerData, err = packet.Read(cs, nil)
 		if err != nil {
 			return
 		}
 
 		// Read the payload from the stream.
-		payloadData, err = packet.Read(ms, nil)
+		payloadData, err = packet.Read(cs, nil)
 		if err != nil {
 			return
 		}
 
-		// Handle the received message in a new goroutine, if specified.
 		if once {
-			s.handleCallRequest(ms, reqType, headerData, payloadData)
+			// Handle the received message in the same routine.
+			s.handleCallRequest(cs, reqType, headerData, payloadData)
 			return
 		} else {
-			go s.handleCallRequest(ms, reqType, headerData, payloadData)
+			// Handle the received message in a new goroutine.
+			go s.handleCallRequest(cs, reqType, headerData, payloadData)
 		}
 	}
 }
 
-func (s *Session) handleCallRequest(ms *mxStream, reqType byte, headerData, payloadData []byte) {
+func (s *Session) handleCallRequest(cs *callStream, reqType byte, headerData, payloadData []byte) {
 	var err error
 
 	// Catch panics, caused by the handler func or one of the hooks.
@@ -288,9 +331,9 @@ func (s *Session) handleCallRequest(ms *mxStream, reqType byte, headerData, payl
 	// Check the request type.
 	switch reqType {
 	case typeCall:
-		err = s.handleCall(ms, headerData, payloadData)
+		err = s.handleCall(cs, headerData, payloadData)
 	case typeCallReturn:
-		err = s.handleCallReturn(headerData, payloadData)
+		err = s.handleCallReturn(cs, headerData, payloadData)
 	case typeCallCancel:
 		err = s.handleCallCancel(headerData)
 	default:
@@ -298,7 +341,7 @@ func (s *Session) handleCallRequest(ms *mxStream, reqType byte, headerData, payl
 	}
 }
 
-func (s *Session) handleCall(ms *mxStream, headerData, payloadData []byte) (err error) {
+func (s *Session) handleCall(cs *callStream, headerData, payloadData []byte) (err error) {
 	// Decode the request header.
 	var header api.Call
 	err = msgpack.Codec.Decode(headerData, &header)
@@ -358,7 +401,7 @@ func (s *Session) handleCall(ms *mxStream, headerData, payloadData []byte) (err 
 
 		// Ensure an error message is always set.
 		if msg == "" {
-			msg = defaultErrorMessage
+			msg = defaultCallErrorMessage
 		}
 
 		// Log the actual error here, but only if it contains a message.
@@ -387,7 +430,7 @@ func (s *Session) handleCall(ms *mxStream, headerData, payloadData []byte) (err 
 	defer cancel()
 
 	// Send the response back to the caller.
-	err = s.writeCall(ctx, ms, typeCallReturn, retHeader, retData)
+	err = s.writeCall(ctx, cs, typeCallReturn, retHeader, retData)
 	if err != nil {
 		return fmt.Errorf("handle call: send response: %v", err)
 	}
@@ -404,7 +447,7 @@ func (s *Session) handleCall(ms *mxStream, headerData, payloadData []byte) (err 
 //
 // This function is executed on the side of the receiver of a response,
 // the "client-side".
-func (s *Session) handleCallReturn(headerData, payloadData []byte) (err error) {
+func (s *Session) handleCallReturn(cs *callStream, headerData, payloadData []byte) (err error) {
 	// Decode the header.
 	var header api.CallReturn
 	err = msgpack.Codec.Decode(headerData, &header)
@@ -413,9 +456,9 @@ func (s *Session) handleCallReturn(headerData, payloadData []byte) (err error) {
 	}
 
 	// Get the channel by the key.
-	channel := s.callRetChain.get(header.Key)
+	channel := cs.RetChain.get(header.Key)
 	if channel == nil {
-		return errors.New("call return: no handler func available")
+		return fmt.Errorf("call return: no handler func available for key '%d'", header.Key)
 	}
 
 	// Create the channel data.

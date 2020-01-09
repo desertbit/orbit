@@ -38,9 +38,6 @@ import (
 
 const (
 	// todo:
-	defaultStreamChanSize = 3
-
-	// todo:
 	defaultInitTimeout = 10 * time.Second
 )
 
@@ -53,10 +50,6 @@ type Config struct {
 
 	// InitTimeout specifies the connection initialization timeout.
 	InitTimeout time.Duration
-
-	// StreamChanSize specifies the size of stream channels.
-	// TODO: move to orbit cmd
-	StreamChanSize int
 }
 
 func prepareConfig(c *Config) *Config {
@@ -73,9 +66,6 @@ func prepareConfig(c *Config) *Config {
 	}
 	if c.InitTimeout == 0 {
 		c.InitTimeout = defaultInitTimeout
-	}
-	if c.StreamChanSize <= 0 {
-		c.StreamChanSize = defaultStreamChanSize
 	}
 	return c
 }

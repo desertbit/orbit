@@ -28,7 +28,7 @@
 package main
 
 import (
-	"net"
+	"context"
 
 	"github.com/desertbit/closer/v3"
 	"github.com/desertbit/orbit/examples/simple/api"
@@ -37,23 +37,26 @@ import (
 
 type Server struct {
 	api.ExampleProviderCaller
+	api.TrainerProviderCaller
 }
 
 func NewServer(so *orbit.Server) (s *Server, err error) {
 	s = &Server{}
-	s.ExampleProviderCaller, err = api.RegisterExampleProvider(so, s)
-	if err != nil {
-		return
-	}
+
+	s.ExampleProviderCaller = api.RegisterExampleProvider(so, s)
 
 	return
 }
 
-func (s *Server) Test(args *api.Plate) (ret *api.Rect, err error) {
+func (s *Server) Test(ctx context.Context, args *api.Plate) (ret *api.Rect, err error) {
 	panic("implement me")
 }
 
-func (s *Server) Hello(conn net.Conn) (err error) {
+func (s *Server) Test2(ctx context.Context, args *api.Rect) (err error) {
+	panic("implement me")
+}
+
+func (s *Server) Hello2(args *api.CharReadChan) (err error) {
 	panic("implement me")
 }
 
