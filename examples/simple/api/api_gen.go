@@ -4,12 +4,8 @@ package api
 import (
 	"context"
 	"errors"
-	"net"
-	"sync"
 	"time"
 
-	"github.com/desertbit/closer/v3"
-	"github.com/desertbit/orbit/internal/packet"
 	"github.com/desertbit/orbit/pkg/orbit"
 )
 
@@ -18,243 +14,162 @@ import (
 //##############//
 
 const (
-	ErrCodeNotFound            = 1
-	ErrCodeDatasetDoesNotExist = 2
+	ErrCodeErrBencherTaskDoesNotExist = 1
 )
 
 var (
-	ErrNotFound                 = errors.New("not found")
-	orbitErrNotFound            = orbit.Err(ErrNotFound, ErrNotFound.Error(), ErrCodeNotFound)
-	ErrDatasetDoesNotExist      = errors.New("dataset does not exist")
-	orbitErrDatasetDoesNotExist = orbit.Err(ErrDatasetDoesNotExist, ErrDatasetDoesNotExist.Error(), ErrCodeDatasetDoesNotExist)
+	ErrErrBencherTaskDoesNotExist      = errors.New("err bencher task does not exist")
+	orbitErrErrBencherTaskDoesNotExist = orbit.Err(ErrErrBencherTaskDoesNotExist, ErrErrBencherTaskDoesNotExist.Error(), ErrCodeErrBencherTaskDoesNotExist)
 )
 
 //#############//
 //### Types ###//
 //#############//
 
-type Char struct {
-	Lol string
+type BencherTask struct {
+	Created       time.Time
+	DatasetID     string
+	Error         string
+	GpuIDs        []int
+	Id            string
+	ModelID       int
+	Progress      float32
+	StatusHistory []*BencherTaskStatus
+	WorkerID      int
 }
 
-type CharWriteChan struct {
-	closer.Closer
-	C   chan<- *Char
-	c   chan *Char
-	mx  sync.Mutex
-	err error
+type BencherTaskStatus struct {
+	Status    int
+	Timestamp time.Time
 }
 
-func newCharWriteChan(cl closer.Closer) *CharWriteChan {
-	c := &CharWriteChan{Closer: cl, c: make(chan *Char, 3)}
-	c.C = c.c
-	return c
+type DeleteBencherTaskArgs struct {
+	Id string
 }
 
-func (c *CharWriteChan) setError(err error) {
-	c.mx.Lock()
-	c.err = err
-	c.mx.Unlock()
-	c.Close_()
+type DeleteBencherTasksArgs struct {
+	Statuses []int
 }
 
-func (c *CharWriteChan) Err() (err error) {
-	c.mx.Lock()
-	err = c.err
-	c.mx.Unlock()
-	return
+type GetBencherTaskArgs struct {
+	Id string
 }
 
-type CharReadChan struct {
-	closer.Closer
-	C   <-chan *Char
-	c   chan *Char
-	mx  sync.Mutex
-	err error
+type GetBencherTaskIDsRet struct {
+	Ids []string
 }
 
-func newCharReadChan(cl closer.Closer) *CharReadChan {
-	c := &CharReadChan{Closer: cl, c: make(chan *Char, 3)}
-	c.C = c.c
-	return c
+type GetBencherTasks struct {
 }
 
-func (c *CharReadChan) setError(err error) {
-	c.mx.Lock()
-	c.err = err
-	c.mx.Unlock()
-	c.Close_()
+type GetBencherTasksRet struct {
+	Tasks []*BencherTask
 }
 
-func (c *CharReadChan) Err() (err error) {
-	c.mx.Lock()
-	err = c.err
-	c.mx.Unlock()
-	return
-}
-
-type Plate struct {
-	Name    string
-	Rect    *Rect
-	Test    map[int]*Rect
-	Test2   []*Rect
-	Test3   []float32
-	Test4   map[string]map[int][]*Rect
-	Ts      time.Time
-	Version int
-}
-
-type PlateWriteChan struct {
-	closer.Closer
-	C   chan<- *Plate
-	c   chan *Plate
-	mx  sync.Mutex
-	err error
-}
-
-func newPlateWriteChan(cl closer.Closer) *PlateWriteChan {
-	c := &PlateWriteChan{Closer: cl, c: make(chan *Plate, 3)}
-	c.C = c.c
-	return c
-}
-
-func (c *PlateWriteChan) setError(err error) {
-	c.mx.Lock()
-	c.err = err
-	c.mx.Unlock()
-	c.Close_()
-}
-
-func (c *PlateWriteChan) Err() (err error) {
-	c.mx.Lock()
-	err = c.err
-	c.mx.Unlock()
-	return
-}
-
-type PlateReadChan struct {
-	closer.Closer
-	C   <-chan *Plate
-	c   chan *Plate
-	mx  sync.Mutex
-	err error
-}
-
-func newPlateReadChan(cl closer.Closer) *PlateReadChan {
-	c := &PlateReadChan{Closer: cl, c: make(chan *Plate, 3)}
-	c.C = c.c
-	return c
-}
-
-func (c *PlateReadChan) setError(err error) {
-	c.mx.Lock()
-	c.err = err
-	c.mx.Unlock()
-	c.Close_()
-}
-
-func (c *PlateReadChan) Err() (err error) {
-	c.mx.Lock()
-	err = c.err
-	c.mx.Unlock()
-	return
-}
-
-type Rect struct {
-	C  *Char
-	X1 float32
-	X2 float32
-	Y1 float32
-	Y2 float32
-}
-
-type Test3Args struct {
-	C map[int][]*Rect
-	I int
-	V float64
-}
-
-type Test3Ret struct {
-	Lol string
+type StartBencherTaskArgs struct {
+	DatasetID string
+	GpuIDs    []int
+	ModelID   int
+	ModelType string
+	NumCPU    int
+	WorkerID  int
 }
 
 //################//
 //### Services ###//
 //################//
 
-// Example  ---------------------
+// Bencher  ---------------------
 const (
-	Example       = "Example"
-	ExampleTest   = "Test"
-	ExampleTest2  = "Test2"
-	ExampleTest3  = "Test3"
-	ExampleTest4  = "Test4"
-	ExampleHello  = "Hello"
-	ExampleHello2 = "Hello2"
-	ExampleHello3 = "Hello3"
-	ExampleHello4 = "Hello4"
+	Bencher                 = "Bencher"
+	BencherDeleteTask       = "DeleteTask"
+	BencherDeleteTasks      = "DeleteTasks"
+	BencherGetTask          = "GetTask"
+	BencherGetTaskIDs       = "GetTaskIDs"
+	BencherGetTasks         = "GetTasks"
+	BencherStartBencherTask = "StartBencherTask"
 )
 
-type ExampleConsumerCaller interface {
+type BencherConsumerCaller interface {
 	// Calls
-	Test(ctx context.Context, args *Plate) (ret *Rect, err error)
-	Test2(ctx context.Context, args *Rect) (err error)
+	DeleteTask(ctx context.Context, args *DeleteBencherTaskArgs) (err error)
+	DeleteTasks(ctx context.Context, args *DeleteBencherTasksArgs) (err error)
+	GetTask(ctx context.Context, args *GetBencherTaskArgs) (ret *BencherTask, err error)
+	GetTaskIDs(ctx context.Context) (ret *GetBencherTaskIDsRet, err error)
+	GetTasks(ctx context.Context) (ret *GetBencherTasks, err error)
+	StartBencherTask(ctx context.Context) (err error)
 	// Streams
-	Hello(ctx context.Context) (stream net.Conn, err error)
-	Hello2(ctx context.Context) (args *CharWriteChan, err error)
 }
 
-type ExampleConsumerHandler interface {
+type BencherConsumerHandler interface {
 	// Calls
-	Test3(ctx context.Context, s *orbit.Session, args *Test3Args) (ret *Test3Ret, err error)
-	Test4(ctx context.Context, s *orbit.Session) (ret *Rect, err error)
 	// Streams
-	Hello3(s *orbit.Session, ret *PlateWriteChan) (err error)
-	Hello4(s *orbit.Session, args *CharReadChan, ret *PlateWriteChan) (err error)
 }
 
-type ExampleProviderCaller interface {
+type BencherProviderCaller interface {
 	// Calls
-	Test3(ctx context.Context, args *Test3Args) (ret *Test3Ret, err error)
-	Test4(ctx context.Context) (ret *Rect, err error)
 	// Streams
-	Hello3(ctx context.Context) (ret *PlateReadChan, err error)
-	Hello4(ctx context.Context) (args *CharWriteChan, ret *PlateReadChan, err error)
 }
 
-type ExampleProviderHandler interface {
+type BencherProviderHandler interface {
 	// Calls
-	Test(ctx context.Context, s *orbit.Session, args *Plate) (ret *Rect, err error)
-	Test2(ctx context.Context, s *orbit.Session, args *Rect) (err error)
+	DeleteTask(ctx context.Context, s *orbit.Session, args *DeleteBencherTaskArgs) (err error)
+	DeleteTasks(ctx context.Context, s *orbit.Session, args *DeleteBencherTasksArgs) (err error)
+	GetTask(ctx context.Context, s *orbit.Session, args *GetBencherTaskArgs) (ret *BencherTask, err error)
+	GetTaskIDs(ctx context.Context, s *orbit.Session) (ret *GetBencherTaskIDsRet, err error)
+	GetTasks(ctx context.Context, s *orbit.Session) (ret *GetBencherTasks, err error)
+	StartBencherTask(ctx context.Context, s *orbit.Session) (err error)
 	// Streams
-	Hello(s *orbit.Session, stream net.Conn) (err error)
-	Hello2(s *orbit.Session, args *CharReadChan) (err error)
 }
 
-type exampleConsumer struct {
-	h ExampleConsumerHandler
+type bencherConsumer struct {
+	h BencherConsumerHandler
 	s *orbit.Session
 }
 
-func RegisterExampleConsumer(s *orbit.Session, h ExampleConsumerHandler) ExampleConsumerCaller {
-	cc := &exampleConsumer{h: h, s: s}
-	s.RegisterCall(Example, ExampleTest3, cc.test3)
-	s.RegisterCall(Example, ExampleTest4, cc.test4)
-	s.RegisterStream(Example, ExampleHello3, cc.hello3)
-	s.RegisterStream(Example, ExampleHello4, cc.hello4)
+func RegisterBencherConsumer(s *orbit.Session, h BencherConsumerHandler) BencherConsumerCaller {
+	cc := &bencherConsumer{h: h, s: s}
 	return cc
 }
 
-func (v1 *exampleConsumer) Test(ctx context.Context, args *Plate) (ret *Rect, err error) {
-	retData, err := v1.s.Call(ctx, Example, ExampleTest, args)
+func (v1 *bencherConsumer) DeleteTask(ctx context.Context, args *DeleteBencherTaskArgs) (err error) {
+	_, err = v1.s.Call(ctx, Bencher, BencherDeleteTask, args)
 	if err != nil {
 		var cErr *orbit.ErrorCode
 		if errors.As(err, &cErr) {
 			switch cErr.Code {
 			case 1:
-				err = ErrNotFound
-			case 2:
-				err = ErrDatasetDoesNotExist
+				err = ErrErrBencherTaskDoesNotExist
+			}
+		}
+		return
+	}
+	return
+}
+
+func (v1 *bencherConsumer) DeleteTasks(ctx context.Context, args *DeleteBencherTasksArgs) (err error) {
+	_, err = v1.s.Call(ctx, Bencher, BencherDeleteTasks, args)
+	if err != nil {
+		var cErr *orbit.ErrorCode
+		if errors.As(err, &cErr) {
+			switch cErr.Code {
+			case 1:
+				err = ErrErrBencherTaskDoesNotExist
+			}
+		}
+		return
+	}
+	return
+}
+
+func (v1 *bencherConsumer) GetTask(ctx context.Context, args *GetBencherTaskArgs) (ret *BencherTask, err error) {
+	retData, err := v1.s.Call(ctx, Bencher, BencherGetTask, args)
+	if err != nil {
+		var cErr *orbit.ErrorCode
+		if errors.As(err, &cErr) {
+			switch cErr.Code {
+			case 1:
+				err = ErrErrBencherTaskDoesNotExist
 			}
 		}
 		return
@@ -266,193 +181,14 @@ func (v1 *exampleConsumer) Test(ctx context.Context, args *Plate) (ret *Rect, er
 	return
 }
 
-func (v1 *exampleConsumer) Test2(ctx context.Context, args *Rect) (err error) {
-	_, err = v1.s.Call(ctx, Example, ExampleTest2, args)
+func (v1 *bencherConsumer) GetTaskIDs(ctx context.Context) (ret *GetBencherTaskIDsRet, err error) {
+	retData, err := v1.s.Call(ctx, Bencher, BencherGetTaskIDs, nil)
 	if err != nil {
 		var cErr *orbit.ErrorCode
 		if errors.As(err, &cErr) {
 			switch cErr.Code {
 			case 1:
-				err = ErrNotFound
-			case 2:
-				err = ErrDatasetDoesNotExist
-			}
-		}
-		return
-	}
-	return
-}
-
-func (v1 *exampleConsumer) test3(ctx context.Context, s *orbit.Session, ad *orbit.Data) (r interface{}, err error) {
-	var args *Test3Args
-	err = ad.Decode(args)
-	if err != nil {
-		return
-	}
-	ret, err := v1.h.Test3(ctx, s, args)
-	if err != nil {
-		if errors.Is(err, ErrNotFound) {
-			err = orbitErrNotFound
-		} else if errors.Is(err, ErrDatasetDoesNotExist) {
-			err = orbitErrDatasetDoesNotExist
-		}
-		return
-	}
-	r = ret
-	return
-}
-
-func (v1 *exampleConsumer) test4(ctx context.Context, s *orbit.Session, ad *orbit.Data) (r interface{}, err error) {
-	ret, err := v1.h.Test4(ctx, s)
-	if err != nil {
-		if errors.Is(err, ErrNotFound) {
-			err = orbitErrNotFound
-		} else if errors.Is(err, ErrDatasetDoesNotExist) {
-			err = orbitErrDatasetDoesNotExist
-		}
-		return
-	}
-	r = ret
-	return
-}
-
-func (v1 *exampleConsumer) Hello(ctx context.Context) (stream net.Conn, err error) {
-	return v1.s.OpenStream(ctx, Example, ExampleHello)
-}
-
-func (v1 *exampleConsumer) Hello2(ctx context.Context) (args *CharWriteChan, err error) {
-	stream, err := v1.s.OpenStream(ctx, Example, ExampleHello2)
-	if err != nil {
-		return
-	}
-	args = newCharWriteChan(v1.s.CloserOneWay())
-	args.OnClosing(func() error { return stream.Close() })
-	go func() {
-		closingChan := args.ClosingChan()
-		codec := v1.s.Codec()
-		for {
-			select {
-			case <-closingChan:
-				return
-			case arg := <-args.c:
-				err := packet.WriteEncode(stream, arg, codec)
-				if err != nil {
-					if v1.s.IsClosing() {
-						err = nil
-					}
-					args.setError(err)
-					return
-				}
-			}
-		}
-	}()
-	return
-}
-
-func (v1 *exampleConsumer) hello3(s *orbit.Session, stream net.Conn) (err error) {
-	defer stream.Close()
-	ret := newPlateWriteChan(v1.s.CloserOneWay())
-	go func() {
-		closingChan := ret.ClosingChan()
-		codec := v1.s.Codec()
-		for {
-			select {
-			case <-closingChan:
-				return
-			case data := <-ret.c:
-				err := packet.WriteEncode(stream, data, codec)
-				if err != nil {
-					if v1.s.IsClosing() {
-						err = nil
-					}
-					ret.setError(err)
-					return
-				}
-			}
-		}
-	}()
-	err = v1.h.Hello3(s, ret)
-	if err != nil {
-		return
-	}
-	return
-}
-
-func (v1 *exampleConsumer) hello4(s *orbit.Session, stream net.Conn) (err error) {
-	defer stream.Close()
-	args := newCharReadChan(v1.s.CloserOneWay())
-	go func() {
-		closingChan := args.ClosingChan()
-		codec := v1.s.Codec()
-		for {
-			var arg *Char
-			err := packet.ReadDecode(stream, arg, codec)
-			if err != nil {
-				if v1.s.IsClosing() {
-					err = nil
-				}
-				args.setError(err)
-				return
-			}
-			select {
-			case <-closingChan:
-				return
-			case args.c <- arg:
-			}
-		}
-	}()
-
-	ret := newPlateWriteChan(v1.s.CloserOneWay())
-	go func() {
-		closingChan := ret.ClosingChan()
-		codec := v1.s.Codec()
-		for {
-			select {
-			case <-closingChan:
-				return
-			case data := <-ret.c:
-				err := packet.WriteEncode(stream, data, codec)
-				if err != nil {
-					if v1.s.IsClosing() {
-						err = nil
-					}
-					ret.setError(err)
-					return
-				}
-			}
-		}
-	}()
-	err = v1.h.Hello4(s, args, ret)
-	if err != nil {
-		return
-	}
-	return
-}
-
-type exampleProvider struct {
-	h ExampleProviderHandler
-	s *orbit.Session
-}
-
-func RegisterExampleProvider(s *orbit.Session, h ExampleProviderHandler) ExampleProviderCaller {
-	cc := &exampleProvider{h: h, s: s}
-	s.RegisterCall(Example, ExampleTest, cc.test)
-	s.RegisterCall(Example, ExampleTest2, cc.test2)
-	s.RegisterStream(Example, ExampleHello, cc.hello)
-	s.RegisterStream(Example, ExampleHello2, cc.hello2)
-	return cc
-}
-
-func (v1 *exampleProvider) Test3(ctx context.Context, args *Test3Args) (ret *Test3Ret, err error) {
-	retData, err := v1.s.Call(ctx, Example, ExampleTest3, args)
-	if err != nil {
-		var cErr *orbit.ErrorCode
-		if errors.As(err, &cErr) {
-			switch cErr.Code {
-			case 1:
-				err = ErrNotFound
-			case 2:
-				err = ErrDatasetDoesNotExist
+				err = ErrErrBencherTaskDoesNotExist
 			}
 		}
 		return
@@ -464,16 +200,14 @@ func (v1 *exampleProvider) Test3(ctx context.Context, args *Test3Args) (ret *Tes
 	return
 }
 
-func (v1 *exampleProvider) Test4(ctx context.Context) (ret *Rect, err error) {
-	retData, err := v1.s.Call(ctx, Example, ExampleTest4, nil)
+func (v1 *bencherConsumer) GetTasks(ctx context.Context) (ret *GetBencherTasks, err error) {
+	retData, err := v1.s.Call(ctx, Bencher, BencherGetTasks, nil)
 	if err != nil {
 		var cErr *orbit.ErrorCode
 		if errors.As(err, &cErr) {
 			switch cErr.Code {
 			case 1:
-				err = ErrNotFound
-			case 2:
-				err = ErrDatasetDoesNotExist
+				err = ErrErrBencherTaskDoesNotExist
 			}
 		}
 		return
@@ -485,18 +219,79 @@ func (v1 *exampleProvider) Test4(ctx context.Context) (ret *Rect, err error) {
 	return
 }
 
-func (v1 *exampleProvider) test(ctx context.Context, s *orbit.Session, ad *orbit.Data) (r interface{}, err error) {
-	var args *Plate
+func (v1 *bencherConsumer) StartBencherTask(ctx context.Context) (err error) {
+	_, err = v1.s.Call(ctx, Bencher, BencherStartBencherTask, nil)
+	if err != nil {
+		var cErr *orbit.ErrorCode
+		if errors.As(err, &cErr) {
+			switch cErr.Code {
+			case 1:
+				err = ErrErrBencherTaskDoesNotExist
+			}
+		}
+		return
+	}
+	return
+}
+
+type bencherProvider struct {
+	h BencherProviderHandler
+	s *orbit.Session
+}
+
+func RegisterBencherProvider(s *orbit.Session, h BencherProviderHandler) BencherProviderCaller {
+	cc := &bencherProvider{h: h, s: s}
+	s.RegisterCall(Bencher, BencherDeleteTask, cc.deleteTask)
+	s.RegisterCall(Bencher, BencherDeleteTasks, cc.deleteTasks)
+	s.RegisterCall(Bencher, BencherGetTask, cc.getTask)
+	s.RegisterCall(Bencher, BencherGetTaskIDs, cc.getTaskIDs)
+	s.RegisterCall(Bencher, BencherGetTasks, cc.getTasks)
+	s.RegisterCall(Bencher, BencherStartBencherTask, cc.startBencherTask)
+	return cc
+}
+
+func (v1 *bencherProvider) deleteTask(ctx context.Context, s *orbit.Session, ad *orbit.Data) (r interface{}, err error) {
+	var args *DeleteBencherTaskArgs
 	err = ad.Decode(args)
 	if err != nil {
 		return
 	}
-	ret, err := v1.h.Test(ctx, s, args)
+	err = v1.h.DeleteTask(ctx, s, args)
 	if err != nil {
-		if errors.Is(err, ErrNotFound) {
-			err = orbitErrNotFound
-		} else if errors.Is(err, ErrDatasetDoesNotExist) {
-			err = orbitErrDatasetDoesNotExist
+		if errors.Is(err, ErrErrBencherTaskDoesNotExist) {
+			err = orbitErrErrBencherTaskDoesNotExist
+		}
+		return
+	}
+	return
+}
+
+func (v1 *bencherProvider) deleteTasks(ctx context.Context, s *orbit.Session, ad *orbit.Data) (r interface{}, err error) {
+	var args *DeleteBencherTasksArgs
+	err = ad.Decode(args)
+	if err != nil {
+		return
+	}
+	err = v1.h.DeleteTasks(ctx, s, args)
+	if err != nil {
+		if errors.Is(err, ErrErrBencherTaskDoesNotExist) {
+			err = orbitErrErrBencherTaskDoesNotExist
+		}
+		return
+	}
+	return
+}
+
+func (v1 *bencherProvider) getTask(ctx context.Context, s *orbit.Session, ad *orbit.Data) (r interface{}, err error) {
+	var args *GetBencherTaskArgs
+	err = ad.Decode(args)
+	if err != nil {
+		return
+	}
+	ret, err := v1.h.GetTask(ctx, s, args)
+	if err != nil {
+		if errors.Is(err, ErrErrBencherTaskDoesNotExist) {
+			err = orbitErrErrBencherTaskDoesNotExist
 		}
 		return
 	}
@@ -504,432 +299,11 @@ func (v1 *exampleProvider) test(ctx context.Context, s *orbit.Session, ad *orbit
 	return
 }
 
-func (v1 *exampleProvider) test2(ctx context.Context, s *orbit.Session, ad *orbit.Data) (r interface{}, err error) {
-	var args *Rect
-	err = ad.Decode(args)
+func (v1 *bencherProvider) getTaskIDs(ctx context.Context, s *orbit.Session, ad *orbit.Data) (r interface{}, err error) {
+	ret, err := v1.h.GetTaskIDs(ctx, s)
 	if err != nil {
-		return
-	}
-	err = v1.h.Test2(ctx, s, args)
-	if err != nil {
-		if errors.Is(err, ErrNotFound) {
-			err = orbitErrNotFound
-		} else if errors.Is(err, ErrDatasetDoesNotExist) {
-			err = orbitErrDatasetDoesNotExist
-		}
-		return
-	}
-	return
-}
-
-func (v1 *exampleProvider) Hello3(ctx context.Context) (ret *PlateReadChan, err error) {
-	stream, err := v1.s.OpenStream(ctx, Example, ExampleHello3)
-	if err != nil {
-		return
-	}
-	ret = newPlateReadChan(v1.s.CloserOneWay())
-	ret.OnClosing(func() error { return stream.Close() })
-	go func() {
-		closingChan := ret.ClosingChan()
-		codec := v1.s.Codec()
-		for {
-			var data *Plate
-			err := packet.ReadDecode(stream, data, codec)
-			if err != nil {
-				if v1.s.IsClosing() {
-					err = nil
-				}
-				ret.setError(err)
-				return
-			}
-			select {
-			case <-closingChan:
-				return
-			case ret.c <- data:
-			}
-		}
-	}()
-	return
-}
-
-func (v1 *exampleProvider) Hello4(ctx context.Context) (args *CharWriteChan, ret *PlateReadChan, err error) {
-	stream, err := v1.s.OpenStream(ctx, Example, ExampleHello4)
-	if err != nil {
-		return
-	}
-	args = newCharWriteChan(v1.s.CloserOneWay())
-	args.OnClosing(func() error { return stream.Close() })
-	go func() {
-		closingChan := args.ClosingChan()
-		codec := v1.s.Codec()
-		for {
-			select {
-			case <-closingChan:
-				return
-			case arg := <-args.c:
-				err := packet.WriteEncode(stream, arg, codec)
-				if err != nil {
-					if v1.s.IsClosing() {
-						err = nil
-					}
-					args.setError(err)
-					return
-				}
-			}
-		}
-	}()
-	ret = newPlateReadChan(v1.s.CloserOneWay())
-	ret.OnClosing(func() error { return stream.Close() })
-	go func() {
-		closingChan := ret.ClosingChan()
-		codec := v1.s.Codec()
-		for {
-			var data *Plate
-			err := packet.ReadDecode(stream, data, codec)
-			if err != nil {
-				if v1.s.IsClosing() {
-					err = nil
-				}
-				ret.setError(err)
-				return
-			}
-			select {
-			case <-closingChan:
-				return
-			case ret.c <- data:
-			}
-		}
-	}()
-	return
-}
-
-func (v1 *exampleProvider) hello(s *orbit.Session, stream net.Conn) (err error) {
-	defer stream.Close()
-	err = v1.h.Hello(s, stream)
-	if err != nil {
-		return
-	}
-	return
-}
-
-func (v1 *exampleProvider) hello2(s *orbit.Session, stream net.Conn) (err error) {
-	defer stream.Close()
-	args := newCharReadChan(v1.s.CloserOneWay())
-	go func() {
-		closingChan := args.ClosingChan()
-		codec := v1.s.Codec()
-		for {
-			var arg *Char
-			err := packet.ReadDecode(stream, arg, codec)
-			if err != nil {
-				if v1.s.IsClosing() {
-					err = nil
-				}
-				args.setError(err)
-				return
-			}
-			select {
-			case <-closingChan:
-				return
-			case args.c <- arg:
-			}
-		}
-	}()
-
-	err = v1.h.Hello2(s, args)
-	if err != nil {
-		return
-	}
-	return
-}
-
-// ---------------------
-
-// Trainer  ---------------------
-const (
-	Trainer         = "Trainer"
-	TrainerStart    = "Start"
-	TrainerUpdate   = "Update"
-	TrainerUpload   = "Upload"
-	TrainerDownload = "Download"
-	TrainerSend     = "Send"
-	TrainerReceive  = "Receive"
-	TrainerLink     = "Link"
-)
-
-type TrainerConsumerCaller interface {
-	// Calls
-	Start(ctx context.Context, args *Plate) (err error)
-	Update(ctx context.Context, args *Char) (ret *Char, err error)
-	// Streams
-	Upload(ctx context.Context) (stream net.Conn, err error)
-	Download(ctx context.Context) (args *CharWriteChan, err error)
-}
-
-type TrainerConsumerHandler interface {
-	// Calls
-	// Streams
-	Send(s *orbit.Session, args *PlateReadChan) (err error)
-	Receive(s *orbit.Session, ret *CharWriteChan) (err error)
-	Link(s *orbit.Session, args *PlateReadChan, ret *CharWriteChan) (err error)
-}
-
-type TrainerProviderCaller interface {
-	// Calls
-	// Streams
-	Send(ctx context.Context) (args *PlateWriteChan, err error)
-	Receive(ctx context.Context) (ret *CharReadChan, err error)
-	Link(ctx context.Context) (args *PlateWriteChan, ret *CharReadChan, err error)
-}
-
-type TrainerProviderHandler interface {
-	// Calls
-	Start(ctx context.Context, s *orbit.Session, args *Plate) (err error)
-	Update(ctx context.Context, s *orbit.Session, args *Char) (ret *Char, err error)
-	// Streams
-	Upload(s *orbit.Session, stream net.Conn) (err error)
-	Download(s *orbit.Session, args *CharReadChan) (err error)
-}
-
-type trainerConsumer struct {
-	h TrainerConsumerHandler
-	s *orbit.Session
-}
-
-func RegisterTrainerConsumer(s *orbit.Session, h TrainerConsumerHandler) TrainerConsumerCaller {
-	cc := &trainerConsumer{h: h, s: s}
-	s.RegisterStream(Trainer, TrainerSend, cc.send)
-	s.RegisterStream(Trainer, TrainerReceive, cc.receive)
-	s.RegisterStream(Trainer, TrainerLink, cc.link)
-	return cc
-}
-
-func (v1 *trainerConsumer) Start(ctx context.Context, args *Plate) (err error) {
-	_, err = v1.s.Call(ctx, Trainer, TrainerStart, args)
-	if err != nil {
-		var cErr *orbit.ErrorCode
-		if errors.As(err, &cErr) {
-			switch cErr.Code {
-			case 1:
-				err = ErrNotFound
-			case 2:
-				err = ErrDatasetDoesNotExist
-			}
-		}
-		return
-	}
-	return
-}
-
-func (v1 *trainerConsumer) Update(ctx context.Context, args *Char) (ret *Char, err error) {
-	retData, err := v1.s.Call(ctx, Trainer, TrainerUpdate, args)
-	if err != nil {
-		var cErr *orbit.ErrorCode
-		if errors.As(err, &cErr) {
-			switch cErr.Code {
-			case 1:
-				err = ErrNotFound
-			case 2:
-				err = ErrDatasetDoesNotExist
-			}
-		}
-		return
-	}
-	err = retData.Decode(ret)
-	if err != nil {
-		return
-	}
-	return
-}
-
-func (v1 *trainerConsumer) Upload(ctx context.Context) (stream net.Conn, err error) {
-	return v1.s.OpenStream(ctx, Trainer, TrainerUpload)
-}
-
-func (v1 *trainerConsumer) Download(ctx context.Context) (args *CharWriteChan, err error) {
-	stream, err := v1.s.OpenStream(ctx, Trainer, TrainerDownload)
-	if err != nil {
-		return
-	}
-	args = newCharWriteChan(v1.s.CloserOneWay())
-	args.OnClosing(func() error { return stream.Close() })
-	go func() {
-		closingChan := args.ClosingChan()
-		codec := v1.s.Codec()
-		for {
-			select {
-			case <-closingChan:
-				return
-			case arg := <-args.c:
-				err := packet.WriteEncode(stream, arg, codec)
-				if err != nil {
-					if v1.s.IsClosing() {
-						err = nil
-					}
-					args.setError(err)
-					return
-				}
-			}
-		}
-	}()
-	return
-}
-
-func (v1 *trainerConsumer) send(s *orbit.Session, stream net.Conn) (err error) {
-	defer stream.Close()
-	args := newPlateReadChan(v1.s.CloserOneWay())
-	go func() {
-		closingChan := args.ClosingChan()
-		codec := v1.s.Codec()
-		for {
-			var arg *Plate
-			err := packet.ReadDecode(stream, arg, codec)
-			if err != nil {
-				if v1.s.IsClosing() {
-					err = nil
-				}
-				args.setError(err)
-				return
-			}
-			select {
-			case <-closingChan:
-				return
-			case args.c <- arg:
-			}
-		}
-	}()
-
-	err = v1.h.Send(s, args)
-	if err != nil {
-		return
-	}
-	return
-}
-
-func (v1 *trainerConsumer) receive(s *orbit.Session, stream net.Conn) (err error) {
-	defer stream.Close()
-	ret := newCharWriteChan(v1.s.CloserOneWay())
-	go func() {
-		closingChan := ret.ClosingChan()
-		codec := v1.s.Codec()
-		for {
-			select {
-			case <-closingChan:
-				return
-			case data := <-ret.c:
-				err := packet.WriteEncode(stream, data, codec)
-				if err != nil {
-					if v1.s.IsClosing() {
-						err = nil
-					}
-					ret.setError(err)
-					return
-				}
-			}
-		}
-	}()
-	err = v1.h.Receive(s, ret)
-	if err != nil {
-		return
-	}
-	return
-}
-
-func (v1 *trainerConsumer) link(s *orbit.Session, stream net.Conn) (err error) {
-	defer stream.Close()
-	args := newPlateReadChan(v1.s.CloserOneWay())
-	go func() {
-		closingChan := args.ClosingChan()
-		codec := v1.s.Codec()
-		for {
-			var arg *Plate
-			err := packet.ReadDecode(stream, arg, codec)
-			if err != nil {
-				if v1.s.IsClosing() {
-					err = nil
-				}
-				args.setError(err)
-				return
-			}
-			select {
-			case <-closingChan:
-				return
-			case args.c <- arg:
-			}
-		}
-	}()
-
-	ret := newCharWriteChan(v1.s.CloserOneWay())
-	go func() {
-		closingChan := ret.ClosingChan()
-		codec := v1.s.Codec()
-		for {
-			select {
-			case <-closingChan:
-				return
-			case data := <-ret.c:
-				err := packet.WriteEncode(stream, data, codec)
-				if err != nil {
-					if v1.s.IsClosing() {
-						err = nil
-					}
-					ret.setError(err)
-					return
-				}
-			}
-		}
-	}()
-	err = v1.h.Link(s, args, ret)
-	if err != nil {
-		return
-	}
-	return
-}
-
-type trainerProvider struct {
-	h TrainerProviderHandler
-	s *orbit.Session
-}
-
-func RegisterTrainerProvider(s *orbit.Session, h TrainerProviderHandler) TrainerProviderCaller {
-	cc := &trainerProvider{h: h, s: s}
-	s.RegisterCall(Trainer, TrainerStart, cc.start)
-	s.RegisterCall(Trainer, TrainerUpdate, cc.update)
-	s.RegisterStream(Trainer, TrainerUpload, cc.upload)
-	s.RegisterStream(Trainer, TrainerDownload, cc.download)
-	return cc
-}
-
-func (v1 *trainerProvider) start(ctx context.Context, s *orbit.Session, ad *orbit.Data) (r interface{}, err error) {
-	var args *Plate
-	err = ad.Decode(args)
-	if err != nil {
-		return
-	}
-	err = v1.h.Start(ctx, s, args)
-	if err != nil {
-		if errors.Is(err, ErrNotFound) {
-			err = orbitErrNotFound
-		} else if errors.Is(err, ErrDatasetDoesNotExist) {
-			err = orbitErrDatasetDoesNotExist
-		}
-		return
-	}
-	return
-}
-
-func (v1 *trainerProvider) update(ctx context.Context, s *orbit.Session, ad *orbit.Data) (r interface{}, err error) {
-	var args *Char
-	err = ad.Decode(args)
-	if err != nil {
-		return
-	}
-	ret, err := v1.h.Update(ctx, s, args)
-	if err != nil {
-		if errors.Is(err, ErrNotFound) {
-			err = orbitErrNotFound
-		} else if errors.Is(err, ErrDatasetDoesNotExist) {
-			err = orbitErrDatasetDoesNotExist
+		if errors.Is(err, ErrErrBencherTaskDoesNotExist) {
+			err = orbitErrErrBencherTaskDoesNotExist
 		}
 		return
 	}
@@ -937,151 +311,24 @@ func (v1 *trainerProvider) update(ctx context.Context, s *orbit.Session, ad *orb
 	return
 }
 
-func (v1 *trainerProvider) Send(ctx context.Context) (args *PlateWriteChan, err error) {
-	stream, err := v1.s.OpenStream(ctx, Trainer, TrainerSend)
+func (v1 *bencherProvider) getTasks(ctx context.Context, s *orbit.Session, ad *orbit.Data) (r interface{}, err error) {
+	ret, err := v1.h.GetTasks(ctx, s)
 	if err != nil {
+		if errors.Is(err, ErrErrBencherTaskDoesNotExist) {
+			err = orbitErrErrBencherTaskDoesNotExist
+		}
 		return
 	}
-	args = newPlateWriteChan(v1.s.CloserOneWay())
-	args.OnClosing(func() error { return stream.Close() })
-	go func() {
-		closingChan := args.ClosingChan()
-		codec := v1.s.Codec()
-		for {
-			select {
-			case <-closingChan:
-				return
-			case arg := <-args.c:
-				err := packet.WriteEncode(stream, arg, codec)
-				if err != nil {
-					if v1.s.IsClosing() {
-						err = nil
-					}
-					args.setError(err)
-					return
-				}
-			}
-		}
-	}()
+	r = ret
 	return
 }
 
-func (v1 *trainerProvider) Receive(ctx context.Context) (ret *CharReadChan, err error) {
-	stream, err := v1.s.OpenStream(ctx, Trainer, TrainerReceive)
+func (v1 *bencherProvider) startBencherTask(ctx context.Context, s *orbit.Session, ad *orbit.Data) (r interface{}, err error) {
+	err = v1.h.StartBencherTask(ctx, s)
 	if err != nil {
-		return
-	}
-	ret = newCharReadChan(v1.s.CloserOneWay())
-	ret.OnClosing(func() error { return stream.Close() })
-	go func() {
-		closingChan := ret.ClosingChan()
-		codec := v1.s.Codec()
-		for {
-			var data *Char
-			err := packet.ReadDecode(stream, data, codec)
-			if err != nil {
-				if v1.s.IsClosing() {
-					err = nil
-				}
-				ret.setError(err)
-				return
-			}
-			select {
-			case <-closingChan:
-				return
-			case ret.c <- data:
-			}
+		if errors.Is(err, ErrErrBencherTaskDoesNotExist) {
+			err = orbitErrErrBencherTaskDoesNotExist
 		}
-	}()
-	return
-}
-
-func (v1 *trainerProvider) Link(ctx context.Context) (args *PlateWriteChan, ret *CharReadChan, err error) {
-	stream, err := v1.s.OpenStream(ctx, Trainer, TrainerLink)
-	if err != nil {
-		return
-	}
-	args = newPlateWriteChan(v1.s.CloserOneWay())
-	args.OnClosing(func() error { return stream.Close() })
-	go func() {
-		closingChan := args.ClosingChan()
-		codec := v1.s.Codec()
-		for {
-			select {
-			case <-closingChan:
-				return
-			case arg := <-args.c:
-				err := packet.WriteEncode(stream, arg, codec)
-				if err != nil {
-					if v1.s.IsClosing() {
-						err = nil
-					}
-					args.setError(err)
-					return
-				}
-			}
-		}
-	}()
-	ret = newCharReadChan(v1.s.CloserOneWay())
-	ret.OnClosing(func() error { return stream.Close() })
-	go func() {
-		closingChan := ret.ClosingChan()
-		codec := v1.s.Codec()
-		for {
-			var data *Char
-			err := packet.ReadDecode(stream, data, codec)
-			if err != nil {
-				if v1.s.IsClosing() {
-					err = nil
-				}
-				ret.setError(err)
-				return
-			}
-			select {
-			case <-closingChan:
-				return
-			case ret.c <- data:
-			}
-		}
-	}()
-	return
-}
-
-func (v1 *trainerProvider) upload(s *orbit.Session, stream net.Conn) (err error) {
-	defer stream.Close()
-	err = v1.h.Upload(s, stream)
-	if err != nil {
-		return
-	}
-	return
-}
-
-func (v1 *trainerProvider) download(s *orbit.Session, stream net.Conn) (err error) {
-	defer stream.Close()
-	args := newCharReadChan(v1.s.CloserOneWay())
-	go func() {
-		closingChan := args.ClosingChan()
-		codec := v1.s.Codec()
-		for {
-			var arg *Char
-			err := packet.ReadDecode(stream, arg, codec)
-			if err != nil {
-				if v1.s.IsClosing() {
-					err = nil
-				}
-				args.setError(err)
-				return
-			}
-			select {
-			case <-closingChan:
-				return
-			case args.c <- arg:
-			}
-		}
-	}()
-
-	err = v1.h.Download(s, args)
-	if err != nil {
 		return
 	}
 	return

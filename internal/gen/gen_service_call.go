@@ -94,7 +94,7 @@ func (g *generator) genServiceCallClient(c *parse.Call, structName, srvcName str
 func (g *generator) genServiceCallServer(c *parse.Call, structName string, errs []*parse.Error) {
 	// Method declaration.
 	g.writeLn(
-		"func (%s *%s) %s(s *orbit.Session, ctx context.Context, ad *orbit.Data) (r interface{}, err error) {",
+		"func (%s *%s) %s(ctx context.Context, s *orbit.Session, ad *orbit.Data) (r interface{}, err error) {",
 		recv, structName, c.NamePrv(),
 	)
 

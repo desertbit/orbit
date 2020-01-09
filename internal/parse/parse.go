@@ -59,7 +59,6 @@ const (
 )
 
 func Parse(data string) (errors []*Error, services []*Service, types []*StructType, err error) {
-	println("wtf")
 	// Tokenize the file.
 	tks, err := tokenize(data)
 	if err != nil {
@@ -159,6 +158,7 @@ func (p *parser) parse() (errors []*Error, srvcs []*Service, err error) {
 			if err != nil {
 				return
 			}
+			name = strings.Title(name)
 
 			// Expect '{'.
 			err = p.expectSymbol(tkBraceL)
@@ -274,20 +274,20 @@ func (p *parser) expectEntry() (e Entry, err error) {
 
 	// Expect the type.
 	if !p.next() {
-		err = errors.New("expected entry type, but is missing")
+		err = errors.New("expected entry type (rev)call or (rev)stream, but is missing")
 		return
 	}
 	t := p.ck.value
 
 	// Validate type.
 	if t != tkEntryCall && t != tkEntryRevCall && t != tkEntryStream && t != tkEntryRevStream {
-		err = fmt.Errorf("expected entry type, but got '%s'", p.ck.value)
+		err = fmt.Errorf("expected entry type (rev)call or (rev)stream, but got '%s'", p.ck.value)
 		return
 	}
 
 	// Async is only allowed for calls and revcalls.
 	if async && (t == tkEntryStream || t == tkEntryRevStream) {
-		err = errors.New("async not allowed here")
+		err = errors.New("async not allowed with streams")
 		return
 	}
 
@@ -509,6 +509,7 @@ func (p *parser) expectStructTypeRef() (s *StructType, err error) {
 		err = fmt.Errorf("invalid struct type: %w", err)
 		return
 	}
+	name = strings.Title(name)
 
 	// Check, if type already exists.
 	var ok bool

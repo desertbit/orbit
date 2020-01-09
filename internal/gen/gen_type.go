@@ -108,6 +108,7 @@ func (g *generator) genChanType(name string, ro bool, streamChanSize uint) {
 		suffix = "Read"
 	}
 
+	// Type definition.
 	g.writeLn("type %s%sChan struct {", name, suffix)
 	g.writeLn("closer.Closer")
 	g.write("C ")
@@ -123,6 +124,7 @@ func (g *generator) genChanType(name string, ro bool, streamChanSize uint) {
 	g.writeLn("}")
 	g.writeLn("")
 
+	// Constructor.
 	g.writeLn("func new%s%sChan(cl closer.Closer) *%s%sChan {", name, suffix, name, suffix)
 	g.writeLn("c := &%s%sChan{Closer: cl, c: make(chan *%s, %d)}", name, suffix, name, streamChanSize)
 	g.writeLn("c.C = c.c")
@@ -130,6 +132,7 @@ func (g *generator) genChanType(name string, ro bool, streamChanSize uint) {
 	g.writeLn("}")
 	g.writeLn("")
 
+	// setError method.
 	g.writeLn("func (c *%s%sChan) setError(err error) {", name, suffix)
 	g.writeLn("c.mx.Lock()")
 	g.writeLn("c.err = err")
@@ -138,6 +141,7 @@ func (g *generator) genChanType(name string, ro bool, streamChanSize uint) {
 	g.writeLn("}")
 	g.writeLn("")
 
+	// Err method.
 	g.writeLn("func (c *%s%sChan) Err() (err error) {", name, suffix)
 	g.writeLn("c.mx.Lock()")
 	g.writeLn("err = c.err")
