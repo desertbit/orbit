@@ -29,89 +29,45 @@ package main
 
 import (
 	"context"
-	"time"
+	"fmt"
 
 	"github.com/desertbit/closer/v3"
 	"github.com/desertbit/orbit/examples/simple/api"
+	"github.com/desertbit/orbit/pkg/net/yamux"
 	"github.com/desertbit/orbit/pkg/orbit"
+	yamux2 "github.com/hashicorp/yamux"
 	"github.com/rs/zerolog/log"
 )
 
-var _ api.ExampleConsumerHandler = &Client{}
-
-type Client struct {
-	api.ExampleConsumerCaller
-}
-
-func NewClient(co *orbit.Session) (caller api.ExampleConsumerCaller, err error) {
-	c := &Client{}
-	c.ExampleConsumerCaller = api.RegisterExampleConsumer(co, c)
-
-	caller = c
-	return
-}
-
-func (c *Client) Test3(ctx context.Context, args *api.Test3Args) (ret *api.Test3Ret, err error) {
-	log.Info().Interface("args", args).Msg("Test3 Handler")
-	ret = &api.Test3Ret{Lol: "not a dummy"}
-	return
-}
-
-func (c *Client) Test4(ctx context.Context) (ret *api.Rect, err error) {
-	ret = &api.Rect{C: &api.Char{Lol: "not a dummy"}, X1: 1, X2: 1, Y1: 1, Y2: 1}
-	return
-}
-
-func (c *Client) Hello3(ret *api.PlateWriteChan) (err error) {
-	for i := 0; i < 3; i++ {
-		ret.C <- &api.Plate{
-			Name:  "not a dummy",
-			Rect:  &api.Rect{C: &api.Char{Lol: "not a dummy"}, X1: 1, X2: 1, Y1: 1, Y2: 1},
-			Test:  map[int]*api.Rect{0: {C: &api.Char{Lol: "not a dummy"}, X1: 1, X2: 1, Y1: 1, Y2: 1}},
-			Test2: []*api.Rect{{C: &api.Char{Lol: "not a dummy"}, X1: 1, X2: 1, Y1: 1, Y2: 1}},
-			Test3: []float32{1, 2, 3},
-			Test4: map[string]map[int][]*api.Rect{
-				"Test": {
-					0: []*api.Rect{{C: &api.Char{Lol: "not a dummy"}, X1: 1, X2: 1, Y1: 1, Y2: 1}},
-				},
-			},
-			Ts:      time.Now(),
-			Version: 5,
-		}
-	}
-	ret.Close_()
-	return
-}
-
-func (c *Client) Hello4(args *api.CharReadChan, ret *api.PlateWriteChan) (err error) {
-	go func() {
-		for i := 0; i < 3; i++ {
-			arg := <-args.C
-			log.Info().Interface("arg", arg).Msg("Hello4 Handler")
-		}
-	}()
-	for i := 0; i < 3; i++ {
-		ret.C <- &api.Plate{
-			Name:    "not a dummy",
-			Ts:      time.Now(),
-			Version: 5,
-		}
-	}
-	ret.Close_()
-	return
-}
-
 func main() {
-	cl := closer.New()
+	err := run()
+	if err != nil {
+		log.Fatal().Err(err).Msg("client run")
+	}
+}
 
-	var conn orbit.Conn
+func run() (err error) {
+	cl := closer.New()
+	defer cl.Close_()
+
+	conn, err := yamux.NewTCPConn("127.0.0.1:6789", yamux2.DefaultConfig())
+	if err != nil {
+		return
+	}
+
 	co, err := orbit.NewClient(cl.CloserTwoWay(), conn, &orbit.Config{PrintPanicStackTraces: true})
 	if err != nil {
 		return
 	}
 
-	c, err := NewClient(co)
+	c := NewClient(co)
+
+	// Make example calls.
+	rect, err := c.Test(context.Background(), &api.Plate{Name: "PlateName", Rect: &api.Rect{X1: 2, X2: 3, Y1: 4, Y2: 5}})
 	if err != nil {
 		return
 	}
+
+	fmt.Printf("Test: %#v\n", rect)
+	return
 }

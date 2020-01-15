@@ -25,57 +25,74 @@
  * SOFTWARE.
  */
 
-package gen
+package parse
 
 import (
 	"errors"
 	"fmt"
-	"os"
-	"os/exec"
-	"unicode"
+	"strings"
 )
 
-// execCmd executes the given command with the given arguments.
-// It checks for exec specific ExitErrors and annotates them.
-func execCmd(name string, args ...string) (err error) {
-	cmd := exec.Command(name, args...)
-	err = cmd.Run()
-	if err != nil {
-		var eErr *exec.ExitError
-		if errors.As(err, &eErr) {
-			return fmt.Errorf("%s: %v", name, string(eErr.Stderr))
+// Returns Err.
+func (p *parser) expectErrors() (err error) {
+	defer func() {
+		var pErr *Err
+		if err != nil && !errors.As(err, &pErr) {
+			err = &Err{msg: err.Error(), line: p.ct.line}
 		}
+	}()
+
+	// Expect "{".
+	err = p.expectSymbol(tkBraceL)
+	if err != nil {
 		return
 	}
-	return
-}
 
-// fileExists checks, if the file at the given path exists.
-// Returns true, if the file exists, else false and optionally an error.
-func fileExists(path string) (bool, error) {
-	_, err := os.Lstat(path)
-	if err == nil {
-		return true, nil
-	}
-	if os.IsNotExist(err) {
-		return false, nil
-	}
-	return false, err
-}
-
-// strExplode splits up s, so that every uppercase rune is converted to lowercase
-// and gets prepended a space.
-func strExplode(s string) string {
-	n := make([]rune, 0, len(s))
-	for _, r := range s {
-		if unicode.IsUpper(r) {
-			if len(n) > 0 {
-				n = append(n, ' ')
-			}
-			n = append(n, unicode.ToLower(r))
-		} else {
-			n = append(n, r)
+	for {
+		// Check for end of service.
+		if p.checkSymbol(tkBraceR) {
+			return
 		}
+
+		// Expect name and ensure CamelCase.
+		var name string
+		name, err = p.expectName()
+		if err != nil {
+			return
+		}
+		name = strings.Title(name)
+
+		// Check for duplicate name.
+		if _, ok := p.errors[name]; ok {
+			return fmt.Errorf("errors '%s' declared twice", name)
+		}
+
+		// Check, if error has already been defined.
+		if _, ok := p.errors[name]; ok {
+			return fmt.Errorf("error '%s' declared twice", name)
+		}
+
+		// Expect "=".
+		err = p.expectSymbol(tkEqual)
+		if err != nil {
+			return
+		}
+
+		// Expect identifier.
+		var id int
+		id, err = p.expectInt()
+		if err != nil {
+			return
+		}
+
+		// Check for duplicate identifier.
+		for _, e := range p.errors {
+			if e.ID == id {
+				return fmt.Errorf("errors '%s' and '%s' share same identifier", name, e.Name)
+			}
+		}
+
+		// Save error.
+		p.errors[name] = &Error{Name: name, ID: id}
 	}
-	return string(n)
 }

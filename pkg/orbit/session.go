@@ -89,6 +89,8 @@ func newSession(cl closer.Closer, conn Conn, cf *Config) (s *Session) {
 		callActiveCtxs: make(map[uint32]*callContext),
 	}
 	s.OnClosing(conn.Close)
+	// TODO: if not needed elsewhere, delete Ready() and start routines directly here.
+	s.Ready()
 	return
 }
 

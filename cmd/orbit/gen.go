@@ -29,17 +29,16 @@ package main
 
 import (
 	"errors"
-	"io/ioutil"
-	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/desertbit/grumble"
 	"github.com/desertbit/orbit/internal/gen"
 )
 
 const (
-	flagStreamChanSize = "stream-chan-size"
+	flagForce            = "force"
+	flagSingleOutputFile = "single-output-file"
+	flagStreamChanSize   = "stream-chan-size"
 )
 
 var cmdGen = &grumble.Command{
@@ -48,6 +47,9 @@ var cmdGen = &grumble.Command{
 	AllowArgs: true,
 	Run:       runGen,
 	Flags: func(f *grumble.Flags) {
+		f.Bool("f", flagForce, false, "generate all found files, ignoring their last modification time")
+		f.Bool("o", flagSingleOutputFile, false, "write all generated go source code into a single file.")
+
 		f.UintL(flagStreamChanSize, 3, "size of channels used as stream argument and return values")
 	},
 }
@@ -63,29 +65,18 @@ func runGen(ctx *grumble.Context) (err error) {
 
 	// Iterate over each provided directory and generate the .orbit files in them.
 	for _, dir := range ctx.Args {
-		// Search the orbit file in the dir.
-		var info []os.FileInfo
-		info, err = ioutil.ReadDir(dir)
+		var absDir string
+		absDir, err = filepath.Abs(dir)
 		if err != nil {
 			return
 		}
 
-		var fileName string
-		for _, fi := range info {
-			if !fi.Mode().IsRegular() || !strings.HasSuffix(fi.Name(), gen.OrbitSuffix) {
-				continue
-			}
-
-			fileName = fi.Name()
-			break
-		}
-
-		if fileName == "" {
-			continue
-		}
-
-		// Generate the go code for this file.
-		err = gen.Generate(filepath.Join(dir, fileName), ctx.Flags.Uint(flagStreamChanSize))
+		err = gen.Generate(
+			absDir,
+			ctx.Flags.Uint(flagStreamChanSize),
+			ctx.Flags.Bool(flagSingleOutputFile),
+			ctx.Flags.Bool(flagForce),
+		)
 		if err != nil {
 			return
 		}

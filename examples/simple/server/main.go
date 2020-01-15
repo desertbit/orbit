@@ -28,67 +28,62 @@
 package main
 
 import (
-	"context"
-	"net"
-	"sync"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/desertbit/closer/v3"
-	"github.com/desertbit/orbit/examples/simple/api"
+	"github.com/desertbit/orbit/pkg/net/yamux"
 	"github.com/desertbit/orbit/pkg/orbit"
+	yamux2 "github.com/hashicorp/yamux"
+	"github.com/rs/zerolog/log"
 )
 
-type Session struct {
-	api.ExampleProviderCaller
-}
-
-func (*Session) Test(ctx context.Context, s *orbit.Session, args *api.Plate) (ret *api.Rect, err error) {
-	panic("implement me")
-}
-
-func (*Session) Test2(ctx context.Context, s *orbit.Session, args *api.Rect) (err error) {
-	panic("implement me")
-}
-
-func (*Session) Hello(s *orbit.Session, stream net.Conn) (err error) {
-	panic("implement me")
-}
-
-func (*Session) Hello2(s *orbit.Session, args *api.CharReadChan) (err error) {
-	panic("implement me")
-}
-
-type Server struct {
-	sessionsMx sync.RWMutex
-	sessions   map[string]*Session
-}
-
-func NewServer(orbServ *orbit.Server) (s *Server, err error) {
-	s = &Server{
-		sessions: make(map[string]*Session),
-	}
-
-	orbServ.OnNewSessionCreated(func(orbSess *orbit.Session) {
-		// Create new session.
-		userID := orbSess.ID() // TODO: dummy, need to cast value from auth
-		session := &Session{}
-		s.sessionsMx.Lock()
-		s.sessions[userID] = session
-		s.sessionsMx.Unlock()
-
-		session.ExampleProviderCaller = api.RegisterExampleProvider(orbSess, session)
-	})
-
-	return
-}
-
 func main() {
+	err := run()
+	if err != nil {
+		log.Fatal().Err(err).Msg("server run")
+	}
+}
+
+func run() (err error) {
 	cl := closer.New()
+	defer cl.Close_()
 
-	var ln orbit.Listener
-	orbServ := orbit.NewServer(cl, ln, &orbit.ServerConfig{Config: &orbit.Config{PrintPanicStackTraces: true}})
-
-	_, err := NewServer(orbServ)
+	ln, err := yamux.NewTCPListener("127.0.0.1:6789", yamux2.DefaultConfig())
 	if err != nil {
 		return
 	}
+
+	orbServ := orbit.NewServer(
+		cl.CloserTwoWay(),
+		ln,
+		&orbit.ServerConfig{
+			Config: &orbit.Config{PrintPanicStackTraces: true},
+		},
+	)
+
+	s := NewServer(orbServ)
+	go func() {
+		err := s.Listen()
+		if err != nil && !s.IsClosing() {
+			log.Error().Err(err).Msg("server listen")
+		}
+	}()
+
+	log.Info().Msg("listening...")
+
+	// Wait until closed.
+	go func() {
+		// Wait for the signal.
+		sigchan := make(chan os.Signal, 3)
+		signal.Notify(sigchan, os.Interrupt, os.Kill, syscall.SIGTERM)
+		<-sigchan
+
+		log.Info().Msg("Exiting...")
+		cl.Close_()
+	}()
+
+	<-cl.ClosedChan()
+	return
 }

@@ -3,8 +3,8 @@
  *
  * The MIT License (MIT)
  *
- * Copyright (c) 2019 Roland Singer <roland.singer[at]desertbit.com>
- * Copyright (c) 2019 Sebastian Borchers <sebastian[at]desertbit.com>
+ * Copyright (c) 2020 Roland Singer <roland.singer[at]desertbit.com>
+ * Copyright (c) 2020 Sebastian Borchers <sebastian[at]desertbit.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -25,51 +25,38 @@
  * SOFTWARE.
  */
 
-package parse_test
+package main
 
 import (
-	"testing"
+	"context"
+	"net"
 
-	"github.com/desertbit/orbit/internal/parse"
-	"github.com/stretchr/testify/require"
+	"github.com/desertbit/orbit/examples/simple/api"
+	"github.com/desertbit/orbit/pkg/orbit"
 )
 
-func TestParse(t *testing.T) {
-	data := `
-service bencher {
-    call test(Plate) (Rect)
-    revcall test2({
-        i int
-        v float64
-        c map[int][]Rect
-    }) ({
-        lol string
-    })
-    stream hello
+var _ api.ExampleProviderHandler = &Session{}
+
+type Session struct {
+	api.ExampleProviderCaller
 }
 
-type Plate {
-    version int
-    name string
-    rect Rect
-    test map[int]Rect
-    test2 []Rect
-    test3 []float32
-    test4 map[string]map[int][]Rect
+// Implements the api.ExampleProviderHandler interface.
+func (*Session) Test(ctx context.Context, s *orbit.Session, args *api.Plate) (ret *api.Rect, err error) {
+	panic("implement me")
 }
 
-type Rect {
-    x1 float32
-    y1 float32
-    x2 float32
-    y2 float32
-    c  Char
+// Implements the api.ExampleProviderHandler interface.
+func (*Session) Test2(ctx context.Context, s *orbit.Session, args *api.Rect) (err error) {
+	panic("implement me")
 }
 
-type Char {
-    lol string
-}`
+// Implements the api.ExampleProviderHandler interface.
+func (*Session) Hello(s *orbit.Session, stream net.Conn) (err error) {
+	panic("implement me")
+}
 
-	_, _, _, err := parse.Parse(data)
-	require.NoError(t, err)
+// Implements the api.ExampleProviderHandler interface.
+func (*Session) Hello2(s *orbit.Session, args *api.CharReadChan) (err error) {
+	panic("implement me")
 }

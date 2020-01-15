@@ -1,0 +1,99 @@
+errors {
+    NotFound = 1
+    datasetDoesNotExist = 2
+}
+
+service example {
+    call test {
+        args: Plate
+        ret: Rect
+    }
+    async call test2 {
+        args: Rect
+    }
+    revcall test3 {
+        args: {
+            i int
+            v float64
+            c map[int][]Rect
+        }
+        ret: {
+            lol string
+        }
+    }
+    async revcall test4 {
+        ret: Rect
+    }
+
+    type Rect {
+        x1 float32
+        y1 float32
+        x2 float32
+        y2 float32
+        c  Char
+    }
+
+    stream hello {}
+    stream hello2 {
+        args: Char
+    }
+    revstream hello3 {
+        ret: Plate
+    }
+    revstream hello4 {
+        args: Char
+        ret: Plate
+    }
+
+    type Char {
+        lol string
+    }
+}
+
+service trainer {
+    call start {
+        args: Plate
+    }
+    async call update {
+        args: Char
+        ret: Char
+    }
+
+    stream upload {}
+    stream download {
+        args: Char
+    }
+    revstream send {
+        args: Plate
+    }
+    revstream receive {
+        ret: Char
+    }
+    revstream link {
+        args: Plate
+        ret: Char
+    }
+}
+
+type Plate {
+    version int
+    name string
+    ts time
+    rect Rect
+    test map[int]Rect
+    test2 []Rect
+    test3 []float32
+    test4 map[string]map[int][]Rect
+}
+
+type Rect {
+    x1 float32
+    y1 float32
+    x2 float32
+    y2 float32
+    c  Char
+}
+
+type Char {
+    lol string
+}

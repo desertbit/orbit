@@ -44,26 +44,40 @@ type Service struct {
 }
 
 type Entry interface {
+	Args() *StructType
+	HasArgs() bool
+
+	Ret() *StructType
+	HasRet() bool
+
 	NamePub() string
 	NamePrv() string
 	Rev() bool
 }
 
-type EntryParam struct {
-	Type *StructType
-}
-
-func (ep *EntryParam) Empty() bool {
-	return ep.Type == nil
-}
-
 type Call struct {
 	name string
 	rev  bool
+	args *StructType
+	ret  *StructType
 
 	Async bool
-	Args  *EntryParam
-	Ret   *EntryParam
+}
+
+func (c *Call) Args() *StructType {
+	return c.args
+}
+
+func (c *Call) HasArgs() bool {
+	return c.args != nil
+}
+
+func (c *Call) Ret() *StructType {
+	return c.ret
+}
+
+func (c *Call) HasRet() bool {
+	return c.ret != nil
 }
 
 func (c *Call) NamePub() string {
@@ -81,9 +95,24 @@ func (c *Call) Rev() bool {
 type Stream struct {
 	name string
 	rev  bool
+	args *StructType
+	ret  *StructType
+}
 
-	Args *EntryParam
-	Ret  *EntryParam
+func (s *Stream) Args() *StructType {
+	return s.args
+}
+
+func (s *Stream) HasArgs() bool {
+	return s.args != nil
+}
+
+func (s *Stream) Ret() *StructType {
+	return s.ret
+}
+
+func (s *Stream) HasRet() bool {
+	return s.ret != nil
 }
 
 func (s *Stream) NamePub() string {
@@ -98,7 +127,21 @@ func (s *Stream) Rev() bool {
 	return s.rev
 }
 
-type Type interface{}
+type Type struct {
+	Name   string
+	Fields []*TypeField
+
+	serviceLocal bool
+}
+
+type TypeField struct {
+	Name     string
+	DataType DataType
+}
+
+type DataType interface {
+	String() string
+}
 
 const (
 	TypeByte   = "byte"
@@ -121,29 +164,38 @@ const (
 	TypeFloat64 = "float64"
 )
 
-type StructType struct {
-	Name   string
-	Fields []*StructField
-}
-
-type StructField struct {
-	Name string
-	Type Type
-}
-
 type BaseType struct {
 	dataType string
 }
 
-func (b *BaseType) DataType() string {
+func (b *BaseType) String() string {
+	if b.dataType == TypeTime {
+		return "time.Time"
+	}
 	return b.dataType
 }
 
 type MapType struct {
-	Key   Type
-	Value Type
+	Key   DataType
+	Value DataType
+}
+
+func (m *MapType) String() string {
+	return "map[" + m.Key.String() + "]" + m.Value.String()
 }
 
 type ArrType struct {
-	ElemType Type
+	Elem DataType
+}
+
+func (a *ArrType) String() string {
+	return "[]" + a.Elem.String()
+}
+
+type StructType struct {
+	Name string
+}
+
+func (s *StructType) String() string {
+	return "*" + s.Name
 }

@@ -3,8 +3,8 @@
  *
  * The MIT License (MIT)
  *
- * Copyright (c) 2019 Roland Singer <roland.singer[at]desertbit.com>
- * Copyright (c) 2019 Sebastian Borchers <sebastian[at]desertbit.com>
+ * Copyright (c) 2020 Roland Singer <roland.singer[at]desertbit.com>
+ * Copyright (c) 2020 Sebastian Borchers <sebastian[at]desertbit.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -25,51 +25,50 @@
  * SOFTWARE.
  */
 
-package parse_test
+package main
 
 import (
-	"testing"
+	"sync"
 
-	"github.com/desertbit/orbit/internal/parse"
-	"github.com/stretchr/testify/require"
+	"github.com/desertbit/orbit/examples/simple/api"
+	"github.com/desertbit/orbit/pkg/orbit"
 )
 
-func TestParse(t *testing.T) {
-	data := `
-service bencher {
-    call test(Plate) (Rect)
-    revcall test2({
-        i int
-        v float64
-        c map[int][]Rect
-    }) ({
-        lol string
-    })
-    stream hello
+type Server struct {
+	*orbit.Server
+
+	sessionsMx sync.RWMutex
+	sessions   map[string]*Session
 }
 
-type Plate {
-    version int
-    name string
-    rect Rect
-    test map[int]Rect
-    test2 []Rect
-    test3 []float32
-    test4 map[string]map[int][]Rect
-}
+func NewServer(orbServ *orbit.Server) (s *Server) {
+	s = &Server{
+		Server:   orbServ,
+		sessions: make(map[string]*Session),
+	}
 
-type Rect {
-    x1 float32
-    y1 float32
-    x2 float32
-    y2 float32
-    c  Char
-}
+	orbServ.OnNewSessionCreated(func(orbSess *orbit.Session) {
+		// Create new session.
+		userID := orbSess.ID() // TODO: dummy, need to cast value from auth
+		session := &Session{}
+		s.sessionsMx.Lock()
+		s.sessions[userID] = session
+		s.sessionsMx.Unlock()
 
-type Char {
-    lol string
-}`
+		orbSess.OnClosing(func() error {
+			// Early return, if possible.
+			if orbServ.IsClosing() {
+				return nil
+			}
 
-	_, _, _, err := parse.Parse(data)
-	require.NoError(t, err)
+			s.sessionsMx.Lock()
+			delete(s.sessions, userID)
+			s.sessionsMx.Unlock()
+			return nil
+		})
+
+		session.ExampleProviderCaller = api.RegisterExampleProvider(orbSess, session)
+	})
+
+	return
 }

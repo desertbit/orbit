@@ -1,8 +1,9 @@
 # TODO:
 
-- api generated msgpack code missing! Add to grml!
 - update the comments and remove unneeded parts.
-- run tests and add a target for them to grml
+- update tests
+- fix service inline type definition naming problem
+- add timeout and maxmsgsize to calls (and streams?), but optional!!! take config value as default.
 
 ## OLD:
 

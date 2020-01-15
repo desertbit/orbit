@@ -23,4 +23,5 @@ require (
 	gopkg.in/AlecAivazis/survey.v1 v1.8.5
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 // indirect
 	gopkg.in/vmihailenco/msgpack.v3 v3.3.3
+	gopkg.in/yaml.v3 v3.0.0-20191120175047-4206685974f2
 )

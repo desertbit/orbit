@@ -39,6 +39,7 @@ import (
 	"github.com/desertbit/orbit/internal/api"
 	"github.com/desertbit/orbit/internal/packet"
 	"github.com/desertbit/orbit/pkg/codec/msgpack"
+	"github.com/rs/zerolog/log"
 )
 
 const (
@@ -82,21 +83,26 @@ func (s *Session) Call(ctx context.Context, service, id string, data interface{}
 		s.log.Debug().Str("service", service).Msg("init call stream")
 
 		// First call, initialize the call stream.
-		stream, err := s.openStream(ctx, "", api.StreamTypeCallInit)
+		var stream net.Conn
+		stream, err = s.openStream(ctx, "", api.StreamTypeCallInit)
 		if err != nil {
 			return
 		}
 
+		s.log.Debug().Msg("opened stream")
+
 		// Create new call stream.
 		cs = newCallStream(stream, newChain())
-
-		// Stream opened, start a read routine to receive responses and revcalls.
-		go s.readCallRoutine(cs, false)
 
 		// Save the call stream for the provided service id.
 		s.callStreamsMx.Lock()
 		s.callStreams[service] = cs
 		s.callStreamsMx.Unlock()
+
+		// Start a read routine to receive responses and revcalls.
+		go s.readCallRoutine(cs, false)
+
+		s.log.Debug().Msg("started read routine")
 	}
 
 	return s.call(ctx, cs, id, data)
@@ -133,7 +139,7 @@ func (s *Session) call(ctx context.Context, cs *callStream, id string, data inte
 	if err != nil {
 		return
 	}
-
+	log.Debug().Msg("wrote call, waiting for response")
 	// Wait, until the response has arrived, and return its result.
 	return s.waitForCallResponse(ctx, cs, key, channel)
 }

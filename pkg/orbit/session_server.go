@@ -69,18 +69,44 @@ func newServerSession(cl closer.Closer, conn Conn, cf *Config) (s *Session, err 
 	}
 
 	// Ensure client has the same protocol version.
-	v := make([]byte, 1)
-	n, err := stream.Read(v)
+	var (
+		buf = make([]byte, 1)
+		res byte
+	)
+	n, err := stream.Read(buf)
 	if err != nil {
 		return
 	} else if n != 1 {
 		return nil, errors.New("failed to read version byte from connection")
-	} else if v[0] != api.Version {
-		return nil, ErrInvalidVersion
+	} else if buf[0] != api.Version {
+		res = 1
 	}
 
 	// Reset the deadline.
 	err = stream.SetReadDeadline(time.Time{})
+	if err != nil {
+		return
+	}
+
+	// Set a write timeout.
+	err = stream.SetWriteDeadline(deadline)
+	if err != nil {
+		return
+	}
+
+	// Tell the client about the result of the version check.
+	buf[0] = res
+	n, err = stream.Write(buf)
+	if err != nil {
+		return
+	} else if n != 1 {
+		return nil, errors.New("failed to write version byte to connection")
+	} else if res != 0 {
+		return nil, ErrInvalidVersion
+	}
+
+	// Reset the deadline.
+	err = stream.SetWriteDeadline(time.Time{})
 	if err != nil {
 		return
 	}

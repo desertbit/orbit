@@ -35,12 +35,12 @@ func (g *generator) genServiceStreamClient(s *parse.Stream, structName, srvcName
 	// Method declaration.
 	g.write("func (%s *%s) ", recv, structName)
 	g.write("%s(ctx context.Context) (", s.NamePub())
-	if s.Args != nil {
-		g.write("args *%sWriteChan, ", s.Args.Type.Name)
+	if s.HasArgs() {
+		g.write("args %sWriteChan, ", s.Args().String())
 	}
-	if s.Ret != nil {
-		g.write("ret *%sReadChan, ", s.Ret.Type.Name)
-	} else if s.Args == nil {
+	if s.HasRet() {
+		g.write("ret %sReadChan, ", s.Ret().String())
+	} else if !s.HasArgs() {
 		g.write("stream net.Conn, ")
 	}
 	g.write("err error)")
@@ -48,7 +48,7 @@ func (g *generator) genServiceStreamClient(s *parse.Stream, structName, srvcName
 
 	// Method body.
 	// First, open the stream.
-	if s.Args == nil && s.Ret == nil {
+	if !s.HasArgs() && !s.HasRet() {
 		g.writeLn("return %s.s.OpenStream(ctx, %s, %s)", recv, srvcName, srvcName+s.NamePub())
 		g.writeLn("}")
 		g.writeLn("")
@@ -58,8 +58,8 @@ func (g *generator) genServiceStreamClient(s *parse.Stream, structName, srvcName
 	g.writeLn("stream, err := %s.s.OpenStream(ctx, %s, %s)", recv, srvcName, srvcName+s.NamePub())
 	g.errIfNil()
 
-	if s.Args != nil {
-		g.writeLn("args = new%sWriteChan(%s.s.CloserOneWay())", s.Args.Type.Name, recv)
+	if s.HasArgs() {
+		g.writeLn("args = new%sWriteChan(%s.s.CloserOneWay())", s.Args().Name, recv)
 		g.writeLn("args.OnClosing(func() error { return stream.Close() })")
 		g.writeLn("go func() {")
 		g.writeLn("closingChan := args.ClosingChan()")
@@ -80,14 +80,14 @@ func (g *generator) genServiceStreamClient(s *parse.Stream, structName, srvcName
 		g.writeLn("}()")
 	}
 
-	if s.Ret != nil {
-		g.writeLn("ret = new%sReadChan(%s.s.CloserOneWay())", s.Ret.Type.Name, recv)
+	if s.HasRet() {
+		g.writeLn("ret = new%sReadChan(%s.s.CloserOneWay())", s.Ret().Name, recv)
 		g.writeLn("ret.OnClosing(func() error { return stream.Close() })")
 		g.writeLn("go func() {")
 		g.writeLn("closingChan := ret.ClosingChan()")
 		g.writeLn("codec := %s.s.Codec()", recv)
 		g.writeLn("for {")
-		g.writeLn("var data *%s", s.Ret.Type.Name)
+		g.writeLn("var data %s", s.Ret().String())
 		g.writeLn("err := packet.ReadDecode(stream, data, codec)")
 		g.writeLn("if err != nil {")
 		g.writeLn("if %s.s.IsClosing() { err = nil }", recv)
@@ -117,17 +117,17 @@ func (g *generator) genServiceStreamServer(s *parse.Stream, structName, srvcName
 
 	handlerArgs := "s"
 
-	if s.Args == nil && s.Ret == nil {
+	if !s.HasArgs() && !s.HasRet() {
 		handlerArgs += ", stream"
-	} else if s.Args != nil {
+	} else if s.HasArgs() {
 		handlerArgs += ", args"
 
-		g.writeLn("args := new%sReadChan(%s.s.CloserOneWay())", s.Args.Type.Name, recv)
+		g.writeLn("args := new%sReadChan(%s.s.CloserOneWay())", s.Args().Name, recv)
 		g.writeLn("go func() {")
 		g.writeLn("closingChan := args.ClosingChan()")
 		g.writeLn("codec := %s.s.Codec()", recv)
 		g.writeLn("for {")
-		g.writeLn("var arg *%s", s.Args.Type.Name)
+		g.writeLn("var arg %s", s.Args().String())
 		g.writeLn("err := packet.ReadDecode(stream, arg, codec)")
 		g.writeLn("if err != nil {")
 		g.writeLn("if %s.s.IsClosing() { err = nil }", recv)
@@ -144,10 +144,10 @@ func (g *generator) genServiceStreamServer(s *parse.Stream, structName, srvcName
 		g.writeLn("")
 	}
 
-	if s.Ret != nil {
+	if s.HasRet() {
 		handlerArgs += ", ret"
 
-		g.writeLn("ret := new%sWriteChan(%s.s.CloserOneWay())", s.Ret.Type.Name, recv)
+		g.writeLn("ret := new%sWriteChan(%s.s.CloserOneWay())", s.Ret().Name, recv)
 		g.writeLn("go func() {")
 		g.writeLn("closingChan := ret.ClosingChan()")
 		g.writeLn("codec := %s.s.Codec()", recv)

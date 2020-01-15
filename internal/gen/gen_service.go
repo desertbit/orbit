@@ -95,49 +95,63 @@ func (g *generator) genService(srvc *parse.Service, errs []*parse.Error) {
 func (g *generator) genServiceInterface(name, srvcName string, calls, revCalls []*parse.Call, streams, revStreams []*parse.Stream) {
 	// Generate Caller.
 	g.writeLn("type %s%sCaller interface {", srvcName, name)
-	g.writeLn("// Calls")
-	for _, c := range calls {
-		g.genServiceCallCallerSignature(c)
-		g.writeLn("")
-	}
-	g.writeLn("// Streams")
-	for _, s := range streams {
-		g.write("%s(ctx context.Context) (", s.NamePub())
-		if s.Args != nil {
-			g.write("args *%sWriteChan, ", s.Args.Type.Name)
+
+	if len(calls) > 0 {
+		g.writeLn("// Calls")
+		for _, c := range calls {
+			g.genServiceCallCallerSignature(c)
+			g.writeLn("")
 		}
-		if s.Ret != nil {
-			g.write("ret *%sReadChan, ", s.Ret.Type.Name)
-		} else if s.Args == nil {
-			g.write("stream net.Conn, ")
-		}
-		g.write("err error)")
-		g.writeLn("")
 	}
+
+	if len(streams) > 0 {
+		g.writeLn("// Streams")
+		for _, s := range streams {
+			g.write("%s(ctx context.Context) (", s.NamePub())
+			if s.HasArgs() {
+				g.write("args %sWriteChan, ", s.Args().String())
+			}
+			if s.HasRet() {
+				g.write("ret %sReadChan, ", s.Ret().String())
+			} else if !s.HasArgs() {
+				g.write("stream net.Conn, ")
+			}
+			g.write("err error)")
+			g.writeLn("")
+		}
+	}
+
 	g.writeLn("}")
 	g.writeLn("")
 
 	// Generate Handler.
 	g.writeLn("type %s%sHandler interface {", srvcName, name)
-	g.writeLn("// Calls")
-	for _, rc := range revCalls {
-		g.genServiceCallHandlerSignature(rc)
-		g.writeLn("")
-	}
-	g.writeLn("// Streams")
-	for _, rs := range revStreams {
-		g.write("%s(s *orbit.Session, ", rs.NamePub())
-		if rs.Args != nil {
-			g.write("args *%sReadChan, ", rs.Args.Type.Name)
+
+	if len(revCalls) > 0 {
+		g.writeLn("// Calls")
+		for _, rc := range revCalls {
+			g.genServiceCallHandlerSignature(rc)
+			g.writeLn("")
 		}
-		if rs.Ret != nil {
-			g.write("ret *%sWriteChan", rs.Ret.Type.Name)
-		} else if rs.Args == nil {
-			g.write("stream net.Conn")
-		}
-		g.write(") (err error)")
-		g.writeLn("")
 	}
+
+	if len(revStreams) > 0 {
+		g.writeLn("// Streams")
+		for _, rs := range revStreams {
+			g.write("%s(s *orbit.Session, ", rs.NamePub())
+			if rs.HasArgs() {
+				g.write("args %sReadChan, ", rs.Args().String())
+			}
+			if rs.HasRet() {
+				g.write("ret %sWriteChan", rs.Ret().String())
+			} else if !rs.HasArgs() {
+				g.write("stream net.Conn")
+			}
+			g.write(") (err error)")
+			g.writeLn("")
+		}
+	}
+
 	g.writeLn("}")
 	g.writeLn("")
 }

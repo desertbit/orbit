@@ -33,7 +33,7 @@ import (
 	"github.com/desertbit/orbit/internal/parse"
 )
 
-func (g *generator) genTypes(ts []*parse.StructType, srvcs []*parse.Service, streamChanSize uint) {
+func (g *generator) genTypes(ts []*parse.Type, srvcs []*parse.Service, streamChanSize uint) {
 	g.writeLn("//#############//")
 	g.writeLn("//### Types ###//")
 	g.writeLn("//#############//")
@@ -53,9 +53,7 @@ NextType:
 
 		g.writeLn("type %s struct {", t.Name)
 		for _, f := range t.Fields {
-			g.write("%s ", f.Name)
-			g.genType(f.Type)
-			g.writeLn("")
+			g.writeLn("%s %s", f.Name, f.DataType.String())
 		}
 		g.writeLn("}")
 		g.writeLn("")
@@ -64,40 +62,13 @@ NextType:
 		for _, srvc := range srvcs {
 			for _, e := range srvc.Entries {
 				if s, ok := e.(*parse.Stream); ok {
-					if (s.Args != nil && s.Args.Type == t) || (s.Ret != nil && s.Ret.Type == t) {
+					if (s.HasArgs() && s.Args().Name == t.Name) || (s.HasRet() && s.Ret().Name == t.Name) {
 						g.genChanType(t.Name, false, streamChanSize)
 						g.genChanType(t.Name, true, streamChanSize)
 						continue NextType
 					}
 				}
 			}
-		}
-	}
-}
-
-func (g *generator) genType(t parse.Type) {
-	switch v := t.(type) {
-	case *parse.StructType:
-		// Structs just require a reference.
-		g.write("*%s", v.Name)
-	case *parse.MapType:
-		g.write("map[")
-		// Generate Key type.
-		g.genType(v.Key)
-		g.write("]")
-		// Generate Value type.
-		g.genType(v.Value)
-	case *parse.ArrType:
-		g.write("[]")
-		// Generate Elem type.
-		g.genType(v.ElemType)
-	case *parse.BaseType:
-		dt := v.DataType()
-
-		if dt == parse.TypeTime {
-			g.write("time.Time")
-		} else {
-			g.write(dt)
 		}
 	}
 }
@@ -109,6 +80,7 @@ func (g *generator) genChanType(name string, ro bool, streamChanSize uint) {
 	}
 
 	// Type definition.
+	g.writeLn("//msgp:ignore %s%sChan", name, suffix)
 	g.writeLn("type %s%sChan struct {", name, suffix)
 	g.writeLn("closer.Closer")
 	g.write("C ")

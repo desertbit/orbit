@@ -56,7 +56,7 @@ import (
 )
 
 const (
-	maxSize = math.MaxUint32
+	MaxSize = math.MaxUint32
 )
 
 // ReadDecode reads the packet from the connection using Read()
@@ -161,7 +161,7 @@ func Write(
 	data []byte,
 ) (err error) {
 	payloadLen := len(data)
-	if payloadLen > maxSize {
+	if payloadLen > MaxSize {
 		panic("maximum packet size exceeded in write")
 	}
 

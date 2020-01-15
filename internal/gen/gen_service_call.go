@@ -33,24 +33,24 @@ import (
 
 func (g *generator) genServiceCallCallerSignature(c *parse.Call) {
 	g.write("%s(ctx context.Context", c.NamePub())
-	if c.Args != nil {
-		g.write(", args *%s", c.Args.Type.Name)
+	if c.HasArgs() {
+		g.write(", args %s", c.Args().String())
 	}
 	g.write(") (")
-	if c.Ret != nil {
-		g.write("ret *%s, ", c.Ret.Type.Name)
+	if c.HasRet() {
+		g.write("ret %s, ", c.Ret().String())
 	}
 	g.write("err error)")
 }
 
 func (g *generator) genServiceCallHandlerSignature(c *parse.Call) {
 	g.write("%s(ctx context.Context, s *orbit.Session", c.NamePub())
-	if c.Args != nil {
-		g.write(", args *%s", c.Args.Type.Name)
+	if c.HasArgs() {
+		g.write(", args %s", c.Args().String())
 	}
 	g.write(") (")
-	if c.Ret != nil {
-		g.write("ret *%s, ", c.Ret.Type.Name)
+	if c.HasRet() {
+		g.write("ret %s, ", c.Ret().String())
 	}
 	g.write("err error)")
 }
@@ -63,13 +63,17 @@ func (g *generator) genServiceCallClient(c *parse.Call, structName, srvcName str
 
 	// Method body.
 	// First, make the call.
-	if c.Ret != nil {
+	if c.HasRet() {
 		g.write("retData, err := ")
 	} else {
 		g.write("_, err = ")
 	}
-	g.write("%s.s.Call(ctx, %s, %s, ", recv, srvcName, srvcName+c.NamePub())
-	if c.Args != nil {
+	g.write("%s.s.Call", recv)
+	if c.Async {
+		g.write("Async")
+	}
+	g.write("(ctx, %s, %s, ", srvcName, srvcName+c.NamePub())
+	if c.HasArgs() {
 		g.writeLn("args)")
 	} else {
 		g.writeLn("nil)")
@@ -79,7 +83,7 @@ func (g *generator) genServiceCallClient(c *parse.Call, structName, srvcName str
 	g.genErrCheckOrbitCaller(errs)
 
 	// If return arguments are expected, decode them.
-	if c.Ret != nil {
+	if c.HasRet() {
 		g.writeLn("err = retData.Decode(ret)")
 		g.errIfNil()
 	}
@@ -101,15 +105,15 @@ func (g *generator) genServiceCallServer(c *parse.Call, structName string, errs 
 	// Method body.
 	// Parse the args.
 	handlerArgs := "ctx, s"
-	if c.Args != nil {
+	if c.HasArgs() {
 		handlerArgs += ", args"
-		g.writeLn("var args *%s", c.Args.Type.Name)
+		g.writeLn("var args %s", c.Args().String())
 		g.writeLn("err = ad.Decode(args)")
 		g.errIfNil()
 	}
 
 	// Call the handler.
-	if c.Ret != nil {
+	if c.HasRet() {
 		g.writeLn("ret, err := %s.h.%s(%s)", recv, c.NamePub(), handlerArgs)
 	} else {
 		g.writeLn("err = %s.h.%s(%s)", recv, c.NamePub(), handlerArgs)
@@ -119,7 +123,7 @@ func (g *generator) genServiceCallServer(c *parse.Call, structName string, errs 
 	g.genErrCheckOrbitHandler(errs)
 
 	// Assign return value.
-	if c.Ret != nil {
+	if c.HasRet() {
 		g.writeLn("r = ret")
 	}
 
