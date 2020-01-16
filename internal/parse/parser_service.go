@@ -33,11 +33,11 @@ import (
 )
 
 // Returns Err.
-func (p *parser) expectService() (err error) {
+func (p *parser) expectService() (srvc *Service, err error) {
 	defer func() {
 		var pErr *Err
 		if err != nil && !errors.As(err, &pErr) {
-			err = &Err{msg: err.Error(), line: p.ct.line}
+			err = &Err{msg: err.Error(), line: p.lt.line}
 		}
 	}()
 
@@ -47,10 +47,7 @@ func (p *parser) expectService() (err error) {
 		return
 	}
 
-	// Check for duplicates.
-	if _, ok := p.srvcs[name]; ok {
-		return fmt.Errorf("service '%s' declared twice", name)
-	}
+	srvc = &Service{Name: name, line: p.lt.line}
 
 	// Expecting "{"
 	err = p.expectSymbol(tkBraceL)
@@ -58,51 +55,66 @@ func (p *parser) expectService() (err error) {
 		return
 	}
 
-	// Init the struct map.
-	p.srvcsStructs[name] = make([]*StructType, 0)
+	var (
+		errs []*Error
+		t    *Type
+		c    *Call
+		s    *Stream
 
-	var entries []Entry
+		srvcsStructs = make([]*StructType, 0)
+	)
 
+	// Parse fields.
 	for {
+		var (
+			sts []*StructType
+
+			revCall   = p.checkSymbol(tkEntryRevCall)
+			revStream = p.checkSymbol(tkEntryRevStream)
+		)
+
 		if p.checkSymbol(tkBraceR) {
 			// End of service.
 			break
 		} else if p.checkSymbol(tkErrors) {
-			// Expect errors.
-			err = p.expectErrors(name)
+			// Expect errors and prepend the service name to them.
+			errs, err = p.expectErrors(name)
 			if err != nil {
 				return
 			}
+
+			srvc.Errors = append(srvc.Errors, errs...)
 		} else if p.checkSymbol(tkType) {
-			// Expect type and prepend the service name to the type.
-			var sts []*StructType
-			sts, err = p.expectType(name, "")
+			// Expect type and prepend the service name to it.
+			t, sts, err = p.expectType(name, "")
 			if err != nil {
 				return
 			}
 
-			p.srvcsStructs[name] = append(p.srvcsStructs[name], sts...)
+			srvc.Types = append(srvc.Types, t)
+		} else if revCall || p.checkSymbol(tkEntryCall) {
+			// Expect call and prepend the service name to it.
+			c, sts, err = p.expectServiceCall(name, revCall)
+			if err != nil {
+				return
+			}
+
+			srvc.Calls = append(srvc.Calls, c)
+		} else if revStream || p.checkSymbol(tkEntryStream) {
+			// Expect stream and prepend the service name to it.
+			s, sts, err = p.expectServiceStream(name, revStream)
+			if err != nil {
+				return
+			}
+
+			srvc.Streams = append(srvc.Streams, s)
 		} else {
-			// Expect entry.
-			var (
-				e   Entry
-				sts []*StructType
-			)
-			e, sts, err = p.expectServiceEntry(name)
-			if err != nil {
-				return
-			}
+			err = fmt.Errorf("unexpected symbol '%s'", p.ct.value)
+			return
+		}
 
-			// Check for duplicate entries.
-			for _, en := range entries {
-				if en.NamePrv() == e.NamePrv() {
-					err = fmt.Errorf("entry '%s' declared twice in service '%s'", e.NamePrv(), name)
-					return
-				}
-			}
-
-			entries = append(entries, e)
-			p.srvcsStructs[name] = append(p.srvcsStructs[name], sts...)
+		if len(sts) > 0 {
+			srvcsStructs = append(srvcsStructs, sts...)
 		}
 	}
 
@@ -112,47 +124,28 @@ func (p *parser) expectService() (err error) {
 	// The same goes for any type fields, where a struct references a service local type.
 	// FIXME: this whole thing is way too complicated right now. Maybe there is a better solution.
 	for tn := range p.types {
-		for _, s := range p.srvcsStructs[name] {
+		for _, s := range srvcsStructs {
 			if name+s.Name == tn {
 				s.Name = name + s.Name
 			}
 		}
 	}
 
-	// Save service and free resources.
-	p.srvcs[name] = &Service{Name: name, Entries: entries}
-	delete(p.srvcsStructs, name)
-
 	return
 }
 
 // Returns Err.
-func (p *parser) expectServiceEntry(srvcName string) (e Entry, sts []*StructType, err error) {
+func (p *parser) expectServiceCall(srvcName string, rev bool) (c *Call, sts []*StructType, err error) {
 	defer func() {
-		var pErr *Err
-		if err != nil && !errors.As(err, &pErr) {
-			err = &Err{msg: err.Error(), line: p.ct.line}
+		if err != nil {
+			err = fmt.Errorf("parsing call of service '%s': %w", err)
+
+			var pErr *Err
+			if !errors.As(err, &pErr) {
+				err = &Err{msg: err.Error(), line: p.lt.line}
+			}
 		}
 	}()
-
-	// Check for async.
-	async := p.checkSymbol(tkEntryAsync)
-
-	// Expect the entry type.
-	if !p.next() {
-		err = errors.New("expected entry type (rev)call or (rev)stream, but is missing")
-		return
-	}
-	t := p.ct.value
-
-	// Validate type.
-	if t != tkEntryCall && t != tkEntryRevCall && t != tkEntryStream && t != tkEntryRevStream {
-		err = fmt.Errorf("expected entry type (rev)call or (rev)stream, but got '%s'", p.ct.value)
-		return
-	} else if async && (t == tkEntryStream || t == tkEntryRevStream) {
-		err = errors.New("async only allowed with calls and revcalls")
-		return
-	}
 
 	// Expect name.
 	name, err := p.expectName()
@@ -160,49 +153,128 @@ func (p *parser) expectServiceEntry(srvcName string) (e Entry, sts []*StructType
 		return
 	}
 
+	c = &Call{Name: name, Rev: rev, line: p.lt.line}
+
 	// Expect '{'.
 	err = p.expectSymbol(tkBraceL)
 	if err != nil {
 		return
 	}
 
-	var args, ret *StructType
+	// Parse fields.
+	for {
+		// Check for end.
+		if p.checkSymbol(tkBraceR) {
+			return
+		} else if p.checkSymbol(tkEntryArgs) {
+			// Check for duplicate.
+			if c.Args != nil {
+				err = errors.New("double args")
+				return
+			}
 
-	// Check for arguments.
-	if p.checkSymbol(tkEntryArgs) {
-		var asts []*StructType
-		args, asts, err = p.expectServiceEntryType(srvcName, name+"Args")
-		if err != nil {
+			// Parse args.
+			var asts []*StructType
+			c.Args, asts, err = p.expectServiceEntryType(srvcName, name+"Args")
+			if err != nil {
+				return
+			}
+
+			sts = append(sts, asts...)
+		} else if p.checkSymbol(tkEntryRet) {
+			// Check for duplicate.
+			if c.Ret != nil {
+				err = errors.New("double ret")
+				return
+			}
+
+			// Parse ret.
+			var rsts []*StructType
+			c.Ret, rsts, err = p.expectServiceEntryType(srvcName, name+"Ret")
+			if err != nil {
+				return
+			}
+
+			sts = append(sts, rsts...)
+		} else if p.checkSymbol(tkEntryAsync) {
+			// Check for duplicate.
+			if c.Async {
+				err = errors.New("double async")
+			}
+		} else {
+			err = fmt.Errorf("unexpected symbol '%s'", p.ct.value)
 			return
 		}
-
-		sts = append(sts, asts...)
 	}
+}
 
-	// Check for returns.
-	if p.checkSymbol(tkEntryRet) {
-		var rsts []*StructType
-		ret, rsts, err = p.expectServiceEntryType(srvcName, name+"Ret")
+// Returns Err.
+func (p *parser) expectServiceStream(srvcName string, rev bool) (s *Stream, sts []*StructType, err error) {
+	defer func() {
 		if err != nil {
-			return
+			err = fmt.Errorf("parsing stream of service '%s': %w", err)
+
+			var pErr *Err
+			if !errors.As(err, &pErr) {
+				err = &Err{msg: err.Error(), line: p.lt.line}
+			}
 		}
+	}()
 
-		sts = append(sts, rsts...)
-	}
-
-	// Expect '}'.
-	err = p.expectSymbol(tkBraceR)
+	// Expect name.
+	name, err := p.expectName()
 	if err != nil {
 		return
 	}
 
-	// Create entry based on type.
-	if t == tkEntryCall || t == tkEntryRevCall {
-		e = &Call{name: name, rev: t == tkEntryRevCall, Async: async, args: args, ret: ret}
-	} else {
-		e = &Stream{name: name, rev: t == tkEntryRevStream, args: args, ret: ret}
+	s = &Stream{Name: name, Rev: rev, line: p.lt.line}
+
+	// Expect '{'.
+	err = p.expectSymbol(tkBraceL)
+	if err != nil {
+		return
 	}
-	return
+
+	// Parse fields.
+	for {
+		// Check for end.
+		if p.checkSymbol(tkBraceR) {
+			return
+		} else if p.checkSymbol(tkEntryArgs) {
+			// Check for duplicate.
+			if s.Args != nil {
+				err = errors.New("double args")
+				return
+			}
+
+			// Parse args.
+			var asts []*StructType
+			s.Args, asts, err = p.expectServiceEntryType(srvcName, name+"Args")
+			if err != nil {
+				return
+			}
+
+			sts = append(sts, asts...)
+		} else if p.checkSymbol(tkEntryRet) {
+			// Check for duplicate.
+			if s.Ret != nil {
+				err = errors.New("double ret")
+				return
+			}
+
+			// Parse ret.
+			var rsts []*StructType
+			s.Ret, rsts, err = p.expectServiceEntryType(srvcName, name+"Ret")
+			if err != nil {
+				return
+			}
+
+			sts = append(sts, rsts...)
+		} else {
+			err = fmt.Errorf("unexpected symbol '%s'", p.ct.value)
+			return
+		}
+	}
 }
 
 // Returns Err.
@@ -210,7 +282,7 @@ func (p *parser) expectServiceEntryType(srvcName, name string) (st *StructType, 
 	defer func() {
 		var pErr *Err
 		if err != nil && !errors.As(err, &pErr) {
-			err = &Err{msg: err.Error(), line: p.ct.line}
+			err = &Err{msg: err.Error(), line: p.lastLine}
 		}
 	}()
 

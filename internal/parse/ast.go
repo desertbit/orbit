@@ -28,115 +28,65 @@
 package parse
 
 import (
-	"strings"
-
 	"github.com/desertbit/orbit/internal/utils"
 )
 
 type Error struct {
 	Name string
 	ID   int
-}
 
-type Service struct {
-	Name    string
-	Entries []Entry
-}
-
-type Entry interface {
-	Args() *StructType
-	HasArgs() bool
-
-	Ret() *StructType
-	HasRet() bool
-
-	NamePub() string
-	NamePrv() string
-	Rev() bool
-}
-
-type Call struct {
-	name string
-	rev  bool
-	args *StructType
-	ret  *StructType
-
-	Async bool
-}
-
-func (c *Call) Args() *StructType {
-	return c.args
-}
-
-func (c *Call) HasArgs() bool {
-	return c.args != nil
-}
-
-func (c *Call) Ret() *StructType {
-	return c.ret
-}
-
-func (c *Call) HasRet() bool {
-	return c.ret != nil
-}
-
-func (c *Call) NamePub() string {
-	return strings.Title(c.name)
-}
-
-func (c *Call) NamePrv() string {
-	return utils.ToLowerFirst(c.name)
-}
-
-func (c *Call) Rev() bool {
-	return c.rev
-}
-
-type Stream struct {
-	name string
-	rev  bool
-	args *StructType
-	ret  *StructType
-}
-
-func (s *Stream) Args() *StructType {
-	return s.args
-}
-
-func (s *Stream) HasArgs() bool {
-	return s.args != nil
-}
-
-func (s *Stream) Ret() *StructType {
-	return s.ret
-}
-
-func (s *Stream) HasRet() bool {
-	return s.ret != nil
-}
-
-func (s *Stream) NamePub() string {
-	return strings.Title(s.name)
-}
-
-func (s *Stream) NamePrv() string {
-	return utils.ToLowerFirst(s.name)
-}
-
-func (s *Stream) Rev() bool {
-	return s.rev
+	line int
 }
 
 type Type struct {
 	Name   string
 	Fields []*TypeField
 
-	serviceLocal bool
+	line int
 }
 
 type TypeField struct {
 	Name     string
 	DataType DataType
+
+	line int
+}
+
+type Service struct {
+	Name    string
+	Calls   []*Call
+	Streams []*Stream
+	Errors  []*Error
+	Types   []*Type
+
+	line int
+}
+
+type Call struct {
+	Name  string
+	Rev   bool
+	Args  *StructType
+	Ret   *StructType
+	Async bool
+
+	line int
+}
+
+func (c *Call) NamePrv() string {
+	return utils.ToLowerFirst(c.Name)
+}
+
+type Stream struct {
+	Name string
+	Rev  bool
+	Args *StructType
+	Ret  *StructType
+
+	line int
+}
+
+func (s *Stream) NamePrv() string {
+	return utils.ToLowerFirst(s.Name)
 }
 
 type DataType interface {
@@ -166,6 +116,7 @@ const (
 
 type BaseType struct {
 	dataType string
+	line     int
 }
 
 func (b *BaseType) String() string {
@@ -178,6 +129,8 @@ func (b *BaseType) String() string {
 type MapType struct {
 	Key   DataType
 	Value DataType
+
+	line int
 }
 
 func (m *MapType) String() string {
@@ -186,6 +139,8 @@ func (m *MapType) String() string {
 
 type ArrType struct {
 	Elem DataType
+
+	line int
 }
 
 func (a *ArrType) String() string {
@@ -194,6 +149,8 @@ func (a *ArrType) String() string {
 
 type StructType struct {
 	Name string
+
+	line int
 }
 
 func (s *StructType) String() string {

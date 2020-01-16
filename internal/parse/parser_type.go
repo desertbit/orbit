@@ -31,7 +31,7 @@ import (
 	"fmt"
 )
 
-func (p *parser) expectType(srvcName, name string) (sts []*StructType, err error) {
+func (p *parser) expectType(srvcName, name string) (t *Type, sts []*StructType, err error) {
 	// Expect name if empty and prepend the prefix.
 	if name == "" {
 		name, err = p.expectName()
@@ -42,7 +42,8 @@ func (p *parser) expectType(srvcName, name string) (sts []*StructType, err error
 	name = srvcName + name
 
 	// Check, if the type has been declared already.
-	t, ok := p.types[name]
+	var ok bool
+	t, ok = p.types[name]
 	if !ok {
 		// Create a new type.
 		t = &Type{Name: name}

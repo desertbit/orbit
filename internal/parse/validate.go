@@ -29,52 +29,44 @@ package parse
 
 import (
 	"errors"
+	"fmt"
+
+	p "golang.org/x/sys/plan9"
 )
 
-// Returns Err.
-func (p *parser) expectErrors(prefix string) (errs []*Error, err error) {
-	defer func() {
-		var pErr *Err
-		if err != nil && !errors.As(err, &pErr) {
-			err = &Err{msg: err.Error(), line: p.lastLine}
-		}
-	}()
+func validate() {
+	// SERVICES
+	// Check for duplicates.
+	if _, ok := p.srvcs[name]; ok {
+		return fmt.Errorf("service '%s' declared twice", name)
+	}
 
-	// Expect "{".
-	err = p.expectSymbol(tkBraceL)
-	if err != nil {
+	// Check for duplicate entries.
+	for _, en := range entries {
+		if en.NamePrv() == e.NamePrv() {
+			err = fmt.Errorf("entry '%s' declared twice in service '%s'", e.NamePrv(), name)
+			return
+		}
+	}
+
+	// ERRORS
+	// Check for duplicates with the global errors.
+	if _, ok := p.errors[name]; ok {
+		err = fmt.Errorf("error '%s' declared twice", name)
 		return
 	}
 
-	for {
-		// Check for end of service.
-		if p.checkSymbol(tkBraceR) {
+	// Error ids must be greater than 0.
+	if id <= 0 {
+		err = errors.New("error ids must be greater than 0")
+		return
+	}
+
+	// Check for duplicate identifiers with the global errors.
+	for _, e := range p.errors {
+		if e.ID == id {
+			err = fmt.Errorf("errors '%s' and '%s' share same identifier", name, e.Name)
 			return
 		}
-
-		// Expect name and prepend it with the service name.
-		var name string
-		name, err = p.expectName()
-		if err != nil {
-			return
-		}
-		name = prefix + name
-
-		// Create error.
-		e := &Error{Name: name, line: p.lastLine}
-
-		// Expect "=".
-		err = p.expectSymbol(tkEqual)
-		if err != nil {
-			return
-		}
-
-		// Expect identifier.
-		e.ID, err = p.expectInt()
-		if err != nil {
-			return
-		}
-
-		errs = append(errs, e)
 	}
 }

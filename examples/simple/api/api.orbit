@@ -12,7 +12,8 @@ service example {
         args: Plate
         ret: Rect
     }
-    async call test2 {
+    call test2 {
+        async
         args: Rect
     }
     revcall test3 {
@@ -25,7 +26,8 @@ service example {
             lol string
         }
     }
-    async revcall test4 {
+    revcall test4 {
+        async
         ret: Rect
     }
 
@@ -55,6 +57,10 @@ service example {
 }
 
 service trainer {
+    errors {
+        aborted = 1
+    }
+
     call start {
         args: Plate
     }

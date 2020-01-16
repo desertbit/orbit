@@ -39,14 +39,12 @@ type parser struct {
 	tks []*token
 	ti  int
 	ct  *token
+	lt  *token
 
 	// Stores all services by their name.
-	srvcs        map[string]*Service
-	srvcsStructs map[string][]*StructType
-
+	srvcs map[string]*Service
 	// Stores all types by their name.
 	types map[string]*Type
-
 	// Stores all errors by their name.
 	errors map[string]*Error
 }
@@ -57,13 +55,13 @@ func newParser(tks []*token) (p *parser, err error) {
 		return
 	}
 	p = &parser{
-		tks:          tks,
-		ti:           -1,
-		ct:           tks[0],
-		srvcs:        make(map[string]*Service),
-		srvcsStructs: make(map[string][]*StructType),
-		types:        make(map[string]*Type),
-		errors:       make(map[string]*Error),
+		tks:    tks,
+		ti:     -1,
+		ct:     tks[0],
+		lt:     tks[0],
+		srvcs:  make(map[string]*Service),
+		types:  make(map[string]*Type),
+		errors: make(map[string]*Error),
 	}
 	return
 }
@@ -75,11 +73,14 @@ func (p *parser) parse() (srvcs []*Service, types []*Type, errors []*Error, err 
 		if p.empty() {
 			break
 		} else if p.checkSymbol(tkErrors) {
-			// Expect error definitions.
-			err = p.expectErrors("")
+			// Expect global error definitions.
+			var errs []*Error
+			errs, err = p.expectErrors("")
 			if err != nil {
 				return
 			}
+
+			errors = append(errors, errs...)
 		} else if p.checkSymbol(tkService) {
 			// Expect service.
 			err = p.expectService()
@@ -196,6 +197,7 @@ func (p *parser) next() (ok bool) {
 	if p.empty() {
 		return false
 	}
+	p.lt = p.ct
 	p.ti++
 	p.ct = p.tks[p.ti]
 	return true
