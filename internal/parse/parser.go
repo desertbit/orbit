@@ -40,9 +40,12 @@ type parser struct {
 	ct  *token
 
 	// Stores all services by their name.
-	srvcs map[string]*Service
+	srvcs        map[string]*Service
+	srvcsStructs map[string][]*StructType
+
 	// Stores all types by their name.
 	types map[string]*Type
+
 	// Stores all errors by their name.
 	errors map[string]*Error
 }
@@ -53,12 +56,13 @@ func newParser(tks []*token) (p *parser, err error) {
 		return
 	}
 	p = &parser{
-		tks:    tks,
-		ti:     -1,
-		ct:     tks[0],
-		srvcs:  make(map[string]*Service),
-		types:  make(map[string]*Type),
-		errors: make(map[string]*Error),
+		tks:          tks,
+		ti:           -1,
+		ct:           tks[0],
+		srvcs:        make(map[string]*Service),
+		srvcsStructs: make(map[string][]*StructType),
+		types:        make(map[string]*Type),
+		errors:       make(map[string]*Error),
 	}
 	return
 }
@@ -83,7 +87,7 @@ func (p *parser) parse() (srvcs []*Service, types []*Type, errors []*Error, err 
 			}
 		} else if p.checkSymbol(tkType) {
 			// Expect type.
-			err = p.expectType("", "")
+			_, err = p.expectType("", "")
 			if err != nil {
 				return
 			}

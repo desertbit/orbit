@@ -32,7 +32,7 @@ import (
 	"strings"
 )
 
-func (p *parser) expectType(srvcName, name string) (err error) {
+func (p *parser) expectType(srvcName, name string) (sts []*StructType, err error) {
 	// Expect name if empty and prepend the prefix and ensure CamelCase.
 	if name == "" {
 		name, err = p.expectName()
@@ -49,7 +49,8 @@ func (p *parser) expectType(srvcName, name string) (err error) {
 		t = &Type{Name: name}
 		p.types[name] = t
 	} else if t.Fields != nil {
-		return &Err{msg: fmt.Sprintf("type '%s' declared twice", name), line: p.ct.line}
+		err = &Err{msg: fmt.Sprintf("type '%s' declared twice", name), line: p.ct.line}
+		return
 	}
 
 	// Expect '{'.
@@ -59,7 +60,7 @@ func (p *parser) expectType(srvcName, name string) (err error) {
 	}
 
 	// Expect type fields.
-	t.Fields, err = p.expectTypeFields(srvcName)
+	t.Fields, sts, err = p.expectTypeFields()
 	if err != nil {
 		return
 	}
@@ -67,7 +68,7 @@ func (p *parser) expectType(srvcName, name string) (err error) {
 	return
 }
 
-func (p *parser) expectTypeFields(srvcName string) (tfs []*TypeField, err error) {
+func (p *parser) expectTypeFields() (tfs []*TypeField, sts []*StructType, err error) {
 	// Parse fields of type.
 	for {
 		// Check end.
@@ -85,16 +86,22 @@ func (p *parser) expectTypeFields(srvcName string) (tfs []*TypeField, err error)
 		tf.Name = strings.Title(tf.Name)
 
 		// Expect type.
-		tf.DataType, err = p.expectDataType(srvcName)
+		tf.DataType, err = p.expectDataType()
 		if err != nil {
 			return
+		}
+
+		// In case the data type contains a struct type, add it to the structs.
+		s := containsStruct(tf.DataType)
+		if s != nil {
+			sts = append(sts, s)
 		}
 
 		tfs = append(tfs, tf)
 	}
 }
 
-func (p *parser) expectDataType(srvcName string) (t DataType, err error) {
+func (p *parser) expectDataType() (t DataType, err error) {
 	var ts string
 	defer func() {
 		if err != nil {
@@ -106,7 +113,7 @@ func (p *parser) expectDataType(srvcName string) (t DataType, err error) {
 		// Array type.
 		ts = "array"
 
-		t, err = p.expectArrType(srvcName)
+		t, err = p.expectArrType()
 		if err != nil {
 			return
 		}
@@ -114,7 +121,7 @@ func (p *parser) expectDataType(srvcName string) (t DataType, err error) {
 		// Map type.
 		ts = tkMap
 
-		t, err = p.expectMapType(srvcName)
+		t, err = p.expectMapType()
 		if err != nil {
 			return
 		}
@@ -126,7 +133,7 @@ func (p *parser) expectDataType(srvcName string) (t DataType, err error) {
 		t, ok = p.checkBaseType()
 		if !ok {
 			// Expect struct type.
-			t, err = p.expectStructType(srvcName)
+			t, err = p.expectStructType()
 			if err != nil {
 				return
 			}
@@ -150,7 +157,7 @@ func (p *parser) checkBaseType() (b *BaseType, ok bool) {
 	return
 }
 
-func (p *parser) expectMapType(srvcName string) (m *MapType, err error) {
+func (p *parser) expectMapType() (m *MapType, err error) {
 	// Expect '['.
 	err = p.expectSymbol(tkBracketL)
 	if err != nil {
@@ -172,7 +179,7 @@ func (p *parser) expectMapType(srvcName string) (m *MapType, err error) {
 
 	// Expect value type, can be anything.
 	var value DataType
-	value, err = p.expectDataType("")
+	value, err = p.expectDataType()
 	if err != nil {
 		return
 	}
@@ -181,9 +188,9 @@ func (p *parser) expectMapType(srvcName string) (m *MapType, err error) {
 	return
 }
 
-func (p *parser) expectArrType(srvcName string) (a *ArrType, err error) {
+func (p *parser) expectArrType() (a *ArrType, err error) {
 	// Expect any type.
-	t, err := p.expectDataType(srvcName)
+	t, err := p.expectDataType()
 	if err != nil {
 		return
 	}
@@ -201,7 +208,7 @@ func (p *parser) expectBaseType() (b *BaseType, err error) {
 	return
 }
 
-func (p *parser) expectStructType(srvcName string) (s *StructType, err error) {
+func (p *parser) expectStructType() (s *StructType, err error) {
 	// Expect name and ensure CamelCase.
 	name, err := p.expectName()
 	if err != nil {
@@ -209,6 +216,6 @@ func (p *parser) expectStructType(srvcName string) (s *StructType, err error) {
 		return
 	}
 
-	s = &StructType{Name: strings.Title(srvcName) + strings.Title(name)}
+	s = &StructType{Name: strings.Title(name)}
 	return
 }

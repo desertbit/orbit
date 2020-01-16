@@ -47,6 +47,64 @@ type Char struct {
 	Lol string
 }
 
+//msgp:ignore CharWriteChan
+type CharWriteChan struct {
+	closer.Closer
+	C   chan<- *Char
+	c   chan *Char
+	mx  sync.Mutex
+	err error
+}
+
+func newCharWriteChan(cl closer.Closer) *CharWriteChan {
+	c := &CharWriteChan{Closer: cl, c: make(chan *Char, 3)}
+	c.C = c.c
+	return c
+}
+
+func (c *CharWriteChan) setError(err error) {
+	c.mx.Lock()
+	c.err = err
+	c.mx.Unlock()
+	c.Close_()
+}
+
+func (c *CharWriteChan) Err() (err error) {
+	c.mx.Lock()
+	err = c.err
+	c.mx.Unlock()
+	return
+}
+
+//msgp:ignore CharReadChan
+type CharReadChan struct {
+	closer.Closer
+	C   <-chan *Char
+	c   chan *Char
+	mx  sync.Mutex
+	err error
+}
+
+func newCharReadChan(cl closer.Closer) *CharReadChan {
+	c := &CharReadChan{Closer: cl, c: make(chan *Char, 3)}
+	c.C = c.c
+	return c
+}
+
+func (c *CharReadChan) setError(err error) {
+	c.mx.Lock()
+	c.err = err
+	c.mx.Unlock()
+	c.Close_()
+}
+
+func (c *CharReadChan) Err() (err error) {
+	c.mx.Lock()
+	err = c.err
+	c.mx.Unlock()
+	return
+}
+
 type ExampleChar struct {
 	Lol string
 }
@@ -109,8 +167,16 @@ func (c *ExampleCharReadChan) Err() (err error) {
 	return
 }
 
+type ExampleRect struct {
+	C  *ExampleChar
+	X1 float32
+	X2 float32
+	Y1 float32
+	Y2 float32
+}
+
 type ExampleTest3Args struct {
-	C map[int][]*Rect
+	C map[int][]*ExampleRect
 	I int
 	V float64
 }
@@ -130,6 +196,64 @@ type Plate struct {
 	Version int
 }
 
+//msgp:ignore PlateWriteChan
+type PlateWriteChan struct {
+	closer.Closer
+	C   chan<- *Plate
+	c   chan *Plate
+	mx  sync.Mutex
+	err error
+}
+
+func newPlateWriteChan(cl closer.Closer) *PlateWriteChan {
+	c := &PlateWriteChan{Closer: cl, c: make(chan *Plate, 3)}
+	c.C = c.c
+	return c
+}
+
+func (c *PlateWriteChan) setError(err error) {
+	c.mx.Lock()
+	c.err = err
+	c.mx.Unlock()
+	c.Close_()
+}
+
+func (c *PlateWriteChan) Err() (err error) {
+	c.mx.Lock()
+	err = c.err
+	c.mx.Unlock()
+	return
+}
+
+//msgp:ignore PlateReadChan
+type PlateReadChan struct {
+	closer.Closer
+	C   <-chan *Plate
+	c   chan *Plate
+	mx  sync.Mutex
+	err error
+}
+
+func newPlateReadChan(cl closer.Closer) *PlateReadChan {
+	c := &PlateReadChan{Closer: cl, c: make(chan *Plate, 3)}
+	c.C = c.c
+	return c
+}
+
+func (c *PlateReadChan) setError(err error) {
+	c.mx.Lock()
+	c.err = err
+	c.mx.Unlock()
+	c.Close_()
+}
+
+func (c *PlateReadChan) Err() (err error) {
+	c.mx.Lock()
+	err = c.err
+	c.mx.Unlock()
+	return
+}
+
 type Rect struct {
 	C  *Char
 	X1 float32
@@ -141,6 +265,448 @@ type Rect struct {
 //################//
 //### Services ###//
 //################//
+
+// Trainer  ---------------------
+const (
+	Trainer         = "Trainer"
+	TrainerStart    = "Start"
+	TrainerUpdate   = "Update"
+	TrainerUpload   = "Upload"
+	TrainerDownload = "Download"
+	TrainerSend     = "Send"
+	TrainerReceive  = "Receive"
+	TrainerLink     = "Link"
+)
+
+type TrainerConsumerCaller interface {
+	// Calls
+	Start(ctx context.Context, args *Plate) (err error)
+	Update(ctx context.Context, args *Char) (ret *Char, err error)
+	// Streams
+	Upload(ctx context.Context) (stream net.Conn, err error)
+	Download(ctx context.Context) (args *CharWriteChan, err error)
+}
+
+type TrainerConsumerHandler interface {
+	// Streams
+	Send(s *orbit.Session, args *PlateReadChan) (err error)
+	Receive(s *orbit.Session, ret *CharWriteChan) (err error)
+	Link(s *orbit.Session, args *PlateReadChan, ret *CharWriteChan) (err error)
+}
+
+type TrainerProviderCaller interface {
+	// Streams
+	Send(ctx context.Context) (args *PlateWriteChan, err error)
+	Receive(ctx context.Context) (ret *CharReadChan, err error)
+	Link(ctx context.Context) (args *PlateWriteChan, ret *CharReadChan, err error)
+}
+
+type TrainerProviderHandler interface {
+	// Calls
+	Start(ctx context.Context, s *orbit.Session, args *Plate) (err error)
+	Update(ctx context.Context, s *orbit.Session, args *Char) (ret *Char, err error)
+	// Streams
+	Upload(s *orbit.Session, stream net.Conn) (err error)
+	Download(s *orbit.Session, args *CharReadChan) (err error)
+}
+
+type trainerConsumer struct {
+	h TrainerConsumerHandler
+	s *orbit.Session
+}
+
+func RegisterTrainerConsumer(s *orbit.Session, h TrainerConsumerHandler) TrainerConsumerCaller {
+	cc := &trainerConsumer{h: h, s: s}
+	s.RegisterStream(Trainer, TrainerSend, cc.send)
+	s.RegisterStream(Trainer, TrainerReceive, cc.receive)
+	s.RegisterStream(Trainer, TrainerLink, cc.link)
+	return cc
+}
+
+func (v1 *trainerConsumer) Start(ctx context.Context, args *Plate) (err error) {
+	_, err = v1.s.Call(ctx, Trainer, TrainerStart, args)
+	if err != nil {
+		var cErr *orbit.ErrorCode
+		if errors.As(err, &cErr) {
+			switch cErr.Code {
+			case 1:
+				err = ErrNotFound
+			case 2:
+				err = ErrDatasetDoesNotExist
+			}
+		}
+		return
+	}
+	return
+}
+
+func (v1 *trainerConsumer) Update(ctx context.Context, args *Char) (ret *Char, err error) {
+	retData, err := v1.s.CallAsync(ctx, Trainer, TrainerUpdate, args)
+	if err != nil {
+		var cErr *orbit.ErrorCode
+		if errors.As(err, &cErr) {
+			switch cErr.Code {
+			case 1:
+				err = ErrNotFound
+			case 2:
+				err = ErrDatasetDoesNotExist
+			}
+		}
+		return
+	}
+	err = retData.Decode(ret)
+	if err != nil {
+		return
+	}
+	return
+}
+
+func (v1 *trainerConsumer) Upload(ctx context.Context) (stream net.Conn, err error) {
+	return v1.s.OpenStream(ctx, Trainer, TrainerUpload)
+}
+
+func (v1 *trainerConsumer) Download(ctx context.Context) (args *CharWriteChan, err error) {
+	stream, err := v1.s.OpenStream(ctx, Trainer, TrainerDownload)
+	if err != nil {
+		return
+	}
+	args = newCharWriteChan(v1.s.CloserOneWay())
+	args.OnClosing(func() error { return stream.Close() })
+	go func() {
+		closingChan := args.ClosingChan()
+		codec := v1.s.Codec()
+		for {
+			select {
+			case <-closingChan:
+				return
+			case arg := <-args.c:
+				err := packet.WriteEncode(stream, arg, codec)
+				if err != nil {
+					if v1.s.IsClosing() {
+						err = nil
+					}
+					args.setError(err)
+					return
+				}
+			}
+		}
+	}()
+	return
+}
+
+func (v1 *trainerConsumer) send(s *orbit.Session, stream net.Conn) (err error) {
+	defer stream.Close()
+	args := newPlateReadChan(v1.s.CloserOneWay())
+	go func() {
+		closingChan := args.ClosingChan()
+		codec := v1.s.Codec()
+		for {
+			var arg *Plate
+			err := packet.ReadDecode(stream, arg, codec)
+			if err != nil {
+				if v1.s.IsClosing() {
+					err = nil
+				}
+				args.setError(err)
+				return
+			}
+			select {
+			case <-closingChan:
+				return
+			case args.c <- arg:
+			}
+		}
+	}()
+
+	err = v1.h.Send(s, args)
+	if err != nil {
+		return
+	}
+	return
+}
+
+func (v1 *trainerConsumer) receive(s *orbit.Session, stream net.Conn) (err error) {
+	defer stream.Close()
+	ret := newCharWriteChan(v1.s.CloserOneWay())
+	go func() {
+		closingChan := ret.ClosingChan()
+		codec := v1.s.Codec()
+		for {
+			select {
+			case <-closingChan:
+				return
+			case data := <-ret.c:
+				err := packet.WriteEncode(stream, data, codec)
+				if err != nil {
+					if v1.s.IsClosing() {
+						err = nil
+					}
+					ret.setError(err)
+					return
+				}
+			}
+		}
+	}()
+	err = v1.h.Receive(s, ret)
+	if err != nil {
+		return
+	}
+	return
+}
+
+func (v1 *trainerConsumer) link(s *orbit.Session, stream net.Conn) (err error) {
+	defer stream.Close()
+	args := newPlateReadChan(v1.s.CloserOneWay())
+	go func() {
+		closingChan := args.ClosingChan()
+		codec := v1.s.Codec()
+		for {
+			var arg *Plate
+			err := packet.ReadDecode(stream, arg, codec)
+			if err != nil {
+				if v1.s.IsClosing() {
+					err = nil
+				}
+				args.setError(err)
+				return
+			}
+			select {
+			case <-closingChan:
+				return
+			case args.c <- arg:
+			}
+		}
+	}()
+
+	ret := newCharWriteChan(v1.s.CloserOneWay())
+	go func() {
+		closingChan := ret.ClosingChan()
+		codec := v1.s.Codec()
+		for {
+			select {
+			case <-closingChan:
+				return
+			case data := <-ret.c:
+				err := packet.WriteEncode(stream, data, codec)
+				if err != nil {
+					if v1.s.IsClosing() {
+						err = nil
+					}
+					ret.setError(err)
+					return
+				}
+			}
+		}
+	}()
+	err = v1.h.Link(s, args, ret)
+	if err != nil {
+		return
+	}
+	return
+}
+
+type trainerProvider struct {
+	h TrainerProviderHandler
+	s *orbit.Session
+}
+
+func RegisterTrainerProvider(s *orbit.Session, h TrainerProviderHandler) TrainerProviderCaller {
+	cc := &trainerProvider{h: h, s: s}
+	s.RegisterCall(Trainer, TrainerStart, cc.start)
+	s.RegisterCall(Trainer, TrainerUpdate, cc.update)
+	s.RegisterStream(Trainer, TrainerUpload, cc.upload)
+	s.RegisterStream(Trainer, TrainerDownload, cc.download)
+	return cc
+}
+
+func (v1 *trainerProvider) start(ctx context.Context, s *orbit.Session, ad *orbit.Data) (r interface{}, err error) {
+	var args *Plate
+	err = ad.Decode(args)
+	if err != nil {
+		return
+	}
+	err = v1.h.Start(ctx, s, args)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			err = orbitErrNotFound
+		} else if errors.Is(err, ErrDatasetDoesNotExist) {
+			err = orbitErrDatasetDoesNotExist
+		}
+		return
+	}
+	return
+}
+
+func (v1 *trainerProvider) update(ctx context.Context, s *orbit.Session, ad *orbit.Data) (r interface{}, err error) {
+	var args *Char
+	err = ad.Decode(args)
+	if err != nil {
+		return
+	}
+	ret, err := v1.h.Update(ctx, s, args)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			err = orbitErrNotFound
+		} else if errors.Is(err, ErrDatasetDoesNotExist) {
+			err = orbitErrDatasetDoesNotExist
+		}
+		return
+	}
+	r = ret
+	return
+}
+
+func (v1 *trainerProvider) Send(ctx context.Context) (args *PlateWriteChan, err error) {
+	stream, err := v1.s.OpenStream(ctx, Trainer, TrainerSend)
+	if err != nil {
+		return
+	}
+	args = newPlateWriteChan(v1.s.CloserOneWay())
+	args.OnClosing(func() error { return stream.Close() })
+	go func() {
+		closingChan := args.ClosingChan()
+		codec := v1.s.Codec()
+		for {
+			select {
+			case <-closingChan:
+				return
+			case arg := <-args.c:
+				err := packet.WriteEncode(stream, arg, codec)
+				if err != nil {
+					if v1.s.IsClosing() {
+						err = nil
+					}
+					args.setError(err)
+					return
+				}
+			}
+		}
+	}()
+	return
+}
+
+func (v1 *trainerProvider) Receive(ctx context.Context) (ret *CharReadChan, err error) {
+	stream, err := v1.s.OpenStream(ctx, Trainer, TrainerReceive)
+	if err != nil {
+		return
+	}
+	ret = newCharReadChan(v1.s.CloserOneWay())
+	ret.OnClosing(func() error { return stream.Close() })
+	go func() {
+		closingChan := ret.ClosingChan()
+		codec := v1.s.Codec()
+		for {
+			var data *Char
+			err := packet.ReadDecode(stream, data, codec)
+			if err != nil {
+				if v1.s.IsClosing() {
+					err = nil
+				}
+				ret.setError(err)
+				return
+			}
+			select {
+			case <-closingChan:
+				return
+			case ret.c <- data:
+			}
+		}
+	}()
+	return
+}
+
+func (v1 *trainerProvider) Link(ctx context.Context) (args *PlateWriteChan, ret *CharReadChan, err error) {
+	stream, err := v1.s.OpenStream(ctx, Trainer, TrainerLink)
+	if err != nil {
+		return
+	}
+	args = newPlateWriteChan(v1.s.CloserOneWay())
+	args.OnClosing(func() error { return stream.Close() })
+	go func() {
+		closingChan := args.ClosingChan()
+		codec := v1.s.Codec()
+		for {
+			select {
+			case <-closingChan:
+				return
+			case arg := <-args.c:
+				err := packet.WriteEncode(stream, arg, codec)
+				if err != nil {
+					if v1.s.IsClosing() {
+						err = nil
+					}
+					args.setError(err)
+					return
+				}
+			}
+		}
+	}()
+	ret = newCharReadChan(v1.s.CloserOneWay())
+	ret.OnClosing(func() error { return stream.Close() })
+	go func() {
+		closingChan := ret.ClosingChan()
+		codec := v1.s.Codec()
+		for {
+			var data *Char
+			err := packet.ReadDecode(stream, data, codec)
+			if err != nil {
+				if v1.s.IsClosing() {
+					err = nil
+				}
+				ret.setError(err)
+				return
+			}
+			select {
+			case <-closingChan:
+				return
+			case ret.c <- data:
+			}
+		}
+	}()
+	return
+}
+
+func (v1 *trainerProvider) upload(s *orbit.Session, stream net.Conn) (err error) {
+	defer stream.Close()
+	err = v1.h.Upload(s, stream)
+	if err != nil {
+		return
+	}
+	return
+}
+
+func (v1 *trainerProvider) download(s *orbit.Session, stream net.Conn) (err error) {
+	defer stream.Close()
+	args := newCharReadChan(v1.s.CloserOneWay())
+	go func() {
+		closingChan := args.ClosingChan()
+		codec := v1.s.Codec()
+		for {
+			var arg *Char
+			err := packet.ReadDecode(stream, arg, codec)
+			if err != nil {
+				if v1.s.IsClosing() {
+					err = nil
+				}
+				args.setError(err)
+				return
+			}
+			select {
+			case <-closingChan:
+				return
+			case args.c <- arg:
+			}
+		}
+	}()
+
+	err = v1.h.Download(s, args)
+	if err != nil {
+		return
+	}
+	return
+}
+
+// ---------------------
 
 // Example  ---------------------
 const (
@@ -157,7 +723,7 @@ const (
 
 type ExampleConsumerCaller interface {
 	// Calls
-	Test(ctx context.Context, args *ExamplePlate) (ret *ExampleRect, err error)
+	Test(ctx context.Context, args *Plate) (ret *ExampleRect, err error)
 	Test2(ctx context.Context, args *ExampleRect) (err error)
 	// Streams
 	Hello(ctx context.Context) (stream net.Conn, err error)
@@ -169,8 +735,8 @@ type ExampleConsumerHandler interface {
 	Test3(ctx context.Context, s *orbit.Session, args *ExampleTest3Args) (ret *ExampleTest3Ret, err error)
 	Test4(ctx context.Context, s *orbit.Session) (ret *ExampleRect, err error)
 	// Streams
-	Hello3(s *orbit.Session, ret *ExamplePlateWriteChan) (err error)
-	Hello4(s *orbit.Session, args *ExampleCharReadChan, ret *ExamplePlateWriteChan) (err error)
+	Hello3(s *orbit.Session, ret *PlateWriteChan) (err error)
+	Hello4(s *orbit.Session, args *ExampleCharReadChan, ret *PlateWriteChan) (err error)
 }
 
 type ExampleProviderCaller interface {
@@ -178,13 +744,13 @@ type ExampleProviderCaller interface {
 	Test3(ctx context.Context, args *ExampleTest3Args) (ret *ExampleTest3Ret, err error)
 	Test4(ctx context.Context) (ret *ExampleRect, err error)
 	// Streams
-	Hello3(ctx context.Context) (ret *ExamplePlateReadChan, err error)
-	Hello4(ctx context.Context) (args *ExampleCharWriteChan, ret *ExamplePlateReadChan, err error)
+	Hello3(ctx context.Context) (ret *PlateReadChan, err error)
+	Hello4(ctx context.Context) (args *ExampleCharWriteChan, ret *PlateReadChan, err error)
 }
 
 type ExampleProviderHandler interface {
 	// Calls
-	Test(ctx context.Context, s *orbit.Session, args *ExamplePlate) (ret *ExampleRect, err error)
+	Test(ctx context.Context, s *orbit.Session, args *Plate) (ret *ExampleRect, err error)
 	Test2(ctx context.Context, s *orbit.Session, args *ExampleRect) (err error)
 	// Streams
 	Hello(s *orbit.Session, stream net.Conn) (err error)
@@ -205,7 +771,7 @@ func RegisterExampleConsumer(s *orbit.Session, h ExampleConsumerHandler) Example
 	return cc
 }
 
-func (v1 *exampleConsumer) Test(ctx context.Context, args *ExamplePlate) (ret *ExampleRect, err error) {
+func (v1 *exampleConsumer) Test(ctx context.Context, args *Plate) (ret *ExampleRect, err error) {
 	retData, err := v1.s.Call(ctx, Example, ExampleTest, args)
 	if err != nil {
 		var cErr *orbit.ErrorCode
@@ -311,7 +877,7 @@ func (v1 *exampleConsumer) Hello2(ctx context.Context) (args *ExampleCharWriteCh
 
 func (v1 *exampleConsumer) hello3(s *orbit.Session, stream net.Conn) (err error) {
 	defer stream.Close()
-	ret := newExamplePlateWriteChan(v1.s.CloserOneWay())
+	ret := newPlateWriteChan(v1.s.CloserOneWay())
 	go func() {
 		closingChan := ret.ClosingChan()
 		codec := v1.s.Codec()
@@ -362,7 +928,7 @@ func (v1 *exampleConsumer) hello4(s *orbit.Session, stream net.Conn) (err error)
 		}
 	}()
 
-	ret := newExamplePlateWriteChan(v1.s.CloserOneWay())
+	ret := newPlateWriteChan(v1.s.CloserOneWay())
 	go func() {
 		closingChan := ret.ClosingChan()
 		codec := v1.s.Codec()
@@ -446,7 +1012,7 @@ func (v1 *exampleProvider) Test4(ctx context.Context) (ret *ExampleRect, err err
 }
 
 func (v1 *exampleProvider) test(ctx context.Context, s *orbit.Session, ad *orbit.Data) (r interface{}, err error) {
-	var args *ExamplePlate
+	var args *Plate
 	err = ad.Decode(args)
 	if err != nil {
 		return
@@ -482,18 +1048,18 @@ func (v1 *exampleProvider) test2(ctx context.Context, s *orbit.Session, ad *orbi
 	return
 }
 
-func (v1 *exampleProvider) Hello3(ctx context.Context) (ret *ExamplePlateReadChan, err error) {
+func (v1 *exampleProvider) Hello3(ctx context.Context) (ret *PlateReadChan, err error) {
 	stream, err := v1.s.OpenStream(ctx, Example, ExampleHello3)
 	if err != nil {
 		return
 	}
-	ret = newExamplePlateReadChan(v1.s.CloserOneWay())
+	ret = newPlateReadChan(v1.s.CloserOneWay())
 	ret.OnClosing(func() error { return stream.Close() })
 	go func() {
 		closingChan := ret.ClosingChan()
 		codec := v1.s.Codec()
 		for {
-			var data *ExamplePlate
+			var data *Plate
 			err := packet.ReadDecode(stream, data, codec)
 			if err != nil {
 				if v1.s.IsClosing() {
@@ -512,7 +1078,7 @@ func (v1 *exampleProvider) Hello3(ctx context.Context) (ret *ExamplePlateReadCha
 	return
 }
 
-func (v1 *exampleProvider) Hello4(ctx context.Context) (args *ExampleCharWriteChan, ret *ExamplePlateReadChan, err error) {
+func (v1 *exampleProvider) Hello4(ctx context.Context) (args *ExampleCharWriteChan, ret *PlateReadChan, err error) {
 	stream, err := v1.s.OpenStream(ctx, Example, ExampleHello4)
 	if err != nil {
 		return
@@ -538,13 +1104,13 @@ func (v1 *exampleProvider) Hello4(ctx context.Context) (args *ExampleCharWriteCh
 			}
 		}
 	}()
-	ret = newExamplePlateReadChan(v1.s.CloserOneWay())
+	ret = newPlateReadChan(v1.s.CloserOneWay())
 	ret.OnClosing(func() error { return stream.Close() })
 	go func() {
 		closingChan := ret.ClosingChan()
 		codec := v1.s.Codec()
 		for {
-			var data *ExamplePlate
+			var data *Plate
 			err := packet.ReadDecode(stream, data, codec)
 			if err != nil {
 				if v1.s.IsClosing() {
@@ -597,448 +1163,6 @@ func (v1 *exampleProvider) hello2(s *orbit.Session, stream net.Conn) (err error)
 	}()
 
 	err = v1.h.Hello2(s, args)
-	if err != nil {
-		return
-	}
-	return
-}
-
-// ---------------------
-
-// Trainer  ---------------------
-const (
-	Trainer         = "Trainer"
-	TrainerStart    = "Start"
-	TrainerUpdate   = "Update"
-	TrainerUpload   = "Upload"
-	TrainerDownload = "Download"
-	TrainerSend     = "Send"
-	TrainerReceive  = "Receive"
-	TrainerLink     = "Link"
-)
-
-type TrainerConsumerCaller interface {
-	// Calls
-	Start(ctx context.Context, args *TrainerPlate) (err error)
-	Update(ctx context.Context, args *TrainerChar) (ret *TrainerChar, err error)
-	// Streams
-	Upload(ctx context.Context) (stream net.Conn, err error)
-	Download(ctx context.Context) (args *TrainerCharWriteChan, err error)
-}
-
-type TrainerConsumerHandler interface {
-	// Streams
-	Send(s *orbit.Session, args *TrainerPlateReadChan) (err error)
-	Receive(s *orbit.Session, ret *TrainerCharWriteChan) (err error)
-	Link(s *orbit.Session, args *TrainerPlateReadChan, ret *TrainerCharWriteChan) (err error)
-}
-
-type TrainerProviderCaller interface {
-	// Streams
-	Send(ctx context.Context) (args *TrainerPlateWriteChan, err error)
-	Receive(ctx context.Context) (ret *TrainerCharReadChan, err error)
-	Link(ctx context.Context) (args *TrainerPlateWriteChan, ret *TrainerCharReadChan, err error)
-}
-
-type TrainerProviderHandler interface {
-	// Calls
-	Start(ctx context.Context, s *orbit.Session, args *TrainerPlate) (err error)
-	Update(ctx context.Context, s *orbit.Session, args *TrainerChar) (ret *TrainerChar, err error)
-	// Streams
-	Upload(s *orbit.Session, stream net.Conn) (err error)
-	Download(s *orbit.Session, args *TrainerCharReadChan) (err error)
-}
-
-type trainerConsumer struct {
-	h TrainerConsumerHandler
-	s *orbit.Session
-}
-
-func RegisterTrainerConsumer(s *orbit.Session, h TrainerConsumerHandler) TrainerConsumerCaller {
-	cc := &trainerConsumer{h: h, s: s}
-	s.RegisterStream(Trainer, TrainerSend, cc.send)
-	s.RegisterStream(Trainer, TrainerReceive, cc.receive)
-	s.RegisterStream(Trainer, TrainerLink, cc.link)
-	return cc
-}
-
-func (v1 *trainerConsumer) Start(ctx context.Context, args *TrainerPlate) (err error) {
-	_, err = v1.s.Call(ctx, Trainer, TrainerStart, args)
-	if err != nil {
-		var cErr *orbit.ErrorCode
-		if errors.As(err, &cErr) {
-			switch cErr.Code {
-			case 1:
-				err = ErrNotFound
-			case 2:
-				err = ErrDatasetDoesNotExist
-			}
-		}
-		return
-	}
-	return
-}
-
-func (v1 *trainerConsumer) Update(ctx context.Context, args *TrainerChar) (ret *TrainerChar, err error) {
-	retData, err := v1.s.CallAsync(ctx, Trainer, TrainerUpdate, args)
-	if err != nil {
-		var cErr *orbit.ErrorCode
-		if errors.As(err, &cErr) {
-			switch cErr.Code {
-			case 1:
-				err = ErrNotFound
-			case 2:
-				err = ErrDatasetDoesNotExist
-			}
-		}
-		return
-	}
-	err = retData.Decode(ret)
-	if err != nil {
-		return
-	}
-	return
-}
-
-func (v1 *trainerConsumer) Upload(ctx context.Context) (stream net.Conn, err error) {
-	return v1.s.OpenStream(ctx, Trainer, TrainerUpload)
-}
-
-func (v1 *trainerConsumer) Download(ctx context.Context) (args *TrainerCharWriteChan, err error) {
-	stream, err := v1.s.OpenStream(ctx, Trainer, TrainerDownload)
-	if err != nil {
-		return
-	}
-	args = newTrainerCharWriteChan(v1.s.CloserOneWay())
-	args.OnClosing(func() error { return stream.Close() })
-	go func() {
-		closingChan := args.ClosingChan()
-		codec := v1.s.Codec()
-		for {
-			select {
-			case <-closingChan:
-				return
-			case arg := <-args.c:
-				err := packet.WriteEncode(stream, arg, codec)
-				if err != nil {
-					if v1.s.IsClosing() {
-						err = nil
-					}
-					args.setError(err)
-					return
-				}
-			}
-		}
-	}()
-	return
-}
-
-func (v1 *trainerConsumer) send(s *orbit.Session, stream net.Conn) (err error) {
-	defer stream.Close()
-	args := newTrainerPlateReadChan(v1.s.CloserOneWay())
-	go func() {
-		closingChan := args.ClosingChan()
-		codec := v1.s.Codec()
-		for {
-			var arg *TrainerPlate
-			err := packet.ReadDecode(stream, arg, codec)
-			if err != nil {
-				if v1.s.IsClosing() {
-					err = nil
-				}
-				args.setError(err)
-				return
-			}
-			select {
-			case <-closingChan:
-				return
-			case args.c <- arg:
-			}
-		}
-	}()
-
-	err = v1.h.Send(s, args)
-	if err != nil {
-		return
-	}
-	return
-}
-
-func (v1 *trainerConsumer) receive(s *orbit.Session, stream net.Conn) (err error) {
-	defer stream.Close()
-	ret := newTrainerCharWriteChan(v1.s.CloserOneWay())
-	go func() {
-		closingChan := ret.ClosingChan()
-		codec := v1.s.Codec()
-		for {
-			select {
-			case <-closingChan:
-				return
-			case data := <-ret.c:
-				err := packet.WriteEncode(stream, data, codec)
-				if err != nil {
-					if v1.s.IsClosing() {
-						err = nil
-					}
-					ret.setError(err)
-					return
-				}
-			}
-		}
-	}()
-	err = v1.h.Receive(s, ret)
-	if err != nil {
-		return
-	}
-	return
-}
-
-func (v1 *trainerConsumer) link(s *orbit.Session, stream net.Conn) (err error) {
-	defer stream.Close()
-	args := newTrainerPlateReadChan(v1.s.CloserOneWay())
-	go func() {
-		closingChan := args.ClosingChan()
-		codec := v1.s.Codec()
-		for {
-			var arg *TrainerPlate
-			err := packet.ReadDecode(stream, arg, codec)
-			if err != nil {
-				if v1.s.IsClosing() {
-					err = nil
-				}
-				args.setError(err)
-				return
-			}
-			select {
-			case <-closingChan:
-				return
-			case args.c <- arg:
-			}
-		}
-	}()
-
-	ret := newTrainerCharWriteChan(v1.s.CloserOneWay())
-	go func() {
-		closingChan := ret.ClosingChan()
-		codec := v1.s.Codec()
-		for {
-			select {
-			case <-closingChan:
-				return
-			case data := <-ret.c:
-				err := packet.WriteEncode(stream, data, codec)
-				if err != nil {
-					if v1.s.IsClosing() {
-						err = nil
-					}
-					ret.setError(err)
-					return
-				}
-			}
-		}
-	}()
-	err = v1.h.Link(s, args, ret)
-	if err != nil {
-		return
-	}
-	return
-}
-
-type trainerProvider struct {
-	h TrainerProviderHandler
-	s *orbit.Session
-}
-
-func RegisterTrainerProvider(s *orbit.Session, h TrainerProviderHandler) TrainerProviderCaller {
-	cc := &trainerProvider{h: h, s: s}
-	s.RegisterCall(Trainer, TrainerStart, cc.start)
-	s.RegisterCall(Trainer, TrainerUpdate, cc.update)
-	s.RegisterStream(Trainer, TrainerUpload, cc.upload)
-	s.RegisterStream(Trainer, TrainerDownload, cc.download)
-	return cc
-}
-
-func (v1 *trainerProvider) start(ctx context.Context, s *orbit.Session, ad *orbit.Data) (r interface{}, err error) {
-	var args *TrainerPlate
-	err = ad.Decode(args)
-	if err != nil {
-		return
-	}
-	err = v1.h.Start(ctx, s, args)
-	if err != nil {
-		if errors.Is(err, ErrNotFound) {
-			err = orbitErrNotFound
-		} else if errors.Is(err, ErrDatasetDoesNotExist) {
-			err = orbitErrDatasetDoesNotExist
-		}
-		return
-	}
-	return
-}
-
-func (v1 *trainerProvider) update(ctx context.Context, s *orbit.Session, ad *orbit.Data) (r interface{}, err error) {
-	var args *TrainerChar
-	err = ad.Decode(args)
-	if err != nil {
-		return
-	}
-	ret, err := v1.h.Update(ctx, s, args)
-	if err != nil {
-		if errors.Is(err, ErrNotFound) {
-			err = orbitErrNotFound
-		} else if errors.Is(err, ErrDatasetDoesNotExist) {
-			err = orbitErrDatasetDoesNotExist
-		}
-		return
-	}
-	r = ret
-	return
-}
-
-func (v1 *trainerProvider) Send(ctx context.Context) (args *TrainerPlateWriteChan, err error) {
-	stream, err := v1.s.OpenStream(ctx, Trainer, TrainerSend)
-	if err != nil {
-		return
-	}
-	args = newTrainerPlateWriteChan(v1.s.CloserOneWay())
-	args.OnClosing(func() error { return stream.Close() })
-	go func() {
-		closingChan := args.ClosingChan()
-		codec := v1.s.Codec()
-		for {
-			select {
-			case <-closingChan:
-				return
-			case arg := <-args.c:
-				err := packet.WriteEncode(stream, arg, codec)
-				if err != nil {
-					if v1.s.IsClosing() {
-						err = nil
-					}
-					args.setError(err)
-					return
-				}
-			}
-		}
-	}()
-	return
-}
-
-func (v1 *trainerProvider) Receive(ctx context.Context) (ret *TrainerCharReadChan, err error) {
-	stream, err := v1.s.OpenStream(ctx, Trainer, TrainerReceive)
-	if err != nil {
-		return
-	}
-	ret = newTrainerCharReadChan(v1.s.CloserOneWay())
-	ret.OnClosing(func() error { return stream.Close() })
-	go func() {
-		closingChan := ret.ClosingChan()
-		codec := v1.s.Codec()
-		for {
-			var data *TrainerChar
-			err := packet.ReadDecode(stream, data, codec)
-			if err != nil {
-				if v1.s.IsClosing() {
-					err = nil
-				}
-				ret.setError(err)
-				return
-			}
-			select {
-			case <-closingChan:
-				return
-			case ret.c <- data:
-			}
-		}
-	}()
-	return
-}
-
-func (v1 *trainerProvider) Link(ctx context.Context) (args *TrainerPlateWriteChan, ret *TrainerCharReadChan, err error) {
-	stream, err := v1.s.OpenStream(ctx, Trainer, TrainerLink)
-	if err != nil {
-		return
-	}
-	args = newTrainerPlateWriteChan(v1.s.CloserOneWay())
-	args.OnClosing(func() error { return stream.Close() })
-	go func() {
-		closingChan := args.ClosingChan()
-		codec := v1.s.Codec()
-		for {
-			select {
-			case <-closingChan:
-				return
-			case arg := <-args.c:
-				err := packet.WriteEncode(stream, arg, codec)
-				if err != nil {
-					if v1.s.IsClosing() {
-						err = nil
-					}
-					args.setError(err)
-					return
-				}
-			}
-		}
-	}()
-	ret = newTrainerCharReadChan(v1.s.CloserOneWay())
-	ret.OnClosing(func() error { return stream.Close() })
-	go func() {
-		closingChan := ret.ClosingChan()
-		codec := v1.s.Codec()
-		for {
-			var data *TrainerChar
-			err := packet.ReadDecode(stream, data, codec)
-			if err != nil {
-				if v1.s.IsClosing() {
-					err = nil
-				}
-				ret.setError(err)
-				return
-			}
-			select {
-			case <-closingChan:
-				return
-			case ret.c <- data:
-			}
-		}
-	}()
-	return
-}
-
-func (v1 *trainerProvider) upload(s *orbit.Session, stream net.Conn) (err error) {
-	defer stream.Close()
-	err = v1.h.Upload(s, stream)
-	if err != nil {
-		return
-	}
-	return
-}
-
-func (v1 *trainerProvider) download(s *orbit.Session, stream net.Conn) (err error) {
-	defer stream.Close()
-	args := newTrainerCharReadChan(v1.s.CloserOneWay())
-	go func() {
-		closingChan := args.ClosingChan()
-		codec := v1.s.Codec()
-		for {
-			var arg *TrainerChar
-			err := packet.ReadDecode(stream, arg, codec)
-			if err != nil {
-				if v1.s.IsClosing() {
-					err = nil
-				}
-				args.setError(err)
-				return
-			}
-			select {
-			case <-closingChan:
-				return
-			case args.c <- arg:
-			}
-		}
-	}()
-
-	err = v1.h.Download(s, args)
 	if err != nil {
 		return
 	}

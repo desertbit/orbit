@@ -2,7 +2,6 @@
 
 - update the comments and remove unneeded parts.
 - update tests
-- fix service inline type definition naming problem
 - add timeout and maxmsgsize to calls (and streams?), but optional!!! take config value as default.
 
 ## OLD:

@@ -199,3 +199,18 @@ type StructType struct {
 func (s *StructType) String() string {
 	return "*" + s.Name
 }
+
+func containsStruct(dt DataType) (s *StructType) {
+	switch v := dt.(type) {
+	case *BaseType:
+		return nil
+	case *StructType:
+		return v
+	case *MapType:
+		return containsStruct(v.Value)
+	case *ArrType:
+		return containsStruct(v.Elem)
+	default:
+		return nil
+	}
+}

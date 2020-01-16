@@ -213,6 +213,304 @@ func (z ExampleChar) Msgsize() (s int) {
 }
 
 // DecodeMsg implements msgp.Decodable
+func (z *ExampleRect) DecodeMsg(dc *msgp.Reader) (err error) {
+	var field []byte
+	_ = field
+	var zb0001 uint32
+	zb0001, err = dc.ReadMapHeader()
+	if err != nil {
+		err = msgp.WrapError(err)
+		return
+	}
+	for zb0001 > 0 {
+		zb0001--
+		field, err = dc.ReadMapKeyPtr()
+		if err != nil {
+			err = msgp.WrapError(err)
+			return
+		}
+		switch msgp.UnsafeString(field) {
+		case "C":
+			if dc.IsNil() {
+				err = dc.ReadNil()
+				if err != nil {
+					err = msgp.WrapError(err, "C")
+					return
+				}
+				z.C = nil
+			} else {
+				if z.C == nil {
+					z.C = new(ExampleChar)
+				}
+				var zb0002 uint32
+				zb0002, err = dc.ReadMapHeader()
+				if err != nil {
+					err = msgp.WrapError(err, "C")
+					return
+				}
+				for zb0002 > 0 {
+					zb0002--
+					field, err = dc.ReadMapKeyPtr()
+					if err != nil {
+						err = msgp.WrapError(err, "C")
+						return
+					}
+					switch msgp.UnsafeString(field) {
+					case "Lol":
+						z.C.Lol, err = dc.ReadString()
+						if err != nil {
+							err = msgp.WrapError(err, "C", "Lol")
+							return
+						}
+					default:
+						err = dc.Skip()
+						if err != nil {
+							err = msgp.WrapError(err, "C")
+							return
+						}
+					}
+				}
+			}
+		case "X1":
+			z.X1, err = dc.ReadFloat32()
+			if err != nil {
+				err = msgp.WrapError(err, "X1")
+				return
+			}
+		case "X2":
+			z.X2, err = dc.ReadFloat32()
+			if err != nil {
+				err = msgp.WrapError(err, "X2")
+				return
+			}
+		case "Y1":
+			z.Y1, err = dc.ReadFloat32()
+			if err != nil {
+				err = msgp.WrapError(err, "Y1")
+				return
+			}
+		case "Y2":
+			z.Y2, err = dc.ReadFloat32()
+			if err != nil {
+				err = msgp.WrapError(err, "Y2")
+				return
+			}
+		default:
+			err = dc.Skip()
+			if err != nil {
+				err = msgp.WrapError(err)
+				return
+			}
+		}
+	}
+	return
+}
+
+// EncodeMsg implements msgp.Encodable
+func (z *ExampleRect) EncodeMsg(en *msgp.Writer) (err error) {
+	// map header, size 5
+	// write "C"
+	err = en.Append(0x85, 0xa1, 0x43)
+	if err != nil {
+		return
+	}
+	if z.C == nil {
+		err = en.WriteNil()
+		if err != nil {
+			return
+		}
+	} else {
+		// map header, size 1
+		// write "Lol"
+		err = en.Append(0x81, 0xa3, 0x4c, 0x6f, 0x6c)
+		if err != nil {
+			return
+		}
+		err = en.WriteString(z.C.Lol)
+		if err != nil {
+			err = msgp.WrapError(err, "C", "Lol")
+			return
+		}
+	}
+	// write "X1"
+	err = en.Append(0xa2, 0x58, 0x31)
+	if err != nil {
+		return
+	}
+	err = en.WriteFloat32(z.X1)
+	if err != nil {
+		err = msgp.WrapError(err, "X1")
+		return
+	}
+	// write "X2"
+	err = en.Append(0xa2, 0x58, 0x32)
+	if err != nil {
+		return
+	}
+	err = en.WriteFloat32(z.X2)
+	if err != nil {
+		err = msgp.WrapError(err, "X2")
+		return
+	}
+	// write "Y1"
+	err = en.Append(0xa2, 0x59, 0x31)
+	if err != nil {
+		return
+	}
+	err = en.WriteFloat32(z.Y1)
+	if err != nil {
+		err = msgp.WrapError(err, "Y1")
+		return
+	}
+	// write "Y2"
+	err = en.Append(0xa2, 0x59, 0x32)
+	if err != nil {
+		return
+	}
+	err = en.WriteFloat32(z.Y2)
+	if err != nil {
+		err = msgp.WrapError(err, "Y2")
+		return
+	}
+	return
+}
+
+// MarshalMsg implements msgp.Marshaler
+func (z *ExampleRect) MarshalMsg(b []byte) (o []byte, err error) {
+	o = msgp.Require(b, z.Msgsize())
+	// map header, size 5
+	// string "C"
+	o = append(o, 0x85, 0xa1, 0x43)
+	if z.C == nil {
+		o = msgp.AppendNil(o)
+	} else {
+		// map header, size 1
+		// string "Lol"
+		o = append(o, 0x81, 0xa3, 0x4c, 0x6f, 0x6c)
+		o = msgp.AppendString(o, z.C.Lol)
+	}
+	// string "X1"
+	o = append(o, 0xa2, 0x58, 0x31)
+	o = msgp.AppendFloat32(o, z.X1)
+	// string "X2"
+	o = append(o, 0xa2, 0x58, 0x32)
+	o = msgp.AppendFloat32(o, z.X2)
+	// string "Y1"
+	o = append(o, 0xa2, 0x59, 0x31)
+	o = msgp.AppendFloat32(o, z.Y1)
+	// string "Y2"
+	o = append(o, 0xa2, 0x59, 0x32)
+	o = msgp.AppendFloat32(o, z.Y2)
+	return
+}
+
+// UnmarshalMsg implements msgp.Unmarshaler
+func (z *ExampleRect) UnmarshalMsg(bts []byte) (o []byte, err error) {
+	var field []byte
+	_ = field
+	var zb0001 uint32
+	zb0001, bts, err = msgp.ReadMapHeaderBytes(bts)
+	if err != nil {
+		err = msgp.WrapError(err)
+		return
+	}
+	for zb0001 > 0 {
+		zb0001--
+		field, bts, err = msgp.ReadMapKeyZC(bts)
+		if err != nil {
+			err = msgp.WrapError(err)
+			return
+		}
+		switch msgp.UnsafeString(field) {
+		case "C":
+			if msgp.IsNil(bts) {
+				bts, err = msgp.ReadNilBytes(bts)
+				if err != nil {
+					return
+				}
+				z.C = nil
+			} else {
+				if z.C == nil {
+					z.C = new(ExampleChar)
+				}
+				var zb0002 uint32
+				zb0002, bts, err = msgp.ReadMapHeaderBytes(bts)
+				if err != nil {
+					err = msgp.WrapError(err, "C")
+					return
+				}
+				for zb0002 > 0 {
+					zb0002--
+					field, bts, err = msgp.ReadMapKeyZC(bts)
+					if err != nil {
+						err = msgp.WrapError(err, "C")
+						return
+					}
+					switch msgp.UnsafeString(field) {
+					case "Lol":
+						z.C.Lol, bts, err = msgp.ReadStringBytes(bts)
+						if err != nil {
+							err = msgp.WrapError(err, "C", "Lol")
+							return
+						}
+					default:
+						bts, err = msgp.Skip(bts)
+						if err != nil {
+							err = msgp.WrapError(err, "C")
+							return
+						}
+					}
+				}
+			}
+		case "X1":
+			z.X1, bts, err = msgp.ReadFloat32Bytes(bts)
+			if err != nil {
+				err = msgp.WrapError(err, "X1")
+				return
+			}
+		case "X2":
+			z.X2, bts, err = msgp.ReadFloat32Bytes(bts)
+			if err != nil {
+				err = msgp.WrapError(err, "X2")
+				return
+			}
+		case "Y1":
+			z.Y1, bts, err = msgp.ReadFloat32Bytes(bts)
+			if err != nil {
+				err = msgp.WrapError(err, "Y1")
+				return
+			}
+		case "Y2":
+			z.Y2, bts, err = msgp.ReadFloat32Bytes(bts)
+			if err != nil {
+				err = msgp.WrapError(err, "Y2")
+				return
+			}
+		default:
+			bts, err = msgp.Skip(bts)
+			if err != nil {
+				err = msgp.WrapError(err)
+				return
+			}
+		}
+	}
+	o = bts
+	return
+}
+
+// Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
+func (z *ExampleRect) Msgsize() (s int) {
+	s = 1 + 2
+	if z.C == nil {
+		s += msgp.NilSize
+	} else {
+		s += 1 + 4 + msgp.StringPrefixSize + len(z.C.Lol)
+	}
+	s += 3 + msgp.Float32Size + 3 + msgp.Float32Size + 3 + msgp.Float32Size + 3 + msgp.Float32Size
+	return
+}
+
+// DecodeMsg implements msgp.Decodable
 func (z *ExampleTest3Args) DecodeMsg(dc *msgp.Reader) (err error) {
 	var field []byte
 	_ = field

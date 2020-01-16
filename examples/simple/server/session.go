@@ -42,12 +42,12 @@ type Session struct {
 }
 
 // Implements the api.ExampleProviderHandler interface.
-func (*Session) Test(ctx context.Context, s *orbit.Session, args *api.Plate) (ret *api.Rect, err error) {
+func (*Session) Test(ctx context.Context, s *orbit.Session, args *api.Plate) (ret *api.ExampleRect, err error) {
 	panic("implement me")
 }
 
 // Implements the api.ExampleProviderHandler interface.
-func (*Session) Test2(ctx context.Context, s *orbit.Session, args *api.Rect) (err error) {
+func (*Session) Test2(ctx context.Context, s *orbit.Session, args *api.ExampleRect) (err error) {
 	panic("implement me")
 }
 
@@ -57,6 +57,6 @@ func (*Session) Hello(s *orbit.Session, stream net.Conn) (err error) {
 }
 
 // Implements the api.ExampleProviderHandler interface.
-func (*Session) Hello2(s *orbit.Session, args *api.CharReadChan) (err error) {
+func (*Session) Hello2(s *orbit.Session, args *api.ExampleCharReadChan) (err error) {
 	panic("implement me")
 }

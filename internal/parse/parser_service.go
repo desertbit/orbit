@@ -60,7 +60,11 @@ func (p *parser) expectService() (err error) {
 		return
 	}
 
+	// Init the struct map.
+	p.srvcsStructs[name] = make([]*StructType, 0)
+
 	var entries []Entry
+
 	for {
 		if p.checkSymbol(tkBraceR) {
 			// End of service.
@@ -73,14 +77,20 @@ func (p *parser) expectService() (err error) {
 			}
 		} else if p.checkSymbol(tkType) {
 			// Expect type and prepend the service name to the type.
-			err = p.expectType(name, "")
+			var sts []*StructType
+			sts, err = p.expectType(name, "")
 			if err != nil {
 				return
 			}
+
+			p.srvcsStructs[name] = append(p.srvcsStructs[name], sts...)
 		} else {
 			// Expect entry.
-			var e Entry
-			e, err = p.expectServiceEntry(name)
+			var (
+				e   Entry
+				sts []*StructType
+			)
+			e, sts, err = p.expectServiceEntry(name)
 			if err != nil {
 				return
 			}
@@ -94,17 +104,32 @@ func (p *parser) expectService() (err error) {
 			}
 
 			entries = append(entries, e)
+			p.srvcsStructs[name] = append(p.srvcsStructs[name], sts...)
 		}
 	}
 
-	// Save service.
+	// There may have been some types defined inside the service with the same name as outer types.
+	// In order to distinguish between them, we must now check, if any entry references a type,
+	// whose name, prepended with the service's name, is equal to a type defined inside this service.
+	// The same goes for any type fields, where a struct references a service local type.
+	// FIXME: the whole things is way too complicated right now. Maybe there is a better solution.
+	for tn := range p.types {
+		for _, s := range p.srvcsStructs[name] {
+			if name+s.Name == tn {
+				s.Name = name + s.Name
+			}
+		}
+	}
+
+	// Save service and free resources.
 	p.srvcs[name] = &Service{Name: name, Entries: entries}
+	delete(p.srvcsStructs, name)
 
 	return
 }
 
 // Returns Err.
-func (p *parser) expectServiceEntry(srvcName string) (e Entry, err error) {
+func (p *parser) expectServiceEntry(srvcName string) (e Entry, sts []*StructType, err error) {
 	defer func() {
 		var pErr *Err
 		if err != nil && !errors.As(err, &pErr) {
@@ -148,18 +173,24 @@ func (p *parser) expectServiceEntry(srvcName string) (e Entry, err error) {
 
 	// Check for arguments.
 	if p.checkSymbol(tkEntryArgs) {
-		args, err = p.expectServiceEntryType(srvcName, name+"Args")
+		var asts []*StructType
+		args, asts, err = p.expectServiceEntryType(srvcName, name+"Args")
 		if err != nil {
 			return
 		}
+
+		sts = append(sts, asts...)
 	}
 
 	// Check for returns.
 	if p.checkSymbol(tkEntryRet) {
-		ret, err = p.expectServiceEntryType(srvcName, name+"Ret")
+		var rsts []*StructType
+		ret, rsts, err = p.expectServiceEntryType(srvcName, name+"Ret")
 		if err != nil {
 			return
 		}
+
+		sts = append(sts, rsts...)
 	}
 
 	// Expect '}'.
@@ -178,7 +209,7 @@ func (p *parser) expectServiceEntry(srvcName string) (e Entry, err error) {
 }
 
 // Returns Err.
-func (p *parser) expectServiceEntryType(srvcName, name string) (st *StructType, err error) {
+func (p *parser) expectServiceEntryType(srvcName, name string) (st *StructType, sts []*StructType, err error) {
 	defer func() {
 		var pErr *Err
 		if err != nil && !errors.As(err, &pErr) {
@@ -190,7 +221,7 @@ func (p *parser) expectServiceEntryType(srvcName, name string) (st *StructType, 
 	if p.peekSymbol(tkBraceL) {
 		structName := strings.Title(srvcName) + strings.Title(name)
 
-		err = p.expectType(srvcName, name)
+		sts, err = p.expectType(srvcName, name)
 		if err != nil {
 			err = fmt.Errorf("parsing service entry type '%s': %w", structName, err)
 			return
@@ -198,9 +229,16 @@ func (p *parser) expectServiceEntryType(srvcName, name string) (st *StructType, 
 
 		// The struct type is a reference to the inline type.
 		st = &StructType{Name: structName}
+		sts = append(sts, st)
 		return
 	}
 
 	// The entry type must be a struct type.
-	return p.expectStructType(srvcName)
+	st, err = p.expectStructType()
+	if err != nil {
+		return
+	}
+
+	sts = append(sts, st)
+	return
 }
