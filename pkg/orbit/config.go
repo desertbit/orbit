@@ -58,6 +58,7 @@ func prepareConfig(c *Config) *Config {
 	}
 
 	if c.Log == nil {
+		// TODO: human readable or efficient logger as default?
 		l := zerolog.New(zerolog.ConsoleWriter{
 			Out:        os.Stderr,
 			TimeFormat: time.RFC3339,
