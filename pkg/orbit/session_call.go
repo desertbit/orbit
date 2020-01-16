@@ -37,8 +37,8 @@ import (
 	"time"
 
 	"github.com/desertbit/orbit/internal/api"
-	"github.com/desertbit/orbit/internal/packet"
 	"github.com/desertbit/orbit/pkg/codec/msgpack"
+	"github.com/desertbit/orbit/pkg/packet"
 	"github.com/rs/zerolog/log"
 )
 

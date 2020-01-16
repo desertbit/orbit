@@ -38,7 +38,7 @@ import (
 
 	"github.com/desertbit/closer/v3"
 	"github.com/desertbit/orbit/internal/control"
-	"github.com/desertbit/orbit/internal/packet"
+	"github.com/desertbit/orbit/pkg/packet"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 )

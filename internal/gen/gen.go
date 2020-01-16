@@ -266,7 +266,7 @@ func (g *generator) genHeader(pkgName string) (header string) {
 		"time",
 		"sync",
 		"github.com/desertbit/orbit/pkg/orbit",
-		"github.com/desertbit/orbit/internal/packet",
+		"github.com/desertbit/orbit/pkg/packet",
 		"github.com/desertbit/closer/v3",
 	}
 

@@ -37,7 +37,7 @@ import (
 	"time"
 
 	"github.com/desertbit/orbit/internal/api"
-	"github.com/desertbit/orbit/internal/packet"
+	"github.com/desertbit/orbit/pkg/packet"
 )
 
 func (s *Session) RegisterStream(service, id string, f StreamFunc) {

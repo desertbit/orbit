@@ -34,8 +34,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/desertbit/orbit/internal/packet"
 	"github.com/desertbit/orbit/pkg/codec/msgpack"
+	"github.com/desertbit/orbit/pkg/packet"
 	"github.com/stretchr/testify/require"
 )
 
@@ -58,14 +58,14 @@ func TestWriteEncode(t *testing.T) {
 	// Needed, since net.Pipe() returns conn with no internal buffering.
 	done := make(chan struct{})
 	go func() {
-		err := packet.ReadDecode(connR, &ret, msgpack.Codec, 16384, 50*time.Millisecond)
+		err := ReadDecode(connR, &ret, msgpack.Codec, 16384, 50*time.Millisecond)
 		if err != nil {
 			t.Fatal(err)
 		}
 		done <- struct{}{}
 	}()
 
-	err := packet.WriteEncode(connW, data, msgpack.Codec, 16384, 50*time.Millisecond)
+	err := WriteEncode(connW, data, msgpack.Codec, 16384, 50*time.Millisecond)
 	require.NoError(t, err)
 
 	// Wait for the read to finish.
@@ -95,7 +95,7 @@ func TestWriteTimeout(t *testing.T) {
 	go func() {
 		// Try to read the same data off of the conn.
 		var err error
-		ret, err = packet.Read(connR, nil, 16384)
+		ret, err = Read(connR, nil, 16384)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -184,12 +184,12 @@ func TestWrite(t *testing.T) {
 		buff := bytes.Buffer{}
 		if c.shouldPanic {
 			require.Panicsf(t, func() {
-				_ = packet.Write(&buff, c.data, c.maxPayloadSize)
+				_ = Write(&buff, c.data, c.maxPayloadSize)
 			}, "case %d", i+1)
 			continue
 		}
 
-		err := packet.Write(&buff, c.data, c.maxPayloadSize)
+		err := Write(&buff, c.data, c.maxPayloadSize)
 		if c.shouldFail {
 			require.Errorf(t, err, "case %d", i+1)
 			continue
@@ -198,7 +198,7 @@ func TestWrite(t *testing.T) {
 		require.NoErrorf(t, err, "case %d", i+1)
 
 		// Try to read the same data off of the buffer.
-		ret, err := packet.Read(&buff, nil, 16384)
+		ret, err := Read(&buff, nil, 16384)
 		require.NoErrorf(t, err, "case %d", i+1)
 		require.Equalf(t, c.data, ret, "case %d", i+1)
 	}
@@ -223,13 +223,13 @@ func TestReadDecode(t *testing.T) {
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	go func() {
-		err := packet.WriteEncode(connW, data, msgpack.Codec, 16384, 50*time.Millisecond)
+		err := WriteEncode(connW, data, msgpack.Codec, 16384, 50*time.Millisecond)
 		require.NoError(t, err)
 		wg.Done()
 	}()
 
 	var ret test
-	err := packet.ReadDecode(connR, &ret, msgpack.Codec, 16384, 50*time.Millisecond)
+	err := ReadDecode(connR, &ret, msgpack.Codec, 16384, 50*time.Millisecond)
 	require.NoError(t, err)
 	require.Equal(t, data.Msg, ret.Msg)
 	wg.Wait()
@@ -248,7 +248,7 @@ func TestReadTimeout(t *testing.T) {
 
 	// Write in a goroutine, because net.Pipe() does not buffer.
 	go func() {
-		err := packet.Write(connW, data, 16384)
+		err := Write(connW, data, 16384)
 		require.NoError(t, err)
 	}()
 
@@ -329,19 +329,19 @@ func TestRead(t *testing.T) {
 	for i, c := range cases {
 		buff := bytes.Buffer{}
 
-		err := packet.Write(&buff, c.data, 16384)
+		err := Write(&buff, c.data, 16384)
 		require.NoErrorf(t, err, "case %d", i+1)
 
 		// Try to read the same data off of the buffer.
 
 		if c.shouldPanic {
 			require.Panicsf(t, func() {
-				_, _ = packet.Read(&buff, c.buffer, c.maxPayloadSize)
+				_, _ = Read(&buff, c.buffer, c.maxPayloadSize)
 			}, "case %d", i+1)
 			continue
 		}
 
-		ret, err := packet.Read(&buff, c.buffer, c.maxPayloadSize)
+		ret, err := Read(&buff, c.buffer, c.maxPayloadSize)
 		if c.shouldFail {
 			require.Errorf(t, err, "case %d", i+1)
 			continue
