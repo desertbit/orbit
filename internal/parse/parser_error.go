@@ -30,11 +30,10 @@ package parse
 import (
 	"errors"
 	"fmt"
-	"strings"
 )
 
 // Returns Err.
-func (p *parser) expectErrors() (err error) {
+func (p *parser) expectErrors(srvcName string) (err error) {
 	defer func() {
 		var pErr *Err
 		if err != nil && !errors.As(err, &pErr) {
@@ -54,13 +53,13 @@ func (p *parser) expectErrors() (err error) {
 			return
 		}
 
-		// Expect name and ensure CamelCase.
+		// Expect name.
 		var name string
 		name, err = p.expectName()
 		if err != nil {
 			return
 		}
-		name = strings.Title(name)
+		name = srvcName + name
 
 		// Check for duplicate name.
 		if _, ok := p.errors[name]; ok {

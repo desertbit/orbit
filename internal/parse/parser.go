@@ -31,6 +31,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"unicode"
 )
 
@@ -75,7 +76,7 @@ func (p *parser) parse() (srvcs []*Service, types []*Type, errors []*Error, err 
 			break
 		} else if p.checkSymbol(tkErrors) {
 			// Expect error definitions.
-			err = p.expectErrors()
+			err = p.expectErrors("")
 			if err != nil {
 				return
 			}
@@ -114,6 +115,7 @@ func (p *parser) parse() (srvcs []*Service, types []*Type, errors []*Error, err 
 	return
 }
 
+// The returned name adheres to CamelCase.
 // Returns Err.
 func (p *parser) expectName() (name string, err error) {
 	defer func() {
@@ -134,7 +136,7 @@ func (p *parser) expectName() (name string, err error) {
 		}
 	}
 
-	name = p.ct.value
+	name = strings.Title(p.ct.value)
 	return
 }
 

@@ -1,9 +1,13 @@
 errors {
-    NotFound = 1
-    datasetDoesNotExist = 2
+    NotFound = 100
+    datasetDoesNotExist = 101
 }
 
 service example {
+    errors {
+        aborted = 1
+    }
+
     call test {
         args: Plate
         ret: Rect

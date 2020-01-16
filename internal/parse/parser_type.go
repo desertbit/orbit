@@ -29,18 +29,17 @@ package parse
 
 import (
 	"fmt"
-	"strings"
 )
 
 func (p *parser) expectType(srvcName, name string) (sts []*StructType, err error) {
-	// Expect name if empty and prepend the prefix and ensure CamelCase.
+	// Expect name if empty and prepend the prefix.
 	if name == "" {
 		name, err = p.expectName()
 		if err != nil {
 			return
 		}
 	}
-	name = strings.Title(srvcName) + strings.Title(name)
+	name = srvcName + name
 
 	// Check, if the type has been declared already.
 	t, ok := p.types[name]
@@ -83,7 +82,6 @@ func (p *parser) expectTypeFields() (tfs []*TypeField, sts []*StructType, err er
 		if err != nil {
 			return
 		}
-		tf.Name = strings.Title(tf.Name)
 
 		// Expect type.
 		tf.DataType, err = p.expectDataType()
@@ -216,6 +214,6 @@ func (p *parser) expectStructType() (s *StructType, err error) {
 		return
 	}
 
-	s = &StructType{Name: strings.Title(name)}
+	s = &StructType{Name: name}
 	return
 }

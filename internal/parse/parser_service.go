@@ -30,7 +30,6 @@ package parse
 import (
 	"errors"
 	"fmt"
-	"strings"
 )
 
 // Returns Err.
@@ -42,12 +41,11 @@ func (p *parser) expectService() (err error) {
 		}
 	}()
 
-	// Expect name and ensure CamelCase.
+	// Expect name.
 	name, err := p.expectName()
 	if err != nil {
 		return
 	}
-	name = strings.Title(name)
 
 	// Check for duplicates.
 	if _, ok := p.srvcs[name]; ok {
@@ -71,7 +69,7 @@ func (p *parser) expectService() (err error) {
 			break
 		} else if p.checkSymbol(tkErrors) {
 			// Expect errors.
-			err = p.expectErrors()
+			err = p.expectErrors(name)
 			if err != nil {
 				return
 			}
@@ -112,7 +110,7 @@ func (p *parser) expectService() (err error) {
 	// In order to distinguish between them, we must now check, if any entry references a type,
 	// whose name, prepended with the service's name, is equal to a type defined inside this service.
 	// The same goes for any type fields, where a struct references a service local type.
-	// FIXME: the whole things is way too complicated right now. Maybe there is a better solution.
+	// FIXME: this whole thing is way too complicated right now. Maybe there is a better solution.
 	for tn := range p.types {
 		for _, s := range p.srvcsStructs[name] {
 			if name+s.Name == tn {
@@ -156,12 +154,11 @@ func (p *parser) expectServiceEntry(srvcName string) (e Entry, sts []*StructType
 		return
 	}
 
-	// Expect name and ensure CamelCase.
+	// Expect name.
 	name, err := p.expectName()
 	if err != nil {
 		return
 	}
-	name = strings.Title(name)
 
 	// Expect '{'.
 	err = p.expectSymbol(tkBraceL)
@@ -219,7 +216,7 @@ func (p *parser) expectServiceEntryType(srvcName, name string) (st *StructType, 
 
 	// Check for an inline type definition.
 	if p.peekSymbol(tkBraceL) {
-		structName := strings.Title(srvcName) + strings.Title(name)
+		structName := srvcName + name
 
 		sts, err = p.expectType(srvcName, name)
 		if err != nil {

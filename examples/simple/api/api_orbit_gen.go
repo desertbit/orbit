@@ -28,13 +28,16 @@ var (
 //##############//
 
 const (
-	ErrCodeDatasetDoesNotExist = 2
-	ErrCodeNotFound            = 1
+	ErrCodeDatasetDoesNotExist = 101
+	ErrCodeExampleAborted      = 1
+	ErrCodeNotFound            = 100
 )
 
 var (
 	ErrDatasetDoesNotExist      = errors.New("dataset does not exist")
 	orbitErrDatasetDoesNotExist = orbit.Err(ErrDatasetDoesNotExist, ErrDatasetDoesNotExist.Error(), ErrCodeDatasetDoesNotExist)
+	ErrExampleAborted           = errors.New("example aborted")
+	orbitErrExampleAborted      = orbit.Err(ErrExampleAborted, ErrExampleAborted.Error(), ErrCodeExampleAborted)
 	ErrNotFound                 = errors.New("not found")
 	orbitErrNotFound            = orbit.Err(ErrNotFound, ErrNotFound.Error(), ErrCodeNotFound)
 )
@@ -335,9 +338,11 @@ func (v1 *exampleConsumer) Test(ctx context.Context, args *Plate) (ret *ExampleR
 		var cErr *orbit.ErrorCode
 		if errors.As(err, &cErr) {
 			switch cErr.Code {
-			case 2:
+			case 101:
 				err = ErrDatasetDoesNotExist
 			case 1:
+				err = ErrExampleAborted
+			case 100:
 				err = ErrNotFound
 			}
 		}
@@ -357,9 +362,11 @@ func (v1 *exampleConsumer) Test2(ctx context.Context, args *ExampleRect) (err er
 		var cErr *orbit.ErrorCode
 		if errors.As(err, &cErr) {
 			switch cErr.Code {
-			case 2:
+			case 101:
 				err = ErrDatasetDoesNotExist
 			case 1:
+				err = ErrExampleAborted
+			case 100:
 				err = ErrNotFound
 			}
 		}
@@ -378,6 +385,8 @@ func (v1 *exampleConsumer) test3(ctx context.Context, s *orbit.Session, ad *orbi
 	if err != nil {
 		if errors.Is(err, ErrDatasetDoesNotExist) {
 			err = orbitErrDatasetDoesNotExist
+		} else if errors.Is(err, ErrExampleAborted) {
+			err = orbitErrExampleAborted
 		} else if errors.Is(err, ErrNotFound) {
 			err = orbitErrNotFound
 		}
@@ -392,6 +401,8 @@ func (v1 *exampleConsumer) test4(ctx context.Context, s *orbit.Session, ad *orbi
 	if err != nil {
 		if errors.Is(err, ErrDatasetDoesNotExist) {
 			err = orbitErrDatasetDoesNotExist
+		} else if errors.Is(err, ErrExampleAborted) {
+			err = orbitErrExampleAborted
 		} else if errors.Is(err, ErrNotFound) {
 			err = orbitErrNotFound
 		}
@@ -534,9 +545,11 @@ func (v1 *exampleProvider) Test3(ctx context.Context, args *ExampleTest3Args) (r
 		var cErr *orbit.ErrorCode
 		if errors.As(err, &cErr) {
 			switch cErr.Code {
-			case 2:
+			case 101:
 				err = ErrDatasetDoesNotExist
 			case 1:
+				err = ErrExampleAborted
+			case 100:
 				err = ErrNotFound
 			}
 		}
@@ -556,9 +569,11 @@ func (v1 *exampleProvider) Test4(ctx context.Context) (ret *ExampleRect, err err
 		var cErr *orbit.ErrorCode
 		if errors.As(err, &cErr) {
 			switch cErr.Code {
-			case 2:
+			case 101:
 				err = ErrDatasetDoesNotExist
 			case 1:
+				err = ErrExampleAborted
+			case 100:
 				err = ErrNotFound
 			}
 		}
@@ -582,6 +597,8 @@ func (v1 *exampleProvider) test(ctx context.Context, s *orbit.Session, ad *orbit
 	if err != nil {
 		if errors.Is(err, ErrDatasetDoesNotExist) {
 			err = orbitErrDatasetDoesNotExist
+		} else if errors.Is(err, ErrExampleAborted) {
+			err = orbitErrExampleAborted
 		} else if errors.Is(err, ErrNotFound) {
 			err = orbitErrNotFound
 		}
@@ -601,6 +618,8 @@ func (v1 *exampleProvider) test2(ctx context.Context, s *orbit.Session, ad *orbi
 	if err != nil {
 		if errors.Is(err, ErrDatasetDoesNotExist) {
 			err = orbitErrDatasetDoesNotExist
+		} else if errors.Is(err, ErrExampleAborted) {
+			err = orbitErrExampleAborted
 		} else if errors.Is(err, ErrNotFound) {
 			err = orbitErrNotFound
 		}
@@ -795,9 +814,11 @@ func (v1 *trainerConsumer) Start(ctx context.Context, args *Plate) (err error) {
 		var cErr *orbit.ErrorCode
 		if errors.As(err, &cErr) {
 			switch cErr.Code {
-			case 2:
+			case 101:
 				err = ErrDatasetDoesNotExist
 			case 1:
+				err = ErrExampleAborted
+			case 100:
 				err = ErrNotFound
 			}
 		}
@@ -812,9 +833,11 @@ func (v1 *trainerConsumer) Update(ctx context.Context, args *Char) (ret *Char, e
 		var cErr *orbit.ErrorCode
 		if errors.As(err, &cErr) {
 			switch cErr.Code {
-			case 2:
+			case 101:
 				err = ErrDatasetDoesNotExist
 			case 1:
+				err = ErrExampleAborted
+			case 100:
 				err = ErrNotFound
 			}
 		}
@@ -996,6 +1019,8 @@ func (v1 *trainerProvider) start(ctx context.Context, s *orbit.Session, ad *orbi
 	if err != nil {
 		if errors.Is(err, ErrDatasetDoesNotExist) {
 			err = orbitErrDatasetDoesNotExist
+		} else if errors.Is(err, ErrExampleAborted) {
+			err = orbitErrExampleAborted
 		} else if errors.Is(err, ErrNotFound) {
 			err = orbitErrNotFound
 		}
@@ -1014,6 +1039,8 @@ func (v1 *trainerProvider) update(ctx context.Context, s *orbit.Session, ad *orb
 	if err != nil {
 		if errors.Is(err, ErrDatasetDoesNotExist) {
 			err = orbitErrDatasetDoesNotExist
+		} else if errors.Is(err, ErrExampleAborted) {
+			err = orbitErrExampleAborted
 		} else if errors.Is(err, ErrNotFound) {
 			err = orbitErrNotFound
 		}
