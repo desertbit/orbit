@@ -85,6 +85,11 @@ func (p *parser) expectErrors() (err error) {
 			return
 		}
 
+		// Error ids must be greater than 0.
+		if id <= 0 {
+			return errors.New("error ids must be greater than 0")
+		}
+
 		// Check for duplicate identifier.
 		for _, e := range p.errors {
 			if e.ID == id {

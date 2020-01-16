@@ -80,16 +80,12 @@ func (s *Session) Call(ctx context.Context, service, id string, data interface{}
 	s.callStreamsMx.Unlock()
 
 	if !ok {
-		s.log.Debug().Str("service", service).Msg("init call stream")
-
 		// First call, initialize the call stream.
 		var stream net.Conn
 		stream, err = s.openStream(ctx, "", api.StreamTypeCallInit)
 		if err != nil {
 			return
 		}
-
-		s.log.Debug().Msg("opened stream")
 
 		// Create new call stream.
 		cs = newCallStream(stream, newChain())
@@ -101,8 +97,6 @@ func (s *Session) Call(ctx context.Context, service, id string, data interface{}
 
 		// Start a read routine to receive responses and revcalls.
 		go s.readCallRoutine(cs, false)
-
-		s.log.Debug().Msg("started read routine")
 	}
 
 	return s.call(ctx, cs, id, data)
@@ -139,7 +133,7 @@ func (s *Session) call(ctx context.Context, cs *callStream, id string, data inte
 	if err != nil {
 		return
 	}
-	log.Debug().Msg("wrote call, waiting for response")
+
 	// Wait, until the response has arrived, and return its result.
 	return s.waitForCallResponse(ctx, cs, key, channel)
 }
@@ -216,8 +210,24 @@ func (s *Session) waitForCallResponse(
 		// Abort, if the session closes.
 		err = ErrClosed
 	case <-ctx.Done():
+		err = ctx.Err()
+		if errors.Is(err, context.Canceled) {
+			// Ignore the canceled error, the caller knows it himself.
+			err = nil
+		}
+
 		// Cancel the call on the remote peer.
-		err = s.writeCall(ctx, cs, typeCallCancel, &api.CallCancel{Key: key}, nil)
+		wErr := s.writeCall(ctx, cs, typeCallCancel, &api.CallCancel{Key: key}, nil)
+		if wErr != nil {
+			if err == nil {
+				err = wErr
+			} else {
+				log.Error().
+					Err(wErr).
+					Uint32("key", key).
+					Msg("wait for call response: failed to write call cancel")
+			}
+		}
 	case rData := <-channel:
 		// Response has arrived.
 		d = rData.Data
@@ -319,18 +329,19 @@ func (s *Session) handleCallRequest(cs *callStream, reqType byte, headerData, pa
 
 	// Catch panics, caused by the handler func or one of the hooks.
 	defer func() {
+		// TODO: Remove panic handling?, execCallHandler handles panics on its own and other code is only ours, must not panic.
 		if e := recover(); e != nil {
 			if s.cf.PrintPanicStackTraces {
-				err = fmt.Errorf("catched panic: %v\n%s", e, string(debug.Stack()))
+				err = fmt.Errorf("catched panic: \n%v\n%s", e, string(debug.Stack()))
 			} else {
-				err = fmt.Errorf("catched panic: %v", e)
+				err = fmt.Errorf("catched panic: \n%v", e)
 			}
 		}
 
 		if err != nil {
+			// Log. Do not use the Err() field, as stack trace formatting is lost then.
 			s.log.Error().
-				Err(err).
-				Msg("handle call request")
+				Msgf("session: failed to handle call request: \n%v", err)
 		}
 	}()
 
@@ -352,85 +363,11 @@ func (s *Session) handleCall(cs *callStream, headerData, payloadData []byte) (er
 	var header api.Call
 	err = msgpack.Codec.Decode(headerData, &header)
 	if err != nil {
-		return fmt.Errorf("handle call decode header: %v", err)
+		return fmt.Errorf("handle call: decode header: %v", err)
 	}
 
-	// Retrieve the handler function for this request.
-	s.callFuncsMx.RLock()
-	f, ok := s.callFuncs[header.ID]
-	s.callFuncsMx.RUnlock()
-	if !ok {
-		return fmt.Errorf("handle call: func '%v' does not exist", header.ID)
-	}
-
-	// Build the request data for the handler function.
-	data := newData(payloadData, s.codec)
-
-	// Save a context in our active contexts map so we can cancel it, if needed.
-	// TODO: context is not meant for canceling, see https://dave.cheney.net/2017/08/20/context-isnt-for-cancellation
-	// TODO: lets enhance our closer and bring it to the next level
-	cc := newCallContext()
-	s.callActiveCtxsMx.Lock()
-	s.callActiveCtxs[header.Key] = cc
-	s.callActiveCtxsMx.Unlock()
-
-	// Ensure to remove the context from the map and to cancel it.
-	defer func() {
-		s.callActiveCtxsMx.Lock()
-		delete(s.callActiveCtxs, header.Key)
-		s.callActiveCtxsMx.Unlock()
-		cc.cancel()
-	}()
-
-	// Call the call hook, if defined.
-	// TODO: hook
-	/*if s.callHook != nil {
-		s.callHook(c, header.ID, ctx)
-	}*/
-
-	var (
-		msg  string
-		code int
-	)
-
-	// Execute the handler function.
-	retData, retErr := f(cc.ctx, s, data)
-	if retErr != nil {
-		// Decide what to send back to the caller.
-		var cErr Error
-		if errors.As(err, &cErr) {
-			code = cErr.Code()
-			msg = cErr.Msg()
-		} else if s.cf.SendErrToCaller {
-			msg = retErr.Error()
-		}
-
-		// Ensure an error message is always set.
-		if msg == "" {
-			msg = defaultCallErrorMessage
-		}
-
-		// Log the actual error here, but only if it contains a message.
-		if retErr.Error() != "" {
-			s.log.Error().
-				Err(retErr).
-				Str("func", header.ID).
-				Msg("handle call")
-		}
-
-		// Call the error hook, if defined.
-		// TODO: hook
-		/*if s.errorHook != nil {
-			s.errorHook(c, header.ID, retErr)
-		}*/
-	}
-
-	// Build the header for the response.
-	retHeader := &api.CallReturn{
-		Key:  header.Key,
-		Msg:  msg,
-		Code: code,
-	}
+	// Execute the handler for this call.
+	retHeader, retData := s.execCallHandler(header.Key, header.ID, payloadData)
 
 	ctx, cancel := context.WithTimeout(context.Background(), writeCallReturnTimeout)
 	defer cancel()
@@ -441,6 +378,81 @@ func (s *Session) handleCall(cs *callStream, headerData, payloadData []byte) (er
 		return fmt.Errorf("handle call: send response: %v", err)
 	}
 
+	return
+}
+
+// Sets the msg and code in the retHeader, in case of an error.
+// Recovers from panics.
+func (s *Session) execCallHandler(key uint32, id string, payloadData []byte) (retHeader *api.CallReturn, retData interface{}) {
+	// Build the header for the response.
+	retHeader = &api.CallReturn{Key: key}
+
+	var err error
+	defer func() {
+		if e := recover(); e != nil {
+			if s.cf.PrintPanicStackTraces {
+				err = fmt.Errorf("catched panic: \n%v\n%s", e, string(debug.Stack()))
+			} else {
+				err = fmt.Errorf("catched panic: \n%v", e)
+			}
+		}
+
+		if err != nil {
+			// Log. Do not use the Err() field, as stack trace formatting is lost then.
+			s.log.Error().
+				Str("func", id).
+				Msgf("exec call handler: \n%v", err)
+
+			// Ensure an error message is always set.
+			if retHeader.Msg == "" {
+				if s.cf.SendErrToCaller {
+					retHeader.Msg = err.Error()
+				} else {
+					retHeader.Msg = defaultCallErrorMessage
+				}
+			}
+		}
+	}()
+
+	// Retrieve the handler function for this request.
+	var (
+		ok bool
+		f  CallFunc
+	)
+	s.callFuncsMx.RLock()
+	f, ok = s.callFuncs[id]
+	s.callFuncsMx.RUnlock()
+	if !ok {
+		err = errors.New("call handler not found")
+		return
+	}
+
+	// Save a context in our active contexts map so we can cancel it, if needed.
+	// TODO: context is not meant for canceling, see https://dave.cheney.net/2017/08/20/context-isnt-for-cancellation
+	// TODO: lets enhance our closer and bring it to the next level
+	cc := newCallContext()
+	s.callActiveCtxsMx.Lock()
+	s.callActiveCtxs[retHeader.Key] = cc
+	s.callActiveCtxsMx.Unlock()
+
+	// Ensure to remove the context from the map and to cancel it.
+	defer func() {
+		s.callActiveCtxsMx.Lock()
+		delete(s.callActiveCtxs, retHeader.Key)
+		s.callActiveCtxsMx.Unlock()
+		cc.cancel()
+	}()
+
+	// Execute the handler function.
+	retData, err = f(cc.ctx, s, newData(payloadData, s.codec))
+	if err != nil {
+		// Check, if an orbit error was returned.
+		var cErr Error
+		if errors.As(err, &cErr) {
+			retHeader.Code = cErr.Code()
+			retHeader.Msg = cErr.Msg()
+		}
+	}
 	return
 }
 

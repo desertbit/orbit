@@ -28,6 +28,8 @@
 package gen
 
 import (
+	"sort"
+
 	"github.com/desertbit/orbit/internal/parse"
 )
 
@@ -40,6 +42,11 @@ func (g *generator) genErrors(errs []*parse.Error) {
 	if len(errs) == 0 {
 		return
 	}
+
+	// Sort the errors in alphabetical order.
+	sort.Slice(errs, func(i, j int) bool {
+		return errs[i].Name < errs[j].Name
+	})
 
 	// Write error codes.
 	g.writeLn("const (")

@@ -67,7 +67,7 @@ func ReadDecode(
 	value interface{},
 	codec codec.Codec,
 ) error {
-	// Read the packet from the connection with a timeout.
+	// Read the packet from the connection.
 	payload, err := Read(conn, nil)
 	if err != nil {
 		return err
@@ -98,6 +98,9 @@ func Read(
 	// Read the payload size from the stream.
 	for bytesRead < 4 {
 		n, err = conn.Read(payloadSizeBuf[bytesRead:])
+		if err != nil {
+			return nil, err
+		}
 		bytesRead += n
 	}
 

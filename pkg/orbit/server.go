@@ -171,12 +171,7 @@ func (s *Server) handleConnectionLoop() {
 			return
 
 		case conn := <-s.newConnChan:
-			err := s.handleConnection(conn)
-			if err != nil {
-				s.log.Error().
-					Err(err).
-					Msg("server: handle new connection")
-			}
+			s.handleConnection(conn)
 		}
 	}
 }
@@ -186,16 +181,24 @@ func (s *Server) handleConnectionLoop() {
 // It starts a routine that takes care of removing the session from said map
 // once it has been closed.
 // The session is finally passed to the new session channel.
-// This method recovers from panics.
-func (s *Server) handleConnection(conn Conn) (err error) {
+// This method recovers from panics and logs errors.
+func (s *Server) handleConnection(conn Conn) {
+	var err error
+
 	// Catch panics.
 	defer func() {
 		if e := recover(); e != nil {
 			if s.cf.PrintPanicStackTraces {
-				err = fmt.Errorf("catched panic: %v\n%s", e, string(debug.Stack()))
+				err = fmt.Errorf("catched panic: \n%v\n%s", e, string(debug.Stack()))
 			} else {
-				err = fmt.Errorf("catched panic: %v", e)
+				err = fmt.Errorf("catched panic: \n%v", e)
 			}
+		}
+
+		if err != nil {
+			// Log. Do not use the Err() field, as stack trace formatting is lost then.
+			s.log.Error().
+				Msgf("server: handle new connection: \n%v", err)
 		}
 	}()
 
@@ -240,7 +243,8 @@ func (s *Server) handleConnection(conn Conn) (err error) {
 		}
 	}
 	if !added {
-		return errors.New("failed to generate unique random session id")
+		err = errors.New("failed to generate unique random session id")
+		return
 	}
 
 	sn.OnClosing(func() error {
@@ -268,6 +272,4 @@ func (s *Server) handleConnection(conn Conn) (err error) {
 	s.log.Debug().
 		Str("ID", id).
 		Msg("server: new session")
-
-	return
 }

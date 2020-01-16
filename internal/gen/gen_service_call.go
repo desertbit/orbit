@@ -84,6 +84,7 @@ func (g *generator) genServiceCallClient(c *parse.Call, structName, srvcName str
 
 	// If return arguments are expected, decode them.
 	if c.HasRet() {
+		g.writeLn("ret = &%s{}", c.Ret().Name)
 		g.writeLn("err = retData.Decode(ret)")
 		g.errIfNil()
 	}
@@ -107,7 +108,7 @@ func (g *generator) genServiceCallServer(c *parse.Call, structName string, errs 
 	handlerArgs := "ctx, s"
 	if c.HasArgs() {
 		handlerArgs += ", args"
-		g.writeLn("var args %s", c.Args().String())
+		g.writeLn("args := &%s{}", c.Args().Name)
 		g.writeLn("err = ad.Decode(args)")
 		g.errIfNil()
 	}

@@ -30,6 +30,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/desertbit/closer/v3"
 	"github.com/desertbit/orbit/examples/simple/api"
@@ -63,10 +64,31 @@ func run() (err error) {
 	c := NewClient(co)
 
 	// Make example calls.
-	rect, err := c.Test(context.Background(), &api.Plate{Name: "PlateName", Rect: &api.Rect{X1: 2, X2: 3, Y1: 4, Y2: 5}})
+	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
+	rect, err := c.Test(
+		ctx,
+		&api.Plate{Name: "PlateName", Rect: &api.Rect{X1: 2, X2: 3, Y1: 4, Y2: 5}},
+	)
 	if err != nil {
 		return
 	}
+	log.Info().Interface("ret", rect).Msg("call Test")
+
+	err = c.Test2(ctx, &api.ExampleRect{C: &api.ExampleChar{Lol: "hahahah"}, X1: 888})
+	if err != nil {
+		return
+	}
+	log.Info().Msg("call Test2")
+
+	args, err := c.Hello2(context.Background())
+	if err != nil {
+		return
+	}
+	for i := 0; i < 3; i++ {
+		args.C <- &api.ExampleChar{Lol: "Hello2"}
+	}
+	time.Sleep(time.Second)
+	args.Close_()
 
 	fmt.Printf("Test: %#v\n", rect)
 	return

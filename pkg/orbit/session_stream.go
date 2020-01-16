@@ -127,30 +127,28 @@ func (s *Session) acceptStreamRoutine() {
 		}
 
 		// Run this in a new goroutine.
-		go func() {
-			err := s.handleNewStream(stream)
-			if err != nil {
-				s.log.Error().
-					Err(err).
-					Msg("session: failed to handle new incoming stream")
-			}
-		}()
+		go s.handleNewStream(stream)
 	}
 }
 
-func (s *Session) handleNewStream(stream net.Conn) (err error) {
+func (s *Session) handleNewStream(stream net.Conn) {
+	var err error
 	defer func() {
 		// Catch panics. Might be caused by the channel interface.
 		if e := recover(); e != nil {
 			if s.cf.PrintPanicStackTraces {
-				err = fmt.Errorf("catched panic: %v\n%s", e, string(debug.Stack()))
+				err = fmt.Errorf("catched panic: \n%v\n%s", e, string(debug.Stack()))
 			} else {
-				err = fmt.Errorf("catched panic: %v", e)
+				err = fmt.Errorf("catched panic: \n%v", e)
 			}
 		}
 
-		// Close the stream on error.
 		if err != nil {
+			// Log. Do not use the Err() field, as stack trace formatting is lost then.
+			s.log.Error().
+				Msgf("session: failed to handle new incoming stream: \n%v", err)
+
+			// Close the stream on error.
 			_ = stream.Close()
 		}
 	}()
@@ -165,7 +163,8 @@ func (s *Session) handleNewStream(stream net.Conn) (err error) {
 	var data api.InitStream
 	err = packet.ReadDecode(stream, &data, s.cf.Codec)
 	if err != nil {
-		return fmt.Errorf("init stream header: %v", err)
+		err = fmt.Errorf("init stream header: %v", err)
+		return
 	}
 
 	// Reset the deadline.
@@ -183,7 +182,8 @@ func (s *Session) handleNewStream(stream net.Conn) (err error) {
 		f = s.streamFuncs[data.ID]
 		s.streamFuncsMx.Unlock()
 		if f == nil {
-			return fmt.Errorf("stream handler for id '%s' does not exist", data.ID)
+			err = fmt.Errorf("stream handler for id '%s' does not exist", data.ID)
+			return
 		}
 
 		s.log.Debug().Str("id", data.ID).Msg("new raw stream")
@@ -191,7 +191,8 @@ func (s *Session) handleNewStream(stream net.Conn) (err error) {
 		// Pass it the new stream.
 		err = f(s, stream)
 		if err != nil {
-			return fmt.Errorf("stream='%v': %v", data.ID, err)
+			err = fmt.Errorf("stream='%v': %v", data.ID, err)
+			return
 		}
 
 	case api.StreamTypeCallAsync:
@@ -207,8 +208,7 @@ func (s *Session) handleNewStream(stream net.Conn) (err error) {
 		s.handleInitCall(stream)
 
 	default:
-		return fmt.Errorf("invalid stream type: %v", data.Type)
+		err = fmt.Errorf("invalid stream type: %v", data.Type)
+		return
 	}
-
-	return
 }

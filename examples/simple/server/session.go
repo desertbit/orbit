@@ -33,6 +33,7 @@ import (
 
 	"github.com/desertbit/orbit/examples/simple/api"
 	"github.com/desertbit/orbit/pkg/orbit"
+	"github.com/rs/zerolog/log"
 )
 
 var _ api.ExampleProviderHandler = &Session{}
@@ -43,12 +44,15 @@ type Session struct {
 
 // Implements the api.ExampleProviderHandler interface.
 func (*Session) Test(ctx context.Context, s *orbit.Session, args *api.Plate) (ret *api.ExampleRect, err error) {
-	panic("implement me")
+	log.Info().Interface("args", args).Msg("Test handler")
+	ret = &api.ExampleRect{C: &api.ExampleChar{Lol: "not a dummy"}, X1: 0.58}
+	return
 }
 
 // Implements the api.ExampleProviderHandler interface.
 func (*Session) Test2(ctx context.Context, s *orbit.Session, args *api.ExampleRect) (err error) {
-	panic("implement me")
+	log.Info().Interface("args", args).Msg("Test2 handler")
+	return
 }
 
 // Implements the api.ExampleProviderHandler interface.
@@ -58,5 +62,10 @@ func (*Session) Hello(s *orbit.Session, stream net.Conn) (err error) {
 
 // Implements the api.ExampleProviderHandler interface.
 func (*Session) Hello2(s *orbit.Session, args *api.ExampleCharReadChan) (err error) {
-	panic("implement me")
+	for i := 0; i < 3; i++ {
+		arg := <-args.C
+		log.Info().Interface("arg", arg).Msg("Hello2 handler")
+	}
+	args.Close_()
+	return
 }

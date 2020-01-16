@@ -28,6 +28,7 @@
 package gen
 
 import (
+	"sort"
 	"strings"
 
 	"github.com/desertbit/orbit/internal/parse"
@@ -39,6 +40,11 @@ func (g *generator) genServices(services []*parse.Service, errs []*parse.Error) 
 	g.writeLn("//### Services ###//")
 	g.writeLn("//################//")
 	g.writeLn("")
+
+	// Sort the services in lexicographical order.
+	sort.Slice(services, func(i, j int) bool {
+		return services[i].Name < services[j].Name
+	})
 
 	for _, srvc := range services {
 		g.genService(srvc, errs)
