@@ -34,15 +34,6 @@ import (
 )
 
 func (g *generator) genErrors(errs []*parse.Error) {
-	g.writeLn("//##############//")
-	g.writeLn("//### Errors ###//")
-	g.writeLn("//##############//")
-	g.writeLn("")
-
-	if len(errs) == 0 {
-		return
-	}
-
 	// Sort the errors in alphabetical order.
 	sort.Slice(errs, func(i, j int) bool {
 		return errs[i].Name < errs[j].Name
@@ -62,6 +53,7 @@ func (g *generator) genErrors(errs []*parse.Error) {
 		g.writeLn("orbitErr%s = orbit.Err(Err%s, Err%s.Error(), ErrCode%s)", e.Name, e.Name, e.Name, e.Name)
 	}
 	g.writeLn(")")
+	g.writeLn("")
 }
 
 func (g *generator) genErrCheckOrbitCaller(errs []*parse.Error) {
@@ -72,7 +64,7 @@ func (g *generator) genErrCheckOrbitCaller(errs []*parse.Error) {
 		g.writeLn("if errors.As(err, &cErr) {")
 		g.writeLn("switch cErr.Code {")
 		for _, e := range errs {
-			g.writeLn("case %d:", e.ID)
+			g.writeLn("case ErrCode%s:", e.Name)
 			g.writeLn("err = Err%s", e.Name)
 		}
 		g.writeLn("}")

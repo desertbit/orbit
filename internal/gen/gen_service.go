@@ -35,51 +35,59 @@ import (
 	"github.com/desertbit/orbit/internal/utils"
 )
 
-func (g *generator) genServices(services []*parse.Service, errs []*parse.Error) {
-	g.writeLn("//################//")
-	g.writeLn("//### Services ###//")
-	g.writeLn("//################//")
-	g.writeLn("")
-
+func (g *generator) genServices(services []*parse.Service, globErrs []*parse.Error, streamChanSize uint) {
 	// Sort the services in lexicographical order.
 	sort.Slice(services, func(i, j int) bool {
 		return services[i].Name < services[j].Name
 	})
 
 	for _, srvc := range services {
-		g.genService(srvc, errs)
+		g.writeLn("// %s  ---------------------", srvc.Name)
+
+		// Generate the errors.
+		g.writeLn("// Errors ")
+		g.genErrors(srvc.Errors)
+
+		// Generate the types.
+		g.writeLn("// Types")
+		g.genTypes(srvc.Types, []*parse.Service{srvc}, streamChanSize)
+
+		// Generate the service.
+		g.writeLn("// Service")
+		g.genService(srvc, globErrs)
+
+		g.writeLn("// ---------------------\n")
+		g.writeLn("")
 	}
 }
 
-func (g *generator) genService(srvc *parse.Service, errs []*parse.Error) {
-	g.writeLn("// %s  ---------------------", srvc.Name)
+func (g *generator) genService(srvc *parse.Service, globErrs []*parse.Error) {
 
 	var (
-		calls      = make([]*parse.Call, 0)
-		revCalls   = make([]*parse.Call, 0)
-		streams    = make([]*parse.Stream, 0)
-		revStreams = make([]*parse.Stream, 0)
+		calls      = make([]*parse.Call, 0, len(srvc.Calls))
+		revCalls   = make([]*parse.Call, 0, len(srvc.Calls))
+		streams    = make([]*parse.Stream, 0, len(srvc.Streams))
+		revStreams = make([]*parse.Stream, 0, len(srvc.Streams))
 	)
 
 	// Sort the entries into the respective categories.
 	// Also create the call ids.
 	g.writeLn("const (")
 	g.writeLn("%s = \"%s\"", srvc.Name, srvc.Name)
-	for _, e := range srvc.Entries {
-		g.writeLn("%s = \"%s\"", srvc.Name+e.NamePub(), e.NamePub())
-		switch v := e.(type) {
-		case *parse.Call:
-			if v.Rev() {
-				revCalls = append(revCalls, v)
-			} else {
-				calls = append(calls, v)
-			}
-		case *parse.Stream:
-			if v.Rev() {
-				revStreams = append(revStreams, v)
-			} else {
-				streams = append(streams, v)
-			}
+	for _, c := range srvc.Calls {
+		g.writeLn("%s = \"%s\"", srvc.Name+c.Name, c.Name)
+		if c.Rev {
+			revCalls = append(revCalls, c)
+		} else {
+			calls = append(calls, c)
+		}
+	}
+	for _, s := range srvc.Streams {
+		g.writeLn("%s = \"%s\"", srvc.Name+s.Name, s.Name)
+		if s.Rev {
+			revStreams = append(revStreams, s)
+		} else {
+			streams = append(streams, s)
 		}
 	}
 	g.writeLn(")")
@@ -90,12 +98,10 @@ func (g *generator) genService(srvc *parse.Service, errs []*parse.Error) {
 	g.genServiceInterface("Provider", srvc.Name, revCalls, calls, revStreams, streams)
 
 	// Create the private structs implementing the caller interfaces and providing the orbit handlers.
+	// Handle not only the global errors, but the service's ones as well.
+	errs := append(globErrs, srvc.Errors...)
 	g.genServiceStruct("Consumer", srvc.Name, calls, revCalls, streams, revStreams, errs)
 	g.genServiceStruct("Provider", srvc.Name, revCalls, calls, revStreams, streams, errs)
-
-	g.writeLn("// ---------------------\n")
-	g.writeLn("")
-	return
 }
 
 func (g *generator) genServiceInterface(name, srvcName string, calls, revCalls []*parse.Call, streams, revStreams []*parse.Stream) {
@@ -113,13 +119,13 @@ func (g *generator) genServiceInterface(name, srvcName string, calls, revCalls [
 	if len(streams) > 0 {
 		g.writeLn("// Streams")
 		for _, s := range streams {
-			g.write("%s(ctx context.Context) (", s.NamePub())
-			if s.HasArgs() {
-				g.write("args %sWriteChan, ", s.Args().String())
+			g.write("%s(ctx context.Context) (", s.Name)
+			if s.Args != nil {
+				g.write("args %sWriteChan, ", s.Args.String())
 			}
-			if s.HasRet() {
-				g.write("ret %sReadChan, ", s.Ret().String())
-			} else if !s.HasArgs() {
+			if s.Ret != nil {
+				g.write("ret %sReadChan, ", s.Ret.String())
+			} else if s.Args == nil {
 				g.write("stream net.Conn, ")
 			}
 			g.write("err error)")
@@ -144,13 +150,13 @@ func (g *generator) genServiceInterface(name, srvcName string, calls, revCalls [
 	if len(revStreams) > 0 {
 		g.writeLn("// Streams")
 		for _, rs := range revStreams {
-			g.write("%s(s *orbit.Session, ", rs.NamePub())
-			if rs.HasArgs() {
-				g.write("args %sReadChan, ", rs.Args().String())
+			g.write("%s(s *orbit.Session, ", rs.Name)
+			if rs.Args != nil {
+				g.write("args %sReadChan, ", rs.Args.String())
 			}
-			if rs.HasRet() {
-				g.write("ret %sWriteChan", rs.Ret().String())
-			} else if !rs.HasArgs() {
+			if rs.Ret != nil {
+				g.write("ret %sWriteChan", rs.Ret.String())
+			} else if rs.Args == nil {
 				g.write("stream net.Conn")
 			}
 			g.write(") (err error)")
@@ -205,10 +211,10 @@ func (g *generator) genServiceStructConstructor(name, srvcName string, revCalls 
 	g.writeLn("func Register%s(s *orbit.Session, h %sHandler) %sCaller {", nameUp, nameUp, nameUp)
 	g.writeLn("cc := &%s{h: h, s: s}", name)
 	for _, rc := range revCalls {
-		g.writeLn("s.RegisterCall(%s, %s, cc.%s)", srvcName, srvcName+rc.NamePub(), rc.NamePrv())
+		g.writeLn("s.RegisterCall(%s, %s, cc.%s)", srvcName, srvcName+rc.Name, rc.NamePrv())
 	}
 	for _, rs := range revStreams {
-		g.writeLn("s.RegisterStream(%s, %s, cc.%s)", srvcName, srvcName+rs.NamePub(), rs.NamePrv())
+		g.writeLn("s.RegisterStream(%s, %s, cc.%s)", srvcName, srvcName+rs.Name, rs.NamePrv())
 	}
 	g.writeLn("return cc")
 	g.writeLn("}")

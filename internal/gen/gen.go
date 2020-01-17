@@ -298,13 +298,34 @@ func (g *generator) genHeader(pkgName string) (header string) {
 
 func (g *generator) genBody(errs []*parse.Error, types []*parse.Type, services []*parse.Service, streamChanSize uint) (body string) {
 	// Generate the errors.
-	g.genErrors(errs)
+	g.writeLn("//#####################//")
+	g.writeLn("//### Global Errors ###//")
+	g.writeLn("//#####################//")
+	g.writeLn("")
+
+	if len(errs) > 0 {
+		g.genErrors(errs)
+	}
 
 	// Generate the type definitions.
-	g.genTypes(types, services, streamChanSize)
+	g.writeLn("//####################//")
+	g.writeLn("//### Global Types ###//")
+	g.writeLn("//####################//")
+	g.writeLn("")
+
+	if len(types) > 0 {
+		g.genTypes(types, services, streamChanSize)
+	}
 
 	// Generate the service definitions.
-	g.genServices(services, errs)
+	g.writeLn("//################//")
+	g.writeLn("//### Services ###//")
+	g.writeLn("//################//")
+	g.writeLn("")
+
+	if len(services) > 0 {
+		g.genServices(services, errs, streamChanSize)
+	}
 
 	body = g.s.String()
 	g.s.Reset()

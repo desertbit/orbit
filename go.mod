@@ -18,7 +18,7 @@ require (
 	github.com/tinylib/msgp v1.1.0
 	github.com/vmihailenco/msgpack v4.0.4+incompatible // indirect
 	golang.org/x/crypto v0.0.0-20190829043050-9756ffdc2472
-	golang.org/x/sys v0.0.0-20191228213918-04cbcbbfeed8 // indirect
+	golang.org/x/sys v0.0.0-20191228213918-04cbcbbfeed8
 	google.golang.org/appengine v1.5.0 // indirect
 	gopkg.in/AlecAivazis/survey.v1 v1.8.5
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 // indirect

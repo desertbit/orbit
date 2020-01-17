@@ -28,7 +28,6 @@
 package parse
 
 import (
-	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -41,65 +40,73 @@ type parser struct {
 	ct  *token
 	lt  *token
 
-	// Stores all services by their name.
 	srvcs map[string]*Service
-	// Stores all types by their name.
 	types map[string]*Type
-	// Stores all errors by their name.
-	errors map[string]*Error
+	errs  map[string]*Error
 }
 
 func newParser(tks []*token) (p *parser, err error) {
-	if len(tks) == 0 {
-		err = errors.New("empty tokens")
-		return
-	}
 	p = &parser{
-		tks:    tks,
-		ti:     -1,
-		ct:     tks[0],
-		lt:     tks[0],
-		srvcs:  make(map[string]*Service),
-		types:  make(map[string]*Type),
-		errors: make(map[string]*Error),
+		tks: tks,
+
+		srvcs: make(map[string]*Service),
+		types: make(map[string]*Type),
+		errs:  make(map[string]*Error),
+	}
+	if len(tks) > 0 {
+		p.ct = tks[0]
+		p.lt = p.ct
 	}
 	return
 }
 
 // Can only be called once per parser!
 func (p *parser) parse() (srvcs []*Service, types []*Type, errors []*Error, err error) {
+	var (
+		errs []*Error
+		srvc *Service
+		t    *Type
+	)
+
 	for {
-		// Either an error, service or a type can be declared top-level.
 		if p.empty() {
+			// No more tokens left.
 			break
 		} else if p.checkSymbol(tkErrors) {
 			// Expect global error definitions.
-			var errs []*Error
 			errs, err = p.expectErrors("")
 			if err != nil {
 				return
 			}
 
-			errors = append(errors, errs...)
+			for _, e := range errs {
+				p.errs[e.Name] = e
+			}
 		} else if p.checkSymbol(tkService) {
 			// Expect service.
-			err = p.expectService()
+			srvc, err = p.expectService()
 			if err != nil {
 				return
 			}
+
+			p.srvcs[srvc.Name] = srvc
 		} else if p.checkSymbol(tkType) {
-			// Expect type.
-			_, err = p.expectType("", "")
+			// Expect global type.
+			t, _, err = p.expectType("", "")
 			if err != nil {
 				return
 			}
+
+			p.types[t.Name] = t
 		} else {
-			err = &Err{msg: fmt.Sprintf("unknown top-level keyword '%s'", p.ct.value), line: p.ct.line}
+			err = &Err{
+				msg:  fmt.Sprintf("unknown top-level keyword '%s'", p.ct.value),
+				line: p.ct.line,
+			}
 			return
 		}
 	}
 
-	// Extract the return values from the parser.
 	srvcs = make([]*Service, 0, len(p.srvcs))
 	for _, srvc := range p.srvcs {
 		srvcs = append(srvcs, srvc)
@@ -108,8 +115,8 @@ func (p *parser) parse() (srvcs []*Service, types []*Type, errors []*Error, err 
 	for _, t := range p.types {
 		types = append(types, t)
 	}
-	errors = make([]*Error, 0, len(p.errors))
-	for _, e := range p.errors {
+	errors = make([]*Error, 0, len(p.errs))
+	for _, e := range p.errs {
 		errors = append(errors, e)
 	}
 
@@ -119,48 +126,51 @@ func (p *parser) parse() (srvcs []*Service, types []*Type, errors []*Error, err 
 // The returned name adheres to CamelCase.
 // Returns Err.
 func (p *parser) expectName() (name string, err error) {
-	defer func() {
-		if err != nil {
-			err = &Err{msg: err.Error(), line: p.ct.line}
-		}
-	}()
-
-	if !p.next() || p.ct.value == "" {
-		err = errors.New("expected name, but is missing")
+	if p.empty() {
+		err = &Err{msg: "expected name, but is missing", line: p.ct.line}
 		return
 	}
 
 	for _, r := range p.ct.value {
 		if !unicode.IsDigit(r) && !unicode.IsLetter(r) {
-			err = fmt.Errorf("invalid char '%s' in name '%s'", string(r), p.ct.value)
+			err = &Err{
+				msg:  fmt.Sprintf("invalid char '%s' in name '%s'", string(r), p.ct.value),
+				line: p.lt.line,
+			}
 			return
 		}
 	}
 
 	name = strings.Title(p.ct.value)
+
+	// Consume token.
+	p.consume()
 	return
 }
 
+// Returns Err.
 func (p *parser) expectInt() (i int, err error) {
-	defer func() {
-		if err != nil {
-			err = &Err{msg: err.Error(), line: p.ct.line}
-		}
-	}()
-
-	if !p.next() || p.ct.value == "" {
-		err = errors.New("expected int, but is missing")
+	if p.empty() {
+		err = &Err{msg: "expected int, but is missing", line: p.ct.line}
 		return
 	}
 
-	return strconv.Atoi(p.ct.value)
+	i, err = strconv.Atoi(p.ct.value)
+	if err != nil {
+		err = &Err{msg: err.Error(), line: p.ct.line}
+		return
+	}
+
+	// Consume token.
+	p.consume()
+	return
 }
 
 // Consumes the current token, if it matches the symbol.
 func (p *parser) checkSymbol(sym string) bool {
 	if p.peek() == sym {
 		// Consume token.
-		_ = p.next()
+		p.consume()
 		return true
 	}
 	return false
@@ -169,18 +179,20 @@ func (p *parser) checkSymbol(sym string) bool {
 // Consumes the current token.
 // Returns Err.
 func (p *parser) expectSymbol(sym string) (err error) {
-	defer func() {
-		if err != nil {
-			err = &Err{msg: err.Error(), line: p.ct.line}
+	if p.empty() {
+		return &Err{
+			msg:  fmt.Sprintf("expected '%s', but is missing", sym),
+			line: p.lt.line,
 		}
-	}()
-
-	if !p.next() {
-		return fmt.Errorf("expected '%s', but is missing", sym)
 	}
 	if p.ct.value != sym {
-		return fmt.Errorf("expected '%s', but got '%s'", sym, p.ct.value)
+		return &Err{
+			msg:  fmt.Sprintf("expected '%s', but got '%s'", sym, p.ct.value),
+			line: p.ct.line,
+		}
 	}
+	// Consume the token.
+	p.consume()
 	return
 }
 
@@ -190,23 +202,20 @@ func (p *parser) peekSymbol(sym string) bool {
 }
 
 func (p *parser) empty() bool {
-	return p.ti >= len(p.tks)-1
+	return p.ti >= len(p.tks)
 }
 
-func (p *parser) next() (ok bool) {
-	if p.empty() {
-		return false
-	}
+func (p *parser) consume() {
 	p.lt = p.ct
 	p.ti++
-	p.ct = p.tks[p.ti]
-	return true
+	if !p.empty() {
+		p.ct = p.tks[p.ti]
+	}
 }
 
-func (p *parser) peek() (v string) {
+func (p *parser) peek() string {
 	if p.empty() {
-		return
+		return ""
 	}
-	v = p.tks[p.ti+1].value
-	return
+	return p.ct.value
 }

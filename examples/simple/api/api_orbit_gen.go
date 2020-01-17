@@ -23,28 +23,25 @@ var (
 	_ closer.Closer
 )
 
-//##############//
-//### Errors ###//
-//##############//
+//#####################//
+//### Global Errors ###//
+//#####################//
 
 const (
 	ErrCodeDatasetDoesNotExist = 101
-	ErrCodeExampleAborted      = 1
 	ErrCodeNotFound            = 100
 )
 
 var (
 	ErrDatasetDoesNotExist      = errors.New("dataset does not exist")
 	orbitErrDatasetDoesNotExist = orbit.Err(ErrDatasetDoesNotExist, ErrDatasetDoesNotExist.Error(), ErrCodeDatasetDoesNotExist)
-	ErrExampleAborted           = errors.New("example aborted")
-	orbitErrExampleAborted      = orbit.Err(ErrExampleAborted, ErrExampleAborted.Error(), ErrCodeExampleAborted)
 	ErrNotFound                 = errors.New("not found")
 	orbitErrNotFound            = orbit.Err(ErrNotFound, ErrNotFound.Error(), ErrCodeNotFound)
 )
 
-//#############//
-//### Types ###//
-//#############//
+//####################//
+//### Global Types ###//
+//####################//
 
 type Char struct {
 	Lol string
@@ -106,86 +103,6 @@ func (c *CharReadChan) Err() (err error) {
 	err = c.err
 	c.mx.Unlock()
 	return
-}
-
-type ExampleChar struct {
-	Lol string
-}
-
-//msgp:ignore ExampleCharWriteChan
-type ExampleCharWriteChan struct {
-	closer.Closer
-	C   chan<- *ExampleChar
-	c   chan *ExampleChar
-	mx  sync.Mutex
-	err error
-}
-
-func newExampleCharWriteChan(cl closer.Closer) *ExampleCharWriteChan {
-	c := &ExampleCharWriteChan{Closer: cl, c: make(chan *ExampleChar, 3)}
-	c.C = c.c
-	return c
-}
-
-func (c *ExampleCharWriteChan) setError(err error) {
-	c.mx.Lock()
-	c.err = err
-	c.mx.Unlock()
-	c.Close_()
-}
-
-func (c *ExampleCharWriteChan) Err() (err error) {
-	c.mx.Lock()
-	err = c.err
-	c.mx.Unlock()
-	return
-}
-
-//msgp:ignore ExampleCharReadChan
-type ExampleCharReadChan struct {
-	closer.Closer
-	C   <-chan *ExampleChar
-	c   chan *ExampleChar
-	mx  sync.Mutex
-	err error
-}
-
-func newExampleCharReadChan(cl closer.Closer) *ExampleCharReadChan {
-	c := &ExampleCharReadChan{Closer: cl, c: make(chan *ExampleChar, 3)}
-	c.C = c.c
-	return c
-}
-
-func (c *ExampleCharReadChan) setError(err error) {
-	c.mx.Lock()
-	c.err = err
-	c.mx.Unlock()
-	c.Close_()
-}
-
-func (c *ExampleCharReadChan) Err() (err error) {
-	c.mx.Lock()
-	err = c.err
-	c.mx.Unlock()
-	return
-}
-
-type ExampleRect struct {
-	C  *ExampleChar
-	X1 float32
-	X2 float32
-	Y1 float32
-	Y2 float32
-}
-
-type ExampleTest3Args struct {
-	C map[int][]*ExampleRect
-	I int
-	V float64
-}
-
-type ExampleTest3Ret struct {
-	Lol string
 }
 
 type Plate struct {
@@ -270,6 +187,98 @@ type Rect struct {
 //################//
 
 // Example  ---------------------
+// Errors
+const (
+	ErrCodeExampleAborted = 1
+)
+
+var (
+	ErrExampleAborted      = errors.New("example aborted")
+	orbitErrExampleAborted = orbit.Err(ErrExampleAborted, ErrExampleAborted.Error(), ErrCodeExampleAborted)
+)
+
+// Types
+type ExampleChar struct {
+	Lol string
+}
+
+//msgp:ignore ExampleCharWriteChan
+type ExampleCharWriteChan struct {
+	closer.Closer
+	C   chan<- *ExampleChar
+	c   chan *ExampleChar
+	mx  sync.Mutex
+	err error
+}
+
+func newExampleCharWriteChan(cl closer.Closer) *ExampleCharWriteChan {
+	c := &ExampleCharWriteChan{Closer: cl, c: make(chan *ExampleChar, 3)}
+	c.C = c.c
+	return c
+}
+
+func (c *ExampleCharWriteChan) setError(err error) {
+	c.mx.Lock()
+	c.err = err
+	c.mx.Unlock()
+	c.Close_()
+}
+
+func (c *ExampleCharWriteChan) Err() (err error) {
+	c.mx.Lock()
+	err = c.err
+	c.mx.Unlock()
+	return
+}
+
+//msgp:ignore ExampleCharReadChan
+type ExampleCharReadChan struct {
+	closer.Closer
+	C   <-chan *ExampleChar
+	c   chan *ExampleChar
+	mx  sync.Mutex
+	err error
+}
+
+func newExampleCharReadChan(cl closer.Closer) *ExampleCharReadChan {
+	c := &ExampleCharReadChan{Closer: cl, c: make(chan *ExampleChar, 3)}
+	c.C = c.c
+	return c
+}
+
+func (c *ExampleCharReadChan) setError(err error) {
+	c.mx.Lock()
+	c.err = err
+	c.mx.Unlock()
+	c.Close_()
+}
+
+func (c *ExampleCharReadChan) Err() (err error) {
+	c.mx.Lock()
+	err = c.err
+	c.mx.Unlock()
+	return
+}
+
+type ExampleRect struct {
+	C  *ExampleChar
+	X1 float32
+	X2 float32
+	Y1 float32
+	Y2 float32
+}
+
+type ExampleTest3Args struct {
+	C map[int][]*ExampleRect
+	I int
+	V float64
+}
+
+type ExampleTest3Ret struct {
+	Lol string
+}
+
+// Service
 const (
 	Example       = "Example"
 	ExampleTest   = "Test"
@@ -338,12 +347,12 @@ func (v1 *exampleConsumer) Test(ctx context.Context, args *Plate) (ret *ExampleR
 		var cErr *orbit.ErrorCode
 		if errors.As(err, &cErr) {
 			switch cErr.Code {
-			case 101:
+			case ErrCodeDatasetDoesNotExist:
 				err = ErrDatasetDoesNotExist
-			case 1:
-				err = ErrExampleAborted
-			case 100:
+			case ErrCodeNotFound:
 				err = ErrNotFound
+			case ErrCodeExampleAborted:
+				err = ErrExampleAborted
 			}
 		}
 		return
@@ -357,17 +366,17 @@ func (v1 *exampleConsumer) Test(ctx context.Context, args *Plate) (ret *ExampleR
 }
 
 func (v1 *exampleConsumer) Test2(ctx context.Context, args *ExampleRect) (err error) {
-	_, err = v1.s.CallAsync(ctx, Example, ExampleTest2, args)
+	_, err = v1.s.Call(ctx, Example, ExampleTest2, args)
 	if err != nil {
 		var cErr *orbit.ErrorCode
 		if errors.As(err, &cErr) {
 			switch cErr.Code {
-			case 101:
+			case ErrCodeDatasetDoesNotExist:
 				err = ErrDatasetDoesNotExist
-			case 1:
-				err = ErrExampleAborted
-			case 100:
+			case ErrCodeNotFound:
 				err = ErrNotFound
+			case ErrCodeExampleAborted:
+				err = ErrExampleAborted
 			}
 		}
 		return
@@ -385,10 +394,10 @@ func (v1 *exampleConsumer) test3(ctx context.Context, s *orbit.Session, ad *orbi
 	if err != nil {
 		if errors.Is(err, ErrDatasetDoesNotExist) {
 			err = orbitErrDatasetDoesNotExist
-		} else if errors.Is(err, ErrExampleAborted) {
-			err = orbitErrExampleAborted
 		} else if errors.Is(err, ErrNotFound) {
 			err = orbitErrNotFound
+		} else if errors.Is(err, ErrExampleAborted) {
+			err = orbitErrExampleAborted
 		}
 		return
 	}
@@ -401,10 +410,10 @@ func (v1 *exampleConsumer) test4(ctx context.Context, s *orbit.Session, ad *orbi
 	if err != nil {
 		if errors.Is(err, ErrDatasetDoesNotExist) {
 			err = orbitErrDatasetDoesNotExist
-		} else if errors.Is(err, ErrExampleAborted) {
-			err = orbitErrExampleAborted
 		} else if errors.Is(err, ErrNotFound) {
 			err = orbitErrNotFound
+		} else if errors.Is(err, ErrExampleAborted) {
+			err = orbitErrExampleAborted
 		}
 		return
 	}
@@ -545,12 +554,12 @@ func (v1 *exampleProvider) Test3(ctx context.Context, args *ExampleTest3Args) (r
 		var cErr *orbit.ErrorCode
 		if errors.As(err, &cErr) {
 			switch cErr.Code {
-			case 101:
+			case ErrCodeDatasetDoesNotExist:
 				err = ErrDatasetDoesNotExist
-			case 1:
-				err = ErrExampleAborted
-			case 100:
+			case ErrCodeNotFound:
 				err = ErrNotFound
+			case ErrCodeExampleAborted:
+				err = ErrExampleAborted
 			}
 		}
 		return
@@ -564,17 +573,17 @@ func (v1 *exampleProvider) Test3(ctx context.Context, args *ExampleTest3Args) (r
 }
 
 func (v1 *exampleProvider) Test4(ctx context.Context) (ret *ExampleRect, err error) {
-	retData, err := v1.s.CallAsync(ctx, Example, ExampleTest4, nil)
+	retData, err := v1.s.Call(ctx, Example, ExampleTest4, nil)
 	if err != nil {
 		var cErr *orbit.ErrorCode
 		if errors.As(err, &cErr) {
 			switch cErr.Code {
-			case 101:
+			case ErrCodeDatasetDoesNotExist:
 				err = ErrDatasetDoesNotExist
-			case 1:
-				err = ErrExampleAborted
-			case 100:
+			case ErrCodeNotFound:
 				err = ErrNotFound
+			case ErrCodeExampleAborted:
+				err = ErrExampleAborted
 			}
 		}
 		return
@@ -597,10 +606,10 @@ func (v1 *exampleProvider) test(ctx context.Context, s *orbit.Session, ad *orbit
 	if err != nil {
 		if errors.Is(err, ErrDatasetDoesNotExist) {
 			err = orbitErrDatasetDoesNotExist
-		} else if errors.Is(err, ErrExampleAborted) {
-			err = orbitErrExampleAborted
 		} else if errors.Is(err, ErrNotFound) {
 			err = orbitErrNotFound
+		} else if errors.Is(err, ErrExampleAborted) {
+			err = orbitErrExampleAborted
 		}
 		return
 	}
@@ -618,10 +627,10 @@ func (v1 *exampleProvider) test2(ctx context.Context, s *orbit.Session, ad *orbi
 	if err != nil {
 		if errors.Is(err, ErrDatasetDoesNotExist) {
 			err = orbitErrDatasetDoesNotExist
-		} else if errors.Is(err, ErrExampleAborted) {
-			err = orbitErrExampleAborted
 		} else if errors.Is(err, ErrNotFound) {
 			err = orbitErrNotFound
+		} else if errors.Is(err, ErrExampleAborted) {
+			err = orbitErrExampleAborted
 		}
 		return
 	}
@@ -752,6 +761,18 @@ func (v1 *exampleProvider) hello2(s *orbit.Session, stream net.Conn) (err error)
 // ---------------------
 
 // Trainer  ---------------------
+// Errors
+const (
+	ErrCodeTrainerAborted = 1
+)
+
+var (
+	ErrTrainerAborted      = errors.New("trainer aborted")
+	orbitErrTrainerAborted = orbit.Err(ErrTrainerAborted, ErrTrainerAborted.Error(), ErrCodeTrainerAborted)
+)
+
+// Types
+// Service
 const (
 	Trainer         = "Trainer"
 	TrainerStart    = "Start"
@@ -814,12 +835,12 @@ func (v1 *trainerConsumer) Start(ctx context.Context, args *Plate) (err error) {
 		var cErr *orbit.ErrorCode
 		if errors.As(err, &cErr) {
 			switch cErr.Code {
-			case 101:
+			case ErrCodeDatasetDoesNotExist:
 				err = ErrDatasetDoesNotExist
-			case 1:
-				err = ErrExampleAborted
-			case 100:
+			case ErrCodeNotFound:
 				err = ErrNotFound
+			case ErrCodeTrainerAborted:
+				err = ErrTrainerAborted
 			}
 		}
 		return
@@ -828,17 +849,17 @@ func (v1 *trainerConsumer) Start(ctx context.Context, args *Plate) (err error) {
 }
 
 func (v1 *trainerConsumer) Update(ctx context.Context, args *Char) (ret *Char, err error) {
-	retData, err := v1.s.CallAsync(ctx, Trainer, TrainerUpdate, args)
+	retData, err := v1.s.Call(ctx, Trainer, TrainerUpdate, args)
 	if err != nil {
 		var cErr *orbit.ErrorCode
 		if errors.As(err, &cErr) {
 			switch cErr.Code {
-			case 101:
+			case ErrCodeDatasetDoesNotExist:
 				err = ErrDatasetDoesNotExist
-			case 1:
-				err = ErrExampleAborted
-			case 100:
+			case ErrCodeNotFound:
 				err = ErrNotFound
+			case ErrCodeTrainerAborted:
+				err = ErrTrainerAborted
 			}
 		}
 		return
@@ -1019,10 +1040,10 @@ func (v1 *trainerProvider) start(ctx context.Context, s *orbit.Session, ad *orbi
 	if err != nil {
 		if errors.Is(err, ErrDatasetDoesNotExist) {
 			err = orbitErrDatasetDoesNotExist
-		} else if errors.Is(err, ErrExampleAborted) {
-			err = orbitErrExampleAborted
 		} else if errors.Is(err, ErrNotFound) {
 			err = orbitErrNotFound
+		} else if errors.Is(err, ErrTrainerAborted) {
+			err = orbitErrTrainerAborted
 		}
 		return
 	}
@@ -1039,10 +1060,10 @@ func (v1 *trainerProvider) update(ctx context.Context, s *orbit.Session, ad *orb
 	if err != nil {
 		if errors.Is(err, ErrDatasetDoesNotExist) {
 			err = orbitErrDatasetDoesNotExist
-		} else if errors.Is(err, ErrExampleAborted) {
-			err = orbitErrExampleAborted
 		} else if errors.Is(err, ErrNotFound) {
 			err = orbitErrNotFound
+		} else if errors.Is(err, ErrTrainerAborted) {
+			err = orbitErrTrainerAborted
 		}
 		return
 	}

@@ -64,7 +64,8 @@ service trainer {
     call start {
         args: Plate
     }
-    async call update {
+    call update {
+        async
         args: Char
         ret: Char
     }

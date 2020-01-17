@@ -34,13 +34,6 @@ import (
 
 // Returns Err.
 func (p *parser) expectService() (srvc *Service, err error) {
-	defer func() {
-		var pErr *Err
-		if err != nil && !errors.As(err, &pErr) {
-			err = &Err{msg: err.Error(), line: p.lt.line}
-		}
-	}()
-
 	// Expect name.
 	name, err := p.expectName()
 	if err != nil {
@@ -68,6 +61,7 @@ func (p *parser) expectService() (srvc *Service, err error) {
 	for {
 		var (
 			sts []*StructType
+			ts  []*Type
 
 			revCall   = p.checkSymbol(tkEntryRevCall)
 			revStream = p.checkSymbol(tkEntryRevStream)
@@ -93,39 +87,73 @@ func (p *parser) expectService() (srvc *Service, err error) {
 
 			srvc.Types = append(srvc.Types, t)
 		} else if revCall || p.checkSymbol(tkEntryCall) {
-			// Expect call and prepend the service name to it.
-			c, sts, err = p.expectServiceCall(name, revCall)
+			// Expect call.
+			c, ts, sts, err = p.expectServiceCall(name, revCall)
 			if err != nil {
 				return
+			}
+
+			// Check for duplicates.
+			for _, c2 := range srvc.Calls {
+				if c.Name == c2.Name {
+					err = &Err{
+						msg:  fmt.Sprintf("call '%s' declared twice in service '%s'", c.NamePrv(), name),
+						line: c.line,
+					}
+					return
+				}
 			}
 
 			srvc.Calls = append(srvc.Calls, c)
 		} else if revStream || p.checkSymbol(tkEntryStream) {
-			// Expect stream and prepend the service name to it.
-			s, sts, err = p.expectServiceStream(name, revStream)
+			// Expect stream.
+			s, ts, sts, err = p.expectServiceStream(name, revStream)
 			if err != nil {
 				return
 			}
 
+			// Check for duplicates.
+			for _, s2 := range srvc.Streams {
+				if s.Name == s2.Name {
+					err = &Err{
+						msg:  fmt.Sprintf("call '%s' declared twice in service '%s'", s.NamePrv(), name),
+						line: s.line,
+					}
+					return
+				}
+			}
+
 			srvc.Streams = append(srvc.Streams, s)
 		} else {
-			err = fmt.Errorf("unexpected symbol '%s'", p.ct.value)
+			err = &Err{
+				msg:  fmt.Sprintf("unexpected symbol '%s'", p.ct.value),
+				line: p.ct.line,
+			}
 			return
 		}
 
 		if len(sts) > 0 {
 			srvcsStructs = append(srvcsStructs, sts...)
 		}
+		if len(ts) > 0 {
+			srvc.Types = append(srvc.Types, ts...)
+		}
+	}
+
+	// Validate.
+	err = p.validateService(srvc)
+	if err != nil {
+		return
 	}
 
 	// There may have been some types defined inside the service with the same name as outer types.
 	// In order to distinguish between them, we must now check, if any entry references a type,
 	// whose name, prepended with the service's name, is equal to a type defined inside this service.
 	// The same goes for any type fields, where a struct references a service local type.
-	// FIXME: this whole thing is way too complicated right now. Maybe there is a better solution.
-	for tn := range p.types {
+	// FIXME: Maybe there is a better solution?
+	for _, tn := range srvc.Types {
 		for _, s := range srvcsStructs {
-			if name+s.Name == tn {
+			if name+s.Name == tn.Name {
 				s.Name = name + s.Name
 			}
 		}
@@ -135,7 +163,28 @@ func (p *parser) expectService() (srvc *Service, err error) {
 }
 
 // Returns Err.
-func (p *parser) expectServiceCall(srvcName string, rev bool) (c *Call, sts []*StructType, err error) {
+func (p *parser) validateService(srvc *Service) (err error) {
+	defer func() {
+		if err != nil {
+			err = &Err{msg: err.Error(), line: srvc.line}
+		}
+	}()
+
+	// Check for duplicate service name.
+	if _, ok := p.srvcs[srvc.Name]; ok {
+		return fmt.Errorf("service '%s' declared twice", srvc.Name)
+	}
+
+	return
+}
+
+// Returns Err.
+func (p *parser) expectServiceCall(srvcName string, rev bool) (
+	c *Call,
+	ts []*Type,
+	sts []*StructType,
+	err error,
+) {
 	defer func() {
 		if err != nil {
 			err = fmt.Errorf("parsing call of service '%s': %w", err)
@@ -163,6 +212,11 @@ func (p *parser) expectServiceCall(srvcName string, rev bool) (c *Call, sts []*S
 
 	// Parse fields.
 	for {
+		var (
+			sts2 []*StructType
+			t    *Type
+		)
+
 		// Check for end.
 		if p.checkSymbol(tkBraceR) {
 			return
@@ -174,13 +228,10 @@ func (p *parser) expectServiceCall(srvcName string, rev bool) (c *Call, sts []*S
 			}
 
 			// Parse args.
-			var asts []*StructType
-			c.Args, asts, err = p.expectServiceEntryType(srvcName, name+"Args")
+			c.Args, t, sts2, err = p.expectServiceEntryType(srvcName, name+"Args")
 			if err != nil {
 				return
 			}
-
-			sts = append(sts, asts...)
 		} else if p.checkSymbol(tkEntryRet) {
 			// Check for duplicate.
 			if c.Ret != nil {
@@ -189,13 +240,10 @@ func (p *parser) expectServiceCall(srvcName string, rev bool) (c *Call, sts []*S
 			}
 
 			// Parse ret.
-			var rsts []*StructType
-			c.Ret, rsts, err = p.expectServiceEntryType(srvcName, name+"Ret")
+			c.Ret, t, sts2, err = p.expectServiceEntryType(srvcName, name+"Ret")
 			if err != nil {
 				return
 			}
-
-			sts = append(sts, rsts...)
 		} else if p.checkSymbol(tkEntryAsync) {
 			// Check for duplicate.
 			if c.Async {
@@ -205,11 +253,22 @@ func (p *parser) expectServiceCall(srvcName string, rev bool) (c *Call, sts []*S
 			err = fmt.Errorf("unexpected symbol '%s'", p.ct.value)
 			return
 		}
+
+		sts = append(sts, sts2...)
+
+		if t != nil {
+			ts = append(ts, t)
+		}
 	}
 }
 
 // Returns Err.
-func (p *parser) expectServiceStream(srvcName string, rev bool) (s *Stream, sts []*StructType, err error) {
+func (p *parser) expectServiceStream(srvcName string, rev bool) (
+	s *Stream,
+	ts []*Type,
+	sts []*StructType,
+	err error,
+) {
 	defer func() {
 		if err != nil {
 			err = fmt.Errorf("parsing stream of service '%s': %w", err)
@@ -237,6 +296,11 @@ func (p *parser) expectServiceStream(srvcName string, rev bool) (s *Stream, sts 
 
 	// Parse fields.
 	for {
+		var (
+			sts2 []*StructType
+			t    *Type
+		)
+
 		// Check for end.
 		if p.checkSymbol(tkBraceR) {
 			return
@@ -248,13 +312,10 @@ func (p *parser) expectServiceStream(srvcName string, rev bool) (s *Stream, sts 
 			}
 
 			// Parse args.
-			var asts []*StructType
-			s.Args, asts, err = p.expectServiceEntryType(srvcName, name+"Args")
+			s.Args, t, sts2, err = p.expectServiceEntryType(srvcName, name+"Args")
 			if err != nil {
 				return
 			}
-
-			sts = append(sts, asts...)
 		} else if p.checkSymbol(tkEntryRet) {
 			// Check for duplicate.
 			if s.Ret != nil {
@@ -263,36 +324,36 @@ func (p *parser) expectServiceStream(srvcName string, rev bool) (s *Stream, sts 
 			}
 
 			// Parse ret.
-			var rsts []*StructType
-			s.Ret, rsts, err = p.expectServiceEntryType(srvcName, name+"Ret")
+			s.Ret, t, sts2, err = p.expectServiceEntryType(srvcName, name+"Ret")
 			if err != nil {
 				return
 			}
-
-			sts = append(sts, rsts...)
 		} else {
 			err = fmt.Errorf("unexpected symbol '%s'", p.ct.value)
 			return
+		}
+
+		sts = append(sts, sts2...)
+
+		if t != nil {
+			ts = append(ts, t)
 		}
 	}
 }
 
 // Returns Err.
-func (p *parser) expectServiceEntryType(srvcName, name string) (st *StructType, sts []*StructType, err error) {
-	defer func() {
-		var pErr *Err
-		if err != nil && !errors.As(err, &pErr) {
-			err = &Err{msg: err.Error(), line: p.lastLine}
-		}
-	}()
-
+func (p *parser) expectServiceEntryType(srvcName, name string) (
+	st *StructType,
+	t *Type,
+	sts []*StructType,
+	err error,
+) {
 	// Check for an inline type definition.
 	if p.peekSymbol(tkBraceL) {
 		structName := srvcName + name
 
-		sts, err = p.expectType(srvcName, name)
+		t, sts, err = p.expectType(srvcName, name)
 		if err != nil {
-			err = fmt.Errorf("parsing service entry type '%s': %w", structName, err)
 			return
 		}
 

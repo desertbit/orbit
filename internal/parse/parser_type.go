@@ -31,6 +31,7 @@ import (
 	"fmt"
 )
 
+// Returns Err.
 func (p *parser) expectType(srvcName, name string) (t *Type, sts []*StructType, err error) {
 	// Expect name if empty and prepend the prefix.
 	if name == "" {
@@ -41,17 +42,7 @@ func (p *parser) expectType(srvcName, name string) (t *Type, sts []*StructType, 
 	}
 	name = srvcName + name
 
-	// Check, if the type has been declared already.
-	var ok bool
-	t, ok = p.types[name]
-	if !ok {
-		// Create a new type.
-		t = &Type{Name: name}
-		p.types[name] = t
-	} else if t.Fields != nil {
-		err = &Err{msg: fmt.Sprintf("type '%s' declared twice", name), line: p.ct.line}
-		return
-	}
+	t = &Type{Name: name, line: p.ct.line}
 
 	// Expect '{'.
 	err = p.expectSymbol(tkBraceL)
@@ -65,9 +56,33 @@ func (p *parser) expectType(srvcName, name string) (t *Type, sts []*StructType, 
 		return
 	}
 
+	// Validate.
+	err = p.validateType(t)
+	if err != nil {
+		return
+	}
+
 	return
 }
 
+// Returns Err.
+func (p *parser) validateType(t *Type) (err error) {
+	defer func() {
+		if err != nil {
+			err = &Err{msg: err.Error(), line: t.line}
+		}
+	}()
+
+	// Check for duplicate names.
+	if _, ok := p.types[t.Name]; ok {
+		err = fmt.Errorf("type '%s' declared twice", t.Name)
+		return
+	}
+
+	return
+}
+
+// Returns Err.
 func (p *parser) expectTypeFields() (tfs []*TypeField, sts []*StructType, err error) {
 	// Parse fields of type.
 	for {
@@ -100,6 +115,7 @@ func (p *parser) expectTypeFields() (tfs []*TypeField, sts []*StructType, err er
 	}
 }
 
+// Returns Err.
 func (p *parser) expectDataType() (t DataType, err error) {
 	var ts string
 	defer func() {
@@ -148,14 +164,16 @@ func (p *parser) checkBaseType() (b *BaseType, ok bool) {
 		TypeInt, TypeInt8, TypeInt16, TypeInt32, TypeInt64,
 		TypeUInt, TypeUInt8, TypeUInt16, TypeUInt32, TypeUInt64,
 		TypeFloat32, TypeFloat64:
-		// Consume token.
-		_ = p.next()
 		ok = true
 		b = &BaseType{dataType: p.ct.value}
+
+		// Consume token.
+		p.consume()
 	}
 	return
 }
 
+// Returns Err.
 func (p *parser) expectMapType() (m *MapType, err error) {
 	// Expect '['.
 	err = p.expectSymbol(tkBracketL)
@@ -187,6 +205,7 @@ func (p *parser) expectMapType() (m *MapType, err error) {
 	return
 }
 
+// Returns Err.
 func (p *parser) expectArrType() (a *ArrType, err error) {
 	// Expect any type.
 	t, err := p.expectDataType()
@@ -198,6 +217,7 @@ func (p *parser) expectArrType() (a *ArrType, err error) {
 	return
 }
 
+// Returns Err.
 func (p *parser) expectBaseType() (b *BaseType, err error) {
 	b, ok := p.checkBaseType()
 	if !ok {
@@ -207,8 +227,9 @@ func (p *parser) expectBaseType() (b *BaseType, err error) {
 	return
 }
 
+// Returns Err.
 func (p *parser) expectStructType() (s *StructType, err error) {
-	// Expect name and ensure CamelCase.
+	// Expect name.
 	name, err := p.expectName()
 	if err != nil {
 		err = fmt.Errorf("invalid struct type: %w", err)

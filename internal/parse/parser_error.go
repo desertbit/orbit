@@ -29,17 +29,11 @@ package parse
 
 import (
 	"errors"
+	"fmt"
 )
 
 // Returns Err.
 func (p *parser) expectErrors(prefix string) (errs []*Error, err error) {
-	defer func() {
-		var pErr *Err
-		if err != nil && !errors.As(err, &pErr) {
-			err = &Err{msg: err.Error(), line: p.lastLine}
-		}
-	}()
-
 	// Expect "{".
 	err = p.expectSymbol(tkBraceL)
 	if err != nil {
@@ -47,7 +41,7 @@ func (p *parser) expectErrors(prefix string) (errs []*Error, err error) {
 	}
 
 	for {
-		// Check for end of service.
+		// Check for end of errors.
 		if p.checkSymbol(tkBraceR) {
 			return
 		}
@@ -61,7 +55,7 @@ func (p *parser) expectErrors(prefix string) (errs []*Error, err error) {
 		name = prefix + name
 
 		// Create error.
-		e := &Error{Name: name, line: p.lastLine}
+		e := &Error{Name: name, line: p.lt.line}
 
 		// Expect "=".
 		err = p.expectSymbol(tkEqual)
@@ -75,6 +69,40 @@ func (p *parser) expectErrors(prefix string) (errs []*Error, err error) {
 			return
 		}
 
+		// Validate.
+		err = p.validateError(e)
+		if err != nil {
+			return
+		}
+
 		errs = append(errs, e)
 	}
+}
+
+// Returns Err.
+func (p *parser) validateError(e *Error) (err error) {
+	defer func() {
+		if err != nil {
+			err = &Err{msg: err.Error(), line: e.line}
+		}
+	}()
+
+	// Check for duplicate names.
+	if _, ok := p.errs[e.Name]; ok {
+		return fmt.Errorf("error '%s' declared twice", e.Name)
+	}
+
+	// Error ids must be greater than 0.
+	if e.ID <= 0 {
+		return errors.New("error ids must be greater than 0")
+	}
+
+	// Check for duplicate identifiers with the global errors.
+	for _, ge := range p.errs {
+		if e.ID == ge.ID {
+			return fmt.Errorf("errors '%s' and '%s' share same identifier", e.Name, ge.Name)
+		}
+	}
+
+	return
 }

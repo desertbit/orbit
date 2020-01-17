@@ -34,11 +34,6 @@ import (
 )
 
 func (g *generator) genTypes(ts []*parse.Type, srvcs []*parse.Service, streamChanSize uint) {
-	g.writeLn("//#############//")
-	g.writeLn("//### Types ###//")
-	g.writeLn("//#############//")
-	g.writeLn("")
-
 	// Sort the types in alphabetical order.
 	sort.Slice(ts, func(i, j int) bool {
 		return ts[i].Name < ts[j].Name
@@ -60,13 +55,11 @@ NextType:
 
 		// Generate a chan type, if it is used in a stream as arg or ret value.
 		for _, srvc := range srvcs {
-			for _, e := range srvc.Entries {
-				if s, ok := e.(*parse.Stream); ok {
-					if (s.HasArgs() && s.Args().Name == t.Name) || (s.HasRet() && s.Ret().Name == t.Name) {
-						g.genChanType(t.Name, false, streamChanSize)
-						g.genChanType(t.Name, true, streamChanSize)
-						continue NextType
-					}
+			for _, s := range srvc.Streams {
+				if (s.Args != nil && s.Args.Name == t.Name) || (s.Ret != nil && s.Ret.Name == t.Name) {
+					g.genChanType(t.Name, false, streamChanSize)
+					g.genChanType(t.Name, true, streamChanSize)
+					continue NextType
 				}
 			}
 		}
