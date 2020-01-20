@@ -98,6 +98,8 @@ const (
 	TypeString = "string"
 	TypeTime   = "time"
 
+	TypeBool = "bool"
+
 	TypeInt   = "int"
 	TypeInt8  = "int8"
 	TypeInt16 = "int16"

@@ -51,17 +51,13 @@ const (
 	tkMap = "map"
 )
 
-func Parse(data string) (services []*Service, types []*Type, errors []*Error, err error) {
-	// Tokenize the file.
-	tks, err := tokenize(data)
+func Parse(data []byte) (services []*Service, types []*Type, errors []*Error, err error) {
+	// Tokenize the data.
+	tks, err := tokenize(string(data))
 	if err != nil {
 		return
 	}
 
-	p, err := newParser(tks)
-	if err != nil {
-		return
-	}
-
-	return p.parse()
+	// Parse the data.
+	return newParser(tks).parse()
 }

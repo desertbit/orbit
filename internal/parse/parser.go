@@ -45,7 +45,7 @@ type parser struct {
 	errs  map[string]*Error
 }
 
-func newParser(tks []*token) (p *parser, err error) {
+func newParser(tks []*token) (p *parser) {
 	p = &parser{
 		tks: tks,
 

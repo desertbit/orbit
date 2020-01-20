@@ -161,6 +161,7 @@ func (p *parser) expectDataType() (t DataType, err error) {
 func (p *parser) checkBaseType() (b *BaseType, ok bool) {
 	switch p.peek() {
 	case TypeByte, TypeString, TypeTime,
+		TypeBool,
 		TypeInt, TypeInt8, TypeInt16, TypeInt32, TypeInt64,
 		TypeUInt, TypeUInt8, TypeUInt16, TypeUInt32, TypeUInt64,
 		TypeFloat32, TypeFloat64:

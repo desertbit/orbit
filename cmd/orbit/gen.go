@@ -36,9 +36,9 @@ import (
 )
 
 const (
-	flagForce            = "force"
-	flagSingleOutputFile = "single-output-file"
-	flagStreamChanSize   = "stream-chan-size"
+	flagForce          = "force"
+	flagSplitOutput    = "split-output"
+	flagStreamChanSize = "stream-chan-size"
 )
 
 var cmdGen = &grumble.Command{
@@ -48,7 +48,7 @@ var cmdGen = &grumble.Command{
 	Run:       runGen,
 	Flags: func(f *grumble.Flags) {
 		f.Bool("f", flagForce, false, "generate all found files, ignoring their last modification time")
-		f.Bool("o", flagSingleOutputFile, false, "write all generated go source code into a single file.")
+		f.Bool("o", flagSplitOutput, false, "generate an individual output file for each encountered .orbit file")
 
 		f.UintL(flagStreamChanSize, 3, "size of channels used as stream argument and return values")
 	},
@@ -74,7 +74,7 @@ func runGen(ctx *grumble.Context) (err error) {
 		err = gen.Generate(
 			absDir,
 			ctx.Flags.Uint(flagStreamChanSize),
-			ctx.Flags.Bool(flagSingleOutputFile),
+			ctx.Flags.Bool(flagSplitOutput),
 			ctx.Flags.Bool(flagForce),
 		)
 		if err != nil {

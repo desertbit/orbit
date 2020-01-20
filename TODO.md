@@ -2,6 +2,7 @@
 
 - update the comments and remove unneeded parts.
 - update tests
+- add enum support
 - add timeout and maxmsgsize to calls (and streams?), but optional!!! take config value as default.
 
 ## OLD:

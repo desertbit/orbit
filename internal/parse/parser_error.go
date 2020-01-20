@@ -70,7 +70,7 @@ func (p *parser) expectErrors(prefix string) (errs []*Error, err error) {
 		}
 
 		// Validate.
-		err = p.validateError(e)
+		err = p.validateError(e, errs)
 		if err != nil {
 			return
 		}
@@ -80,7 +80,7 @@ func (p *parser) expectErrors(prefix string) (errs []*Error, err error) {
 }
 
 // Returns Err.
-func (p *parser) validateError(e *Error) (err error) {
+func (p *parser) validateError(e *Error, localErrs []*Error) (err error) {
 	defer func() {
 		if err != nil {
 			err = &Err{msg: err.Error(), line: e.line}
@@ -95,6 +95,13 @@ func (p *parser) validateError(e *Error) (err error) {
 	// Error ids must be greater than 0.
 	if e.ID <= 0 {
 		return errors.New("error ids must be greater than 0")
+	}
+
+	// Check for duplicate identifiers with the local errors.
+	for _, le := range localErrs {
+		if le.ID == e.ID {
+			return fmt.Errorf("errors '%s' and '%s' share same identifier", e.Name, le.Name)
+		}
 	}
 
 	// Check for duplicate identifiers with the global errors.

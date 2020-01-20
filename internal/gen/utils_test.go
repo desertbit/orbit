@@ -3,8 +3,8 @@
  *
  * The MIT License (MIT)
  *
- * Copyright (c) 2019 Roland Singer <roland.singer[at]desertbit.com>
- * Copyright (c) 2019 Sebastian Borchers <sebastian[at]desertbit.com>
+ * Copyright (c) 2020 Roland Singer <roland.singer[at]desertbit.com>
+ * Copyright (c) 2020 Sebastian Borchers <sebastian[at]desertbit.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -25,44 +25,65 @@
  * SOFTWARE.
  */
 
-package parse_test
+package gen
 
-/* TODO: func TestParse(t *testing.T) {
-	data := `
-service bencher {
-    call test(Plate) (Rect)
-    revcall test2({
-        i int
-        v float64
-        c map[int][]Rect
-    }) ({
-        lol string
-    })
-    stream hello
+import (
+	"testing"
+
+	"github.com/stretchr/testify/require"
+)
+
+func TestStrExplode(t *testing.T) {
+	cases := []struct {
+		src    string
+		expect string
+	}{
+		{
+			src:    "",
+			expect: "",
+		},
+		{
+			src:    "hello",
+			expect: "hello",
+		},
+		{
+			src:    "hEllo",
+			expect: "h ello",
+		},
+		{
+			src:    "Hello",
+			expect: "hello",
+		},
+		{
+			src:    "Hello hello",
+			expect: "hello hello",
+		},
+		{
+			src:    "Hello HellO",
+			expect: "hello hell o",
+		},
+		{
+			src:    "Hello HellOO",
+			expect: "hello hell oo",
+		},
+		{
+			src:    "Hello O",
+			expect: "hello o",
+		},
+		{
+			src:    "Hello Hell OO",
+			expect: "hello hell oo",
+		},
+		{
+			src:    "HELlo",
+			expect: "he llo",
+		}, {
+			src:    "sashimI",
+			expect: "sashim i",
+		},
+	}
+
+	for i, c := range cases {
+		require.Equal(t, c.expect, strExplode(c.src), "test case %d", i)
+	}
 }
-
-type Plate {
-    version int
-    name string
-    rect Rect
-    test map[int]Rect
-    test2 []Rect
-    test3 []float32
-    test4 map[string]map[int][]Rect
-}
-
-type Rect {
-    x1 float32
-    y1 float32
-    x2 float32
-    y2 float32
-    c  Char
-}
-
-type Char {
-    lol string
-}`
-
-	_, _, _, err := parse.Parse(data)
-	require.NoError(t, err)
-}*/

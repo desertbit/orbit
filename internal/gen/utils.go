@@ -65,17 +65,59 @@ func fileExists(path string) (bool, error) {
 
 // strExplode splits up s, so that every uppercase rune is converted to lowercase
 // and gets prepended a space.
+// If multiple uppercase runes follow each other, they are seen as one abbreviation.
+// Example: "DNNBenchmark" -> "dnn benchmark"
 func strExplode(s string) string {
-	n := make([]rune, 0, len(s))
+	n := make([]rune, 0, len([]rune(s)))
+
+	var (
+		lr           rune
+		prevWasUpper bool
+		isUpperSeq   bool
+	)
+
+	prevIsNoSpace := func() bool { return len(n) > 0 && n[len(n)-1] != ' ' }
+
 	for _, r := range s {
-		if unicode.IsUpper(r) {
-			if len(n) > 0 {
-				n = append(n, ' ')
-			}
-			n = append(n, unicode.ToLower(r))
-		} else {
+		if unicode.IsSpace(r) {
 			n = append(n, r)
+			prevWasUpper = false
+			isUpperSeq = false
+		} else if unicode.IsUpper(r) {
+			if prevWasUpper {
+				if !isUpperSeq && prevIsNoSpace() {
+					n = append(n, ' ')
+				}
+				n = append(n, lr)
+			}
+
+			lr = unicode.ToLower(r)
+
+			if prevWasUpper {
+				isUpperSeq = true
+			}
+			prevWasUpper = true
+		} else {
+			if prevWasUpper {
+				if prevIsNoSpace() {
+					n = append(n, ' ')
+				}
+				n = append(n, lr)
+			}
+
+			n = append(n, r)
+			prevWasUpper = false
+			isUpperSeq = false
 		}
 	}
+
+	// Last rune was uppercase.
+	if prevWasUpper {
+		if !isUpperSeq && prevIsNoSpace() {
+			n = append(n, ' ')
+		}
+		n = append(n, lr)
+	}
+
 	return string(n)
 }

@@ -46,7 +46,7 @@ const (
 	dirPerm  = 0755
 	filePerm = 0666
 
-	configDir      = "orbit"
+	cacheDir       = "orbit"
 	modTimesFile   = "mod_times"
 	orbitSuffix    = ".orbit"
 	genOrbitSuffix = "_orbit_gen.go"
@@ -55,14 +55,13 @@ const (
 	recv = "v1"
 )
 
-func Generate(dir string, streamChanSize uint, singleOutputFile, force bool) (err error) {
-	orbitFilePaths, err := findModifiedOrbitFiles(dir, singleOutputFile, force)
+func Generate(dir string, streamChanSize uint, splitOutput, force bool) (err error) {
+	orbitFilePaths, err := findModifiedOrbitFiles(dir, splitOutput, force)
 	if err != nil || len(orbitFilePaths) == 0 {
 		return
 	}
 
 	var (
-		singleOutput strings.Builder
 		errs         []*parse.Error
 		services     []*parse.Service
 		types        []*parse.Type
@@ -72,34 +71,28 @@ func Generate(dir string, streamChanSize uint, singleOutputFile, force bool) (er
 		g       = &generator{}
 	)
 
-	if singleOutputFile {
-		singleOutput = strings.Builder{}
-
-		// Generate the header for this single file right away.
-		singleOutput.WriteString(g.genHeader(pkgName))
-	}
-
-	for _, fp := range orbitFilePaths {
-		// Read the source file.
+	if splitOutput {
 		var data []byte
-		data, err = ioutil.ReadFile(fp)
-		if err != nil {
-			return
-		}
 
-		// Parse the data.
-		services, types, errs, err = parse.Parse(string(data))
-		if err != nil {
-			err = fmt.Errorf("parsing failed\n-> %v", err)
-			return
-		}
+		for _, fp := range orbitFilePaths {
+			// Read the file data.
+			data, err = ioutil.ReadFile(fp)
+			if err != nil {
+				return
+			}
 
-		if singleOutputFile {
-			// Generate the body for a single output file.
-			singleOutput.WriteString(g.genBody(errs, types, services, streamChanSize))
-		} else {
-			// Write everything to the single file right away.
+			// Parse the data.
+			services, types, errs, err = parse.Parse(data)
+			if err != nil {
+				err = fmt.Errorf("parsing failed\n-> %v\n-> %s", err, fp)
+				return
+			}
+
+			// The output file has the same name as its orbit file.
+			// Add its path to the generated files.
 			genFilePath := filepath.Join(dir, strings.TrimSuffix(filepath.Base(fp), orbitSuffix)+genOrbitSuffix)
+			genFilePaths = append(genFilePaths, genFilePath)
+
 			err = ioutil.WriteFile(
 				genFilePath,
 				[]byte(g.genHeader(pkgName)+g.genBody(errs, types, services, streamChanSize)),
@@ -108,20 +101,39 @@ func Generate(dir string, streamChanSize uint, singleOutputFile, force bool) (er
 			if err != nil {
 				return
 			}
-
-			// Append to the files that have been generated.
-			genFilePaths = append(genFilePaths, genFilePath)
 		}
-	}
+	} else {
+		var input []byte
 
-	// Write the single output to its file.
-	if singleOutputFile {
-		genFilePath := filepath.Join(dir, filepath.Base(dir)+genOrbitSuffix)
+		// First, read in all files.
+		for _, fp := range orbitFilePaths {
+			// Read the file data.
+			var data []byte
+			data, err = ioutil.ReadFile(fp)
+			if err != nil {
+				return
+			}
+
+			input = append(input, data...)
+		}
 
 		// The single output file has the name of the directory as prefix.
+		// Add its path to the generated files.
+		genFilePath := filepath.Join(dir, filepath.Base(dir)+genOrbitSuffix)
 		genFilePaths = append(genFilePaths, genFilePath)
 
-		err = ioutil.WriteFile(genFilePath, []byte(singleOutput.String()), filePerm)
+		// Parse all files in one go.
+		services, types, errs, err = parse.Parse(input)
+		if err != nil {
+			return
+		}
+
+		// Write the output to the file.
+		err = ioutil.WriteFile(
+			genFilePath,
+			[]byte(g.genHeader(pkgName)+g.genBody(errs, types, services, streamChanSize)),
+			filePerm,
+		)
 		if err != nil {
 			return
 		}
@@ -143,23 +155,22 @@ func Generate(dir string, streamChanSize uint, singleOutputFile, force bool) (er
 			}
 			return
 		}
-		return
 	}
 
 	return
 }
 
-func findModifiedOrbitFiles(dir string, singleOutputFile, force bool) (modifiedFilePaths []string, err error) {
+func findModifiedOrbitFiles(dir string, splitOutput, force bool) (modifiedFilePaths []string, err error) {
 	fileModTimes := make(map[string]time.Time)
 
-	// Retrieve our config dir.
-	ucd, err := os.UserConfigDir()
+	// Retrieve our cache dir.
+	ucd, err := os.UserCacheDir()
 	if err != nil {
-		log.Warn().Err(err).Msg("unable to retrieve config dir, all files will be generated")
+		log.Warn().Err(err).Msg("unable to retrieve cache dir, all files will be generated")
 		err = nil
 	} else {
 		// Ensure, our directory exists.
-		err = os.MkdirAll(filepath.Join(ucd, configDir), dirPerm)
+		err = os.MkdirAll(filepath.Join(ucd, cacheDir), dirPerm)
 		if err != nil {
 			err = fmt.Errorf("failed to create orbit config dir: %v", err)
 			return
@@ -167,7 +178,7 @@ func findModifiedOrbitFiles(dir string, singleOutputFile, force bool) (modifiedF
 
 		// Read the data from the cache file.
 		var data []byte
-		data, err = ioutil.ReadFile(filepath.Join(ucd, configDir, modTimesFile))
+		data, err = ioutil.ReadFile(filepath.Join(ucd, cacheDir, modTimesFile))
 		if err != nil && !errors.Is(err, os.ErrNotExist) {
 			return
 		}
@@ -208,10 +219,10 @@ func findModifiedOrbitFiles(dir string, singleOutputFile, force bool) (modifiedF
 			exists bool
 			genFp  string
 		)
-		if singleOutputFile {
-			genFp = filepath.Join(dir, filepath.Base(dir)+genOrbitSuffix)
-		} else {
+		if splitOutput {
 			genFp = strings.TrimSuffix(fp, orbitSuffix) + genOrbitSuffix
+		} else {
+			genFp = filepath.Join(dir, filepath.Base(dir)+genOrbitSuffix)
 		}
 		exists, err = fileExists(genFp)
 		if err != nil {
@@ -233,7 +244,7 @@ func findModifiedOrbitFiles(dir string, singleOutputFile, force bool) (modifiedF
 			return
 		}
 
-		err = ioutil.WriteFile(filepath.Join(ucd, configDir, modTimesFile), data, filePerm)
+		err = ioutil.WriteFile(filepath.Join(ucd, cacheDir, modTimesFile), data, filePerm)
 		if err != nil {
 			return
 		}
@@ -241,7 +252,7 @@ func findModifiedOrbitFiles(dir string, singleOutputFile, force bool) (modifiedF
 
 	// In case only a single output file should be generated, we must generate all orbit files
 	// if at least one has been modified, or force is enabled.
-	if singleOutputFile && (len(modifiedFilePaths) > 0 || force) {
+	if !splitOutput && (len(modifiedFilePaths) > 0 || force) {
 		modifiedFilePaths = allFilePaths
 	}
 

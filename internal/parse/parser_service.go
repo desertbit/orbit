@@ -185,17 +185,6 @@ func (p *parser) expectServiceCall(srvcName string, rev bool) (
 	sts []*StructType,
 	err error,
 ) {
-	defer func() {
-		if err != nil {
-			err = fmt.Errorf("parsing call of service '%s': %w", err)
-
-			var pErr *Err
-			if !errors.As(err, &pErr) {
-				err = &Err{msg: err.Error(), line: p.lt.line}
-			}
-		}
-	}()
-
 	// Expect name.
 	name, err := p.expectName()
 	if err != nil {
@@ -250,7 +239,10 @@ func (p *parser) expectServiceCall(srvcName string, rev bool) (
 				err = errors.New("double async")
 			}
 		} else {
-			err = fmt.Errorf("unexpected symbol '%s'", p.ct.value)
+			err = &Err{
+				msg:  fmt.Sprintf("unexpected symbol '%s'", p.ct.value),
+				line: p.ct.line,
+			}
 			return
 		}
 
@@ -269,17 +261,6 @@ func (p *parser) expectServiceStream(srvcName string, rev bool) (
 	sts []*StructType,
 	err error,
 ) {
-	defer func() {
-		if err != nil {
-			err = fmt.Errorf("parsing stream of service '%s': %w", err)
-
-			var pErr *Err
-			if !errors.As(err, &pErr) {
-				err = &Err{msg: err.Error(), line: p.lt.line}
-			}
-		}
-	}()
-
 	// Expect name.
 	name, err := p.expectName()
 	if err != nil {
@@ -329,7 +310,10 @@ func (p *parser) expectServiceStream(srvcName string, rev bool) (
 				return
 			}
 		} else {
-			err = fmt.Errorf("unexpected symbol '%s'", p.ct.value)
+			err = &Err{
+				msg:  fmt.Sprintf("unexpected symbol '%s'", p.ct.value),
+				line: p.ct.line,
+			}
 			return
 		}
 
