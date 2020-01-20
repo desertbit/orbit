@@ -51,6 +51,9 @@ type StreamFunc func(s *Session, stream net.Conn) error
 type Session struct {
 	closer.Closer
 
+	// Arbitrary data that can be set during authentication.
+	Value interface{}
+
 	cf    *Config
 	log   *zerolog.Logger
 	codec codec.Codec
@@ -61,10 +64,10 @@ type Session struct {
 	// When a new stream has been opened, the first data sent on the stream must
 	// contain the key into this map to retrieve the correct function to handle
 	// the stream.
-	streamFuncsMx sync.Mutex
+	streamFuncsMx sync.RWMutex
 	streamFuncs   map[string]StreamFunc
 
-	callStreamsMx sync.Mutex
+	callStreamsMx sync.RWMutex
 	callStreams   map[string]*callStream // Key: service id
 
 	callFuncsMx sync.RWMutex
@@ -89,8 +92,10 @@ func newSession(cl closer.Closer, conn Conn, cf *Config) (s *Session) {
 		callActiveCtxs: make(map[uint32]*callContext),
 	}
 	s.OnClosing(conn.Close)
-	// TODO: if not needed elsewhere, delete Ready() and start routines directly here.
-	s.Ready()
+
+	// Start accepting streams.
+	go s.acceptStreamRoutine()
+
 	return
 }
 
@@ -112,10 +117,4 @@ func (s *Session) LocalAddr() net.Addr {
 // RemoteAddr returns the remote network address.
 func (s *Session) RemoteAddr() net.Addr {
 	return s.conn.RemoteAddr()
-}
-
-// Ready signalizes the session that the initialization is done.
-// The session starts accepting new incoming streams and calls.
-func (s *Session) Ready() {
-	go s.acceptStreamRoutine()
 }

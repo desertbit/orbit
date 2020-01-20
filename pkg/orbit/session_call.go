@@ -75,9 +75,9 @@ func (s *Session) Call(ctx context.Context, service, id string, data interface{}
 		ok bool
 	)
 
-	s.callStreamsMx.Lock()
+	s.callStreamsMx.RLock()
 	cs, ok = s.callStreams[service]
-	s.callStreamsMx.Unlock()
+	s.callStreamsMx.RUnlock()
 
 	if !ok {
 		// First call, initialize the call stream.

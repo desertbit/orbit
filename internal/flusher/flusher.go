@@ -3,8 +3,8 @@
  *
  * The MIT License (MIT)
  *
- * Copyright (c) 2020 Roland Singer <roland.singer[at]desertbit.com>
- * Copyright (c) 2020 Sebastian Borchers <sebastian[at]desertbit.com>
+ * Copyright (c) 2018 Roland Singer <roland.singer[at]desertbit.com>
+ * Copyright (c) 2018 Sebastian Borchers <sebastian[at]desertbit.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -25,50 +25,54 @@
  * SOFTWARE.
  */
 
-package main
+/*
+Package flusher provides convenience methods to flush a net.Conn.
+*/
+package flusher
 
 import (
-	"sync"
-
-	"github.com/desertbit/orbit/examples/simple/api"
-	"github.com/desertbit/orbit/pkg/orbit"
+	"errors"
+	"net"
+	"time"
 )
 
-type Server struct {
-	*orbit.Server
+const (
+	flushByte = 123
+)
 
-	sessionsMx sync.RWMutex
-	sessions   map[string]*Session
-}
-
-func NewServer(orbServ *orbit.Server) (s *Server) {
-	s = &Server{
-		Server:   orbServ,
-		sessions: make(map[string]*Session),
+// Flush a connection by waiting until all data was written to the peer.
+func Flush(conn net.Conn, timeout time.Duration) (err error) {
+	// Set the read and write deadlines.
+	err = conn.SetDeadline(time.Now().Add(timeout))
+	if err != nil {
+		return
 	}
 
-	orbServ.SetOnSessionCreated(func(orbSess *orbit.Session) {
-		// Create new session.
-		userID := orbSess.ID() // TODO: dummy, need to cast value from auth
-		session := &Session{}
-		s.sessionsMx.Lock()
-		s.sessions[userID] = session
-		s.sessionsMx.Unlock()
+	// Write the flush byte to the connection.
+	b := []byte{flushByte}
+	n, err := conn.Write(b)
+	if err != nil {
+		return err
+	}
+	if n != 1 {
+		return errors.New("failed to write flush byte to connection")
+	}
 
-		orbSess.OnClosing(func() error {
-			// Early return, if possible.
-			if orbServ.IsClosing() {
-				return nil
-			}
+	// Read the flush byte from the connection.
+	n, err = conn.Read(b)
+	if err != nil {
+		return
+	}
+	if n != 1 {
+		return errors.New("failed to read flush byte from connection")
+	}
+	if b[0] != flushByte {
+		return errors.New("flush byte is invalid")
+	}
 
-			s.sessionsMx.Lock()
-			delete(s.sessions, userID)
-			s.sessionsMx.Unlock()
-			return nil
-		})
+	// At this point, we can be sure that all previous data has been flushed
+	// and has reached the remote peer.
 
-		session.ExampleProviderCaller = api.RegisterExampleProvider(orbSess, session)
-	})
-
-	return
+	// Reset the deadlines.
+	return conn.SetDeadline(time.Time{})
 }

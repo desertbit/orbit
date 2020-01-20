@@ -46,10 +46,11 @@ const (
 	maxRetriesGenSessionID = 10
 )
 
-type NewSessionCreatedFunc func(s *Session)
+type SessionAuthFunc func(s *Session)
 
-// Server implements a simple orbit server. It listens with serverWorkers many
-// routines for incoming connections.
+type SessionCreatedFunc func(s *Session)
+
+// Server implements a simple orbit server.
 type Server struct {
 	closer.Closer
 
@@ -60,11 +61,11 @@ type Server struct {
 	sessionsMutex sync.RWMutex
 	sessions      map[string]*Session
 
-	newConnChan    chan Conn
-	newSessionChan chan *Session
+	connChan    chan Conn
+	sessionChan chan *Session
 
-	newSessionCreatedFuncsMx sync.RWMutex
-	newSessionCreatedFuncs   []NewSessionCreatedFunc
+	callbackMx         sync.RWMutex
+	sessionCreatedFunc SessionCreatedFunc
 }
 
 // NewServer creates a new orbit server. A listener is required
@@ -83,12 +84,12 @@ func newServer(cl closer.Closer, ln Listener, cf *ServerConfig) *Server {
 	cf = prepareServerConfig(cf)
 
 	s := &Server{
-		Closer:      cl,
-		ln:          ln,
-		cf:          cf,
-		log:         cf.Log,
-		sessions:    make(map[string]*Session),
-		newConnChan: make(chan Conn, cf.NewConnChanSize),
+		Closer:   cl,
+		ln:       ln,
+		cf:       cf,
+		log:      cf.Log,
+		sessions: make(map[string]*Session),
+		connChan: make(chan Conn, cf.NewConnChanSize),
 	}
 	s.OnClosing(ln.Close)
 
@@ -115,7 +116,7 @@ func (s *Server) Listen() error {
 			return err
 		}
 
-		s.newConnChan <- conn
+		s.connChan <- conn
 	}
 }
 
@@ -147,10 +148,10 @@ func (s *Server) Sessions() []*Session {
 	return list
 }
 
-func (s *Server) OnNewSessionCreated(f NewSessionCreatedFunc) {
-	s.newSessionCreatedFuncsMx.Lock()
-	s.newSessionCreatedFuncs = append(s.newSessionCreatedFuncs, f)
-	s.newSessionCreatedFuncsMx.Unlock()
+func (s *Server) SetOnSessionCreated(f SessionCreatedFunc) {
+	s.callbackMx.Lock()
+	s.sessionCreatedFunc = f
+	s.callbackMx.Unlock()
 }
 
 //###############//
@@ -170,7 +171,7 @@ func (s *Server) handleConnectionLoop() {
 		case <-closingChan:
 			return
 
-		case conn := <-s.newConnChan:
+		case conn := <-s.connChan:
 			s.handleConnection(conn)
 		}
 	}
@@ -259,13 +260,13 @@ func (s *Server) handleConnection(conn Conn) {
 		return nil
 	})
 
-	// Session created, call hooks.
-	s.newSessionCreatedFuncsMx.RLock()
-	funcs := make([]NewSessionCreatedFunc, len(s.newSessionCreatedFuncs))
-	copy(funcs, s.newSessionCreatedFuncs)
-	s.newSessionCreatedFuncsMx.RUnlock()
+	// Session created, call hook.
+	var f SessionCreatedFunc
+	s.callbackMx.RLock()
+	f = s.sessionCreatedFunc
+	s.callbackMx.RUnlock()
 
-	for _, f := range funcs {
+	if f != nil {
 		f(sn)
 	}
 

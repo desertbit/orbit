@@ -25,50 +25,47 @@
  * SOFTWARE.
  */
 
-package main
+package orbit
 
 import (
-	"sync"
+	"net"
+	"time"
 
-	"github.com/desertbit/orbit/examples/simple/api"
-	"github.com/desertbit/orbit/pkg/orbit"
+	"github.com/desertbit/orbit/internal/flusher"
 )
 
-type Server struct {
-	*orbit.Server
+const (
+	flushTimeout = 3 * time.Second
+)
 
-	sessionsMx sync.RWMutex
-	sessions   map[string]*Session
-}
-
-func NewServer(orbServ *orbit.Server) (s *Server) {
-	s = &Server{
-		Server:   orbServ,
-		sessions: make(map[string]*Session),
+// authSession calls the authentication func defined in the given config.
+// If no such func has been defined, it returns immediately.
+// This is a convenience func that ensures the connection is flushed,
+// even if the authentication fails. That ensures that errors can be
+// handled appropriately on each peer's side.
+// Can be called for both the server and client side.
+func authSession(conn net.Conn, config *Config) (v interface{}, err error) {
+	// Skip if no authentication hook is defined.
+	if config.AuthFunc == nil {
+		return
 	}
 
-	orbServ.SetOnSessionCreated(func(orbSess *orbit.Session) {
-		// Create new session.
-		userID := orbSess.ID() // TODO: dummy, need to cast value from auth
-		session := &Session{}
-		s.sessionsMx.Lock()
-		s.sessions[userID] = session
-		s.sessionsMx.Unlock()
+	// Always flush the connection on defer.
+	// Otherwise authentication errors might not be send
+	// to the peer, because the connection is closed too fast.
+	defer func() {
+		derr := flusher.Flush(conn, flushTimeout)
+		if err == nil {
+			err = derr
+		}
+	}()
 
-		orbSess.OnClosing(func() error {
-			// Early return, if possible.
-			if orbServ.IsClosing() {
-				return nil
-			}
+	// Reset the deadlines.
+	err = conn.SetDeadline(time.Time{})
+	if err != nil {
+		return
+	}
 
-			s.sessionsMx.Lock()
-			delete(s.sessions, userID)
-			s.sessionsMx.Unlock()
-			return nil
-		})
-
-		session.ExampleProviderCaller = api.RegisterExampleProvider(orbSess, session)
-	})
-
-	return
+	// Call the auth func defined in the config.
+	return config.AuthFunc(conn)
 }

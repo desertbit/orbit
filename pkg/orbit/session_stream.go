@@ -178,9 +178,9 @@ func (s *Session) handleNewStream(stream net.Conn) {
 	case api.StreamTypeRaw:
 		// Obtain the stream handler.
 		var f StreamFunc
-		s.streamFuncsMx.Lock()
+		s.streamFuncsMx.RLock()
 		f = s.streamFuncs[data.ID]
-		s.streamFuncsMx.Unlock()
+		s.streamFuncsMx.RUnlock()
 		if f == nil {
 			err = fmt.Errorf("stream handler for id '%s' does not exist", data.ID)
 			return

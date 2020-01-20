@@ -111,13 +111,16 @@ func newServerSession(cl closer.Closer, conn Conn, cf *Config) (s *Session, err 
 		return
 	}
 
-	// TODO: auth hook?
+	// Authenticate if required.
+	value, err := authSession(stream, cf)
+	if err != nil {
+		return
+	}
 
 	// Finally, create the orbit server session.
 	s = newSession(cl, conn, cf)
 
-	// TODO: remove?
 	// Save the arbitrary data from the auth func.
-	//s.Value = value TODO
+	s.Value = value
 	return
 }
