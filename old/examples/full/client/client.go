@@ -41,7 +41,7 @@ func New(remoteAddr, username, pw string) (s *Session, err error) {
 	}
 
 	orbitSession, err := orbit.ClientSession(conn, &orbit.Config{
-		AuthFunc: auth.Client(username, pw),
+		AuthnFunc: auth.Client(username, pw),
 	})
 	if err != nil {
 		return

@@ -34,14 +34,6 @@ import (
 	"github.com/desertbit/closer/v3"
 )
 
-// The AuthFunc type describes the function that is used during the authentication
-// phase of the session initialization.
-// It may use the given connection to perform some kind of data exchange between
-// the client and the server.
-// It can return some arbitrary data that will be saved to the session.
-// It must return a non nil error, if the authentication did fail.
-type AuthFunc func(net.Conn) (value interface{}, err error)
-
 type Conn interface {
 	closer.Closer
 

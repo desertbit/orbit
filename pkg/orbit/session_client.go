@@ -106,7 +106,7 @@ func newClientSession(cl closer.Closer, conn Conn, cf *Config) (s *Session, err 
 	}
 
 	// Authenticate if required.
-	value, err := authSession(stream, cf)
+	value, err := authnSession(stream, cf)
 	if err != nil {
 		return
 	}

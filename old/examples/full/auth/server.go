@@ -40,7 +40,7 @@ import (
 
 type GetHashHook func(username string) (hash []byte, ok bool)
 
-func Server(hook GetHashHook) orbit.AuthFunc {
+func Server(hook GetHashHook) orbit.AuthnFunc {
 	if hook == nil {
 		panic("auth hook for server must not be nil")
 	}

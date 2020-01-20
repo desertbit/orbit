@@ -38,15 +38,15 @@ const (
 	flushTimeout = 3 * time.Second
 )
 
-// authSession calls the authentication func defined in the given config.
+// authnSession calls the authentication func defined in the given config.
 // If no such func has been defined, it returns immediately.
 // This is a convenience func that ensures the connection is flushed,
 // even if the authentication fails. That ensures that errors can be
 // handled appropriately on each peer's side.
 // Can be called for both the server and client side.
-func authSession(conn net.Conn, config *Config) (v interface{}, err error) {
+func authnSession(conn net.Conn, config *Config) (v interface{}, err error) {
 	// Skip if no authentication hook is defined.
-	if config.AuthFunc == nil {
+	if config.AuthnFunc == nil {
 		return
 	}
 
@@ -67,5 +67,5 @@ func authSession(conn net.Conn, config *Config) (v interface{}, err error) {
 	}
 
 	// Call the auth func defined in the config.
-	return config.AuthFunc(conn)
+	return config.AuthnFunc(conn)
 }

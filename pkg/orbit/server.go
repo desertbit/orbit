@@ -30,6 +30,7 @@ package orbit
 import (
 	"errors"
 	"fmt"
+	"net"
 	"runtime/debug"
 	"sync"
 
@@ -46,7 +47,13 @@ const (
 	maxRetriesGenSessionID = 10
 )
 
-type SessionAuthFunc func(s *Session)
+// The AuthnFunc type describes the function that is used during the authentication
+// phase of the session initialization.
+// It may use the given connection to perform some kind of data exchange between
+// the client and the server.
+// It can return some arbitrary data that will be saved to the session.
+// It must return a non nil error, if the authentication did fail.
+type AuthnFunc func(net.Conn) (value interface{}, err error)
 
 type SessionCreatedFunc func(s *Session)
 

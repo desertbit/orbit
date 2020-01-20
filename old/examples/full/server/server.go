@@ -62,7 +62,7 @@ func NewServer(listenAddr string, authHook auth.GetHashHook) (s *Server, err err
 	s = &Server{
 		Server: orbit.NewServer(ln, &orbit.ServerConfig{
 			Config: &orbit.Config{
-				AuthFunc: auth.Server(authHook),
+				AuthnFunc: auth.Server(authHook),
 			},
 		}),
 		uptime:       time.Now(),

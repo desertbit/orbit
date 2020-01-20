@@ -37,7 +37,7 @@ import (
 	"github.com/desertbit/orbit/pkg/packet"
 )
 
-func Client(username, pw string) orbit.AuthFunc {
+func Client(username, pw string) orbit.AuthnFunc {
 	// Generate a checksum of the password.
 	checksum := Checksum(pw)
 	return func(conn net.Conn) (value interface{}, err error) {

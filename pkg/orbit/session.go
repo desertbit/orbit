@@ -44,6 +44,8 @@ const (
 	writeCallReturnTimeout = 7 * time.Second
 )
 
+type AuthzFunc func(s *Session) (ok bool)
+
 type CallFunc func(ctx context.Context, s *Session, args *Data) (ret interface{}, err error)
 
 type StreamFunc func(s *Session, stream net.Conn) error
@@ -57,9 +59,12 @@ type Session struct {
 	cf    *Config
 	log   *zerolog.Logger
 	codec codec.Codec
+	authz AuthzFunc
 
 	id   string
 	conn Conn
+
+	authzFunc AuthzFunc
 
 	// When a new stream has been opened, the first data sent on the stream must
 	// contain the key into this map to retrieve the correct function to handle
@@ -83,6 +88,7 @@ func newSession(cl closer.Closer, conn Conn, cf *Config) (s *Session) {
 	s = &Session{
 		Closer:         cl,
 		cf:             cf,
+		authz:          cf.AuthzFunc,
 		log:            cf.Log,
 		codec:          cf.Codec,
 		conn:           conn,
