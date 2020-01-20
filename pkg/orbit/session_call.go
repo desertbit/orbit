@@ -427,6 +427,12 @@ func (s *Session) execCallHandler(key uint32, id string, payloadData []byte) (re
 		return
 	}
 
+	// Authorize the call, if needed.
+	if s.authz != nil && !s.authz(s, id) {
+		err = fmt.Errorf("unauthorized access to call '%s'", id)
+		return
+	}
+
 	// Save a context in our active contexts map so we can cancel it, if needed.
 	// TODO: context is not meant for canceling, see https://dave.cheney.net/2017/08/20/context-isnt-for-cancellation
 	// TODO: lets enhance our closer and bring it to the next level

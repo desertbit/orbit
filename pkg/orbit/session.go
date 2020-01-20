@@ -44,7 +44,7 @@ const (
 	writeCallReturnTimeout = 7 * time.Second
 )
 
-type AuthzFunc func(s *Session) (ok bool)
+type AuthzFunc func(s *Session, reqID string) (ok bool)
 
 type CallFunc func(ctx context.Context, s *Session, args *Data) (ret interface{}, err error)
 

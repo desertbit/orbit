@@ -186,6 +186,12 @@ func (s *Session) handleNewStream(stream net.Conn) {
 			return
 		}
 
+		// Authorize the stream, if needed.
+		if s.authz != nil && !s.authz(s, data.ID) {
+			err = fmt.Errorf("unauthorized access to stream '%s'", data.ID)
+			return
+		}
+
 		s.log.Debug().Str("id", data.ID).Msg("new raw stream")
 
 		// Pass it the new stream.
