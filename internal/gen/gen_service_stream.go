@@ -31,10 +31,10 @@ import (
 	"github.com/desertbit/orbit/internal/parse"
 )
 
-func (g *generator) genServiceStreamClient(s *parse.Stream, structName, srvcName string, errs []*parse.Error) {
+func (g *generator) genServiceStreamClient(s *parse.Stream, srvcName, structName string, errs []*parse.Error) {
 	// Method declaration.
 	g.write("func (%s *%s) ", recv, structName)
-	g.write("%s(ctx context.Context) (", s.Name)
+	g.write("%s(ctx context.Context) (", srvcName+s.Name)
 	if s.Args != nil {
 		g.write("args %sWriteChan, ", s.Args.String())
 	}
@@ -110,9 +110,12 @@ func (g *generator) genServiceStreamClient(s *parse.Stream, structName, srvcName
 	g.writeLn("")
 }
 
-func (g *generator) genServiceStreamServer(s *parse.Stream, structName, srvcName string, errs []*parse.Error) {
+func (g *generator) genServiceStreamServer(s *parse.Stream, srvcName, srvcNamePrv, structName string, errs []*parse.Error) {
 	// Method declaration.
-	g.writeLn("func (%s *%s) %s(s *orbit.Session, stream net.Conn) (err error) {", recv, structName, s.NamePrv())
+	g.writeLn(
+		"func (%s *%s) %s(s *orbit.Session, stream net.Conn) (err error) {",
+		recv, structName, srvcNamePrv+s.Name,
+	)
 	g.writeLn("defer stream.Close()")
 
 	handlerArgs := "s"
@@ -167,7 +170,7 @@ func (g *generator) genServiceStreamServer(s *parse.Stream, structName, srvcName
 		g.writeLn("}()")
 	}
 
-	g.writeLn("err = %s.h.%s(%s)", recv, s.Name, handlerArgs)
+	g.writeLn("err = %s.h.%s(%s)", recv, srvcName+s.Name, handlerArgs)
 	g.errIfNil()
 	g.writeLn("return")
 	g.writeLn("}")

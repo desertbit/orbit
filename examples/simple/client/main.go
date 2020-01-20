@@ -65,7 +65,7 @@ func run() (err error) {
 
 	// Make example calls.
 	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
-	rect, err := c.Test(
+	rect, err := c.ExampleTest(
 		ctx,
 		&api.Plate{Name: "PlateName", Rect: &api.Rect{X1: 2, X2: 3, Y1: 4, Y2: 5}},
 	)
@@ -74,13 +74,13 @@ func run() (err error) {
 	}
 	log.Info().Interface("ret", rect).Msg("call Test")
 
-	err = c.Test2(ctx, &api.ExampleRect{C: &api.ExampleChar{Lol: "hahahah"}, X1: 888})
+	err = c.ExampleTest2(ctx, &api.ExampleRect{C: &api.ExampleChar{Lol: "hahahah"}, X1: 888})
 	if err != nil {
 		return
 	}
 	log.Info().Msg("call Test2")
 
-	args, err := c.Hello2(context.Background())
+	args, err := c.ExampleHello2(context.Background())
 	if err != nil {
 		return
 	}

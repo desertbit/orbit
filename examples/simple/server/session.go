@@ -43,25 +43,25 @@ type Session struct {
 }
 
 // Implements the api.ExampleProviderHandler interface.
-func (*Session) Test(ctx context.Context, s *orbit.Session, args *api.Plate) (ret *api.ExampleRect, err error) {
+func (*Session) ExampleTest(ctx context.Context, s *orbit.Session, args *api.Plate) (ret *api.ExampleRect, err error) {
 	log.Info().Interface("args", args).Msg("Test handler")
 	ret = &api.ExampleRect{C: &api.ExampleChar{Lol: "not a dummy"}, X1: 0.58}
 	return
 }
 
 // Implements the api.ExampleProviderHandler interface.
-func (*Session) Test2(ctx context.Context, s *orbit.Session, args *api.ExampleRect) (err error) {
+func (*Session) ExampleTest2(ctx context.Context, s *orbit.Session, args *api.ExampleRect) (err error) {
 	log.Info().Interface("args", args).Msg("Test2 handler")
 	return
 }
 
 // Implements the api.ExampleProviderHandler interface.
-func (*Session) Hello(s *orbit.Session, stream net.Conn) (err error) {
+func (*Session) ExampleHello(s *orbit.Session, stream net.Conn) (err error) {
 	panic("implement me")
 }
 
 // Implements the api.ExampleProviderHandler interface.
-func (*Session) Hello2(s *orbit.Session, args *api.ExampleCharReadChan) (err error) {
+func (*Session) ExampleHello2(s *orbit.Session, args *api.ExampleCharReadChan) (err error) {
 	for i := 0; i < 3; i++ {
 		arg := <-args.C
 		log.Info().Interface("arg", arg).Msg("Hello2 handler")

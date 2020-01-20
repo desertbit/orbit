@@ -64,7 +64,7 @@ const (
 
 func (s *Session) RegisterCall(service, id string, f CallFunc) {
 	s.callFuncsMx.Lock()
-	s.callFuncs[id] = f
+	s.callFuncs[service+"."+id] = f
 	s.callFuncsMx.Unlock()
 }
 
@@ -99,7 +99,7 @@ func (s *Session) Call(ctx context.Context, service, id string, data interface{}
 		go s.readCallRoutine(cs, false)
 	}
 
-	return s.call(ctx, cs, id, data)
+	return s.call(ctx, cs, service+"."+id, data)
 }
 
 func (s *Session) CallAsync(ctx context.Context, service, id string, data interface{}) (d *Data, err error) {
@@ -115,7 +115,7 @@ func (s *Session) CallAsync(ctx context.Context, service, id string, data interf
 	// Start a read routine to receive the response.
 	go s.readCallRoutine(cs, true)
 
-	return s.call(ctx, cs, id, data)
+	return s.call(ctx, cs, service+"."+id, data)
 }
 
 //###############//

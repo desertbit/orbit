@@ -51,20 +51,20 @@ func NewClient(co *orbit.Session) (caller api.ExampleConsumerCaller) {
 }
 
 // Implements the api.ExampleConsumerHandler interface.
-func (c *Client) Test3(ctx context.Context, s *orbit.Session, args *api.ExampleTest3Args) (ret *api.ExampleTest3Ret, err error) {
+func (c *Client) ExampleTest3(ctx context.Context, s *orbit.Session, args *api.ExampleTest3Args) (ret *api.ExampleTest3Ret, err error) {
 	log.Info().Interface("args", args).Msg("Test3 Handler")
 	ret = &api.ExampleTest3Ret{Lol: "not a dummy"}
 	return
 }
 
 // Implements the api.ExampleConsumerHandler interface.
-func (c *Client) Test4(ctx context.Context, s *orbit.Session) (ret *api.ExampleRect, err error) {
+func (c *Client) ExampleTest4(ctx context.Context, s *orbit.Session) (ret *api.ExampleRect, err error) {
 	ret = &api.ExampleRect{C: &api.ExampleChar{Lol: "not a dummy"}, X1: 1, X2: 1, Y1: 1, Y2: 1}
 	return
 }
 
 // Implements the api.ExampleConsumerHandler interface.
-func (c *Client) Hello3(s *orbit.Session, ret *api.PlateWriteChan) (err error) {
+func (c *Client) ExampleHello3(s *orbit.Session, ret *api.PlateWriteChan) (err error) {
 	for i := 0; i < 3; i++ {
 		ret.C <- &api.Plate{
 			Name:  "not a dummy",
@@ -86,7 +86,7 @@ func (c *Client) Hello3(s *orbit.Session, ret *api.PlateWriteChan) (err error) {
 }
 
 // Implements the api.ExampleConsumerHandler interface.
-func (c *Client) Hello4(s *orbit.Session, args *api.ExampleCharReadChan, ret *api.PlateWriteChan) (err error) {
+func (c *Client) ExampleHello4(s *orbit.Session, args *api.ExampleCharReadChan, ret *api.PlateWriteChan) (err error) {
 	go func() {
 		for i := 0; i < 3; i++ {
 			arg := <-args.C

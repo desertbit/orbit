@@ -31,8 +31,8 @@ import (
 	"github.com/desertbit/orbit/internal/parse"
 )
 
-func (g *generator) genServiceCallCallerSignature(c *parse.Call) {
-	g.write("%s(ctx context.Context", c.Name)
+func (g *generator) genServiceCallCallerSignature(c *parse.Call, srvcName string) {
+	g.write("%s(ctx context.Context", srvcName+c.Name)
 	if c.Args != nil {
 		g.write(", args %s", c.Args.String())
 	}
@@ -43,8 +43,8 @@ func (g *generator) genServiceCallCallerSignature(c *parse.Call) {
 	g.write("err error)")
 }
 
-func (g *generator) genServiceCallHandlerSignature(c *parse.Call) {
-	g.write("%s(ctx context.Context, s *orbit.Session", c.Name)
+func (g *generator) genServiceCallHandlerSignature(c *parse.Call, srvcName string) {
+	g.write("%s(ctx context.Context, s *orbit.Session", srvcName+c.Name)
 	if c.Args != nil {
 		g.write(", args %s", c.Args.String())
 	}
@@ -55,10 +55,10 @@ func (g *generator) genServiceCallHandlerSignature(c *parse.Call) {
 	g.write("err error)")
 }
 
-func (g *generator) genServiceCallClient(c *parse.Call, structName, srvcName string, errs []*parse.Error) {
+func (g *generator) genServiceCallClient(c *parse.Call, srvcName, structName string, errs []*parse.Error) {
 	// Method declaration.
 	g.write("func (%s *%s) ", recv, structName)
-	g.genServiceCallCallerSignature(c)
+	g.genServiceCallCallerSignature(c, srvcName)
 	g.writeLn(" {")
 
 	// Method body.
@@ -96,11 +96,11 @@ func (g *generator) genServiceCallClient(c *parse.Call, structName, srvcName str
 	g.writeLn("")
 }
 
-func (g *generator) genServiceCallServer(c *parse.Call, structName string, errs []*parse.Error) {
+func (g *generator) genServiceCallServer(c *parse.Call, srvcName, srvcNamePrv, structName string, errs []*parse.Error) {
 	// Method declaration.
 	g.writeLn(
 		"func (%s *%s) %s(ctx context.Context, s *orbit.Session, ad *orbit.Data) (r interface{}, err error) {",
-		recv, structName, c.NamePrv(),
+		recv, structName, srvcNamePrv+c.Name,
 	)
 
 	// Method body.
@@ -115,9 +115,9 @@ func (g *generator) genServiceCallServer(c *parse.Call, structName string, errs 
 
 	// Call the handler.
 	if c.Ret != nil {
-		g.writeLn("ret, err := %s.h.%s(%s)", recv, c.Name, handlerArgs)
+		g.writeLn("ret, err := %s.h.%s(%s)", recv, srvcName+c.Name, handlerArgs)
 	} else {
-		g.writeLn("err = %s.h.%s(%s)", recv, c.Name, handlerArgs)
+		g.writeLn("err = %s.h.%s(%s)", recv, srvcName+c.Name, handlerArgs)
 	}
 
 	// Check error and convert to orbit errors.

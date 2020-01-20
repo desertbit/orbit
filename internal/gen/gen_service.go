@@ -111,7 +111,7 @@ func (g *generator) genServiceInterface(name, srvcName string, calls, revCalls [
 	if len(calls) > 0 {
 		g.writeLn("// Calls")
 		for _, c := range calls {
-			g.genServiceCallCallerSignature(c)
+			g.genServiceCallCallerSignature(c, srvcName)
 			g.writeLn("")
 		}
 	}
@@ -119,7 +119,7 @@ func (g *generator) genServiceInterface(name, srvcName string, calls, revCalls [
 	if len(streams) > 0 {
 		g.writeLn("// Streams")
 		for _, s := range streams {
-			g.write("%s(ctx context.Context) (", s.Name)
+			g.write("%s(ctx context.Context) (", srvcName+s.Name)
 			if s.Args != nil {
 				g.write("args %sWriteChan, ", s.Args.String())
 			}
@@ -142,7 +142,7 @@ func (g *generator) genServiceInterface(name, srvcName string, calls, revCalls [
 	if len(revCalls) > 0 {
 		g.writeLn("// Calls")
 		for _, rc := range revCalls {
-			g.genServiceCallHandlerSignature(rc)
+			g.genServiceCallHandlerSignature(rc, srvcName)
 			g.writeLn("")
 		}
 	}
@@ -150,7 +150,7 @@ func (g *generator) genServiceInterface(name, srvcName string, calls, revCalls [
 	if len(revStreams) > 0 {
 		g.writeLn("// Streams")
 		for _, rs := range revStreams {
-			g.write("%s(s *orbit.Session, ", rs.Name)
+			g.write("%s(s *orbit.Session, ", srvcName+rs.Name)
 			if rs.Args != nil {
 				g.write("args %sReadChan, ", rs.Args.String())
 			}
@@ -174,8 +174,10 @@ func (g *generator) genServiceStruct(
 	streams, revStreams []*parse.Stream,
 	errs []*parse.Error,
 ) {
+	srvcNamePrv := utils.ToLowerFirst(srvcName)
+
 	// Write struct.
-	strName := utils.ToLowerFirst(srvcName + name)
+	strName := srvcNamePrv + name
 	g.writeLn("type %s struct {", strName)
 	g.writeLn("h %sHandler", srvcName+name)
 	g.writeLn("s *orbit.Session")
@@ -183,38 +185,38 @@ func (g *generator) genServiceStruct(
 	g.writeLn("")
 
 	// Generate constructor.
-	g.genServiceStructConstructor(strName, srvcName, revCalls, revStreams)
+	g.genServiceStructConstructor(srvcName, srvcNamePrv, strName, revCalls, revStreams)
 
 	// Generate the calls.
 	for _, c := range calls {
-		g.genServiceCallClient(c, strName, srvcName, errs)
+		g.genServiceCallClient(c, srvcName, strName, errs)
 	}
 
 	// Generate the rev calls.
 	for _, rc := range revCalls {
-		g.genServiceCallServer(rc, strName, errs)
+		g.genServiceCallServer(rc, srvcName, srvcNamePrv, strName, errs)
 	}
 
 	// Generate the streams.
 	for _, s := range streams {
-		g.genServiceStreamClient(s, strName, srvcName, errs)
+		g.genServiceStreamClient(s, srvcName, strName, errs)
 	}
 
 	// generate the rev streams.
 	for _, rs := range revStreams {
-		g.genServiceStreamServer(rs, strName, srvcName, errs)
+		g.genServiceStreamServer(rs, srvcName, srvcNamePrv, strName, errs)
 	}
 }
 
-func (g *generator) genServiceStructConstructor(name, srvcName string, revCalls []*parse.Call, revStreams []*parse.Stream) {
+func (g *generator) genServiceStructConstructor(srvcName, srvcNamePrv, name string, revCalls []*parse.Call, revStreams []*parse.Stream) {
 	nameUp := strings.Title(name)
 	g.writeLn("func Register%s(s *orbit.Session, h %sHandler) %sCaller {", nameUp, nameUp, nameUp)
 	g.writeLn("cc := &%s{h: h, s: s}", name)
 	for _, rc := range revCalls {
-		g.writeLn("s.RegisterCall(%s, %s, cc.%s)", srvcName, srvcName+rc.Name, rc.NamePrv())
+		g.writeLn("s.RegisterCall(%s, %s, cc.%s)", srvcName, srvcName+rc.Name, srvcNamePrv+rc.Name)
 	}
 	for _, rs := range revStreams {
-		g.writeLn("s.RegisterStream(%s, %s, cc.%s)", srvcName, srvcName+rs.Name, rs.NamePrv())
+		g.writeLn("s.RegisterStream(%s, %s, cc.%s)", srvcName, srvcName+rs.Name, srvcNamePrv+rs.Name)
 	}
 	g.writeLn("return cc")
 	g.writeLn("}")
