@@ -42,20 +42,10 @@ const (
 	maxPayloadSize = 2 * 1024 // 2KB
 )
 
-// WARNING! JUST A SHOWCASE ---------------------------------
-const (
-	SampleUsername = "sampleUser"
-	SamplePassword = "samplePassword"
-)
-
-var SamplePasswordHash = []byte("$2a$10$A3090fBqvJ3SPg0VGf2afePobWmEAQZ0VbTzbnVLNVCe5blymBham")
-
-// ----------------------------------------------------------
-
 var (
-	errAuthFailed      = errors.New("authentication failed")
-	errInvalidUsername = errors.New("invalid username")
-	errInvalidPassword = errors.New("invalid password")
+	errAuthenticationFailed = errors.New("authentication failed")
+	errInvalidUsername      = errors.New("invalid username")
+	errInvalidPassword      = errors.New("invalid password")
 )
 
 type HashedCredentials map[string][]byte

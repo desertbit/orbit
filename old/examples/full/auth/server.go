@@ -89,7 +89,7 @@ func Server(hook GetHashHook) orbit.AuthnFunc {
 
 		// Check if the authentication was successful.
 		if !ret.Ok {
-			err = errAuthFailed
+			err = errAuthenticationFailed
 			return
 		}
 

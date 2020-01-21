@@ -55,8 +55,8 @@ const (
 	recv = "v1"
 )
 
-func Generate(dir string, streamChanSize uint, splitOutput, force bool) (err error) {
-	orbitFilePaths, err := findModifiedOrbitFiles(dir, splitOutput, force)
+func Generate(dir string, streamChanSize uint, noMerge, force bool) (err error) {
+	orbitFilePaths, err := findModifiedOrbitFiles(dir, noMerge, force)
 	if err != nil || len(orbitFilePaths) == 0 {
 		return
 	}
@@ -71,7 +71,7 @@ func Generate(dir string, streamChanSize uint, splitOutput, force bool) (err err
 		g       = &generator{}
 	)
 
-	if splitOutput {
+	if noMerge {
 		var data []byte
 
 		for _, fp := range orbitFilePaths {
@@ -82,7 +82,7 @@ func Generate(dir string, streamChanSize uint, splitOutput, force bool) (err err
 			}
 
 			// Parse the data.
-			services, types, errs, err = parse.Parse(data)
+			services, types, errs, err = parse.Parse(string(data))
 			if err != nil {
 				err = fmt.Errorf("parsing failed\n-> %v\n-> %s", err, fp)
 				return
@@ -117,16 +117,16 @@ func Generate(dir string, streamChanSize uint, splitOutput, force bool) (err err
 			input = append(input, data...)
 		}
 
+		// Parse all files in one go.
+		services, types, errs, err = parse.Parse(string(input))
+		if err != nil {
+			return
+		}
+
 		// The single output file has the name of the directory as prefix.
 		// Add its path to the generated files.
 		genFilePath := filepath.Join(dir, filepath.Base(dir)+genOrbitSuffix)
 		genFilePaths = append(genFilePaths, genFilePath)
-
-		// Parse all files in one go.
-		services, types, errs, err = parse.Parse(input)
-		if err != nil {
-			return
-		}
 
 		// Write the output to the file.
 		err = ioutil.WriteFile(
@@ -160,7 +160,7 @@ func Generate(dir string, streamChanSize uint, splitOutput, force bool) (err err
 	return
 }
 
-func findModifiedOrbitFiles(dir string, splitOutput, force bool) (modifiedFilePaths []string, err error) {
+func findModifiedOrbitFiles(dir string, noMerge, force bool) (modifiedFilePaths []string, err error) {
 	fileModTimes := make(map[string]time.Time)
 
 	// Retrieve our cache dir.
@@ -219,7 +219,7 @@ func findModifiedOrbitFiles(dir string, splitOutput, force bool) (modifiedFilePa
 			exists bool
 			genFp  string
 		)
-		if splitOutput {
+		if noMerge {
 			genFp = strings.TrimSuffix(fp, orbitSuffix) + genOrbitSuffix
 		} else {
 			genFp = filepath.Join(dir, filepath.Base(dir)+genOrbitSuffix)
@@ -252,7 +252,7 @@ func findModifiedOrbitFiles(dir string, splitOutput, force bool) (modifiedFilePa
 
 	// In case only a single output file should be generated, we must generate all orbit files
 	// if at least one has been modified, or force is enabled.
-	if !splitOutput && (len(modifiedFilePaths) > 0 || force) {
+	if !noMerge && (len(modifiedFilePaths) > 0 || force) {
 		modifiedFilePaths = allFilePaths
 	}
 

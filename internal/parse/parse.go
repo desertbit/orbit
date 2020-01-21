@@ -51,9 +51,9 @@ const (
 	tkMap = "map"
 )
 
-func Parse(data []byte) (services []*Service, types []*Type, errors []*Error, err error) {
+func Parse(data string) (services []*Service, types []*Type, errors []*Error, err error) {
 	// Tokenize the data.
-	tks, err := tokenize(string(data))
+	tks, err := tokenize(data)
 	if err != nil {
 		return
 	}

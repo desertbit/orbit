@@ -64,8 +64,6 @@ type Session struct {
 	id   string
 	conn Conn
 
-	authzFunc AuthzFunc
-
 	// When a new stream has been opened, the first data sent on the stream must
 	// contain the key into this map to retrieve the correct function to handle
 	// the stream.

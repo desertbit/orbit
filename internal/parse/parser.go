@@ -60,7 +60,6 @@ func newParser(tks []*token) (p *parser) {
 	return
 }
 
-// Can only be called once per parser!
 func (p *parser) parse() (srvcs []*Service, types []*Type, errors []*Error, err error) {
 	var (
 		errs []*Error

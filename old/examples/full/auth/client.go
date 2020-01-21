@@ -71,7 +71,7 @@ func Client(username, pw string) orbit.AuthnFunc {
 
 		// Check if the authentication was successful.
 		if !data.Ok {
-			err = errAuthFailed
+			err = errAuthenticationFailed
 			return
 		}
 
