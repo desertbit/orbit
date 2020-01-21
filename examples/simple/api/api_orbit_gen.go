@@ -280,15 +280,15 @@ type ExampleTest3Ret struct {
 
 // Service
 const (
-	Example       = "Example"
-	ExampleTest   = "Test"
-	ExampleTest2  = "Test2"
-	ExampleTest3  = "Test3"
-	ExampleTest4  = "Test4"
-	ExampleHello  = "Hello"
-	ExampleHello2 = "Hello2"
-	ExampleHello3 = "Hello3"
-	ExampleHello4 = "Hello4"
+	ServiceExample = "Example"
+	ExampleTest    = "Test"
+	ExampleTest2   = "Test2"
+	ExampleTest3   = "Test3"
+	ExampleTest4   = "Test4"
+	ExampleHello   = "Hello"
+	ExampleHello2  = "Hello2"
+	ExampleHello3  = "Hello3"
+	ExampleHello4  = "Hello4"
 )
 
 type ExampleConsumerCaller interface {
@@ -334,15 +334,15 @@ type exampleConsumer struct {
 
 func RegisterExampleConsumer(s *orbit.Session, h ExampleConsumerHandler) ExampleConsumerCaller {
 	cc := &exampleConsumer{h: h, s: s}
-	s.RegisterCall(Example, ExampleTest3, cc.exampleTest3)
-	s.RegisterCall(Example, ExampleTest4, cc.exampleTest4)
-	s.RegisterStream(Example, ExampleHello3, cc.exampleHello3)
-	s.RegisterStream(Example, ExampleHello4, cc.exampleHello4)
+	s.RegisterCall(ServiceExample, ExampleTest3, cc.exampleTest3)
+	s.RegisterCall(ServiceExample, ExampleTest4, cc.exampleTest4)
+	s.RegisterStream(ServiceExample, ExampleHello3, cc.exampleHello3)
+	s.RegisterStream(ServiceExample, ExampleHello4, cc.exampleHello4)
 	return cc
 }
 
 func (v1 *exampleConsumer) ExampleTest(ctx context.Context, args *Plate) (ret *ExampleRect, err error) {
-	retData, err := v1.s.Call(ctx, Example, ExampleTest, args)
+	retData, err := v1.s.Call(ctx, ServiceExample, ExampleTest, args)
 	if err != nil {
 		var cErr *orbit.ErrorCode
 		if errors.As(err, &cErr) {
@@ -366,7 +366,7 @@ func (v1 *exampleConsumer) ExampleTest(ctx context.Context, args *Plate) (ret *E
 }
 
 func (v1 *exampleConsumer) ExampleTest2(ctx context.Context, args *ExampleRect) (err error) {
-	_, err = v1.s.Call(ctx, Example, ExampleTest2, args)
+	_, err = v1.s.Call(ctx, ServiceExample, ExampleTest2, args)
 	if err != nil {
 		var cErr *orbit.ErrorCode
 		if errors.As(err, &cErr) {
@@ -422,11 +422,11 @@ func (v1 *exampleConsumer) exampleTest4(ctx context.Context, s *orbit.Session, a
 }
 
 func (v1 *exampleConsumer) ExampleHello(ctx context.Context) (stream net.Conn, err error) {
-	return v1.s.OpenStream(ctx, Example, ExampleHello)
+	return v1.s.OpenStream(ctx, ServiceExample, ExampleHello)
 }
 
 func (v1 *exampleConsumer) ExampleHello2(ctx context.Context) (args *ExampleCharWriteChan, err error) {
-	stream, err := v1.s.OpenStream(ctx, Example, ExampleHello2)
+	stream, err := v1.s.OpenStream(ctx, ServiceExample, ExampleHello2)
 	if err != nil {
 		return
 	}
@@ -541,15 +541,15 @@ type exampleProvider struct {
 
 func RegisterExampleProvider(s *orbit.Session, h ExampleProviderHandler) ExampleProviderCaller {
 	cc := &exampleProvider{h: h, s: s}
-	s.RegisterCall(Example, ExampleTest, cc.exampleTest)
-	s.RegisterCall(Example, ExampleTest2, cc.exampleTest2)
-	s.RegisterStream(Example, ExampleHello, cc.exampleHello)
-	s.RegisterStream(Example, ExampleHello2, cc.exampleHello2)
+	s.RegisterCall(ServiceExample, ExampleTest, cc.exampleTest)
+	s.RegisterCall(ServiceExample, ExampleTest2, cc.exampleTest2)
+	s.RegisterStream(ServiceExample, ExampleHello, cc.exampleHello)
+	s.RegisterStream(ServiceExample, ExampleHello2, cc.exampleHello2)
 	return cc
 }
 
 func (v1 *exampleProvider) ExampleTest3(ctx context.Context, args *ExampleTest3Args) (ret *ExampleTest3Ret, err error) {
-	retData, err := v1.s.Call(ctx, Example, ExampleTest3, args)
+	retData, err := v1.s.Call(ctx, ServiceExample, ExampleTest3, args)
 	if err != nil {
 		var cErr *orbit.ErrorCode
 		if errors.As(err, &cErr) {
@@ -573,7 +573,7 @@ func (v1 *exampleProvider) ExampleTest3(ctx context.Context, args *ExampleTest3A
 }
 
 func (v1 *exampleProvider) ExampleTest4(ctx context.Context) (ret *ExampleRect, err error) {
-	retData, err := v1.s.Call(ctx, Example, ExampleTest4, nil)
+	retData, err := v1.s.Call(ctx, ServiceExample, ExampleTest4, nil)
 	if err != nil {
 		var cErr *orbit.ErrorCode
 		if errors.As(err, &cErr) {
@@ -638,7 +638,7 @@ func (v1 *exampleProvider) exampleTest2(ctx context.Context, s *orbit.Session, a
 }
 
 func (v1 *exampleProvider) ExampleHello3(ctx context.Context) (ret *PlateReadChan, err error) {
-	stream, err := v1.s.OpenStream(ctx, Example, ExampleHello3)
+	stream, err := v1.s.OpenStream(ctx, ServiceExample, ExampleHello3)
 	if err != nil {
 		return
 	}
@@ -668,7 +668,7 @@ func (v1 *exampleProvider) ExampleHello3(ctx context.Context) (ret *PlateReadCha
 }
 
 func (v1 *exampleProvider) ExampleHello4(ctx context.Context) (args *ExampleCharWriteChan, ret *PlateReadChan, err error) {
-	stream, err := v1.s.OpenStream(ctx, Example, ExampleHello4)
+	stream, err := v1.s.OpenStream(ctx, ServiceExample, ExampleHello4)
 	if err != nil {
 		return
 	}
@@ -774,7 +774,7 @@ var (
 // Types
 // Service
 const (
-	Trainer         = "Trainer"
+	ServiceTrainer  = "Trainer"
 	TrainerStart    = "Start"
 	TrainerUpdate   = "Update"
 	TrainerUpload   = "Upload"
@@ -823,14 +823,14 @@ type trainerConsumer struct {
 
 func RegisterTrainerConsumer(s *orbit.Session, h TrainerConsumerHandler) TrainerConsumerCaller {
 	cc := &trainerConsumer{h: h, s: s}
-	s.RegisterStream(Trainer, TrainerSend, cc.trainerSend)
-	s.RegisterStream(Trainer, TrainerReceive, cc.trainerReceive)
-	s.RegisterStream(Trainer, TrainerLink, cc.trainerLink)
+	s.RegisterStream(ServiceTrainer, TrainerSend, cc.trainerSend)
+	s.RegisterStream(ServiceTrainer, TrainerReceive, cc.trainerReceive)
+	s.RegisterStream(ServiceTrainer, TrainerLink, cc.trainerLink)
 	return cc
 }
 
 func (v1 *trainerConsumer) TrainerStart(ctx context.Context, args *Plate) (err error) {
-	_, err = v1.s.Call(ctx, Trainer, TrainerStart, args)
+	_, err = v1.s.Call(ctx, ServiceTrainer, TrainerStart, args)
 	if err != nil {
 		var cErr *orbit.ErrorCode
 		if errors.As(err, &cErr) {
@@ -849,7 +849,7 @@ func (v1 *trainerConsumer) TrainerStart(ctx context.Context, args *Plate) (err e
 }
 
 func (v1 *trainerConsumer) TrainerUpdate(ctx context.Context, args *Char) (ret *Char, err error) {
-	retData, err := v1.s.Call(ctx, Trainer, TrainerUpdate, args)
+	retData, err := v1.s.Call(ctx, ServiceTrainer, TrainerUpdate, args)
 	if err != nil {
 		var cErr *orbit.ErrorCode
 		if errors.As(err, &cErr) {
@@ -873,11 +873,11 @@ func (v1 *trainerConsumer) TrainerUpdate(ctx context.Context, args *Char) (ret *
 }
 
 func (v1 *trainerConsumer) TrainerUpload(ctx context.Context) (stream net.Conn, err error) {
-	return v1.s.OpenStream(ctx, Trainer, TrainerUpload)
+	return v1.s.OpenStream(ctx, ServiceTrainer, TrainerUpload)
 }
 
 func (v1 *trainerConsumer) TrainerDownload(ctx context.Context) (args *CharWriteChan, err error) {
-	stream, err := v1.s.OpenStream(ctx, Trainer, TrainerDownload)
+	stream, err := v1.s.OpenStream(ctx, ServiceTrainer, TrainerDownload)
 	if err != nil {
 		return
 	}
@@ -1023,10 +1023,10 @@ type trainerProvider struct {
 
 func RegisterTrainerProvider(s *orbit.Session, h TrainerProviderHandler) TrainerProviderCaller {
 	cc := &trainerProvider{h: h, s: s}
-	s.RegisterCall(Trainer, TrainerStart, cc.trainerStart)
-	s.RegisterCall(Trainer, TrainerUpdate, cc.trainerUpdate)
-	s.RegisterStream(Trainer, TrainerUpload, cc.trainerUpload)
-	s.RegisterStream(Trainer, TrainerDownload, cc.trainerDownload)
+	s.RegisterCall(ServiceTrainer, TrainerStart, cc.trainerStart)
+	s.RegisterCall(ServiceTrainer, TrainerUpdate, cc.trainerUpdate)
+	s.RegisterStream(ServiceTrainer, TrainerUpload, cc.trainerUpload)
+	s.RegisterStream(ServiceTrainer, TrainerDownload, cc.trainerDownload)
 	return cc
 }
 
@@ -1072,7 +1072,7 @@ func (v1 *trainerProvider) trainerUpdate(ctx context.Context, s *orbit.Session, 
 }
 
 func (v1 *trainerProvider) TrainerSend(ctx context.Context) (args *PlateWriteChan, err error) {
-	stream, err := v1.s.OpenStream(ctx, Trainer, TrainerSend)
+	stream, err := v1.s.OpenStream(ctx, ServiceTrainer, TrainerSend)
 	if err != nil {
 		return
 	}
@@ -1101,7 +1101,7 @@ func (v1 *trainerProvider) TrainerSend(ctx context.Context) (args *PlateWriteCha
 }
 
 func (v1 *trainerProvider) TrainerReceive(ctx context.Context) (ret *CharReadChan, err error) {
-	stream, err := v1.s.OpenStream(ctx, Trainer, TrainerReceive)
+	stream, err := v1.s.OpenStream(ctx, ServiceTrainer, TrainerReceive)
 	if err != nil {
 		return
 	}
@@ -1131,7 +1131,7 @@ func (v1 *trainerProvider) TrainerReceive(ctx context.Context) (ret *CharReadCha
 }
 
 func (v1 *trainerProvider) TrainerLink(ctx context.Context) (args *PlateWriteChan, ret *CharReadChan, err error) {
-	stream, err := v1.s.OpenStream(ctx, Trainer, TrainerLink)
+	stream, err := v1.s.OpenStream(ctx, ServiceTrainer, TrainerLink)
 	if err != nil {
 		return
 	}

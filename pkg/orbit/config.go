@@ -42,12 +42,13 @@ const (
 )
 
 type Config struct {
-	// AuthnFunc authenticates the session connection if defined.
+	// AuthnFunc authenticates the session connection, if defined.
 	// It gets called right after the version byte has been exchanged
-	// between client and server. Therefore, not much resources are wasted
-	// in case the authentication fails.
+	// between client and server.
 	AuthnFunc AuthnFunc
 
+	// AuthzFunc authorizes every request made by a session, if defined.
+	// It gets called, before the associated handler func is executed.
 	AuthzFunc AuthzFunc
 
 	Log   *zerolog.Logger

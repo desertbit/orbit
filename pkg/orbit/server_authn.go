@@ -66,6 +66,6 @@ func authnSession(conn net.Conn, config *Config) (v interface{}, err error) {
 		return
 	}
 
-	// Call the auth func defined in the config.
+	// Call the authentication func defined in the config.
 	return config.AuthnFunc(conn)
 }

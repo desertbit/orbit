@@ -62,11 +62,7 @@ const (
 // ReadDecode reads the packet from the connection using Read()
 // and decodes it into the value, using the provided codec.
 // Ensure to pass a pointer value.
-func ReadDecode(
-	conn net.Conn,
-	value interface{},
-	codec codec.Codec,
-) error {
+func ReadDecode(conn net.Conn, value interface{}, codec codec.Codec) error {
 	// Read the packet from the connection.
 	payload, err := Read(conn, nil)
 	if err != nil {
@@ -84,10 +80,7 @@ func ReadDecode(
 // If buffer is set and is big enough to fit the packet,
 // then the buffer is used. Otherwise a new buffer is allocated.
 // Returns an empty byte slice when no data was send.
-func Read(
-	conn net.Conn,
-	buffer []byte,
-) ([]byte, error) {
+func Read(conn net.Conn, buffer []byte) ([]byte, error) {
 	var (
 		err          error
 		n, bytesRead int
@@ -137,11 +130,7 @@ func Read(
 
 // WriteEncode encodes the value using the provided codec
 // and writes it to the connection using WriteTimeout().
-func WriteEncode(
-	conn net.Conn,
-	value interface{},
-	codec codec.Codec,
-) error {
+func WriteEncode(conn net.Conn, value interface{}, codec codec.Codec) error {
 	// Encode the value using the codec.
 	data, err := codec.Encode(value)
 	if err != nil {
@@ -159,10 +148,7 @@ func WriteEncode(
 // a header with payload size 0 and no payload.
 //
 // A timeout must be specified, where a timeout <= 0 means no timeout.
-func Write(
-	conn net.Conn,
-	data []byte,
-) (err error) {
+func Write(conn net.Conn, data []byte) error {
 	payloadLen := len(data)
 	if payloadLen > MaxSize {
 		panic("maximum packet size exceeded in write")
@@ -170,18 +156,18 @@ func Write(
 
 	// Write the payload length.
 	payloadBufLen := bytes.FromUint32(uint32(payloadLen))
-	_, err = conn.Write(payloadBufLen)
+	_, err := conn.Write(payloadBufLen)
 	if err != nil {
-		return
+		return err
 	}
 
 	// Write the payload data if present.
 	if payloadLen > 0 {
 		_, err = conn.Write(data)
 		if err != nil {
-			return
+			return err
 		}
 	}
 
-	return
+	return nil
 }

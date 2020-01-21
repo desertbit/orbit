@@ -73,7 +73,7 @@ func (g *generator) genService(srvc *parse.Service, globErrs []*parse.Error) {
 	// Sort the entries into the respective categories.
 	// Also create the call ids.
 	g.writeLn("const (")
-	g.writeLn("%s = \"%s\"", srvc.Name, srvc.Name)
+	g.writeLn("Service%s = \"%s\"", srvc.Name, srvc.Name)
 	for _, c := range srvc.Calls {
 		g.writeLn("%s = \"%s\"", srvc.Name+c.Name, c.Name)
 		if c.Rev {
@@ -213,10 +213,10 @@ func (g *generator) genServiceStructConstructor(srvcName, srvcNamePrv, name stri
 	g.writeLn("func Register%s(s *orbit.Session, h %sHandler) %sCaller {", nameUp, nameUp, nameUp)
 	g.writeLn("cc := &%s{h: h, s: s}", name)
 	for _, rc := range revCalls {
-		g.writeLn("s.RegisterCall(%s, %s, cc.%s)", srvcName, srvcName+rc.Name, srvcNamePrv+rc.Name)
+		g.writeLn("s.RegisterCall(Service%s, %s, cc.%s)", srvcName, srvcName+rc.Name, srvcNamePrv+rc.Name)
 	}
 	for _, rs := range revStreams {
-		g.writeLn("s.RegisterStream(%s, %s, cc.%s)", srvcName, srvcName+rs.Name, srvcNamePrv+rs.Name)
+		g.writeLn("s.RegisterStream(Service%s, %s, cc.%s)", srvcName, srvcName+rs.Name, srvcNamePrv+rs.Name)
 	}
 	g.writeLn("return cc")
 	g.writeLn("}")

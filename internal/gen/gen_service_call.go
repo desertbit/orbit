@@ -72,7 +72,7 @@ func (g *generator) genServiceCallClient(c *parse.Call, srvcName, structName str
 	if c.Async {
 		g.write("Async")
 	}
-	g.write("(ctx, %s, %s, ", srvcName, srvcName+c.Name)
+	g.write("(ctx, Service%s, %s, ", srvcName, srvcName+c.Name)
 	if c.Args != nil {
 		g.writeLn("args)")
 	} else {

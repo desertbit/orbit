@@ -250,46 +250,28 @@ func (s *Session) readCallRoutine(cs *callStream, once bool) {
 	// Close the stream on exit.
 	defer cs.Close()
 
-	// Warning: don't shadow the error.
-	// Otherwise the deferred logging won't work!
 	var (
 		err          error
 		bytesRead, n int
 		reqTypeBuf   = make([]byte, 1)
 	)
 
-	// Catch panics and log error messages. There should be exactly one
-	// readRoutine running all the time, therefore this defer does not
-	// hurt performance at all and is a safety net, to prevent the server
-	// from crashing, should anything panic during the reads.
+	// Log errors, but only, if the server or stream are not closing.
 	defer func() {
-		if e := recover(); e != nil {
-			if s.cf.PrintPanicStackTraces {
-				err = fmt.Errorf("catched panic: %v\n%s", e, string(debug.Stack()))
-			} else {
-				err = fmt.Errorf("catched panic: %v", e)
-			}
-		}
-
-		// Only log if not closed.
 		if err != nil && !errors.Is(err, io.EOF) && !s.IsClosing() {
 			s.log.Error().
 				Err(err).
-				Msg("call read error")
+				Msg("read call routine")
 		}
 	}()
 
-	for {
-		// This variables must be redefined for each loop,
-		// because this data is used in the new goroutine.
-		// Otherwise there is a race and data gets corrupted.
-		var (
-			reqType                 byte
-			headerData, payloadData []byte
-		)
+	var (
+		reqType                 byte
+		headerData, payloadData []byte
+	)
 
+	for {
 		// Read the reqType from the stream.
-		// Read in a loop, as Read could potentially return 0 read bytes.
 		bytesRead = 0
 		for bytesRead == 0 {
 			n, err = cs.Read(reqTypeBuf)
@@ -318,7 +300,7 @@ func (s *Session) readCallRoutine(cs *callStream, once bool) {
 			s.handleCallRequest(cs, reqType, headerData, payloadData)
 			return
 		} else {
-			// Handle the received message in a new goroutine.
+			// Handle the received message in a new routine.
 			go s.handleCallRequest(cs, reqType, headerData, payloadData)
 		}
 	}
@@ -326,24 +308,6 @@ func (s *Session) readCallRoutine(cs *callStream, once bool) {
 
 func (s *Session) handleCallRequest(cs *callStream, reqType byte, headerData, payloadData []byte) {
 	var err error
-
-	// Catch panics, caused by the handler func or one of the hooks.
-	defer func() {
-		// TODO: Remove panic handling?, execCallHandler handles panics on its own and other code is only ours, must not panic.
-		if e := recover(); e != nil {
-			if s.cf.PrintPanicStackTraces {
-				err = fmt.Errorf("catched panic: \n%v\n%s", e, string(debug.Stack()))
-			} else {
-				err = fmt.Errorf("catched panic: \n%v", e)
-			}
-		}
-
-		if err != nil {
-			// Log. Do not use the Err() field, as stack trace formatting is lost then.
-			s.log.Error().
-				Msgf("session: failed to handle call request: \n%v", err)
-		}
-	}()
 
 	// Check the request type.
 	switch reqType {
@@ -355,6 +319,11 @@ func (s *Session) handleCallRequest(cs *callStream, reqType byte, headerData, pa
 		err = s.handleCallCancel(headerData)
 	default:
 		err = fmt.Errorf("invalid request type '%v'", reqType)
+	}
+	if err != nil {
+		s.log.Error().
+			Err(err).
+			Msg("session: failed to handle call request")
 	}
 }
 
@@ -423,7 +392,7 @@ func (s *Session) execCallHandler(key uint32, id string, payloadData []byte) (re
 	f, ok = s.callFuncs[id]
 	s.callFuncsMx.RUnlock()
 	if !ok {
-		err = errors.New("call handler not found")
+		err = fmt.Errorf("call handler '%s' not found", id)
 		return
 	}
 
@@ -457,6 +426,7 @@ func (s *Session) execCallHandler(key uint32, id string, payloadData []byte) (re
 		if errors.As(err, &cErr) {
 			retHeader.Code = cErr.Code()
 			retHeader.Msg = cErr.Msg()
+			err = nil
 		}
 	}
 	return
@@ -476,7 +446,7 @@ func (s *Session) handleCallReturn(cs *callStream, headerData, payloadData []byt
 	var header api.CallReturn
 	err = msgpack.Codec.Decode(headerData, &header)
 	if err != nil {
-		return fmt.Errorf("handle call return decode header: %v", err)
+		return fmt.Errorf("call return: decode header: %v", err)
 	}
 
 	// Get the channel by the key.
@@ -509,7 +479,7 @@ func (s *Session) handleCallReturn(cs *callStream, headerData, payloadData []byt
 		case channel <- rData:
 			return
 		case <-timeout.C:
-			return fmt.Errorf("call return: failed to deliver return data (timeout)")
+			return errors.New("call return: failed to deliver return data (timeout)")
 		}
 	}
 }
@@ -526,7 +496,7 @@ func (s *Session) handleCallCancel(headerData []byte) (err error) {
 	var header api.CallCancel
 	err = msgpack.Codec.Decode(headerData, &header)
 	if err != nil {
-		return fmt.Errorf("handle call cancel decode header: %v", err)
+		return fmt.Errorf("call cancel: decode header: %v", err)
 	}
 
 	// Retrieve the context from the active contexts map and delete

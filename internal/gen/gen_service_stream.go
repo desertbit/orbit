@@ -49,13 +49,13 @@ func (g *generator) genServiceStreamClient(s *parse.Stream, srvcName, structName
 	// Method body.
 	// First, open the stream.
 	if s.Args == nil && s.Ret == nil {
-		g.writeLn("return %s.s.OpenStream(ctx, %s, %s)", recv, srvcName, srvcName+s.Name)
+		g.writeLn("return %s.s.OpenStream(ctx, Service%s, %s)", recv, srvcName, srvcName+s.Name)
 		g.writeLn("}")
 		g.writeLn("")
 		return
 	}
 
-	g.writeLn("stream, err := %s.s.OpenStream(ctx, %s, %s)", recv, srvcName, srvcName+s.Name)
+	g.writeLn("stream, err := %s.s.OpenStream(ctx, Service%s, %s)", recv, srvcName, srvcName+s.Name)
 	g.errIfNil()
 
 	if s.Args != nil {
