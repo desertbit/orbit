@@ -1,5 +1,9 @@
 # TODO:
 
+- provide a default auth module
+- provide a logging module
+- split service & call ID
+- finish quic support
 - add enum support
 - add timeout and maxmsgsize to calls (and streams?), but optional!!! take config value as default.
 - remove flagStreamChanSize flag and include an option to the stream.

@@ -155,6 +155,7 @@ func (s *Server) Sessions() []*Session {
 	return list
 }
 
+// TODO: Add prefix Hook?
 func (s *Server) SetOnSessionCreated(f SessionCreatedFunc) {
 	s.callbackMx.Lock()
 	s.sessionCreatedFunc = f
