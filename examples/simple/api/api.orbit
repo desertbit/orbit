@@ -3,6 +3,12 @@ errors {
     datasetDoesNotExist = 101
 }
 
+enum Vehicle {
+    Auto = 1
+    Motorrad = 2
+    LKW  = 3
+}
+
 service example {
     errors {
         aborted = 1

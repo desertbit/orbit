@@ -1,9 +1,10 @@
 # TODO:
 
-- update the comments and remove unneeded parts.
-- update tests
 - add enum support
 - add timeout and maxmsgsize to calls (and streams?), but optional!!! take config value as default.
+- remove flagStreamChanSize flag and include an option to the stream.
+- update the comments and remove unneeded parts.
+- update tests
 
 ## OLD:
 
