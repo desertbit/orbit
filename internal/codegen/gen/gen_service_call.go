@@ -28,77 +28,77 @@
 package gen
 
 import (
-	"github.com/desertbit/orbit/internal/parse"
+	"github.com/desertbit/orbit/internal/codegen/ast"
 )
 
-func (g *generator) genServiceCallCallerSignature(c *parse.Call, srvcName string) {
-	g.write("%s(ctx context.Context", srvcName+c.Name)
+func (g *generator) genServiceCallCallerSignature(c *ast.Call, srvcName string) {
+	write("%s(ctx context.Context", srvcName+c.Name)
 	if c.Args != nil {
-		g.write(", args %s", c.Args.String())
+		write(", args %s", c.Args.String())
 	}
-	g.write(") (")
+	write(") (")
 	if c.Ret != nil {
-		g.write("ret %s, ", c.Ret.String())
+		write("ret %s, ", c.Ret.String())
 	}
-	g.write("err error)")
+	write("err error)")
 }
 
-func (g *generator) genServiceCallHandlerSignature(c *parse.Call, srvcName string) {
-	g.write("%s(ctx context.Context, s *orbit.Session", srvcName+c.Name)
+func (g *generator) genServiceCallHandlerSignature(c *ast.Call, srvcName string) {
+	write("%s(ctx context.Context, s *orbit.Session", srvcName+c.Name)
 	if c.Args != nil {
-		g.write(", args %s", c.Args.String())
+		write(", args %s", c.Args.String())
 	}
-	g.write(") (")
+	write(") (")
 	if c.Ret != nil {
-		g.write("ret %s, ", c.Ret.String())
+		write("ret %s, ", c.Ret.String())
 	}
-	g.write("err error)")
+	write("err error)")
 }
 
-func (g *generator) genServiceCallClient(c *parse.Call, srvcName, structName string, errs []*parse.Error) {
+func (g *generator) genServiceCallClient(c *ast.Call, srvcName, structName string, errs []*ast.Error) {
 	// Method declaration.
-	g.write("func (%s *%s) ", recv, structName)
+	write("func (%s *%s) ", recv, structName)
 	g.genServiceCallCallerSignature(c, srvcName)
-	g.writeLn(" {")
+	writeLn(" {")
 
 	// Method body.
 	// First, make the call.
 	if c.Ret != nil {
-		g.write("retData, err := ")
+		write("retData, err := ")
 	} else {
-		g.write("_, err = ")
+		write("_, err = ")
 	}
-	g.write("%s.s.Call", recv)
+	write("%s.s.Call", recv)
 	if c.Async {
-		g.write("Async")
+		write("Async")
 	}
-	g.write("(ctx, Service%s, %s, ", srvcName, srvcName+c.Name)
+	write("(ctx, Service%s, %s, ", srvcName, srvcName+c.Name)
 	if c.Args != nil {
-		g.writeLn("args)")
+		writeLn("args)")
 	} else {
-		g.writeLn("nil)")
+		writeLn("nil)")
 	}
 
 	// Check error and parse control.ErrorCodes.
-	g.genErrCheckOrbitCaller(errs)
+	genErrCheckOrbitCaller(errs)
 
 	// If return arguments are expected, decode them.
 	if c.Ret != nil {
-		g.writeLn("ret = &%s{}", c.Ret.Name)
-		g.writeLn("err = retData.Decode(ret)")
-		g.errIfNil()
+		writeLn("ret = &%s{}", c.Ret.Name)
+		writeLn("err = retData.Decode(ret)")
+		errIfNil()
 	}
 
 	// Return.
-	g.writeLn("return")
+	writeLn("return")
 
-	g.writeLn("}")
-	g.writeLn("")
+	writeLn("}")
+	writeLn("")
 }
 
-func (g *generator) genServiceCallServer(c *parse.Call, srvcName, srvcNamePrv, structName string, errs []*parse.Error) {
+func (g *generator) genServiceCallServer(c *ast.Call, srvcName, srvcNamePrv, structName string, errs []*ast.Error) {
 	// Method declaration.
-	g.writeLn(
+	writeLn(
 		"func (%s *%s) %s(ctx context.Context, s *orbit.Session, ad *orbit.Data) (r interface{}, err error) {",
 		recv, structName, srvcNamePrv+c.Name,
 	)
@@ -108,29 +108,29 @@ func (g *generator) genServiceCallServer(c *parse.Call, srvcName, srvcNamePrv, s
 	handlerArgs := "ctx, s"
 	if c.Args != nil {
 		handlerArgs += ", args"
-		g.writeLn("args := &%s{}", c.Args.Name)
-		g.writeLn("err = ad.Decode(args)")
-		g.errIfNil()
+		writeLn("args := &%s{}", c.Args.Name)
+		writeLn("err = ad.Decode(args)")
+		errIfNil()
 	}
 
 	// Call the handler.
 	if c.Ret != nil {
-		g.writeLn("ret, err := %s.h.%s(%s)", recv, srvcName+c.Name, handlerArgs)
+		writeLn("ret, err := %s.h.%s(%s)", recv, srvcName+c.Name, handlerArgs)
 	} else {
-		g.writeLn("err = %s.h.%s(%s)", recv, srvcName+c.Name, handlerArgs)
+		writeLn("err = %s.h.%s(%s)", recv, srvcName+c.Name, handlerArgs)
 	}
 
 	// Check error and convert to orbit errors.
-	g.genErrCheckOrbitHandler(errs)
+	genErrCheckOrbitHandler(errs)
 
 	// Assign return value.
 	if c.Ret != nil {
-		g.writeLn("r = ret")
+		writeLn("r = ret")
 	}
 
 	// Return.
-	g.writeLn("return")
+	writeLn("return")
 
-	g.writeLn("}")
-	g.writeLn("")
+	writeLn("}")
+	writeLn("")
 }

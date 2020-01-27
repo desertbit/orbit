@@ -3,8 +3,8 @@
  *
  * The MIT License (MIT)
  *
- * Copyright (c) 2019 Roland Singer <roland.singer[at]desertbit.com>
- * Copyright (c) 2019 Sebastian Borchers <sebastian[at]desertbit.com>
+ * Copyright (c) 2020 Roland Singer <roland.singer[at]desertbit.com>
+ * Copyright (c) 2020 Sebastian Borchers <sebastian[at]desertbit.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -25,60 +25,4 @@
  * SOFTWARE.
  */
 
-package parse
-
-import (
-	"unicode"
-)
-
-type token struct {
-	value string
-	line  int
-}
-
-func tokenize(data string) (tks []*token, err error) {
-	var (
-		value    string
-		skipNext bool
-
-		lines = 1
-		sr    = []rune(data)
-	)
-	tks = make([]*token, 0)
-
-	for i, r := range data {
-		if skipNext {
-			skipNext = false
-			continue
-		}
-
-		if unicode.IsSpace(r) {
-			if r == '\n' {
-				lines++
-			}
-
-			if value == "" {
-				continue
-			}
-
-			tks = append(tks, &token{value: value, line: lines})
-			value = ""
-		} else if r == '{' || r == '}' || r == '(' || r == ')' || r == '[' || r == ']' {
-			if value != "" {
-				tks = append(tks, &token{value: value, line: lines})
-				value = ""
-			}
-
-			// Group array brackets together.
-			if r == '[' && i+1 < len(sr) && sr[i+1] == ']' {
-				skipNext = true
-				tks = append(tks, &token{value: "[]", line: lines})
-			} else {
-				tks = append(tks, &token{value: string(r), line: lines})
-			}
-		} else {
-			value += string(r)
-		}
-	}
-	return
-}
+package resolver

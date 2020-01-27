@@ -14,6 +14,11 @@ service example {
         aborted = 1
     }
 
+    enum distanceUnit {
+        metre = 1
+        yard = 2
+    }
+
     call test {
         args: Plate
         ret: Rect
@@ -24,6 +29,8 @@ service example {
     }
     revcall test3 {
         args: {
+            du distanceUnit
+            v Vehicle
             i int
             v float64
             c map[int][]Rect

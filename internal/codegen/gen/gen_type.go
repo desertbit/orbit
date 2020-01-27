@@ -30,10 +30,10 @@ package gen
 import (
 	"sort"
 
-	"github.com/desertbit/orbit/internal/parse"
+	"github.com/desertbit/orbit/internal/codegen/ast"
 )
 
-func (g *generator) genTypes(ts []*parse.Type, srvcs []*parse.Service, streamChanSize uint) {
+func (g *generator) genTypes(ts []*ast.Type, srvcs []*ast.Service, streamChanSize uint) {
 	// Sort the types in alphabetical order.
 	sort.Slice(ts, func(i, j int) bool {
 		return ts[i].Name < ts[j].Name
@@ -46,12 +46,12 @@ NextType:
 			return t.Fields[i].Name < t.Fields[j].Name
 		})
 
-		g.writeLn("type %s struct {", t.Name)
+		writeLn("type %s struct {", t.Name)
 		for _, f := range t.Fields {
-			g.writeLn("%s %s", f.Name, f.DataType.String())
+			writeLn("%s %s", f.Name, f.DataType.String())
 		}
-		g.writeLn("}")
-		g.writeLn("")
+		writeLn("}")
+		writeLn("")
 
 		// Generate a chan type, if it is used in a stream as arg or ret value.
 		for _, srvc := range srvcs {
@@ -73,45 +73,45 @@ func (g *generator) genChanType(name string, ro bool, streamChanSize uint) {
 	}
 
 	// Type definition.
-	g.writeLn("//msgp:ignore %s%sChan", name, suffix)
-	g.writeLn("type %s%sChan struct {", name, suffix)
-	g.writeLn("closer.Closer")
-	g.write("C ")
+	writeLn("//msgp:ignore %s%sChan", name, suffix)
+	writeLn("type %s%sChan struct {", name, suffix)
+	writeLn("closer.Closer")
+	write("C ")
 	if ro {
-		g.write("<-chan ")
+		write("<-chan ")
 	} else {
-		g.write("chan<- ")
+		write("chan<- ")
 	}
-	g.writeLn("*%s", name)
-	g.writeLn("c chan *%s", name)
-	g.writeLn("mx sync.Mutex")
-	g.writeLn("err error")
-	g.writeLn("}")
-	g.writeLn("")
+	writeLn("*%s", name)
+	writeLn("c chan *%s", name)
+	writeLn("mx sync.Mutex")
+	writeLn("err error")
+	writeLn("}")
+	writeLn("")
 
 	// Constructor.
-	g.writeLn("func new%s%sChan(cl closer.Closer) *%s%sChan {", name, suffix, name, suffix)
-	g.writeLn("c := &%s%sChan{Closer: cl, c: make(chan *%s, %d)}", name, suffix, name, streamChanSize)
-	g.writeLn("c.C = c.c")
-	g.writeLn("return c")
-	g.writeLn("}")
-	g.writeLn("")
+	writeLn("func new%s%sChan(cl closer.Closer) *%s%sChan {", name, suffix, name, suffix)
+	writeLn("c := &%s%sChan{Closer: cl, c: make(chan *%s, %d)}", name, suffix, name, streamChanSize)
+	writeLn("c.C = c.c")
+	writeLn("return c")
+	writeLn("}")
+	writeLn("")
 
 	// setError method.
-	g.writeLn("func (c *%s%sChan) setError(err error) {", name, suffix)
-	g.writeLn("c.mx.Lock()")
-	g.writeLn("c.err = err")
-	g.writeLn("c.mx.Unlock()")
-	g.writeLn("c.Close_()")
-	g.writeLn("}")
-	g.writeLn("")
+	writeLn("func (c *%s%sChan) setError(err error) {", name, suffix)
+	writeLn("c.mx.Lock()")
+	writeLn("c.err = err")
+	writeLn("c.mx.Unlock()")
+	writeLn("c.Close_()")
+	writeLn("}")
+	writeLn("")
 
 	// Err method.
-	g.writeLn("func (c *%s%sChan) Err() (err error) {", name, suffix)
-	g.writeLn("c.mx.Lock()")
-	g.writeLn("err = c.err")
-	g.writeLn("c.mx.Unlock()")
-	g.writeLn("return")
-	g.writeLn("}")
-	g.writeLn("")
+	writeLn("func (c *%s%sChan) Err() (err error) {", name, suffix)
+	writeLn("c.mx.Lock()")
+	writeLn("err = c.err")
+	writeLn("c.mx.Unlock()")
+	writeLn("return")
+	writeLn("}")
+	writeLn("")
 }

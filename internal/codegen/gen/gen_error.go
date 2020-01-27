@@ -30,64 +30,64 @@ package gen
 import (
 	"sort"
 
-	"github.com/desertbit/orbit/internal/parse"
+	"github.com/desertbit/orbit/internal/codegen/ast"
 )
 
-func (g *generator) genErrors(errs []*parse.Error) {
+func (g *generator) genErrors(errs []*ast.Error) {
 	// Sort the errors in alphabetical order.
 	sort.Slice(errs, func(i, j int) bool {
 		return errs[i].Name < errs[j].Name
 	})
 
 	// Write error codes.
-	g.writeLn("const (")
+	writeLn("const (")
 	for _, e := range errs {
-		g.writeLn("ErrCode%s = %d", e.Name, e.ID)
+		writeLn("ErrCode%s = %d", e.Name, e.ID)
 	}
-	g.writeLn(")")
+	writeLn(")")
 
 	// Write standard error variables along with the orbit Error ones.
-	g.writeLn("var (")
+	writeLn("var (")
 	for _, e := range errs {
-		g.writeLn("Err%s = errors.New(\"%s\")", e.Name, strExplode(e.Name))
-		g.writeLn("orbitErr%s = orbit.Err(Err%s, Err%s.Error(), ErrCode%s)", e.Name, e.Name, e.Name, e.Name)
+		writeLn("Err%s = errors.New(\"%s\")", e.Name, strExplode(e.Name))
+		writeLn("orbitErr%s = orbit.Err(Err%s, Err%s.Error(), ErrCode%s)", e.Name, e.Name, e.Name, e.Name)
 	}
-	g.writeLn(")")
-	g.writeLn("")
+	writeLn(")")
+	writeLn("")
 }
 
-func (g *generator) genErrCheckOrbitCaller(errs []*parse.Error) {
-	g.writeLn("if err != nil {")
+func (g *generator) genErrCheckOrbitCaller(errs []*ast.Error) {
+	writeLn("if err != nil {")
 	// Check, if a control.ErrorCode has been returned.
 	if len(errs) > 0 {
-		g.writeLn("var cErr *orbit.ErrorCode")
-		g.writeLn("if errors.As(err, &cErr) {")
-		g.writeLn("switch cErr.Code {")
+		writeLn("var cErr *orbit.ErrorCode")
+		writeLn("if errors.As(err, &cErr) {")
+		writeLn("switch cErr.Code {")
 		for _, e := range errs {
-			g.writeLn("case ErrCode%s:", e.Name)
-			g.writeLn("err = Err%s", e.Name)
+			writeLn("case ErrCode%s:", e.Name)
+			writeLn("err = Err%s", e.Name)
 		}
-		g.writeLn("}")
-		g.writeLn("}")
+		writeLn("}")
+		writeLn("}")
 	}
-	g.writeLn("return")
-	g.writeLn("}")
+	writeLn("return")
+	writeLn("}")
 }
 
-func (g *generator) genErrCheckOrbitHandler(errs []*parse.Error) {
-	g.writeLn("if err != nil {")
+func (g *generator) genErrCheckOrbitHandler(errs []*ast.Error) {
+	writeLn("if err != nil {")
 	// Check, if a api error has been returned and convert it to a control.ErrorCode.
 	if len(errs) > 0 {
 		for i, e := range errs {
-			g.writeLn("if errors.Is(err, Err%s) {", e.Name)
-			g.writeLn("err = orbitErr%s", e.Name)
+			writeLn("if errors.Is(err, Err%s) {", e.Name)
+			writeLn("err = orbitErr%s", e.Name)
 			if i < len(errs)-1 {
-				g.write("} else ")
+				write("} else ")
 			} else {
-				g.writeLn("}")
+				writeLn("}")
 			}
 		}
 	}
-	g.writeLn("return")
-	g.writeLn("}")
+	writeLn("return")
+	writeLn("}")
 }

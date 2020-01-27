@@ -3,8 +3,8 @@
  *
  * The MIT License (MIT)
  *
- * Copyright (c) 2019 Roland Singer <roland.singer[at]desertbit.com>
- * Copyright (c) 2019 Sebastian Borchers <sebastian[at]desertbit.com>
+ * Copyright (c) 2020 Roland Singer <roland.singer[at]desertbit.com>
+ * Copyright (c) 2020 Sebastian Borchers <sebastian[at]desertbit.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -25,17 +25,31 @@
  * SOFTWARE.
  */
 
-package parse
+package token
 
-import (
-	"fmt"
+const (
+	braceL = '{'
+	BraceL = string(braceL)
+
+	braceR = '}'
+	BraceR = string(braceR)
+
+	bracketL = '['
+	BracketL = string(bracketL)
+
+	bracketR = ']'
+	BracketR = string(bracketR)
+
+	colon = ':'
+	Colon = string(colon)
+
+	equal = '='
+	Equal = string(equal)
+
+	newLine = '\n'
 )
 
-type Err struct {
-	msg  string
-	line int
-}
-
-func (e *Err) Error() string {
-	return fmt.Sprintf("%s --- line: %d", e.msg, e.line)
+type Token struct {
+	Value string
+	Line  int
 }

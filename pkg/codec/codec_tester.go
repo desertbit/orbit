@@ -30,6 +30,7 @@ package codec
 import (
 	"encoding/gob"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -44,15 +45,55 @@ type test struct {
 // It then uses the reflect pkg to check if both structs have
 // the exact same values.
 func Tester(t *testing.T, c Codec) {
-	val := &test{Name: "test"}
-	to := &test{}
-
-	encoded, err := c.Encode(val)
+	// Struct.
+	ssrc := &test{Name: "test"}
+	sdst := &test{}
+	encoded, err := c.Encode(ssrc)
 	require.NoError(t, err)
 
-	err = c.Decode(encoded, to)
+	err = c.Decode(encoded, sdst)
 	require.NoError(t, err)
-	require.Exactly(t, to, val)
+	require.Exactly(t, ssrc, sdst)
+
+	// Int.
+	isrc := 5
+	idst := 0
+	encoded, err = c.Encode(isrc)
+	require.NoError(t, err)
+
+	err = c.Decode(encoded, &idst)
+	require.NoError(t, err)
+	require.Exactly(t, isrc, idst)
+
+	// Map.
+	msrc := map[string]float32{"test": 0.85}
+	mdst := make(map[string]float32)
+	encoded, err = c.Encode(msrc)
+	require.NoError(t, err)
+
+	err = c.Decode(encoded, &mdst)
+	require.NoError(t, err)
+	require.Exactly(t, msrc, mdst)
+
+	// Slice.
+	slsrc := []rune{85, 48, 68}
+	sldst := make([]rune, 0)
+	encoded, err = c.Encode(slsrc)
+	require.NoError(t, err)
+
+	err = c.Decode(encoded, &sldst)
+	require.NoError(t, err)
+	require.Exactly(t, slsrc, sldst)
+
+	// time.Time.
+	tsrc := time.Unix(584846, 471448)
+	tdst := time.Time{}
+	encoded, err = c.Encode(tsrc)
+	require.NoError(t, err)
+
+	err = c.Decode(encoded, &tdst)
+	require.NoError(t, err)
+	require.Exactly(t, tsrc, tdst)
 }
 
 func init() {

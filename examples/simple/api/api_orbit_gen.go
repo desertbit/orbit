@@ -4,12 +4,13 @@ package api
 import (
 	"context"
 	"errors"
-	"github.com/desertbit/closer/v3"
-	"github.com/desertbit/orbit/pkg/orbit"
-	"github.com/desertbit/orbit/pkg/packet"
 	"net"
 	"sync"
 	"time"
+
+	"github.com/desertbit/closer/v3"
+	"github.com/desertbit/orbit/pkg/orbit"
+	"github.com/desertbit/orbit/pkg/packet"
 )
 
 var (
@@ -275,8 +276,17 @@ type ExampleTest3Args struct {
 }
 
 type ExampleTest3Ret struct {
-	Lol string
+	Lol  string
+	Test Vehicle
 }
+
+type Vehicle int
+
+const (
+	VehicleAuto     Vehicle = 1
+	VehicleMotorrad Vehicle = 2
+	VehicleLKW      Vehicle = 3
+)
 
 // Service
 const (

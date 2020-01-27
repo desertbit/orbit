@@ -37,7 +37,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/desertbit/orbit/internal/parse"
+	"github.com/desertbit/orbit/internal/codegen/ast"
+	parse2 "github.com/desertbit/orbit/internal/codegen/parse"
 	"github.com/rs/zerolog/log"
 	yaml "gopkg.in/yaml.v3"
 )
@@ -62,9 +63,9 @@ func Generate(dir string, streamChanSize uint, noMerge, force bool) (err error) 
 	}
 
 	var (
-		errs         []*parse.Error
-		services     []*parse.Service
-		types        []*parse.Type
+		errs         []*ast.Error
+		services     []*ast.Service
+		types        []*ast.Type
 		genFilePaths []string
 
 		pkgName = filepath.Base(dir)
@@ -82,7 +83,7 @@ func Generate(dir string, streamChanSize uint, noMerge, force bool) (err error) 
 			}
 
 			// Parse the data.
-			services, types, errs, err = parse.Parse(string(data))
+			services, types, errs, err = parse2.Parse(string(data))
 			if err != nil {
 				err = fmt.Errorf("parsing failed\n-> %v\n-> %s", err, fp)
 				return
@@ -118,7 +119,7 @@ func Generate(dir string, streamChanSize uint, noMerge, force bool) (err error) 
 		}
 
 		// Parse all files in one go.
-		services, types, errs, err = parse.Parse(string(input))
+		services, types, errs, err = parse2.Parse(string(input))
 		if err != nil {
 			return
 		}
@@ -307,7 +308,7 @@ func (g *generator) genHeader(pkgName string) (header string) {
 	return
 }
 
-func (g *generator) genBody(errs []*parse.Error, types []*parse.Type, services []*parse.Service, streamChanSize uint) (body string) {
+func (g *generator) genBody(errs []*ast.Error, types []*ast.Type, services []*ast.Service, streamChanSize uint) (body string) {
 	// Generate the errors.
 	g.writeLn("//#####################//")
 	g.writeLn("//### Global Errors ###//")
@@ -315,7 +316,7 @@ func (g *generator) genBody(errs []*parse.Error, types []*parse.Type, services [
 	g.writeLn("")
 
 	if len(errs) > 0 {
-		g.genErrors(errs)
+		genErrors(errs)
 	}
 
 	// Generate the type definitions.
@@ -325,7 +326,7 @@ func (g *generator) genBody(errs []*parse.Error, types []*parse.Type, services [
 	g.writeLn("")
 
 	if len(types) > 0 {
-		g.genTypes(types, services, streamChanSize)
+		genTypes(types, services, streamChanSize)
 	}
 
 	// Generate the service definitions.
@@ -335,7 +336,7 @@ func (g *generator) genBody(errs []*parse.Error, types []*parse.Type, services [
 	g.writeLn("")
 
 	if len(services) > 0 {
-		g.genServices(services, errs, streamChanSize)
+		genServices(services, errs, streamChanSize)
 	}
 
 	body = g.s.String()

@@ -25,39 +25,24 @@
  * SOFTWARE.
  */
 
-package parse
+package ast
 
-const (
-	tkErrors  = "errors"
-	tkService = "service"
-	tkType    = "type"
-
-	tkEntryAsync     = "async"
-	tkEntryCall      = "call"
-	tkEntryRevCall   = "revcall"
-	tkEntryStream    = "stream"
-	tkEntryRevStream = "revstream"
-
-	tkEntryArgs = "args:"
-	tkEntryRet  = "ret:"
-
-	tkEqual    = "="
-	tkBraceL   = "{"
-	tkBraceR   = "}"
-	tkBracketL = "["
-	tkBracketR = "]"
-	tkBracket  = tkBracketL + tkBracketR
-
-	tkMap = "map"
+import (
+	"fmt"
 )
 
-func Parse(data string) (services []*Service, types []*Type, errors []*Error, err error) {
-	// Tokenize the data.
-	tks, err := tokenize(data)
-	if err != nil {
-		return
+func NewErr(line int, format string, args ...interface{}) error {
+	return &Err{
+		msg:  fmt.Sprintf(format, args...),
+		line: line,
 	}
+}
 
-	// Parse the data.
-	return newParser(tks).parse()
+type Err struct {
+	msg  string
+	line int
+}
+
+func (e *Err) Error() string {
+	return fmt.Sprintf("%s --- line: %d", e.msg, e.line)
 }

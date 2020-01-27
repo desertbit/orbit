@@ -31,51 +31,51 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/desertbit/orbit/internal/parse"
+	"github.com/desertbit/orbit/internal/codegen/ast"
 	"github.com/desertbit/orbit/internal/utils"
 )
 
-func (g *generator) genServices(services []*parse.Service, globErrs []*parse.Error, streamChanSize uint) {
+func (g *generator) genServices(services []*ast.Service, globErrs []*ast.Error, streamChanSize uint) {
 	// Sort the services in lexicographical order.
 	sort.Slice(services, func(i, j int) bool {
 		return services[i].Name < services[j].Name
 	})
 
 	for _, srvc := range services {
-		g.writeLn("// %s  ---------------------", srvc.Name)
+		writeLn("// %s  ---------------------", srvc.Name)
 
 		// Generate the errors.
-		g.writeLn("// Errors ")
-		g.genErrors(srvc.Errors)
+		writeLn("// Errors ")
+		genErrors(srvc.Errors)
 
 		// Generate the types.
-		g.writeLn("// Types")
-		g.genTypes(srvc.Types, []*parse.Service{srvc}, streamChanSize)
+		writeLn("// Types")
+		genTypes(srvc.Types, []*ast.Service{srvc}, streamChanSize)
 
 		// Generate the service.
-		g.writeLn("// Service")
+		writeLn("// Service")
 		g.genService(srvc, globErrs)
 
-		g.writeLn("// ---------------------\n")
-		g.writeLn("")
+		writeLn("// ---------------------\n")
+		writeLn("")
 	}
 }
 
-func (g *generator) genService(srvc *parse.Service, globErrs []*parse.Error) {
+func (g *generator) genService(srvc *ast.Service, globErrs []*ast.Error) {
 
 	var (
-		calls      = make([]*parse.Call, 0, len(srvc.Calls))
-		revCalls   = make([]*parse.Call, 0, len(srvc.Calls))
-		streams    = make([]*parse.Stream, 0, len(srvc.Streams))
-		revStreams = make([]*parse.Stream, 0, len(srvc.Streams))
+		calls      = make([]*ast.Call, 0, len(srvc.Calls))
+		revCalls   = make([]*ast.Call, 0, len(srvc.Calls))
+		streams    = make([]*ast.Stream, 0, len(srvc.Streams))
+		revStreams = make([]*ast.Stream, 0, len(srvc.Streams))
 	)
 
 	// Sort the entries into the respective categories.
 	// Also create the call ids.
-	g.writeLn("const (")
-	g.writeLn("Service%s = \"%s\"", srvc.Name, srvc.Name)
+	writeLn("const (")
+	writeLn("Service%s = \"%s\"", srvc.Name, srvc.Name)
 	for _, c := range srvc.Calls {
-		g.writeLn("%s = \"%s\"", srvc.Name+c.Name, c.Name)
+		writeLn("%s = \"%s\"", srvc.Name+c.Name, c.Name)
 		if c.Rev {
 			revCalls = append(revCalls, c)
 		} else {
@@ -83,15 +83,15 @@ func (g *generator) genService(srvc *parse.Service, globErrs []*parse.Error) {
 		}
 	}
 	for _, s := range srvc.Streams {
-		g.writeLn("%s = \"%s\"", srvc.Name+s.Name, s.Name)
+		writeLn("%s = \"%s\"", srvc.Name+s.Name, s.Name)
 		if s.Rev {
 			revStreams = append(revStreams, s)
 		} else {
 			streams = append(streams, s)
 		}
 	}
-	g.writeLn(")")
-	g.writeLn("")
+	writeLn(")")
+	writeLn("")
 
 	// Create the interfaces.
 	g.genServiceInterface("Consumer", srvc.Name, calls, revCalls, streams, revStreams)
@@ -104,121 +104,121 @@ func (g *generator) genService(srvc *parse.Service, globErrs []*parse.Error) {
 	g.genServiceStruct("Provider", srvc.Name, revCalls, calls, revStreams, streams, errs)
 }
 
-func (g *generator) genServiceInterface(name, srvcName string, calls, revCalls []*parse.Call, streams, revStreams []*parse.Stream) {
+func (g *generator) genServiceInterface(name, srvcName string, calls, revCalls []*ast.Call, streams, revStreams []*ast.Stream) {
 	// Generate Caller.
-	g.writeLn("type %s%sCaller interface {", srvcName, name)
+	writeLn("type %s%sCaller interface {", srvcName, name)
 
 	if len(calls) > 0 {
-		g.writeLn("// Calls")
+		writeLn("// Calls")
 		for _, c := range calls {
-			g.genServiceCallCallerSignature(c, srvcName)
-			g.writeLn("")
+			genServiceCallCallerSignature(c, srvcName)
+			writeLn("")
 		}
 	}
 
 	if len(streams) > 0 {
-		g.writeLn("// Streams")
+		writeLn("// Streams")
 		for _, s := range streams {
-			g.write("%s(ctx context.Context) (", srvcName+s.Name)
+			write("%s(ctx context.Context) (", srvcName+s.Name)
 			if s.Args != nil {
-				g.write("args %sWriteChan, ", s.Args.String())
+				write("args %sWriteChan, ", s.Args.String())
 			}
 			if s.Ret != nil {
-				g.write("ret %sReadChan, ", s.Ret.String())
+				write("ret %sReadChan, ", s.Ret.String())
 			} else if s.Args == nil {
-				g.write("stream net.Conn, ")
+				write("stream net.Conn, ")
 			}
-			g.write("err error)")
-			g.writeLn("")
+			write("err error)")
+			writeLn("")
 		}
 	}
 
-	g.writeLn("}")
-	g.writeLn("")
+	writeLn("}")
+	writeLn("")
 
 	// Generate Handler.
-	g.writeLn("type %s%sHandler interface {", srvcName, name)
+	writeLn("type %s%sHandler interface {", srvcName, name)
 
 	if len(revCalls) > 0 {
-		g.writeLn("// Calls")
+		writeLn("// Calls")
 		for _, rc := range revCalls {
-			g.genServiceCallHandlerSignature(rc, srvcName)
-			g.writeLn("")
+			genServiceCallHandlerSignature(rc, srvcName)
+			writeLn("")
 		}
 	}
 
 	if len(revStreams) > 0 {
-		g.writeLn("// Streams")
+		writeLn("// Streams")
 		for _, rs := range revStreams {
-			g.write("%s(s *orbit.Session, ", srvcName+rs.Name)
+			write("%s(s *orbit.Session, ", srvcName+rs.Name)
 			if rs.Args != nil {
-				g.write("args %sReadChan, ", rs.Args.String())
+				write("args %sReadChan, ", rs.Args.String())
 			}
 			if rs.Ret != nil {
-				g.write("ret %sWriteChan", rs.Ret.String())
+				write("ret %sWriteChan", rs.Ret.String())
 			} else if rs.Args == nil {
-				g.write("stream net.Conn")
+				write("stream net.Conn")
 			}
-			g.write(") (err error)")
-			g.writeLn("")
+			write(") (err error)")
+			writeLn("")
 		}
 	}
 
-	g.writeLn("}")
-	g.writeLn("")
+	writeLn("}")
+	writeLn("")
 }
 
 func (g *generator) genServiceStruct(
 	name, srvcName string,
-	calls, revCalls []*parse.Call,
-	streams, revStreams []*parse.Stream,
-	errs []*parse.Error,
+	calls, revCalls []*ast.Call,
+	streams, revStreams []*ast.Stream,
+	errs []*ast.Error,
 ) {
 	srvcNamePrv := utils.ToLowerFirst(srvcName)
 
 	// Write struct.
 	strName := srvcNamePrv + name
-	g.writeLn("type %s struct {", strName)
-	g.writeLn("h %sHandler", srvcName+name)
-	g.writeLn("s *orbit.Session")
-	g.writeLn("}")
-	g.writeLn("")
+	writeLn("type %s struct {", strName)
+	writeLn("h %sHandler", srvcName+name)
+	writeLn("s *orbit.Session")
+	writeLn("}")
+	writeLn("")
 
 	// Generate constructor.
 	g.genServiceStructConstructor(srvcName, srvcNamePrv, strName, revCalls, revStreams)
 
 	// Generate the calls.
 	for _, c := range calls {
-		g.genServiceCallClient(c, srvcName, strName, errs)
+		genServiceCallClient(c, srvcName, strName, errs)
 	}
 
 	// Generate the rev calls.
 	for _, rc := range revCalls {
-		g.genServiceCallServer(rc, srvcName, srvcNamePrv, strName, errs)
+		genServiceCallServer(rc, srvcName, srvcNamePrv, strName, errs)
 	}
 
 	// Generate the streams.
 	for _, s := range streams {
-		g.genServiceStreamClient(s, srvcName, strName, errs)
+		genServiceStreamClient(s, srvcName, strName, errs)
 	}
 
 	// generate the rev streams.
 	for _, rs := range revStreams {
-		g.genServiceStreamServer(rs, srvcName, srvcNamePrv, strName, errs)
+		genServiceStreamServer(rs, srvcName, srvcNamePrv, strName, errs)
 	}
 }
 
-func (g *generator) genServiceStructConstructor(srvcName, srvcNamePrv, name string, revCalls []*parse.Call, revStreams []*parse.Stream) {
+func (g *generator) genServiceStructConstructor(srvcName, srvcNamePrv, name string, revCalls []*ast.Call, revStreams []*ast.Stream) {
 	nameUp := strings.Title(name)
-	g.writeLn("func Register%s(s *orbit.Session, h %sHandler) %sCaller {", nameUp, nameUp, nameUp)
-	g.writeLn("cc := &%s{h: h, s: s}", name)
+	writeLn("func Register%s(s *orbit.Session, h %sHandler) %sCaller {", nameUp, nameUp, nameUp)
+	writeLn("cc := &%s{h: h, s: s}", name)
 	for _, rc := range revCalls {
-		g.writeLn("s.RegisterCall(Service%s, %s, cc.%s)", srvcName, srvcName+rc.Name, srvcNamePrv+rc.Name)
+		writeLn("s.RegisterCall(Service%s, %s, cc.%s)", srvcName, srvcName+rc.Name, srvcNamePrv+rc.Name)
 	}
 	for _, rs := range revStreams {
-		g.writeLn("s.RegisterStream(Service%s, %s, cc.%s)", srvcName, srvcName+rs.Name, srvcNamePrv+rs.Name)
+		writeLn("s.RegisterStream(Service%s, %s, cc.%s)", srvcName, srvcName+rs.Name, srvcNamePrv+rs.Name)
 	}
-	g.writeLn("return cc")
-	g.writeLn("}")
-	g.writeLn("")
+	writeLn("return cc")
+	writeLn("}")
+	writeLn("")
 }

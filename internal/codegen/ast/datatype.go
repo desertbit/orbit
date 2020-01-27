@@ -25,61 +25,90 @@
  * SOFTWARE.
  */
 
-package main
-
-import (
-	"errors"
-	"path/filepath"
-
-	"github.com/desertbit/grumble"
-	"github.com/desertbit/orbit/internal/codegen/gen"
-)
+package ast
 
 const (
-	flagForce          = "force"
-	flagNoMerge        = "no-merge"
-	flagStreamChanSize = "stream-chan-size"
+	TypeByte   = "byte"
+	TypeString = "string"
+	TypeTime   = "time"
+
+	TypeBool = "bool"
+
+	TypeInt   = "int"
+	TypeInt8  = "int8"
+	TypeInt16 = "int16"
+	TypeInt32 = "int32"
+	TypeInt64 = "int64"
+
+	TypeUInt   = "uint"
+	TypeUInt8  = "uint8"
+	TypeUInt16 = "uint16"
+	TypeUInt32 = "uint32"
+	TypeUInt64 = "uint64"
+
+	TypeFloat32 = "float32"
+	TypeFloat64 = "float64"
 )
 
-var cmdGen = &grumble.Command{
-	Name:      "gen",
-	Help:      "generate go code from .orbit file. Args: <dirs>...",
-	AllowArgs: true,
-	Run:       runGen,
-	Flags: func(f *grumble.Flags) {
-		f.Bool("f", flagForce, false, "generate all found files, ignoring their last modification time")
-		f.Bool("n", flagNoMerge, false, "generate an individual output file for each encountered .orbit file, instead of a single one")
-
-		f.UintL(flagStreamChanSize, 3, "size of channels used as stream argument and return values")
-	},
+type DataType interface {
+	// Returns go string representation.
+	String() string
 }
 
-func init() {
-	App.AddCommand(cmdGen)
+type BaseType struct {
+	DataType string
+	Line     int
 }
 
-func runGen(ctx *grumble.Context) (err error) {
-	if len(ctx.Args) == 0 {
-		return errors.New("no directory specified")
+func (b *BaseType) String() string {
+	if b.DataType == TypeTime {
+		return "time.Time"
 	}
+	return b.DataType
+}
 
-	// Iterate over each provided directory and generate the .orbit files in them.
-	for _, dir := range ctx.Args {
-		var absDir string
-		absDir, err = filepath.Abs(dir)
-		if err != nil {
-			return
-		}
+type MapType struct {
+	Key   DataType
+	Value DataType
+	Line  int
+}
 
-		err = gen.Generate(
-			absDir,
-			ctx.Flags.Uint(flagStreamChanSize),
-			ctx.Flags.Bool(flagNoMerge),
-			ctx.Flags.Bool(flagForce),
-		)
-		if err != nil {
-			return
-		}
-	}
-	return
+func (m *MapType) String() string {
+	return "map[" + m.Key.String() + "]" + m.Value.String()
+}
+
+type ArrType struct {
+	Elem DataType
+	Line int
+}
+
+func (a *ArrType) String() string {
+	return "[]" + a.Elem.String()
+}
+
+type StructType struct {
+	Name string
+	Line int
+}
+
+func (s *StructType) String() string {
+	return "*" + s.Name
+}
+
+type EnumType struct {
+	Name string
+	Line int
+}
+
+func (e *EnumType) String() string {
+	return e.Name
+}
+
+type AnyType struct {
+	Name string
+	Line int
+}
+
+func (a *AnyType) String() string {
+	return "unresolved any type"
 }

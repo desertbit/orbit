@@ -28,37 +28,34 @@
 package parse
 
 import (
-	"errors"
-	"fmt"
+	"github.com/desertbit/orbit/internal/codegen/ast"
+	"github.com/desertbit/orbit/internal/codegen/token"
 )
 
-// Returns Err.
-func (p *parser) expectErrors(prefix string) (errs []*Error, err error) {
+// Returns ast.Err.
+func (p *parser) expectErrors() (err error) {
 	// Expect "{".
-	err = p.expectSymbol(tkBraceL)
+	err = p.expectSymbol(token.BraceL)
 	if err != nil {
 		return
 	}
 
 	for {
 		// Check for end of errors.
-		if p.checkSymbol(tkBraceR) {
+		if p.checkSymbol(token.BraceR) {
 			return
 		}
 
-		// Expect name and prepend it with the service name.
-		var name string
-		name, err = p.expectName()
+		e := &ast.Error{}
+
+		// Expect name.
+		e.Name, e.Line, err = p.expectName()
 		if err != nil {
 			return
 		}
-		name = prefix + name
-
-		// Create error.
-		e := &Error{Name: name, line: p.lt.line}
 
 		// Expect "=".
-		err = p.expectSymbol(tkEqual)
+		err = p.expectSymbol(token.Equal)
 		if err != nil {
 			return
 		}
@@ -69,47 +66,7 @@ func (p *parser) expectErrors(prefix string) (errs []*Error, err error) {
 			return
 		}
 
-		// Validate.
-		err = p.validateError(e, errs)
-		if err != nil {
-			return
-		}
-
-		errs = append(errs, e)
+		// Add to errors.
+		p.errs = append(p.errs, e)
 	}
-}
-
-// Returns Err.
-func (p *parser) validateError(e *Error, localErrs []*Error) (err error) {
-	defer func() {
-		if err != nil {
-			err = &Err{msg: err.Error(), line: e.line}
-		}
-	}()
-
-	// Check for duplicate names.
-	if _, ok := p.errs[e.Name]; ok {
-		return fmt.Errorf("error '%s' declared twice", e.Name)
-	}
-
-	// Error ids must be greater than 0.
-	if e.ID <= 0 {
-		return errors.New("error ids must be greater than 0")
-	}
-
-	// Check for duplicate identifiers with the local errors.
-	for _, le := range localErrs {
-		if le.ID == e.ID {
-			return fmt.Errorf("errors '%s' and '%s' share same identifier", e.Name, le.Name)
-		}
-	}
-
-	// Check for duplicate identifiers with the global errors.
-	for _, ge := range p.errs {
-		if e.ID == ge.ID {
-			return fmt.Errorf("errors '%s' and '%s' share same identifier", e.Name, ge.Name)
-		}
-	}
-
-	return
 }

@@ -3,8 +3,8 @@
  *
  * The MIT License (MIT)
  *
- * Copyright (c) 2019 Roland Singer <roland.singer[at]desertbit.com>
- * Copyright (c) 2019 Sebastian Borchers <sebastian[at]desertbit.com>
+ * Copyright (c) 2020 Roland Singer <roland.singer[at]desertbit.com>
+ * Copyright (c) 2020 Sebastian Borchers <sebastian[at]desertbit.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -25,44 +25,62 @@
  * SOFTWARE.
  */
 
-package parse_test
+package parse
 
-/* TODO: func TestParse(t *testing.T) {
-	data := `
-service bencher {
-    call test(Plate) (Rect)
-    revcall test2({
-        i int
-        v float64
-        c map[int][]Rect
-    }) ({
-        lol string
-    })
-    stream hello
+import (
+	"github.com/desertbit/orbit/internal/codegen/ast"
+	"github.com/desertbit/orbit/internal/codegen/token"
+)
+
+// Returns ast.Err.
+func (p *parser) expectEnum() (err error) {
+	en := &ast.Enum{}
+
+	// Expect name.
+	en.Name, en.Line, err = p.expectName()
+	if err != nil {
+		return
+	}
+
+	// Expect '{'.
+	err = p.expectSymbol(token.BraceL)
+	if err != nil {
+		return
+	}
+
+	// Parse values.
+	for {
+		// Check for end.
+		if p.checkSymbol(token.BraceR) {
+			break
+		}
+
+		env := &ast.EnumValue{}
+
+		// Expect name.
+		env.Name, env.Line, err = p.expectName()
+		if err != nil {
+			return
+		}
+
+		// Expect '='.
+		err = p.expectSymbol(token.Equal)
+		if err != nil {
+			return
+		}
+
+		// Expect value.
+		env.Value, err = p.expectInt()
+		if err != nil {
+			return
+		}
+
+		// Add enum value.
+		en.Values = append(en.Values, env)
+	}
+
+	// Add to enums.
+	p.enums = append(p.enums, en)
+
+	return
 }
-
-type Plate {
-    version int
-    name string
-    rect Rect
-    test map[int]Rect
-    test2 []Rect
-    test3 []float32
-    test4 map[string]map[int][]Rect
-}
-
-type Rect {
-    x1 float32
-    y1 float32
-    x2 float32
-    y2 float32
-    c  Char
-}
-
-type Char {
-    lol string
-}`
-
-	_, _, _, err := parse.Parse(data)
-	require.NoError(t, err)
-}*/

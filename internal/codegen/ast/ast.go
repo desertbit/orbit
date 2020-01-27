@@ -25,51 +25,56 @@
  * SOFTWARE.
  */
 
-package parse
+package ast
 
 import (
 	"github.com/desertbit/orbit/internal/utils"
 )
 
+type Enum struct {
+	Name   string
+	Values []*EnumValue
+	Line   int
+}
+
+type EnumValue struct {
+	Name  string
+	Value int
+	Line  int
+}
+
 type Error struct {
 	Name string
 	ID   int
-
-	line int
+	Line int
 }
 
 type Type struct {
 	Name   string
 	Fields []*TypeField
-
-	line int
+	Line   int
 }
 
 type TypeField struct {
 	Name     string
 	DataType DataType
-
-	line int
+	Line     int
 }
 
 type Service struct {
 	Name    string
 	Calls   []*Call
 	Streams []*Stream
-	Errors  []*Error
-	Types   []*Type
-
-	line int
+	Line    int
 }
 
 type Call struct {
 	Name  string
 	Rev   bool
-	Args  *StructType
-	Ret   *StructType
+	Args  DataType
+	Ret   DataType
 	Async bool
-
-	line int
+	Line  int
 }
 
 func (c *Call) NamePrv() string {
@@ -79,97 +84,11 @@ func (c *Call) NamePrv() string {
 type Stream struct {
 	Name string
 	Rev  bool
-	Args *StructType
-	Ret  *StructType
-
-	line int
+	Args DataType
+	Ret  DataType
+	Line int
 }
 
 func (s *Stream) NamePrv() string {
 	return utils.ToLowerFirst(s.Name)
-}
-
-type DataType interface {
-	String() string
-}
-
-const (
-	TypeByte   = "byte"
-	TypeString = "string"
-	TypeTime   = "time"
-
-	TypeBool = "bool"
-
-	TypeInt   = "int"
-	TypeInt8  = "int8"
-	TypeInt16 = "int16"
-	TypeInt32 = "int32"
-	TypeInt64 = "int64"
-
-	TypeUInt   = "uint"
-	TypeUInt8  = "uint8"
-	TypeUInt16 = "uint16"
-	TypeUInt32 = "uint32"
-	TypeUInt64 = "uint64"
-
-	TypeFloat32 = "float32"
-	TypeFloat64 = "float64"
-)
-
-type BaseType struct {
-	dataType string
-	line     int
-}
-
-func (b *BaseType) String() string {
-	if b.dataType == TypeTime {
-		return "time.Time"
-	}
-	return b.dataType
-}
-
-type MapType struct {
-	Key   DataType
-	Value DataType
-
-	line int
-}
-
-func (m *MapType) String() string {
-	return "map[" + m.Key.String() + "]" + m.Value.String()
-}
-
-type ArrType struct {
-	Elem DataType
-
-	line int
-}
-
-func (a *ArrType) String() string {
-	return "[]" + a.Elem.String()
-}
-
-type StructType struct {
-	Name string
-
-	line int
-}
-
-func (s *StructType) String() string {
-	return "*" + s.Name
-}
-
-func containsStruct(dt DataType) (s *StructType) {
-	switch v := dt.(type) {
-	case *BaseType:
-		return nil
-	case *StructType:
-		return v
-	case *MapType:
-		return containsStruct(v.Value)
-	case *ArrType:
-		return containsStruct(v.Elem)
-	default:
-		return nil
-	}
 }
