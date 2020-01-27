@@ -25,7 +25,7 @@
  * SOFTWARE.
  */
 
-package resolver
+package resolve
 
 import (
 	"github.com/desertbit/orbit/internal/codegen/ast"
@@ -34,7 +34,6 @@ import (
 func Resolve(
 	srvcs []*ast.Service,
 	types []*ast.Type,
-	errs []*ast.Error,
 	enums []*ast.Enum,
 ) (err error) {
 	// Resolve all any types with their respective enum.

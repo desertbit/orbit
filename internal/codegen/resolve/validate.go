@@ -25,4 +25,4 @@
  * SOFTWARE.
  */
 
-package resolver
+package resolve
