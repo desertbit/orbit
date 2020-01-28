@@ -71,7 +71,7 @@ type parser struct {
 	enums []*ast.Enum
 }
 
-func NewParser() *parser {
+func NewParser() Parser {
 	return &parser{}
 }
 

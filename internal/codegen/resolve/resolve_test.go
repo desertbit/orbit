@@ -167,12 +167,11 @@ func TestResolve(t *testing.T) {
 	t.Parallel()
 
 	p := parse.NewParser()
-	srvcs, types, _, enums, err := p.Parse(token.NewReader(strings.NewReader(orbit)))
+	srvcs, types, errs, enums, err := p.Parse(token.NewReader(strings.NewReader(orbit)))
 	require.NoError(t, err)
 
-	err = resolve.Resolve(srvcs, types, enums)
+	err = resolve.Resolve(srvcs, types, errs, enums)
 	require.NoError(t, err)
-
 	// Services.
 	require.Len(t, srvcs, len(expSrvcs))
 	for i, expSrvc := range expSrvcs {

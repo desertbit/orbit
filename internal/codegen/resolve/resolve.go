@@ -34,30 +34,112 @@ import (
 func Resolve(
 	srvcs []*ast.Service,
 	types []*ast.Type,
+	errs []*ast.Error,
 	enums []*ast.Enum,
 ) (err error) {
-	// Resolve all any types with their respective enum.
-	for _, srvc := range srvcs {
-		for _, c := range srvc.Calls {
+	// Services.
+	for i, srvc := range srvcs {
+		for j := i + 1; j < len(srvcs); j++ {
+			// Check for duplicate names.
+			if srvc.Name == srvcs[j].Name {
+				return ast.NewErr(srvc.Line, "service '%s' declared twice", srvc.Name)
+			}
+		}
+
+		for j, c := range srvc.Calls {
+			for k := j + 1; k < len(srvc.Calls); k++ {
+				// Check for duplicate names.
+				if c.Name == srvc.Calls[k].Name {
+					return ast.NewErr(c.Line, "call '%s' declared twice", c.Name)
+				}
+			}
+
+			// Resolve all AnyTypes.
 			c.Args, err = resolveAnyType(c.Args, types, enums)
+			if err != nil {
+				return
+			}
+			c.Ret, err = resolveAnyType(c.Ret, types, enums)
 			if err != nil {
 				return
 			}
 		}
 
-		for _, s := range srvc.Streams {
+		for j, s := range srvc.Streams {
+			for k := j + 1; k < len(srvc.Streams); k++ {
+				// Check for duplicate names.
+				if s.Name == srvc.Streams[k].Name {
+					return ast.NewErr(s.Line, "stream '%s' declared twice", s.Name)
+				}
+			}
+
+			// Resolve all AnyTypes.
 			s.Args, err = resolveAnyType(s.Args, types, enums)
+			if err != nil {
+				return
+			}
+			s.Ret, err = resolveAnyType(s.Ret, types, enums)
 			if err != nil {
 				return
 			}
 		}
 	}
 
-	for _, t := range types {
-		for _, tf := range t.Fields {
+	// Types.
+	for i, t := range types {
+		for j := i + 1; j < len(types); j++ {
+			// Check for duplicate names.
+			if t.Name == types[j].Name {
+				return ast.NewErr(t.Line, "type '%s' declared twice", t.Name)
+			}
+		}
+
+		for j, tf := range t.Fields {
+			for k := j + 1; k < len(t.Fields); k++ {
+				// Check for duplicate field names.
+				if tf.Name == t.Fields[k].Name {
+					return ast.NewErr(
+						tf.Line, "field '%s' of type '%s' declared twice", tf.Name, t.Name,
+					)
+				}
+			}
+
+			// Resolve all AnyTypes.
 			tf.DataType, err = resolveAnyType(tf.DataType, types, enums)
 			if err != nil {
 				return
+			}
+		}
+	}
+
+	// Errors.
+	for i, e := range errs {
+		for j := i + 1; j < len(errs); j++ {
+			e2 := errs[j]
+
+			// Check for duplicate names.
+			if e.Name == e2.Name {
+				return ast.NewErr(e.Line, "error '%s' declared twice", e.Name)
+			}
+
+			// Check for valid id.
+			if e.ID <= 0 {
+				return ast.NewErr(e.Line, "invalid error id, must be greater than 0")
+			}
+
+			// Check for duplicate id.
+			if e.ID == e2.ID {
+				return ast.NewErr(e.Line, "error '%s' has same id as '%s'", e.Name, e2.Name)
+			}
+		}
+	}
+
+	// Enums.
+	for i, en := range enums {
+		for j := i + 1; j < len(enums); j++ {
+			// Check for duplicate name.
+			if en.Name == enums[j].Name {
+				return ast.NewErr(en.Line, "enum '%s' declared twice", en.Name)
 			}
 		}
 	}
@@ -81,7 +163,7 @@ func resolveAnyType(dt ast.DataType, types []*ast.Type, enums []*ast.Enum) (ast.
 				return &ast.EnumType{Name: v.Name, Line: v.Line}, nil
 			}
 		}
-		return nil, ast.NewErr(v.Line, "could not resolve type '%s'", v.Name)
+		return nil, ast.NewErr(v.Line, "resolve: unknown type '%s'", v.Name)
 	case *ast.MapType:
 		v.Key, err = resolveAnyType(v.Key, types, enums)
 		if err != nil {
