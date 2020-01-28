@@ -62,16 +62,16 @@ func newServerSession(cl closer.Closer, conn Conn, cf *Config) (s *Session, err 
 	// Deadline is certainly available.
 	deadline, _ := ctx.Deadline()
 
-	// Set a read timeout.
-	err = stream.SetReadDeadline(deadline)
+	// Set a read & write timeout.
+	err = stream.SetDeadline(deadline)
 	if err != nil {
 		return
 	}
 
 	// Ensure client has the same protocol version.
 	var (
-		buf = make([]byte, 1)
 		res byte
+		buf = make([]byte, 1)
 	)
 	n, err := stream.Read(buf)
 	if err != nil {
@@ -80,18 +80,6 @@ func newServerSession(cl closer.Closer, conn Conn, cf *Config) (s *Session, err 
 		return nil, errors.New("failed to read version byte from connection")
 	} else if buf[0] != api.Version {
 		res = 1
-	}
-
-	// Reset the deadline.
-	err = stream.SetReadDeadline(time.Time{})
-	if err != nil {
-		return
-	}
-
-	// Set a write timeout.
-	err = stream.SetWriteDeadline(deadline)
-	if err != nil {
-		return
 	}
 
 	// Tell the client about the result of the version check.
@@ -105,12 +93,13 @@ func newServerSession(cl closer.Closer, conn Conn, cf *Config) (s *Session, err 
 		return nil, ErrInvalidVersion
 	}
 
-	// Reset the deadline.
-	err = stream.SetWriteDeadline(time.Time{})
+	// Reset the read & write deadline.
+	err = stream.SetDeadline(time.Time{})
 	if err != nil {
 		return
 	}
 
+	// TODO:
 	// Authenticate if required.
 	value, err := authnSession(stream, cf)
 	if err != nil {
@@ -120,6 +109,7 @@ func newServerSession(cl closer.Closer, conn Conn, cf *Config) (s *Session, err 
 	// Finally, create the orbit server session.
 	s = newSession(cl, conn, cf)
 
+	// TODO: remove.
 	// Save the arbitrary data from the auth func.
 	s.Value = value
 	return

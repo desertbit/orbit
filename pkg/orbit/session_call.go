@@ -43,6 +43,8 @@ import (
 )
 
 const (
+	writeCallReturnTimeout = 7 * time.Second
+
 	// A default error message that is sent back to a caller of remote function,
 	// in case the Func of the remote did not return an error that conforms to
 	// our Error interface.

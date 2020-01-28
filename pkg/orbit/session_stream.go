@@ -40,6 +40,10 @@ import (
 	"github.com/desertbit/orbit/pkg/packet"
 )
 
+const (
+	initStreamHeaderTimeout = 7 * time.Second
+)
+
 func (s *Session) RegisterStream(service, id string, f StreamFunc) {
 	s.streamFuncsMx.Lock()
 	s.streamFuncs[id] = f

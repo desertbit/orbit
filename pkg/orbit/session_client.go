@@ -62,8 +62,8 @@ func newClientSession(cl closer.Closer, conn Conn, cf *Config) (s *Session, err 
 	// Deadline is certainly available.
 	deadline, _ := ctx.Deadline()
 
-	// Set a write timeout.
-	err = stream.SetWriteDeadline(deadline)
+	// Set a write & read timeout.
+	err = stream.SetDeadline(deadline)
 	if err != nil {
 		return
 	}
@@ -77,18 +77,6 @@ func newClientSession(cl closer.Closer, conn Conn, cf *Config) (s *Session, err 
 		return nil, errors.New("failed to write version byte to connection")
 	}
 
-	// Reset the deadline.
-	err = stream.SetWriteDeadline(time.Time{})
-	if err != nil {
-		return
-	}
-
-	// Set a read timeout.
-	err = stream.SetReadDeadline(deadline)
-	if err != nil {
-		return
-	}
-
 	// Wait for the server's response.
 	n, err = stream.Read(buf)
 	if err != nil {
@@ -99,12 +87,13 @@ func newClientSession(cl closer.Closer, conn Conn, cf *Config) (s *Session, err 
 		return nil, ErrInvalidVersion
 	}
 
-	// Reset the deadline.
-	err = stream.SetReadDeadline(time.Time{})
+	// Reset the write & read deadline.
+	err = stream.SetDeadline(time.Time{})
 	if err != nil {
 		return
 	}
 
+	// TODO:
 	// Authenticate if required.
 	value, err := authnSession(stream, cf)
 	if err != nil {
@@ -114,6 +103,7 @@ func newClientSession(cl closer.Closer, conn Conn, cf *Config) (s *Session, err 
 	// Finally, create the orbit client session.
 	s = newSession(cl, conn, cf)
 
+	// TODO: remove.
 	// Save the arbitrary data from the auth func.
 	s.Value = value
 	return
