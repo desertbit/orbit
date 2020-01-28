@@ -31,17 +31,10 @@ import (
 	"context"
 	"net"
 	"sync"
-	"time"
 
 	"github.com/desertbit/closer/v3"
 	"github.com/desertbit/orbit/pkg/codec"
 	"github.com/rs/zerolog"
-)
-
-const (
-	initStreamHeaderTimeout = 7 * time.Second
-
-	writeCallReturnTimeout = 7 * time.Second
 )
 
 type AuthzFunc func(s *Session, id string) (ok bool)
