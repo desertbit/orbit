@@ -57,8 +57,8 @@ type CharWriteChan struct {
 	err error
 }
 
-func newCharWriteChan(cl closer.Closer) *CharWriteChan {
-	c := &CharWriteChan{Closer: cl, c: make(chan *Char, 3)}
+func newCharWriteChan(cl closer.Closer, size uint) *CharWriteChan {
+	c := &CharWriteChan{Closer: cl, c: make(chan *Char, size)}
 	c.C = c.c
 	return c
 }

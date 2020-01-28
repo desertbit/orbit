@@ -40,54 +40,54 @@ func (g *generator) genErrors(errs []*ast.Error) {
 	})
 
 	// Write error codes.
-	writeLn("const (")
+	g.writeLn("const (")
 	for _, e := range errs {
-		writeLn("ErrCode%s = %d", e.Name, e.ID)
+		g.writeLn("ErrCode%s = %d", e.Name, e.ID)
 	}
-	writeLn(")")
+	g.writeLn(")")
 
 	// Write standard error variables along with the orbit Error ones.
-	writeLn("var (")
+	g.writeLn("var (")
 	for _, e := range errs {
-		writeLn("Err%s = errors.New(\"%s\")", e.Name, strExplode(e.Name))
-		writeLn("orbitErr%s = orbit.Err(Err%s, Err%s.Error(), ErrCode%s)", e.Name, e.Name, e.Name, e.Name)
+		g.writeLn("Err%s = errors.New(\"%s\")", e.Name, strExplode(e.Name))
+		g.writeLn("orbitErr%s = orbit.Err(Err%s, Err%s.Error(), ErrCode%s)", e.Name, e.Name, e.Name, e.Name)
 	}
-	writeLn(")")
-	writeLn("")
+	g.writeLn(")")
+	g.writeLn("")
 }
 
 func (g *generator) genErrCheckOrbitCaller(errs []*ast.Error) {
-	writeLn("if err != nil {")
+	g.writeLn("if err != nil {")
 	// Check, if a control.ErrorCode has been returned.
 	if len(errs) > 0 {
-		writeLn("var cErr *orbit.ErrorCode")
-		writeLn("if errors.As(err, &cErr) {")
-		writeLn("switch cErr.Code {")
+		g.writeLn("var cErr *orbit.ErrorCode")
+		g.writeLn("if errors.As(err, &cErr) {")
+		g.writeLn("switch cErr.Code {")
 		for _, e := range errs {
-			writeLn("case ErrCode%s:", e.Name)
-			writeLn("err = Err%s", e.Name)
+			g.writeLn("case ErrCode%s:", e.Name)
+			g.writeLn("err = Err%s", e.Name)
 		}
-		writeLn("}")
-		writeLn("}")
+		g.writeLn("}")
+		g.writeLn("}")
 	}
-	writeLn("return")
-	writeLn("}")
+	g.writeLn("return")
+	g.writeLn("}")
 }
 
 func (g *generator) genErrCheckOrbitHandler(errs []*ast.Error) {
-	writeLn("if err != nil {")
+	g.writeLn("if err != nil {")
 	// Check, if a api error has been returned and convert it to a control.ErrorCode.
 	if len(errs) > 0 {
 		for i, e := range errs {
-			writeLn("if errors.Is(err, Err%s) {", e.Name)
-			writeLn("err = orbitErr%s", e.Name)
+			g.writeLn("if errors.Is(err, Err%s) {", e.Name)
+			g.writeLn("err = orbitErr%s", e.Name)
 			if i < len(errs)-1 {
-				write("} else ")
+				g.write("} else ")
 			} else {
-				writeLn("}")
+				g.writeLn("}")
 			}
 		}
 	}
-	writeLn("return")
-	writeLn("}")
+	g.writeLn("return")
+	g.writeLn("}")
 }

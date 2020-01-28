@@ -186,26 +186,11 @@ func (p *parser) expectBaseType() (b *ast.BaseType, err error) {
 }
 
 // Returns ast.Err.
-// TODO: remove? is unused
-func (p *parser) expectStructType() (s *ast.StructType, err error) {
-	s = &ast.StructType{}
-
-	// Expect name.
-	s.Name, s.Line, err = p.expectName()
-	if err != nil {
-		err = fmt.Errorf("invalid struct type: %w", err)
-		return
-	}
-
-	return
-}
-
-// Returns ast.Err.
 func (p *parser) expectAnyType() (a *ast.AnyType, err error) {
 	a = &ast.AnyType{}
 
 	// Expect name.
-	a.Name, a.Line, err = p.expectName()
+	a.NamePrv, a.Line, err = p.expectName()
 	if err != nil {
 		err = fmt.Errorf("invalid type: %w", err)
 		return

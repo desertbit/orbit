@@ -136,7 +136,7 @@ var (
 		Ret: &ast.ArrType{
 			Elem: &ast.MapType{
 				Key:   &ast.BaseType{DataType: ast.TypeString},
-				Value: &ast.ArrType{Elem: &ast.AnyType{Name: "Ret"}},
+				Value: &ast.ArrType{Elem: &ast.AnyType{NamePrv: "Ret"}},
 			},
 		},
 	}
@@ -144,14 +144,14 @@ var (
 	rc1 = &ast.Call{
 		Name: "Rc1",
 		Rev:  true,
-		Args: &ast.AnyType{Name: "Args"},
-		Ret:  &ast.StructType{Name: "Rc1Ret"},
+		Args: &ast.AnyType{NamePrv: "Args"},
+		Ret:  &ast.StructType{NamePrv: "Rc1Ret"},
 	}
 	rc2 = &ast.Call{
 		Name:  "Rc2",
 		Rev:   true,
 		Async: true,
-		Args:  &ast.StructType{Name: "Rc2Args"},
+		Args:  &ast.StructType{NamePrv: "Rc2Args"},
 	}
 	rc3 = &ast.Call{
 		Name: "Rc3",
@@ -164,13 +164,13 @@ var (
 	}
 	st3 = &ast.Stream{
 		Name: "S3",
-		Ret:  &ast.AnyType{Name: "En1"},
+		Ret:  &ast.AnyType{NamePrv: "En1"},
 	}
 	rst1 = &ast.Stream{
 		Name: "Rs1",
 		Rev:  true,
-		Args: &ast.AnyType{Name: "Args"},
-		Ret:  &ast.AnyType{Name: "Ret"},
+		Args: &ast.AnyType{NamePrv: "Args"},
+		Ret:  &ast.AnyType{NamePrv: "Ret"},
 	}
 	rst2 = &ast.Stream{
 		Name: "Rs2",
@@ -206,7 +206,7 @@ var (
 					},
 				},
 				{Name: "Sl", DataType: &ast.ArrType{Elem: &ast.BaseType{DataType: ast.TypeTime}}},
-				{Name: "St", DataType: &ast.AnyType{Name: "Ret"}},
+				{Name: "St", DataType: &ast.AnyType{NamePrv: "Ret"}},
 				{
 					Name: "Crazy",
 					DataType: &ast.MapType{
@@ -215,7 +215,7 @@ var (
 							Elem: &ast.ArrType{
 								Elem: &ast.MapType{
 									Key:   &ast.BaseType{DataType: ast.TypeString},
-									Value: &ast.AnyType{Name: "En1"},
+									Value: &ast.AnyType{NamePrv: "En1"},
 								},
 							},
 						},
@@ -247,7 +247,7 @@ var (
 					},
 				},
 				{Name: "Sl", DataType: &ast.ArrType{Elem: &ast.BaseType{DataType: ast.TypeTime}}},
-				{Name: "St", DataType: &ast.AnyType{Name: "Ret"}},
+				{Name: "St", DataType: &ast.AnyType{NamePrv: "Ret"}},
 				{
 					Name: "Crazy",
 					DataType: &ast.MapType{
@@ -256,7 +256,7 @@ var (
 							Elem: &ast.ArrType{
 								Elem: &ast.MapType{
 									Key:   &ast.BaseType{DataType: ast.TypeString},
-									Value: &ast.AnyType{Name: "En1"},
+									Value: &ast.AnyType{NamePrv: "En1"},
 								},
 							},
 						},
@@ -299,31 +299,31 @@ func TestParser_Parse(t *testing.T) {
 	t.Parallel()
 
 	p := parse.NewParser()
-	srvcs, types, errs, enums, err := p.Parse(token.NewReader(strings.NewReader(orbit)))
+	tree, err := p.Parse(token.NewReader(strings.NewReader(orbit)))
 	require.NoError(t, err)
 
 	// Services.
-	require.Len(t, srvcs, len(expSrvcs))
+	require.Len(t, tree.Srvcs, len(expSrvcs))
 	for i, expSrvc := range expSrvcs {
-		requireEqualService(t, expSrvc, srvcs[i])
+		requireEqualService(t, expSrvc, tree.Srvcs[i])
 	}
 
 	// Types.
-	require.Len(t, types, len(expTypes))
+	require.Len(t, tree.Types, len(expTypes))
 	for i, expType := range expTypes {
-		requireEqualType(t, expType, types[i])
+		requireEqualType(t, expType, tree.Types[i])
 	}
 
 	// Enums.
-	require.Len(t, enums, len(expEnums))
+	require.Len(t, tree.Enums, len(expEnums))
 	for i, expEn := range expEnums {
-		requireEqualEnum(t, expEn, enums[i])
+		requireEqualEnum(t, expEn, tree.Enums[i])
 	}
 
 	// Errors.
-	require.Len(t, errs, len(expErrs))
+	require.Len(t, tree.Errs, len(expErrs))
 	for i, expErr := range expErrs {
-		requireEqualError(t, expErr, errs[i])
+		requireEqualError(t, expErr, tree.Errs[i])
 	}
 }
 
@@ -389,7 +389,7 @@ func requireEqualDataType(t *testing.T, exp, act ast.DataType) {
 	require.IsType(t, exp, act)
 	switch v := exp.(type) {
 	case *ast.BaseType, *ast.StructType, *ast.EnumType, *ast.AnyType:
-		require.Exactly(t, exp.String(), act.String())
+		require.Exactly(t, exp.Decl(), act.Decl())
 	case *ast.ArrType:
 		requireEqualDataType(t, v.Elem, act.(*ast.ArrType).Elem)
 	case *ast.MapType:

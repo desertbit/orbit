@@ -28,6 +28,7 @@
 package gen
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -38,10 +39,16 @@ import (
 	"time"
 
 	"github.com/desertbit/orbit/internal/codegen/ast"
-	parse2 "github.com/desertbit/orbit/internal/codegen/parse"
+	"github.com/desertbit/orbit/internal/codegen/parse"
+	"github.com/desertbit/orbit/internal/codegen/resolve"
+	"github.com/desertbit/orbit/internal/codegen/token"
 	"github.com/rs/zerolog/log"
 	yaml "gopkg.in/yaml.v3"
 )
+
+/*
+TODO: clean up generator struct, it was originally designed for multiple and single files.
+*/
 
 const (
 	dirPerm  = 0755
@@ -56,112 +63,83 @@ const (
 	recv = "v1"
 )
 
-func Generate(dir string, streamChanSize uint, noMerge, force bool) (err error) {
-	orbitFilePaths, err := findModifiedOrbitFiles(dir, noMerge, force)
+func Generate(dir string, force bool) (err error) {
+	orbitFilePaths, err := findModifiedOrbitFiles(dir, force)
 	if err != nil || len(orbitFilePaths) == 0 {
 		return
 	}
 
 	var (
-		errs         []*ast.Error
-		services     []*ast.Service
-		types        []*ast.Type
-		genFilePaths []string
-
-		pkgName = filepath.Base(dir)
-		g       = &generator{}
+		tr   = token.NewReader(nil)
+		p    = parse.NewParser()
+		g    = generator{}
+		tree = &ast.Tree{}
 	)
 
-	if noMerge {
-		var data []byte
+	// First, read in all files.
+	for _, fp := range orbitFilePaths {
+		func() {
+			// Open file for reading.
+			var f *os.File
+			f, err = os.Open(fp)
+			if err != nil {
+				return
+			}
+			defer f.Close()
 
-		for _, fp := range orbitFilePaths {
-			// Read the file data.
-			data, err = ioutil.ReadFile(fp)
+			// Wrap the file in the token reader.
+			tr.Reset(bufio.NewReader(f))
+
+			// Parse the file.
+			var tree2 *ast.Tree
+			tree2, err = p.Parse(tr)
 			if err != nil {
 				return
 			}
 
-			// Parse the data.
-			services, types, errs, err = parse2.Parse(string(data))
-			if err != nil {
-				err = fmt.Errorf("parsing failed\n-> %v\n-> %s", err, fp)
-				return
-			}
-
-			// The output file has the same name as its orbit file.
-			// Add its path to the generated files.
-			genFilePath := filepath.Join(dir, strings.TrimSuffix(filepath.Base(fp), orbitSuffix)+genOrbitSuffix)
-			genFilePaths = append(genFilePaths, genFilePath)
-
-			err = ioutil.WriteFile(
-				genFilePath,
-				[]byte(g.genHeader(pkgName)+g.genBody(errs, types, services, streamChanSize)),
-				filePerm,
-			)
-			if err != nil {
-				return
-			}
-		}
-	} else {
-		var input []byte
-
-		// First, read in all files.
-		for _, fp := range orbitFilePaths {
-			// Read the file data.
-			var data []byte
-			data, err = ioutil.ReadFile(fp)
-			if err != nil {
-				return
-			}
-
-			input = append(input, data...)
-		}
-
-		// Parse all files in one go.
-		services, types, errs, err = parse2.Parse(string(input))
-		if err != nil {
-			return
-		}
-
-		// The single output file has the name of the directory as prefix.
-		// Add its path to the generated files.
-		genFilePath := filepath.Join(dir, filepath.Base(dir)+genOrbitSuffix)
-		genFilePaths = append(genFilePaths, genFilePath)
-
-		// Write the output to the file.
-		err = ioutil.WriteFile(
-			genFilePath,
-			[]byte(g.genHeader(pkgName)+g.genBody(errs, types, services, streamChanSize)),
-			filePerm,
-		)
-		if err != nil {
-			return
-		}
+			// Combine the tree.
+			tree.Srvcs = append(tree.Srvcs, tree2.Srvcs...)
+			tree.Types = append(tree.Types, tree2.Types...)
+			tree.Errs = append(tree.Errs, tree2.Errs...)
+			tree.Enums = append(tree.Enums, tree2.Enums...)
+		}()
 	}
 
-	// Now, format the files and generate the msgp code for them.
-	for _, gfp := range genFilePaths {
-		// Format the file.
-		err = execCmd("gofmt", "-s", "-w", gfp)
-		if err != nil {
-			return
-		}
+	// Resolve the whole ast.
+	err = resolve.Resolve(tree)
+	if err != nil {
+		return
+	}
 
-		// Generate msgp code for it.
-		err = execCmd("msgp", "-file", gfp, "-o", strings.TrimSuffix(gfp, genOrbitSuffix)+genMsgpSuffix)
-		if err != nil {
-			if errors.Is(err, exec.ErrNotFound) {
-				err = errors.New("msgp required to generate MessagePack code")
-			}
-			return
+	// Generate the code into a single file.
+	// The name of the generated file is the package name.
+	pkgName := filepath.Base(dir)
+	ofp := filepath.Join(dir, pkgName+genOrbitSuffix)
+	err = ioutil.WriteFile(ofp, []byte(g.genHeader(pkgName)+g.genBody(tree)), filePerm)
+	if err != nil {
+		return
+	}
+
+	// Format the file.
+	err = execCmd("gofmt", "-s", "-w", ofp)
+	if err != nil {
+		return
+	}
+
+	// Generate msgp code for it.
+	mfp := strings.TrimSuffix(ofp, genOrbitSuffix) + genMsgpSuffix
+	err = execCmd("msgp", "-file", ofp, "-o", mfp)
+	if err != nil {
+		if errors.Is(err, exec.ErrNotFound) {
+			err = errors.New("msgp required to generate MessagePack code")
 		}
+		return
 	}
 
 	return
 }
 
-func findModifiedOrbitFiles(dir string, noMerge, force bool) (modifiedFilePaths []string, err error) {
+func findModifiedOrbitFiles(dir string, force bool) (modifiedFilePaths []string, err error) {
 	fileModTimes := make(map[string]time.Time)
 
 	// Retrieve our cache dir.
@@ -216,15 +194,8 @@ func findModifiedOrbitFiles(dir string, noMerge, force bool) (modifiedFilePaths 
 		// modified since the last generation, or force must be enabled.
 		// Additionally, the generated file of it must exist.
 
-		var (
-			exists bool
-			genFp  string
-		)
-		if noMerge {
-			genFp = strings.TrimSuffix(fp, orbitSuffix) + genOrbitSuffix
-		} else {
-			genFp = filepath.Join(dir, filepath.Base(dir)+genOrbitSuffix)
-		}
+		var exists bool
+		genFp := filepath.Join(dir, filepath.Base(dir)+genOrbitSuffix)
 		exists, err = fileExists(genFp)
 		if err != nil {
 			return
@@ -251,9 +222,9 @@ func findModifiedOrbitFiles(dir string, noMerge, force bool) (modifiedFilePaths 
 		}
 	}
 
-	// In case only a single output file should be generated, we must generate all orbit files
-	// if at least one has been modified, or force is enabled.
-	if !noMerge && (len(modifiedFilePaths) > 0 || force) {
+	// In case force is enabled, we must generate all orbit files
+	// if at least one has been modified.
+	if len(modifiedFilePaths) > 0 && force {
 		modifiedFilePaths = allFilePaths
 	}
 
@@ -308,35 +279,45 @@ func (g *generator) genHeader(pkgName string) (header string) {
 	return
 }
 
-func (g *generator) genBody(errs []*ast.Error, types []*ast.Type, services []*ast.Service, streamChanSize uint) (body string) {
+func (g *generator) genBody(tree *ast.Tree) (body string) {
 	// Generate the errors.
-	g.writeLn("//#####################//")
-	g.writeLn("//### Global Errors ###//")
-	g.writeLn("//#####################//")
-	g.writeLn("")
+	if len(tree.Errs) > 0 {
+		g.writeLn("//##############//")
+		g.writeLn("//### Errors ###//")
+		g.writeLn("//##############//")
+		g.writeLn("")
 
-	if len(errs) > 0 {
-		genErrors(errs)
+		g.genErrors(tree.Errs)
 	}
 
 	// Generate the type definitions.
-	g.writeLn("//####################//")
-	g.writeLn("//### Global Types ###//")
-	g.writeLn("//####################//")
-	g.writeLn("")
+	if len(tree.Types) > 0 {
+		g.writeLn("//#############//")
+		g.writeLn("//### Types ###//")
+		g.writeLn("//#############//")
+		g.writeLn("")
 
-	if len(types) > 0 {
-		genTypes(types, services, streamChanSize)
+		g.genTypes(tree.Types, tree.Srvcs)
+	}
+
+	// Generate the enum definitions.
+	if len(tree.Enums) > 0 {
+		g.writeLn("//#############//")
+		g.writeLn("//### Enums ###//")
+		g.writeLn("//#############//")
+		g.writeLn("")
+
+		g.genEnums(tree.Enums)
 	}
 
 	// Generate the service definitions.
-	g.writeLn("//################//")
-	g.writeLn("//### Services ###//")
-	g.writeLn("//################//")
-	g.writeLn("")
+	if len(tree.Srvcs) > 0 {
+		g.writeLn("//################//")
+		g.writeLn("//### Services ###//")
+		g.writeLn("//################//")
+		g.writeLn("")
 
-	if len(services) > 0 {
-		genServices(services, errs, streamChanSize)
+		g.genServices(tree.Srvcs, tree.Errs)
 	}
 
 	body = g.s.String()

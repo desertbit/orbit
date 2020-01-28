@@ -122,3 +122,8 @@ func (s *Session) LocalAddr() net.Addr {
 func (s *Session) RemoteAddr() net.Addr {
 	return s.conn.RemoteAddr()
 }
+
+// StreamChanSize returns the size for stream channels.
+func (s *Session) StreamChanSize() uint {
+	return s.cf.StreamChanSize
+}

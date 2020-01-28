@@ -223,7 +223,7 @@ func (p *parser) expectServiceEntryType(name string) (dt ast.DataType, err error
 	if p.peekSymbol(token.BraceL) {
 		// The struct type is a reference to the inline type.
 		line := p.line()
-		dt = &ast.StructType{Name: name, Line: line}
+		dt = &ast.StructType{NamePrv: name, Line: line}
 
 		// Expect the inline type.
 		err = p.expectInlineType(name, line)

@@ -31,17 +31,12 @@ import (
 	"github.com/desertbit/orbit/internal/codegen/ast"
 )
 
-func Resolve(
-	srvcs []*ast.Service,
-	types []*ast.Type,
-	errs []*ast.Error,
-	enums []*ast.Enum,
-) (err error) {
+func Resolve(tree *ast.Tree) (err error) {
 	// Services.
-	for i, srvc := range srvcs {
-		for j := i + 1; j < len(srvcs); j++ {
+	for i, srvc := range tree.Srvcs {
+		for j := i + 1; j < len(tree.Srvcs); j++ {
 			// Check for duplicate names.
-			if srvc.Name == srvcs[j].Name {
+			if srvc.Name == tree.Srvcs[j].Name {
 				return ast.NewErr(srvc.Line, "service '%s' declared twice", srvc.Name)
 			}
 		}
@@ -55,11 +50,11 @@ func Resolve(
 			}
 
 			// Resolve all AnyTypes.
-			c.Args, err = resolveAnyType(c.Args, types, enums)
+			c.Args, err = resolveAnyType(c.Args, tree.Types, tree.Enums)
 			if err != nil {
 				return
 			}
-			c.Ret, err = resolveAnyType(c.Ret, types, enums)
+			c.Ret, err = resolveAnyType(c.Ret, tree.Types, tree.Enums)
 			if err != nil {
 				return
 			}
@@ -74,11 +69,11 @@ func Resolve(
 			}
 
 			// Resolve all AnyTypes.
-			s.Args, err = resolveAnyType(s.Args, types, enums)
+			s.Args, err = resolveAnyType(s.Args, tree.Types, tree.Enums)
 			if err != nil {
 				return
 			}
-			s.Ret, err = resolveAnyType(s.Ret, types, enums)
+			s.Ret, err = resolveAnyType(s.Ret, tree.Types, tree.Enums)
 			if err != nil {
 				return
 			}
@@ -86,10 +81,10 @@ func Resolve(
 	}
 
 	// Types.
-	for i, t := range types {
-		for j := i + 1; j < len(types); j++ {
+	for i, t := range tree.Types {
+		for j := i + 1; j < len(tree.Types); j++ {
 			// Check for duplicate names.
-			if t.Name == types[j].Name {
+			if t.Name == tree.Types[j].Name {
 				return ast.NewErr(t.Line, "type '%s' declared twice", t.Name)
 			}
 		}
@@ -105,7 +100,7 @@ func Resolve(
 			}
 
 			// Resolve all AnyTypes.
-			tf.DataType, err = resolveAnyType(tf.DataType, types, enums)
+			tf.DataType, err = resolveAnyType(tf.DataType, tree.Types, tree.Enums)
 			if err != nil {
 				return
 			}
@@ -113,9 +108,9 @@ func Resolve(
 	}
 
 	// Errors.
-	for i, e := range errs {
-		for j := i + 1; j < len(errs); j++ {
-			e2 := errs[j]
+	for i, e := range tree.Errs {
+		for j := i + 1; j < len(tree.Errs); j++ {
+			e2 := tree.Errs[j]
 
 			// Check for duplicate names.
 			if e.Name == e2.Name {
@@ -135,10 +130,10 @@ func Resolve(
 	}
 
 	// Enums.
-	for i, en := range enums {
-		for j := i + 1; j < len(enums); j++ {
+	for i, en := range tree.Enums {
+		for j := i + 1; j < len(tree.Enums); j++ {
 			// Check for duplicate name.
-			if en.Name == enums[j].Name {
+			if en.Name == tree.Enums[j].Name {
 				return ast.NewErr(en.Line, "enum '%s' declared twice", en.Name)
 			}
 		}
@@ -154,16 +149,16 @@ func resolveAnyType(dt ast.DataType, types []*ast.Type, enums []*ast.Enum) (ast.
 	case *ast.AnyType:
 		// Resolve the type.
 		for _, t := range types {
-			if t.Name == v.Name {
-				return &ast.StructType{Name: v.Name, Line: v.Line}, nil
+			if t.Name == v.name {
+				return &ast.StructType{name: v.name, Line: v.Line}, nil
 			}
 		}
 		for _, en := range enums {
-			if en.Name == v.Name {
-				return &ast.EnumType{Name: v.Name, Line: v.Line}, nil
+			if en.Name == v.name {
+				return &ast.EnumType{name: v.name, Line: v.Line}, nil
 			}
 		}
-		return nil, ast.NewErr(v.Line, "resolve: unknown type '%s'", v.Name)
+		return nil, ast.NewErr(v.Line, "resolve: unknown type '%s'", v.name)
 	case *ast.MapType:
 		v.Key, err = resolveAnyType(v.Key, types, enums)
 		if err != nil {
