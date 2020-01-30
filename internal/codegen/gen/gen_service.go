@@ -109,16 +109,7 @@ func (g *generator) genServiceInterface(name, srvcName string, calls, revCalls [
 	if len(streams) > 0 {
 		g.writeLn("// Streams")
 		for _, s := range streams {
-			g.write("%s(ctx context.Context) (", s.Name)
-			if s.Args != nil {
-				g.write("args *%sWriteChan, ", s.Args.Name())
-			}
-			if s.Ret != nil {
-				g.write("ret *%sReadChan, ", s.Ret.Name())
-			} else if s.Args == nil {
-				g.write("stream net.Conn, ")
-			}
-			g.write("err error)")
+			g.genServiceStreamCallerSignature(s)
 			g.writeLn("")
 		}
 	}
@@ -140,16 +131,7 @@ func (g *generator) genServiceInterface(name, srvcName string, calls, revCalls [
 	if len(revStreams) > 0 {
 		g.writeLn("// Streams")
 		for _, rs := range revStreams {
-			g.write("%s(s *orbit.Session, ", rs.Name)
-			if rs.Args != nil {
-				g.write("args *%sReadChan, ", rs.Args.Name())
-			}
-			if rs.Ret != nil {
-				g.write("ret *%sWriteChan", rs.Ret.Name())
-			} else if rs.Args == nil {
-				g.write("stream net.Conn")
-			}
-			g.write(") (err error)")
+			g.genServiceStreamHandlerSignature(rs)
 			g.writeLn("")
 		}
 	}

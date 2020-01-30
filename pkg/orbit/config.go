@@ -38,8 +38,6 @@ import (
 
 const (
 	// todo:
-	defaultStreamChanSize = 3
-	// todo:
 	defaultInitTimeout = 10 * time.Second
 )
 
@@ -59,9 +57,6 @@ type Config struct {
 	PrintPanicStackTraces bool
 	SendErrToCaller       bool
 
-	// The size of channels used in the generated code for streams.
-	StreamChanSize uint
-
 	// InitTimeout specifies the connection initialization timeout.
 	InitTimeout time.Duration
 }
@@ -80,9 +75,6 @@ func prepareConfig(c *Config) *Config {
 	}
 	if c.Codec == nil {
 		c.Codec = msgpack.Codec
-	}
-	if c.StreamChanSize == 0 {
-		c.StreamChanSize = defaultStreamChanSize
 	}
 	if c.InitTimeout == 0 {
 		c.InitTimeout = defaultInitTimeout

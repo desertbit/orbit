@@ -1,13 +1,11 @@
 # TODO:
 
-- rename consumer and provider to cleint and server?
+- rename consumer and provider to client and server?
 - provide a default auth module
 - provide a logging module
 - split service & call ID
 - finish quic support
-- add enum support
 - add timeout and maxmsgsize to calls (and streams?), but optional!!! take config value as default.
-- remove flagStreamChanSize flag and include an option to the stream.
 - update the comments and remove unneeded parts.
 - update tests
 

@@ -67,7 +67,7 @@ type Session struct {
 	callStreams   map[string]*callStream // Key: service id
 
 	callFuncsMx sync.RWMutex
-	callFuncs   map[string]CallFunc
+	callFuncs   map[string]CallFunc // Key: serviceID.callID
 
 	callActiveCtxsMx sync.Mutex
 	callActiveCtxs   map[uint32]*callContext
@@ -114,9 +114,4 @@ func (s *Session) LocalAddr() net.Addr {
 // RemoteAddr returns the remote network address.
 func (s *Session) RemoteAddr() net.Addr {
 	return s.conn.RemoteAddr()
-}
-
-// StreamChanSize returns the size for stream channels.
-func (s *Session) StreamChanSize() uint {
-	return s.cf.StreamChanSize
 }

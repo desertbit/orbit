@@ -2,17 +2,16 @@
 package api
 
 import (
-	"context"
-	"errors"
-	"io"
-	"net"
-	"sync"
-	"time"
-
-	"github.com/desertbit/closer/v3"
-	"github.com/desertbit/orbit/pkg/codec"
-	"github.com/desertbit/orbit/pkg/orbit"
-	"github.com/desertbit/orbit/pkg/packet"
+	context "context"
+	errors "errors"
+	closer "github.com/desertbit/closer/v3"
+	codec "github.com/desertbit/orbit/pkg/codec"
+	orbit "github.com/desertbit/orbit/pkg/orbit"
+	packet "github.com/desertbit/orbit/pkg/packet"
+	io "io"
+	net "net"
+	sync "sync"
+	time "time"
 )
 
 var (
@@ -30,9 +29,7 @@ var (
 //### Errors ###//
 //##############//
 
-var (
-	ErrClosed = errors.New("closed")
-)
+var ErrClosed = errors.New("closed")
 
 const (
 	ErrCodeTheFirstError  = 1
@@ -92,116 +89,108 @@ type Ret struct {
 //msgp:ignore StringReadChan
 type StringReadChan struct {
 	closer.Closer
-	C   <-chan string
-	c   chan string
-	mx  sync.Mutex
-	err error
+	stream net.Conn
+	codec  codec.Codec
 }
 
-func newStringReadChan(cl closer.Closer, size uint) *StringReadChan {
-	c := &StringReadChan{Closer: cl, c: make(chan string, size)}
-	c.C = c.c
-	return c
+func newStringReadChan(cl closer.Closer, stream net.Conn, cc codec.Codec) *StringReadChan {
+	return &StringReadChan{Closer: cl, stream: stream, codec: cc}
 }
 
-func (c *StringReadChan) setError(err error) {
-	c.mx.Lock()
-	c.err = err
-	c.mx.Unlock()
-	c.Close_()
-}
-
-func (c *StringReadChan) Err() (err error) {
-	c.mx.Lock()
-	err = c.err
-	c.mx.Unlock()
+func (c *StringReadChan) Read() (arg string, err error) {
+	if c.IsClosing() {
+		err = ErrClosed
+		return
+	}
+	err = packet.ReadDecode(c.stream, &arg, c.codec)
+	if err != nil {
+		if errors.Is(err, packet.ErrZeroData) || errors.Is(err, io.EOF) {
+			err = ErrClosed
+		}
+		c.Close_()
+		return
+	}
 	return
 }
 
 //msgp:ignore StringWriteChan
 type StringWriteChan struct {
 	closer.Closer
-	C   chan<- string
-	c   chan string
-	mx  sync.Mutex
-	err error
+	stream net.Conn
+	codec  codec.Codec
 }
 
-func newStringWriteChan(cl closer.Closer, size uint) *StringWriteChan {
-	c := &StringWriteChan{Closer: cl, c: make(chan string, size)}
-	c.C = c.c
-	return c
+func newStringWriteChan(cl closer.Closer, stream net.Conn, cc codec.Codec) *StringWriteChan {
+	cl.OnClosing(func() error { return packet.Write(stream, nil) })
+	return &StringWriteChan{Closer: cl, stream: stream, codec: cc}
 }
 
-func (c *StringWriteChan) setError(err error) {
-	c.mx.Lock()
-	c.err = err
-	c.mx.Unlock()
-	c.Close_()
-}
-
-func (c *StringWriteChan) Err() (err error) {
-	c.mx.Lock()
-	err = c.err
-	c.mx.Unlock()
+func (c *StringWriteChan) Write(ret string) (err error) {
+	if c.IsClosing() {
+		err = ErrClosed
+		return
+	}
+	err = packet.WriteEncode(c.stream, ret, c.codec)
+	if err != nil {
+		if errors.Is(err, io.EOF) {
+			c.Close_()
+			return ErrClosed
+		}
+	}
 	return
 }
 
 //msgp:ignore En1ReadChan
 type En1ReadChan struct {
 	closer.Closer
-	C   <-chan En1
-	c   chan En1
-	mx  sync.Mutex
-	err error
+	stream net.Conn
+	codec  codec.Codec
 }
 
-func newEn1ReadChan(cl closer.Closer, size uint) *En1ReadChan {
-	c := &En1ReadChan{Closer: cl, c: make(chan En1, size)}
-	c.C = c.c
-	return c
+func newEn1ReadChan(cl closer.Closer, stream net.Conn, cc codec.Codec) *En1ReadChan {
+	return &En1ReadChan{Closer: cl, stream: stream, codec: cc}
 }
 
-func (c *En1ReadChan) setError(err error) {
-	c.mx.Lock()
-	c.err = err
-	c.mx.Unlock()
-	c.Close_()
-}
-
-func (c *En1ReadChan) Err() (err error) {
-	c.mx.Lock()
-	err = c.err
-	c.mx.Unlock()
+func (c *En1ReadChan) Read() (arg En1, err error) {
+	if c.IsClosing() {
+		err = ErrClosed
+		return
+	}
+	err = packet.ReadDecode(c.stream, &arg, c.codec)
+	if err != nil {
+		if errors.Is(err, packet.ErrZeroData) || errors.Is(err, io.EOF) {
+			err = ErrClosed
+		}
+		c.Close_()
+		return
+	}
 	return
 }
 
 //msgp:ignore En1WriteChan
 type En1WriteChan struct {
 	closer.Closer
-	C   chan<- En1
-	c   chan En1
-	mx  sync.Mutex
-	err error
+	stream net.Conn
+	codec  codec.Codec
 }
 
-func newEn1WriteChan(cl closer.Closer, size uint) *En1WriteChan {
-	c := &En1WriteChan{Closer: cl, c: make(chan En1, size)}
-	c.C = c.c
-	return c
+func newEn1WriteChan(cl closer.Closer, stream net.Conn, cc codec.Codec) *En1WriteChan {
+	cl.OnClosing(func() error { return packet.Write(stream, nil) })
+	return &En1WriteChan{Closer: cl, stream: stream, codec: cc}
 }
 
-func (c *En1WriteChan) setError(err error) {
-	c.mx.Lock()
-	c.err = err
-	c.mx.Unlock()
-	c.Close_()
-}
-
-func (c *En1WriteChan) Err() (err error) {
-	c.mx.Lock()
-	err = c.err
-	c.mx.Unlock()
+func (c *En1WriteChan) Write(ret En1) (err error) {
+	if c.IsClosing() {
+		err = ErrClosed
+		return
+	}
+	err = packet.WriteEncode(c.stream, ret, c.codec)
+	if err != nil {
+		if errors.Is(err, io.EOF) {
+			c.Close_()
+			return ErrClosed
+		}
+	}
 	return
 }
 
@@ -235,29 +224,27 @@ func (c *ArgsReadChan) Read() (arg *Args, err error) {
 //msgp:ignore ArgsWriteChan
 type ArgsWriteChan struct {
 	closer.Closer
-	C   chan<- *Args
-	c   chan *Args
-	mx  sync.Mutex
-	err error
+	stream net.Conn
+	codec  codec.Codec
 }
 
-func newArgsWriteChan(cl closer.Closer, size uint) *ArgsWriteChan {
-	c := &ArgsWriteChan{Closer: cl, c: make(chan *Args, size)}
-	c.C = c.c
-	return c
+func newArgsWriteChan(cl closer.Closer, stream net.Conn, cc codec.Codec) *ArgsWriteChan {
+	cl.OnClosing(func() error { return packet.Write(stream, nil) })
+	return &ArgsWriteChan{Closer: cl, stream: stream, codec: cc}
 }
 
-func (c *ArgsWriteChan) setError(err error) {
-	c.mx.Lock()
-	c.err = err
-	c.mx.Unlock()
-	c.Close_()
-}
-
-func (c *ArgsWriteChan) Err() (err error) {
-	c.mx.Lock()
-	err = c.err
-	c.mx.Unlock()
+func (c *ArgsWriteChan) Write(ret *Args) (err error) {
+	if c.IsClosing() {
+		err = ErrClosed
+		return
+	}
+	err = packet.WriteEncode(c.stream, ret, c.codec)
+	if err != nil {
+		if errors.Is(err, io.EOF) {
+			c.Close_()
+			return ErrClosed
+		}
+	}
 	return
 }
 
@@ -272,6 +259,22 @@ func newRetReadChan(cl closer.Closer, stream net.Conn, cc codec.Codec) *RetReadC
 	return &RetReadChan{Closer: cl, stream: stream, codec: cc}
 }
 
+func (c *RetReadChan) Read() (arg *Ret, err error) {
+	if c.IsClosing() {
+		err = ErrClosed
+		return
+	}
+	err = packet.ReadDecode(c.stream, &arg, c.codec)
+	if err != nil {
+		if errors.Is(err, packet.ErrZeroData) || errors.Is(err, io.EOF) {
+			err = ErrClosed
+		}
+		c.Close_()
+		return
+	}
+	return
+}
+
 //msgp:ignore RetWriteChan
 type RetWriteChan struct {
 	closer.Closer
@@ -284,14 +287,17 @@ func newRetWriteChan(cl closer.Closer, stream net.Conn, cc codec.Codec) *RetWrit
 	return &RetWriteChan{Closer: cl, stream: stream, codec: cc}
 }
 
-func (c *RetWriteChan) Write(data *Ret) (err error) {
+func (c *RetWriteChan) Write(ret *Ret) (err error) {
 	if c.IsClosing() {
-		return ErrClosed
+		err = ErrClosed
+		return
 	}
-	err = packet.WriteEncode(c.stream, data, c.codec)
-	if errors.Is(err, io.EOF) {
-		c.Close_()
-		return ErrClosed
+	err = packet.WriteEncode(c.stream, ret, c.codec)
+	if err != nil {
+		if errors.Is(err, io.EOF) {
+			c.Close_()
+			return ErrClosed
+		}
 	}
 	return
 }
@@ -299,58 +305,54 @@ func (c *RetWriteChan) Write(data *Ret) (err error) {
 //msgp:ignore MapStringIntReadChan
 type MapStringIntReadChan struct {
 	closer.Closer
-	C   <-chan map[string]int
-	c   chan map[string]int
-	mx  sync.Mutex
-	err error
+	stream net.Conn
+	codec  codec.Codec
 }
 
-func newMapStringIntReadChan(cl closer.Closer, size uint) *MapStringIntReadChan {
-	c := &MapStringIntReadChan{Closer: cl, c: make(chan map[string]int, size)}
-	c.C = c.c
-	return c
+func newMapStringIntReadChan(cl closer.Closer, stream net.Conn, cc codec.Codec) *MapStringIntReadChan {
+	return &MapStringIntReadChan{Closer: cl, stream: stream, codec: cc}
 }
 
-func (c *MapStringIntReadChan) setError(err error) {
-	c.mx.Lock()
-	c.err = err
-	c.mx.Unlock()
-	c.Close_()
-}
-
-func (c *MapStringIntReadChan) Err() (err error) {
-	c.mx.Lock()
-	err = c.err
-	c.mx.Unlock()
+func (c *MapStringIntReadChan) Read() (arg map[string]int, err error) {
+	if c.IsClosing() {
+		err = ErrClosed
+		return
+	}
+	err = packet.ReadDecode(c.stream, &arg, c.codec)
+	if err != nil {
+		if errors.Is(err, packet.ErrZeroData) || errors.Is(err, io.EOF) {
+			err = ErrClosed
+		}
+		c.Close_()
+		return
+	}
 	return
 }
 
 //msgp:ignore MapStringIntWriteChan
 type MapStringIntWriteChan struct {
 	closer.Closer
-	C   chan<- map[string]int
-	c   chan map[string]int
-	mx  sync.Mutex
-	err error
+	stream net.Conn
+	codec  codec.Codec
 }
 
-func newMapStringIntWriteChan(cl closer.Closer, size uint) *MapStringIntWriteChan {
-	c := &MapStringIntWriteChan{Closer: cl, c: make(chan map[string]int, size)}
-	c.C = c.c
-	return c
+func newMapStringIntWriteChan(cl closer.Closer, stream net.Conn, cc codec.Codec) *MapStringIntWriteChan {
+	cl.OnClosing(func() error { return packet.Write(stream, nil) })
+	return &MapStringIntWriteChan{Closer: cl, stream: stream, codec: cc}
 }
 
-func (c *MapStringIntWriteChan) setError(err error) {
-	c.mx.Lock()
-	c.err = err
-	c.mx.Unlock()
-	c.Close_()
-}
-
-func (c *MapStringIntWriteChan) Err() (err error) {
-	c.mx.Lock()
-	err = c.err
-	c.mx.Unlock()
+func (c *MapStringIntWriteChan) Write(ret map[string]int) (err error) {
+	if c.IsClosing() {
+		err = ErrClosed
+		return
+	}
+	err = packet.WriteEncode(c.stream, ret, c.codec)
+	if err != nil {
+		if errors.Is(err, io.EOF) {
+			c.Close_()
+			return ErrClosed
+		}
+	}
 	return
 }
 
@@ -406,8 +408,8 @@ type S1ConsumerHandler interface {
 	Rc3(ctx context.Context, s *orbit.Session) (err error)
 	// Streams
 	Rs1(s *orbit.Session, args *ArgsReadChan, ret *RetWriteChan)
-	Rs2(s *orbit.Session, args *MapStringIntReadChan) (err error)
-	Rs3(s *orbit.Session, stream net.Conn) (err error)
+	Rs2(s *orbit.Session, args *MapStringIntReadChan)
+	Rs3(s *orbit.Session, stream net.Conn)
 }
 
 type S1ProviderCaller interface {
@@ -427,9 +429,9 @@ type S1ProviderHandler interface {
 	C2(ctx context.Context, s *orbit.Session, args time.Time) (ret []map[string][]*Ret, err error)
 	C3(ctx context.Context, s *orbit.Session) (err error)
 	// Streams
-	S1(s *orbit.Session, stream net.Conn) (err error)
-	S2(s *orbit.Session, args *StringReadChan) (err error)
-	S3(s *orbit.Session, ret *En1WriteChan) (err error)
+	S1(s *orbit.Session, stream net.Conn)
+	S2(s *orbit.Session, args *StringReadChan)
+	S3(s *orbit.Session, ret *En1WriteChan)
 }
 
 type s1Consumer struct {
@@ -578,27 +580,8 @@ func (v1 *s1Consumer) S2(ctx context.Context) (args *StringWriteChan, err error)
 	if err != nil {
 		return
 	}
-	args = newStringWriteChan(v1.s.CloserOneWay(), v1.s.StreamChanSize())
-	args.OnClosing(func() error { return stream.Close() })
-	go func() {
-		closingChan := args.ClosingChan()
-		codec := v1.s.Codec()
-		for {
-			select {
-			case <-closingChan:
-				return
-			case arg := <-args.c:
-				err := packet.WriteEncode(stream, arg, codec)
-				if err != nil {
-					if args.IsClosing() {
-						err = nil
-					}
-					args.setError(err)
-					return
-				}
-			}
-		}
-	}()
+	args = newStringWriteChan(v1.s.CloserOneWay(), stream, v1.s.Codec())
+	args.OnClosing(stream.Close)
 	return
 }
 
@@ -607,82 +590,30 @@ func (v1 *s1Consumer) S3(ctx context.Context) (ret *En1ReadChan, err error) {
 	if err != nil {
 		return
 	}
-	ret = newEn1ReadChan(v1.s.CloserOneWay(), v1.s.StreamChanSize())
-	ret.OnClosing(func() error { return stream.Close() })
-	go func() {
-		closingChan := ret.ClosingChan()
-		codec := v1.s.Codec()
-		for {
-			var data En1
-			err := packet.ReadDecode(stream, &data, codec)
-			if err != nil {
-				if ret.IsClosing() {
-					err = nil
-				}
-				ret.setError(err)
-				return
-			}
-			select {
-			case <-closingChan:
-				return
-			case ret.c <- data:
-			}
-		}
-	}()
+	ret = newEn1ReadChan(v1.s.CloserOneWay(), stream, v1.s.Codec())
+	ret.OnClosing(stream.Close)
 	return
 }
 
 func (v1 *s1Consumer) rs1(s *orbit.Session, stream net.Conn) {
 	args := newArgsReadChan(v1.s.CloserOneWay(), stream, v1.s.Codec())
 	ret := newRetWriteChan(v1.s.CloserOneWay(), stream, v1.s.Codec())
-
 	go func() {
 		<-args.ClosedChan()
 		<-ret.ClosedChan()
 		_ = stream.Close()
 	}()
-
 	v1.h.Rs1(s, args, ret)
 }
 
-func (v1 *s1Consumer) rs2(s *orbit.Session, stream net.Conn) (err error) {
-	defer stream.Close()
-	args := newMapStringIntReadChan(v1.s.CloserOneWay(), v1.s.StreamChanSize())
-	go func() {
-		closingChan := args.ClosingChan()
-		codec := v1.s.Codec()
-		for {
-			var arg map[string]int
-			err := packet.ReadDecode(stream, &arg, codec)
-			if err != nil {
-				if args.IsClosing() {
-					err = nil
-				}
-				args.setError(err)
-				return
-			}
-			select {
-			case <-closingChan:
-				return
-			case args.c <- arg:
-			}
-		}
-	}()
-
-	err = v1.h.Rs2(s, args)
-	if err != nil {
-		return
-	}
-	return
+func (v1 *s1Consumer) rs2(s *orbit.Session, stream net.Conn) {
+	args := newMapStringIntReadChan(v1.s.CloserOneWay(), stream, v1.s.Codec())
+	args.OnClosing(stream.Close)
+	v1.h.Rs2(s, args)
 }
 
-func (v1 *s1Consumer) rs3(s *orbit.Session, stream net.Conn) (err error) {
-	defer stream.Close()
-	err = v1.h.Rs3(s, stream)
-	if err != nil {
-		return
-	}
-	return
+func (v1 *s1Consumer) rs3(s *orbit.Session, stream net.Conn) {
+	v1.h.Rs3(s, stream)
 }
 
 type s1Provider struct {
@@ -824,48 +755,12 @@ func (v1 *s1Provider) Rs1(ctx context.Context) (args *ArgsWriteChan, ret *RetRea
 	if err != nil {
 		return
 	}
-	args = newArgsWriteChan(v1.s.CloserOneWay(), v1.s.StreamChanSize())
-	args.OnClosing(func() error { return stream.Close() })
+	args = newArgsWriteChan(v1.s.CloserOneWay(), stream, v1.s.Codec())
+	ret = newRetReadChan(v1.s.CloserOneWay(), stream, v1.s.Codec())
 	go func() {
-		closingChan := args.ClosingChan()
-		codec := v1.s.Codec()
-		for {
-			select {
-			case <-closingChan:
-				return
-			case arg := <-args.c:
-				err := packet.WriteEncode(stream, arg, codec)
-				if err != nil {
-					if args.IsClosing() {
-						err = nil
-					}
-					args.setError(err)
-					return
-				}
-			}
-		}
-	}()
-	ret = newRetReadChan(v1.s.CloserOneWay(), v1.s.StreamChanSize())
-	ret.OnClosing(func() error { return stream.Close() })
-	go func() {
-		closingChan := ret.ClosingChan()
-		codec := v1.s.Codec()
-		for {
-			var data *Ret
-			err := packet.ReadDecode(stream, &data, codec)
-			if err != nil {
-				if ret.IsClosing() {
-					err = nil
-				}
-				ret.setError(err)
-				return
-			}
-			select {
-			case <-closingChan:
-				return
-			case ret.c <- data:
-			}
-		}
+		<-args.ClosedChan()
+		<-ret.ClosedChan()
+		_ = stream.Close()
 	}()
 	return
 }
@@ -875,27 +770,8 @@ func (v1 *s1Provider) Rs2(ctx context.Context) (args *MapStringIntWriteChan, err
 	if err != nil {
 		return
 	}
-	args = newMapStringIntWriteChan(v1.s.CloserOneWay(), v1.s.StreamChanSize())
-	args.OnClosing(func() error { return stream.Close() })
-	go func() {
-		closingChan := args.ClosingChan()
-		codec := v1.s.Codec()
-		for {
-			select {
-			case <-closingChan:
-				return
-			case arg := <-args.c:
-				err := packet.WriteEncode(stream, arg, codec)
-				if err != nil {
-					if args.IsClosing() {
-						err = nil
-					}
-					args.setError(err)
-					return
-				}
-			}
-		}
-	}()
+	args = newMapStringIntWriteChan(v1.s.CloserOneWay(), stream, v1.s.Codec())
+	args.OnClosing(stream.Close)
 	return
 }
 
@@ -903,73 +779,19 @@ func (v1 *s1Provider) Rs3(ctx context.Context) (stream net.Conn, err error) {
 	return v1.s.OpenStream(ctx, ServiceS1, S1Rs3)
 }
 
-func (v1 *s1Provider) s1(s *orbit.Session, stream net.Conn) (err error) {
-	defer stream.Close()
-	err = v1.h.S1(s, stream)
-	if err != nil {
-		return
-	}
-	return
+func (v1 *s1Provider) s1(s *orbit.Session, stream net.Conn) {
+	v1.h.S1(s, stream)
+}
+func (v1 *s1Provider) s2(s *orbit.Session, stream net.Conn) {
+	args := newStringReadChan(v1.s.CloserOneWay(), stream, v1.s.Codec())
+	args.OnClosing(stream.Close)
+	v1.h.S2(s, args)
 }
 
-func (v1 *s1Provider) s2(s *orbit.Session, stream net.Conn) (err error) {
-	defer stream.Close()
-	args := newStringReadChan(v1.s.CloserOneWay(), v1.s.StreamChanSize())
-	go func() {
-		closingChan := args.ClosingChan()
-		codec := v1.s.Codec()
-		for {
-			var arg string
-			err := packet.ReadDecode(stream, &arg, codec)
-			if err != nil {
-				if args.IsClosing() {
-					err = nil
-				}
-				args.setError(err)
-				return
-			}
-			select {
-			case <-closingChan:
-				return
-			case args.c <- arg:
-			}
-		}
-	}()
-
-	err = v1.h.S2(s, args)
-	if err != nil {
-		return
-	}
-	return
-}
-
-func (v1 *s1Provider) s3(s *orbit.Session, stream net.Conn) (err error) {
-	defer stream.Close()
-	ret := newEn1WriteChan(v1.s.CloserOneWay(), v1.s.StreamChanSize())
-	go func() {
-		closingChan := ret.ClosingChan()
-		codec := v1.s.Codec()
-		for {
-			select {
-			case <-closingChan:
-				return
-			case data := <-ret.c:
-				err := packet.WriteEncode(stream, data, codec)
-				if err != nil {
-					if ret.IsClosing() {
-						err = nil
-					}
-					ret.setError(err)
-					return
-				}
-			}
-		}
-	}()
-	err = v1.h.S3(s, ret)
-	if err != nil {
-		return
-	}
-	return
+func (v1 *s1Provider) s3(s *orbit.Session, stream net.Conn) {
+	ret := newEn1WriteChan(v1.s.CloserOneWay(), stream, v1.s.Codec())
+	ret.OnClosing(stream.Close)
+	v1.h.S3(s, ret)
 }
 
 // ---------------------

@@ -60,69 +60,87 @@ func (g *generator) genTypes(ts []*ast.Type, srvcs []*ast.Service) {
 			if s.Args != nil {
 				if _, ok := genChans[s.Args.Name()]; !ok {
 					genChans[s.Args.Name()] = struct{}{}
-					g.genChanType(s.Args)
+					g.genReadChanType(s.Args)
+					g.genWriteChanType(s.Args)
 				}
 			}
 			if s.Ret != nil {
 				if _, ok := genChans[s.Ret.Name()]; !ok {
 					genChans[s.Ret.Name()] = struct{}{}
-					g.genChanType(s.Ret)
+					g.genReadChanType(s.Ret)
+					g.genWriteChanType(s.Ret)
 				}
 			}
 		}
 	}
 }
 
-func (g *generator) genChanType(dt ast.DataType) {
-	gen := func(readOnly bool) {
-		infix := "Write"
-		if readOnly {
-			infix = "Read"
-		}
+func (g *generator) genReadChanType(dt ast.DataType) {
+	// Type definition.
+	g.writeLn("//msgp:ignore %sReadChan", dt.Name())
+	g.writeLn("type %sReadChan struct {", dt.Name())
+	g.writeLn("closer.Closer")
+	g.writeLn("stream net.Conn")
+	g.writeLn("codec codec.Codec")
+	g.writeLn("}")
+	g.writeLn("")
 
-		// Type definition.
-		g.writeLn("//msgp:ignore %s%sChan", dt.Name(), infix)
-		g.writeLn("type %s%sChan struct {", dt.Name(), infix)
-		g.writeLn("closer.Closer")
-		g.write("C ")
-		if readOnly {
-			g.write("<-chan ")
-		} else {
-			g.write("chan<- ")
-		}
-		g.writeLn("%s", dt.Decl())
-		g.writeLn("c chan %s", dt.Decl())
-		g.writeLn("mx sync.Mutex")
-		g.writeLn("err error")
-		g.writeLn("}")
-		g.writeLn("")
+	// Constructor.
+	g.writeLn("func new%sReadChan(cl closer.Closer, stream net.Conn, cc codec.Codec) *%sReadChan {", dt.Name(), dt.Name())
+	g.writeLn("return &%sReadChan{Closer: cl, stream: stream, codec: cc}", dt.Name())
+	g.writeLn("}")
+	g.writeLn("")
 
-		// Constructor.
-		g.writeLn("func new%s%sChan(cl closer.Closer, size uint) *%s%sChan {", dt.Name(), infix, dt.Name(), infix)
-		g.writeLn("c := &%s%sChan{Closer: cl, c: make(chan %s, size)}", dt.Name(), infix, dt.Decl())
-		g.writeLn("c.C = c.c")
-		g.writeLn("return c")
-		g.writeLn("}")
-		g.writeLn("")
+	// Read method.
+	g.writeLn("func (c *%sReadChan) Read() (arg %s, err error) {", dt.Name(), dt.Decl())
+	g.writeLn("if c.IsClosing() {")
+	g.writeLn("err = ErrClosed")
+	g.writeLn("return")
+	g.writeLn("}")
+	g.writeLn("err = packet.ReadDecode(c.stream, &arg, c.codec)")
+	g.writeLn("if err != nil {")
+	g.writeLn("if errors.Is(err, packet.ErrZeroData) || errors.Is(err, io.EOF) {")
+	g.writeLn("err = ErrClosed")
+	g.writeLn("}")
+	g.writeLn("c.Close_()")
+	g.writeLn("return")
+	g.writeLn("}")
+	g.writeLn("return")
+	g.writeLn("}")
+	g.writeLn("")
+}
 
-		// setError method.
-		g.writeLn("func (c *%s%sChan) setError(err error) {", dt.Name(), infix)
-		g.writeLn("c.mx.Lock()")
-		g.writeLn("c.err = err")
-		g.writeLn("c.mx.Unlock()")
-		g.writeLn("c.Close_()")
-		g.writeLn("}")
-		g.writeLn("")
+func (g *generator) genWriteChanType(dt ast.DataType) {
+	// Type definition.
+	g.writeLn("//msgp:ignore %sWriteChan", dt.Name())
+	g.writeLn("type %sWriteChan struct {", dt.Name())
+	g.writeLn("closer.Closer")
+	g.writeLn("stream net.Conn")
+	g.writeLn("codec codec.Codec")
+	g.writeLn("}")
+	g.writeLn("")
 
-		// Err method.
-		g.writeLn("func (c *%s%sChan) Err() (err error) {", dt.Name(), infix)
-		g.writeLn("c.mx.Lock()")
-		g.writeLn("err = c.err")
-		g.writeLn("c.mx.Unlock()")
-		g.writeLn("return")
-		g.writeLn("}")
-		g.writeLn("")
-	}
-	gen(true)
-	gen(false)
+	// Constructor.
+	g.writeLn("func new%sWriteChan(cl closer.Closer, stream net.Conn, cc codec.Codec) *%sWriteChan {", dt.Name(), dt.Name())
+	g.writeLn("cl.OnClosing(func() error { return packet.Write(stream, nil) })")
+	g.writeLn("return &%sWriteChan{Closer: cl, stream: stream, codec: cc}", dt.Name())
+	g.writeLn("}")
+	g.writeLn("")
+
+	// Write method.
+	g.writeLn("func (c *%sWriteChan) Write(ret %s) (err error) {", dt.Name(), dt.Decl())
+	g.writeLn("if c.IsClosing() {")
+	g.writeLn("err = ErrClosed")
+	g.writeLn("return")
+	g.writeLn("}")
+	g.writeLn("err = packet.WriteEncode(c.stream, ret, c.codec)")
+	g.writeLn("if err != nil {")
+	g.writeLn("if errors.Is(err, io.EOF) {")
+	g.writeLn("c.Close_()")
+	g.writeLn("return ErrClosed")
+	g.writeLn("}")
+	g.writeLn("}")
+	g.writeLn("return")
+	g.writeLn("}")
+	g.writeLn("")
 }

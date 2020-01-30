@@ -43,18 +43,6 @@ func (g *generator) genServiceCallCallerSignature(c *ast.Call) {
 	g.write("err error)")
 }
 
-func (g *generator) genServiceCallHandlerSignature(c *ast.Call) {
-	g.write("%s(ctx context.Context, s *orbit.Session", c.Name)
-	if c.Args != nil {
-		g.write(", args %s", c.Args.Decl())
-	}
-	g.write(") (")
-	if c.Ret != nil {
-		g.write("ret %s, ", c.Ret.Decl())
-	}
-	g.write("err error)")
-}
-
 func (g *generator) genServiceCallClient(c *ast.Call, srvcName, structName string, errs []*ast.Error) {
 	// Method declaration.
 	g.write("func (%s *%s) ", recv, structName)
@@ -93,6 +81,18 @@ func (g *generator) genServiceCallClient(c *ast.Call, srvcName, structName strin
 
 	g.writeLn("}")
 	g.writeLn("")
+}
+
+func (g *generator) genServiceCallHandlerSignature(c *ast.Call) {
+	g.write("%s(ctx context.Context, s *orbit.Session", c.Name)
+	if c.Args != nil {
+		g.write(", args %s", c.Args.Decl())
+	}
+	g.write(") (")
+	if c.Ret != nil {
+		g.write("ret %s, ", c.Ret.Decl())
+	}
+	g.write("err error)")
 }
 
 func (g *generator) genServiceCallServer(c *ast.Call, structName string, errs []*ast.Error) {

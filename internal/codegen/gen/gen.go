@@ -255,20 +255,22 @@ func generate(pkgName string, tree *ast.Tree) string {
 	g.writeLn("")
 
 	// Write the imports.
-	imports := []string{
-		"context",
-		"errors",
-		"net",
-		"time",
-		"sync",
-		"github.com/desertbit/orbit/pkg/orbit",
-		"github.com/desertbit/orbit/pkg/packet",
-		"github.com/desertbit/closer/v3",
+	imports := [][2]string{
+		{"context", "context"},
+		{"errors", "errors"},
+		{"net", "net"},
+		{"time", "time"},
+		{"sync", "sync"},
+		{"io", "io"},
+		{"orbit", "github.com/desertbit/orbit/pkg/orbit"},
+		{"codec", "github.com/desertbit/orbit/pkg/codec"},
+		{"packet", "github.com/desertbit/orbit/pkg/packet"},
+		{"closer", "github.com/desertbit/closer/v3"},
 	}
 
 	g.writeLn("import (")
 	for _, imp := range imports {
-		g.writeLn("\"" + imp + "\"")
+		g.writeLn(imp[0] + " \"" + imp[1] + "\"")
 	}
 	g.writeLn(")")
 	g.writeLn("")
@@ -287,12 +289,13 @@ func generate(pkgName string, tree *ast.Tree) string {
 	g.writeLn("")
 
 	// Generate the errors.
-	if len(tree.Errs) > 0 {
-		g.writeLn("//##############//")
-		g.writeLn("//### Errors ###//")
-		g.writeLn("//##############//")
-		g.writeLn("")
+	g.writeLn("//##############//")
+	g.writeLn("//### Errors ###//")
+	g.writeLn("//##############//")
+	g.writeLn("")
 
+	g.writeLn("var ErrClosed = errors.New(\"closed\")")
+	if len(tree.Errs) > 0 {
 		g.genErrors(tree.Errs)
 	}
 

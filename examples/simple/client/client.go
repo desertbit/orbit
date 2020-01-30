@@ -29,6 +29,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/desertbit/orbit/examples/simple/api"
@@ -86,27 +87,28 @@ func (c *Client) ExampleHello3(s *orbit.Session, ret *api.PlateWriteChan) (err e
 }
 
 // Implements the api.ExampleConsumerHandler interface.
-func (c *Client) ExampleHello4(s *orbit.Session, args *api.ArgsReadChan, ret *api.RetWriteChan) (err error) {
+func (c *Client) ExampleHello4(s *orbit.Session, args *api.ArgsReadChan, ret *api.RetWriteChan) {
+	defer ret.Close_()
 	go func() {
+		defer args.Close_()
 		for {
-			arg, more := args.Read()
-			if !more {
-				return
-			} else if c.IsClosing() {
-				args.Close_()
+			arg, err := args.Read()
+			if err != nil {
+				if !errors.Is(err, api.ErrClosed) {
+					log.Error().Err(err).Msg("ExampleHello4: read args")
+				}
 				return
 			}
 			log.Info().Interface("arg", arg).Msg("Hello4 Handler")
 		}
 	}()
 	for {
-		more := ret.Write(&api.Ret{B: 8})
-		if !more {
-			break
-		} else if c.IsClosing() {
-			ret.Close_()
+		err := ret.Write(&api.Ret{B: 8})
+		if err != nil {
+			if !errors.Is(err, api.ErrClosed) {
+				log.Error().Err(err).Msg("ExampleHello4: write ret")
+			}
 			return
 		}
 	}
-	return
 }

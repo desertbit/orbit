@@ -31,9 +31,7 @@ import (
 	"github.com/desertbit/orbit/internal/codegen/ast"
 )
 
-func (g *generator) genServiceStreamClient(s *ast.Stream, srvcName, structName string, errs []*ast.Error) {
-	// Method declaration.
-	g.write("func (%s *%s) ", recv, structName)
+func (g *generator) genServiceStreamCallerSignature(s *ast.Stream) {
 	g.write("%s(ctx context.Context) (", s.Name)
 	if s.Args != nil {
 		g.write("args *%sWriteChan, ", s.Args.Name())
@@ -44,6 +42,12 @@ func (g *generator) genServiceStreamClient(s *ast.Stream, srvcName, structName s
 		g.write("stream net.Conn, ")
 	}
 	g.write("err error)")
+}
+
+func (g *generator) genServiceStreamClient(s *ast.Stream, srvcName, structName string, errs []*ast.Error) {
+	// Method declaration.
+	g.write("func (%s *%s) ", recv, structName)
+	g.genServiceStreamCallerSignature(s)
 	g.writeLn(" {")
 
 	// Method body.
@@ -59,120 +63,90 @@ func (g *generator) genServiceStreamClient(s *ast.Stream, srvcName, structName s
 	g.errIfNil()
 
 	if s.Args != nil {
-		g.writeLn("args = new%sWriteChan(%s.s.CloserOneWay(), %s.s.StreamChanSize())", s.Args.Name(), recv, recv)
-		g.writeLn("args.OnClosing(func() error { return stream.Close() })")
-		g.writeLn("go func() {")
-		g.writeLn("closingChan := args.ClosingChan()")
-		g.writeLn("codec := %s.s.Codec()", recv)
-		g.writeLn("for {")
-		g.writeLn("select {")
-		g.writeLn("case <- closingChan:")
-		g.writeLn("return")
-		g.writeLn("case arg := <-args.c:")
-		g.writeLn("err := packet.WriteEncode(stream, arg, codec)")
-		g.writeLn("if err != nil {")
-		g.writeLn("if args.IsClosing() { err = nil }")
-		g.writeLn("args.setError(err)")
-		g.writeLn("return")
-		g.writeLn("}")
-		g.writeLn("}")
-		g.writeLn("}")
-		g.writeLn("}()")
+		g.writeLn("args = new%sWriteChan(%s.s.CloserOneWay(), stream, %s.s.Codec())", s.Args.Name(), recv, recv)
+
+		// Close unidirectional stream immediately.
+		if s.Ret == nil {
+			g.writeLn("args.OnClosing(stream.Close)")
+		}
 	}
 
 	if s.Ret != nil {
-		g.writeLn("ret = new%sReadChan(%s.s.CloserOneWay(), %s.s.StreamChanSize())", s.Ret.Name(), recv, recv)
-		g.writeLn("ret.OnClosing(func() error { return stream.Close() })")
+		g.writeLn("ret = new%sReadChan(%s.s.CloserOneWay(), stream, %s.s.Codec())", s.Ret.Name(), recv, recv)
+
+		// Close unidirectional stream immediately.
+		if s.Args == nil {
+			g.writeLn("ret.OnClosing(stream.Close)")
+		}
+	}
+
+	// For a bidirectional stream, we need a new goroutine.
+	if s.Args != nil && s.Ret != nil {
 		g.writeLn("go func() {")
-		g.writeLn("closingChan := ret.ClosingChan()")
-		g.writeLn("codec := %s.s.Codec()", recv)
-		g.writeLn("for {")
-		g.writeLn("var data %s", s.Ret.Decl())
-		g.writeLn("err := packet.ReadDecode(stream, &data, codec)")
-		g.writeLn("if err != nil {")
-		g.writeLn("if ret.IsClosing() { err = nil }")
-		g.writeLn("ret.setError(err)")
-		g.writeLn("return")
-		g.writeLn("}")
-		g.writeLn("select {")
-		g.writeLn("case <-closingChan:")
-		g.writeLn("return")
-		g.writeLn("case ret.c <- data:")
-		g.writeLn("}")
-		g.writeLn("}")
+		g.writeLn("<-args.ClosedChan()")
+		g.writeLn("<-ret.ClosedChan()")
+		g.writeLn("_ = stream.Close()")
 		g.writeLn("}()")
 	}
 
-	// Return.
 	g.writeLn("return")
-
 	g.writeLn("}")
 	g.writeLn("")
 }
 
+func (g *generator) genServiceStreamHandlerSignature(s *ast.Stream) {
+	g.write("%s(s *orbit.Session, ", s.Name)
+	if s.Args != nil {
+		g.write("args *%sReadChan, ", s.Args.Name())
+	}
+	if s.Ret != nil {
+		g.write("ret *%sWriteChan", s.Ret.Name())
+	} else if s.Args == nil {
+		g.write("stream net.Conn")
+	}
+	g.write(")")
+}
+
 func (g *generator) genServiceStreamServer(s *ast.Stream, structName string, errs []*ast.Error) {
 	// Method declaration.
-	g.writeLn(
-		"func (%s *%s) %s(s *orbit.Session, stream net.Conn) (err error) {",
-		recv, structName, s.NamePrv(),
-	)
-	g.writeLn("defer stream.Close()")
-
-	handlerArgs := "s"
+	g.writeLn("func (%s *%s) %s(s *orbit.Session, stream net.Conn) {", recv, structName, s.NamePrv())
 
 	if s.Args == nil && s.Ret == nil {
-		handlerArgs += ", stream"
-	} else if s.Args != nil {
-		handlerArgs += ", args"
-
-		g.writeLn("args := new%sReadChan(%s.s.CloserOneWay(), %s.s.StreamChanSize())", s.Args.Name(), recv, recv)
-		g.writeLn("go func() {")
-		g.writeLn("closingChan := args.ClosingChan()")
-		g.writeLn("codec := %s.s.Codec()", recv)
-		g.writeLn("for {")
-		g.writeLn("var arg %s", s.Args.Decl())
-		g.writeLn("err := packet.ReadDecode(stream, &arg, codec)")
-		g.writeLn("if err != nil {")
-		g.writeLn("if args.IsClosing() { err = nil }")
-		g.writeLn("args.setError(err)")
-		g.writeLn("return")
+		g.writeLn("%s.h.%s(s, stream)", recv, s.Name)
 		g.writeLn("}")
-		g.writeLn("select {")
-		g.writeLn("case <-closingChan:")
-		g.writeLn("return")
-		g.writeLn("case args.c <- arg:")
-		g.writeLn("}")
-		g.writeLn("}")
-		g.writeLn("}()")
-		g.writeLn("")
+		return
 	}
 
+	handlerArgs := "s, "
+	if s.Args != nil {
+		handlerArgs += "args, "
+		g.writeLn("args := new%sReadChan(%s.s.CloserOneWay(), stream, %s.s.Codec())", s.Args.Name(), recv, recv)
+
+		// Close unidirectional stream immediately.
+		if s.Ret == nil {
+			g.writeLn("args.OnClosing(stream.Close)")
+		}
+	}
 	if s.Ret != nil {
-		handlerArgs += ", ret"
+		handlerArgs += "ret"
+		g.writeLn("ret := new%sWriteChan(%s.s.CloserOneWay(), stream, %s.s.Codec())", s.Ret.Name(), recv, recv)
 
-		g.writeLn("ret := new%sWriteChan(%s.s.CloserOneWay(), %s.s.StreamChanSize())", s.Ret.Name(), recv, recv)
+		// Close unidirectional stream immediately.
+		if s.Args == nil {
+			g.writeLn("ret.OnClosing(stream.Close)")
+		}
+	}
+
+	// For a bidirectional stream, we need a new goroutine.
+	if s.Args != nil && s.Ret != nil {
 		g.writeLn("go func() {")
-		g.writeLn("closingChan := ret.ClosingChan()")
-		g.writeLn("codec := %s.s.Codec()", recv)
-		g.writeLn("for {")
-		g.writeLn("select {")
-		g.writeLn("case <- closingChan:")
-		g.writeLn("return")
-		g.writeLn("case data := <-ret.c:")
-		g.writeLn("err := packet.WriteEncode(stream, data, codec)")
-		g.writeLn("if err != nil {")
-		g.writeLn("if ret.IsClosing() { err = nil }")
-		g.writeLn("ret.setError(err)")
-		g.writeLn("return")
-		g.writeLn("}")
-		g.writeLn("}")
-		g.writeLn("}")
+		g.writeLn("<-args.ClosedChan()")
+		g.writeLn("<-ret.ClosedChan()")
+		g.writeLn("_ = stream.Close()")
 		g.writeLn("}()")
 	}
 
-	g.writeLn("err = %s.h.%s(%s)", recv, s.Name, handlerArgs)
-	g.errIfNil()
-	g.writeLn("return")
+	g.writeLn("%s.h.%s(%s)", recv, s.Name, handlerArgs)
 	g.writeLn("}")
 	g.writeLn("")
 }
