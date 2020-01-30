@@ -25,77 +25,31 @@
  * SOFTWARE.
  */
 
-package ast
+package gen
 
 import (
-	"github.com/desertbit/orbit/internal/utils"
+	"sort"
+
+	"github.com/desertbit/orbit/internal/codegen/ast"
 )
 
-type Tree struct {
-	Srvcs []*Service
-	Types []*Type
-	Errs  []*Error
-	Enums []*Enum
-}
+func (g *generator) genEnums(enums []*ast.Enum) {
+	// Sort the enums in lexicographical order.
+	sort.Slice(enums, func(i, j int) bool {
+		return enums[i].Name < enums[j].Name
+	})
 
-type Enum struct {
-	Name   string
-	Values []*EnumValue
-	Line   int
-}
+	for _, en := range enums {
+		// Sort the values in lexicographical order.
+		sort.Slice(en.Values, func(i, j int) bool {
+			return en.Values[i].Name < en.Values[j].Name
+		})
 
-type EnumValue struct {
-	Name  string
-	Value int
-	Line  int
-}
-
-type Error struct {
-	Name string
-	ID   int
-	Line int
-}
-
-type Type struct {
-	Name   string
-	Fields []*TypeField
-	Line   int
-}
-
-type TypeField struct {
-	Name     string
-	DataType DataType
-	Line     int
-}
-
-type Service struct {
-	Name    string
-	Calls   []*Call
-	Streams []*Stream
-	Line    int
-}
-
-type Call struct {
-	Name  string
-	Rev   bool
-	Args  DataType
-	Ret   DataType
-	Async bool
-	Line  int
-}
-
-func (c *Call) NamePrv() string {
-	return utils.ToLowerFirst(c.Name)
-}
-
-type Stream struct {
-	Name string
-	Rev  bool
-	Args DataType
-	Ret  DataType
-	Line int
-}
-
-func (s *Stream) NamePrv() string {
-	return utils.ToLowerFirst(s.Name)
+		g.writeLn("type %s int", en.Name)
+		g.writeLn("const (")
+		for _, env := range en.Values {
+			g.writeLn("%s %s = %d", env.Name, en.Name, env.Value)
+		}
+		g.writeLn(")")
+	}
 }

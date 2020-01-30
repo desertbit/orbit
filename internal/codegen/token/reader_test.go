@@ -32,6 +32,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/desertbit/orbit/internal/codegen/token"
 	"github.com/stretchr/testify/require"
 )
 
@@ -72,7 +73,7 @@ is some ex123ample{ text
 		{val: "haha", line: 6, err: nil},
 		{err: io.EOF}, // 20
 	}
-	tr := NewReader(strings.NewReader(data))
+	tr := token.NewReader(strings.NewReader(data))
 
 	for i, c := range cases {
 		tk, err := tr.Next()
@@ -90,7 +91,7 @@ is some ex123ample{ text
 func TestReader_Reset(t *testing.T) {
 	t.Parallel()
 
-	tr := NewReader(strings.NewReader("test{ 1"))
+	tr := token.NewReader(strings.NewReader("test{ 1"))
 	tk, err := tr.Next()
 	require.NoError(t, err)
 	require.Equal(t, "test", tk.Value)

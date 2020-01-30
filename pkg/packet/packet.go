@@ -48,6 +48,7 @@ with value 0.
 package packet
 
 import (
+	"errors"
 	"math"
 	"net"
 
@@ -58,6 +59,8 @@ import (
 const (
 	MaxSize = math.MaxUint32
 )
+
+var ErrZeroData = errors.New("zero data")
 
 // ReadDecode reads the packet from the connection using Read()
 // and decodes it into the value, using the provided codec.
@@ -80,6 +83,7 @@ func ReadDecode(conn net.Conn, value interface{}, codec codec.Codec) error {
 // If buffer is set and is big enough to fit the packet,
 // then the buffer is used. Otherwise a new buffer is allocated.
 // Returns an empty byte slice when no data was send.
+// Returns ErrZeroData, if a packet with length 0 is received.
 func Read(conn net.Conn, buffer []byte) ([]byte, error) {
 	var (
 		err          error
@@ -104,7 +108,7 @@ func Read(conn net.Conn, buffer []byte) ([]byte, error) {
 	}
 	payloadLen := int(payloadLen32)
 	if payloadLen == 0 {
-		return []byte{}, nil
+		return []byte{}, ErrZeroData
 	}
 
 	// Create a new buffer if the passed buffer is too small.

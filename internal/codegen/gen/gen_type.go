@@ -33,85 +33,96 @@ import (
 	"github.com/desertbit/orbit/internal/codegen/ast"
 )
 
-func (g *generator) genTypes(ts []*ast.Type, srvcs []*ast.Service, streamChanSize uint) {
+func (g *generator) genTypes(ts []*ast.Type, srvcs []*ast.Service) {
 	// Sort the types in alphabetical order.
 	sort.Slice(ts, func(i, j int) bool {
 		return ts[i].Name < ts[j].Name
 	})
 
-NextType:
 	for _, t := range ts {
 		// Sort its fields in alphabetical order.
 		sort.Slice(t.Fields, func(i, j int) bool {
 			return t.Fields[i].Name < t.Fields[j].Name
 		})
 
-		writeLn("type %s struct {", t.Name)
+		g.writeLn("type %s struct {", t.Name)
 		for _, f := range t.Fields {
-			writeLn("%s %s", f.Name, f.DataType.String())
+			g.writeLn("%s %s", f.Name, f.DataType.Decl())
 		}
-		writeLn("}")
-		writeLn("")
+		g.writeLn("}")
+		g.writeLn("")
+	}
 
-		// Generate a chan type, if it is used in a stream as arg or ret value.
-		for _, srvc := range srvcs {
-			for _, s := range srvc.Streams {
-				if (s.Args != nil && s.Args.Name == t.Name) || (s.Ret != nil && s.Ret.Name == t.Name) {
-					g.genChanType(t.Name, false, streamChanSize)
-					g.genChanType(t.Name, true, streamChanSize)
-					continue NextType
+	// Generate a chan type for every stream arg or ret, but only once!
+	genChans := make(map[string]struct{})
+	for _, srvc := range srvcs {
+		for _, s := range srvc.Streams {
+			if s.Args != nil {
+				if _, ok := genChans[s.Args.Name()]; !ok {
+					genChans[s.Args.Name()] = struct{}{}
+					g.genChanType(s.Args)
+				}
+			}
+			if s.Ret != nil {
+				if _, ok := genChans[s.Ret.Name()]; !ok {
+					genChans[s.Ret.Name()] = struct{}{}
+					g.genChanType(s.Ret)
 				}
 			}
 		}
 	}
 }
 
-func (g *generator) genChanType(name string, ro bool, streamChanSize uint) {
-	suffix := "Write"
-	if ro {
-		suffix = "Read"
+func (g *generator) genChanType(dt ast.DataType) {
+	gen := func(readOnly bool) {
+		infix := "Write"
+		if readOnly {
+			infix = "Read"
+		}
+
+		// Type definition.
+		g.writeLn("//msgp:ignore %s%sChan", dt.Name(), infix)
+		g.writeLn("type %s%sChan struct {", dt.Name(), infix)
+		g.writeLn("closer.Closer")
+		g.write("C ")
+		if readOnly {
+			g.write("<-chan ")
+		} else {
+			g.write("chan<- ")
+		}
+		g.writeLn("%s", dt.Decl())
+		g.writeLn("c chan %s", dt.Decl())
+		g.writeLn("mx sync.Mutex")
+		g.writeLn("err error")
+		g.writeLn("}")
+		g.writeLn("")
+
+		// Constructor.
+		g.writeLn("func new%s%sChan(cl closer.Closer, size uint) *%s%sChan {", dt.Name(), infix, dt.Name(), infix)
+		g.writeLn("c := &%s%sChan{Closer: cl, c: make(chan %s, size)}", dt.Name(), infix, dt.Decl())
+		g.writeLn("c.C = c.c")
+		g.writeLn("return c")
+		g.writeLn("}")
+		g.writeLn("")
+
+		// setError method.
+		g.writeLn("func (c *%s%sChan) setError(err error) {", dt.Name(), infix)
+		g.writeLn("c.mx.Lock()")
+		g.writeLn("c.err = err")
+		g.writeLn("c.mx.Unlock()")
+		g.writeLn("c.Close_()")
+		g.writeLn("}")
+		g.writeLn("")
+
+		// Err method.
+		g.writeLn("func (c *%s%sChan) Err() (err error) {", dt.Name(), infix)
+		g.writeLn("c.mx.Lock()")
+		g.writeLn("err = c.err")
+		g.writeLn("c.mx.Unlock()")
+		g.writeLn("return")
+		g.writeLn("}")
+		g.writeLn("")
 	}
-
-	// Type definition.
-	writeLn("//msgp:ignore %s%sChan", name, suffix)
-	writeLn("type %s%sChan struct {", name, suffix)
-	writeLn("closer.Closer")
-	write("C ")
-	if ro {
-		write("<-chan ")
-	} else {
-		write("chan<- ")
-	}
-	writeLn("*%s", name)
-	writeLn("c chan *%s", name)
-	writeLn("mx sync.Mutex")
-	writeLn("err error")
-	writeLn("}")
-	writeLn("")
-
-	// Constructor.
-	writeLn("func new%s%sChan(cl closer.Closer) *%s%sChan {", name, suffix, name, suffix)
-	writeLn("c := &%s%sChan{Closer: cl, c: make(chan *%s, %d)}", name, suffix, name, streamChanSize)
-	writeLn("c.C = c.c")
-	writeLn("return c")
-	writeLn("}")
-	writeLn("")
-
-	// setError method.
-	writeLn("func (c *%s%sChan) setError(err error) {", name, suffix)
-	writeLn("c.mx.Lock()")
-	writeLn("c.err = err")
-	writeLn("c.mx.Unlock()")
-	writeLn("c.Close_()")
-	writeLn("}")
-	writeLn("")
-
-	// Err method.
-	writeLn("func (c *%s%sChan) Err() (err error) {", name, suffix)
-	writeLn("c.mx.Lock()")
-	writeLn("err = c.err")
-	writeLn("c.mx.Unlock()")
-	writeLn("return")
-	writeLn("}")
-	writeLn("")
+	gen(true)
+	gen(false)
 }

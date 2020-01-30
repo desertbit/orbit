@@ -39,7 +39,7 @@ import (
 // It checks for exec specific ExitErrors and annotates them.
 func execCmd(name string, args ...string) (err error) {
 	cmd := exec.Command(name, args...)
-	err = cmd.Run()
+	_, err = cmd.Output()
 	if err != nil {
 		var eErr *exec.ExitError
 		if errors.As(err, &eErr) {

@@ -27,6 +27,10 @@
 
 package ast
 
+import (
+	"strings"
+)
+
 const (
 	TypeByte   = "byte"
 	TypeString = "string"
@@ -51,8 +55,10 @@ const (
 )
 
 type DataType interface {
-	// Returns go string representation.
-	String() string
+	// Returns go variable declaration.
+	Decl() string
+	// Returns simple name.
+	Name() string
 }
 
 type BaseType struct {
@@ -60,11 +66,18 @@ type BaseType struct {
 	Line     int
 }
 
-func (b *BaseType) String() string {
+func (b *BaseType) Decl() string {
 	if b.DataType == TypeTime {
 		return "time.Time"
 	}
 	return b.DataType
+}
+
+func (b *BaseType) Name() string {
+	if b.DataType == TypeTime {
+		return "Time"
+	}
+	return strings.Title(b.DataType)
 }
 
 type MapType struct {
@@ -73,8 +86,12 @@ type MapType struct {
 	Line  int
 }
 
-func (m *MapType) String() string {
-	return "map[" + m.Key.String() + "]" + m.Value.String()
+func (m *MapType) Decl() string {
+	return "map[" + m.Key.Decl() + "]" + m.Value.Decl()
+}
+
+func (m *MapType) Name() string {
+	return "Map" + strings.Title(m.Key.Name()) + strings.Title(m.Value.Name())
 }
 
 type ArrType struct {
@@ -82,33 +99,49 @@ type ArrType struct {
 	Line int
 }
 
-func (a *ArrType) String() string {
-	return "[]" + a.Elem.String()
+func (a *ArrType) Decl() string {
+	return "[]" + a.Elem.Decl()
+}
+
+func (a *ArrType) Name() string {
+	return "Arr" + strings.Title(a.Elem.Name())
 }
 
 type StructType struct {
-	Name string
-	Line int
+	NamePrv string
+	Line    int
 }
 
-func (s *StructType) String() string {
-	return "*" + s.Name
+func (s *StructType) Decl() string {
+	return "*" + s.NamePrv
+}
+
+func (s *StructType) Name() string {
+	return s.NamePrv
 }
 
 type EnumType struct {
-	Name string
-	Line int
+	NamePrv string
+	Line    int
 }
 
-func (e *EnumType) String() string {
-	return e.Name
+func (e *EnumType) Decl() string {
+	return e.NamePrv
+}
+
+func (e *EnumType) Name() string {
+	return e.NamePrv
 }
 
 type AnyType struct {
-	Name string
-	Line int
+	NamePrv string
+	Line    int
 }
 
-func (a *AnyType) String() string {
+func (a *AnyType) Decl() string {
 	return "unresolved any type"
+}
+
+func (a *AnyType) Name() string {
+	return a.NamePrv
 }

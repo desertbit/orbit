@@ -56,7 +56,7 @@ const (
 type Parser interface {
 	// Parse the tokens read from the given reader and return the
 	// AST structure received from this operation.
-	Parse(token.Reader) ([]*ast.Service, []*ast.Type, []*ast.Error, []*ast.Enum, error)
+	Parse(token.Reader) (*ast.Tree, error)
 }
 
 // Implements the Parser interface.
@@ -96,13 +96,7 @@ func (p *parser) reset(tr token.Reader) (err error) {
 	return
 }
 
-func (p *parser) Parse(tr token.Reader) (
-	srvcs []*ast.Service,
-	types []*ast.Type,
-	errs []*ast.Error,
-	enums []*ast.Enum,
-	err error,
-) {
+func (p *parser) Parse(tr token.Reader) (tree *ast.Tree, err error) {
 	// Reset the parser.
 	err = p.reset(tr)
 	if err != nil {
@@ -142,7 +136,13 @@ func (p *parser) Parse(tr token.Reader) (
 		}
 	}
 
-	return p.srvcs, p.types, p.errs, p.enums, nil
+	tree = &ast.Tree{
+		Srvcs: p.srvcs,
+		Types: p.types,
+		Errs:  p.errs,
+		Enums: p.enums,
+	}
+	return
 }
 
 // Returns true, if no more token is available.

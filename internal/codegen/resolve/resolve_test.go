@@ -84,25 +84,25 @@ var (
 		Ret: &ast.ArrType{
 			Elem: &ast.MapType{
 				Key:   &ast.BaseType{DataType: ast.TypeString},
-				Value: &ast.StructType{Name: "Ret"},
+				Value: &ast.StructType{NamePrv: "Ret"},
 			},
 		},
 	}
 	rc1 = &ast.Call{
 		Name: "Rc1",
 		Rev:  true,
-		Args: &ast.StructType{Name: "Args"},
-		Ret:  &ast.StructType{Name: "Rc1Ret"},
+		Args: &ast.StructType{NamePrv: "Args"},
+		Ret:  &ast.StructType{NamePrv: "Rc1Ret"},
 	}
 	st1 = &ast.Stream{
 		Name: "S1",
-		Ret:  &ast.EnumType{Name: "En1"},
+		Ret:  &ast.EnumType{NamePrv: "En1"},
 	}
 	rst1 = &ast.Stream{
 		Name: "Rs1",
 		Rev:  true,
-		Args: &ast.StructType{Name: "Args"},
-		Ret:  &ast.StructType{Name: "Ret"},
+		Args: &ast.StructType{NamePrv: "Args"},
+		Ret:  &ast.StructType{NamePrv: "Ret"},
 	}
 	expSrvcs = []*ast.Service{
 		{
@@ -122,7 +122,7 @@ var (
 					DataType: &ast.MapType{
 						Key: &ast.BaseType{DataType: ast.TypeString},
 						Value: &ast.ArrType{
-							Elem: &ast.EnumType{Name: "En1"},
+							Elem: &ast.EnumType{NamePrv: "En1"},
 						},
 					},
 				},
@@ -131,13 +131,13 @@ var (
 		{
 			Name: "Args",
 			Fields: []*ast.TypeField{
-				{Name: "St", DataType: &ast.StructType{Name: "Ret"}},
+				{Name: "St", DataType: &ast.StructType{NamePrv: "Ret"}},
 				{
 					Name: "Crazy",
 					DataType: &ast.MapType{
 						Key: &ast.BaseType{DataType: ast.TypeString},
 						Value: &ast.ArrType{
-							Elem: &ast.EnumType{Name: "En1"},
+							Elem: &ast.EnumType{NamePrv: "En1"},
 						},
 					},
 				},
@@ -167,21 +167,21 @@ func TestResolve(t *testing.T) {
 	t.Parallel()
 
 	p := parse.NewParser()
-	srvcs, types, errs, enums, err := p.Parse(token.NewReader(strings.NewReader(orbit)))
+	tree, err := p.Parse(token.NewReader(strings.NewReader(orbit)))
 	require.NoError(t, err)
 
-	err = resolve.Resolve(srvcs, types, errs, enums)
+	err = resolve.Resolve(tree)
 	require.NoError(t, err)
 	// Services.
-	require.Len(t, srvcs, len(expSrvcs))
+	require.Len(t, tree.Srvcs, len(expSrvcs))
 	for i, expSrvc := range expSrvcs {
-		requireEqualService(t, expSrvc, srvcs[i])
+		requireEqualService(t, expSrvc, tree.Srvcs[i])
 	}
 
 	// Types.
-	require.Len(t, types, len(expTypes))
+	require.Len(t, tree.Types, len(expTypes))
 	for i, expType := range expTypes {
-		requireEqualType(t, expType, types[i])
+		requireEqualType(t, expType, tree.Types[i])
 	}
 }
 
@@ -233,7 +233,7 @@ func requireEqualDataType(t *testing.T, exp, act ast.DataType) {
 	require.IsType(t, exp, act)
 	switch v := exp.(type) {
 	case *ast.BaseType, *ast.StructType, *ast.EnumType, *ast.AnyType:
-		require.Exactly(t, exp.String(), act.String())
+		require.Exactly(t, exp.Decl(), act.Decl())
 	case *ast.ArrType:
 		requireEqualDataType(t, v.Elem, act.(*ast.ArrType).Elem)
 	case *ast.MapType:

@@ -1,123 +1,83 @@
-errors {
-    NotFound = 100
-    datasetDoesNotExist = 101
-}
-
-enum Vehicle {
-    Auto = 1
-    Motorrad = 2
-    LKW  = 3
-}
-
-service example {
-    errors {
-        aborted = 1
+service s1 {
+    call c1 {
+        args: int
+        ret: float32
     }
-
-    enum distanceUnit {
-        metre = 1
-        yard = 2
-    }
-
-    call test {
-        args: Plate
-        ret: Rect
-    }
-    call test2 {
+    call c2 {
         async
-        args: Rect
+        args: time
+        ret: []map[string][]Ret
     }
-    revcall test3 {
-        args: {
-            du distanceUnit
-            v Vehicle
-            i int
-            v float64
-            c map[int][]Rect
-        }
+    call c3 {}
+
+    revcall rc1 {
+        args: Args
         ret: {
-            lol string
+            s string
+            i int
+            m map[string]int
+            sl []time
+            st Ret
+            crazy map[string][][]map[string]En1
         }
     }
-    revcall test4 {
+    revcall rc2 {
         async
-        ret: Rect
+        args: {
+            f float64
+            b byte
+            u8 uint8
+            u16 uint16
+            u32 uint32
+            u64 uint64
+        }
+    }
+    revcall rc3 {}
+
+    stream s1 {}
+    stream s2 {
+        args: string
+    }
+    stream s3 {
+        ret: En1
     }
 
-    type Rect {
-        x1 float32
-        y1 float32
-        x2 float32
-        y2 float32
-        c  Char
+    revstream rs1 {
+        args: Args
+        ret: Ret
     }
-
-    stream hello {}
-    stream hello2 {
-        args: Char
+    revstream rs2 {
+        args: map[string]int
     }
-    revstream hello3 {
-        ret: Plate
-    }
-    revstream hello4 {
-        args: Char
-        ret: Plate
-    }
-
-    type Char {
-        lol string
-    }
+    revstream rs3 {}
 }
 
-service trainer {
-    errors {
-        aborted = 1
-    }
-
-    call start {
-        args: Plate
-    }
-    call update {
-        async
-        args: Char
-        ret: Char
-    }
-
-    stream upload {}
-    stream download {
-        args: Char
-    }
-    revstream send {
-        args: Plate
-    }
-    revstream receive {
-        ret: Char
-    }
-    revstream link {
-        args: Plate
-        ret: Char
-    }
+type Args {
+    s string
+    i int
+    m map[string]int
+    sl []time
+    st Ret
+    crazy map[string][][]map[string]En1
 }
 
-type Plate {
-    version int
-    name string
-    ts time
-    rect Rect
-    test map[int]Rect
-    test2 []Rect
-    test3 []float32
-    test4 map[string]map[int][]Rect
+type Ret {
+    f float64
+    b byte
+    u8 uint8
+    u16 uint16
+    u32 uint32
+    u64 uint64
 }
 
-type Rect {
-    x1 float32
-    y1 float32
-    x2 float32
-    y2 float32
-    c  Char
+enum En1 {
+    Val1 = 1
+    Val2 = 2
+    Val3 = 3
 }
 
-type Char {
-    lol string
+errors {
+    theFirstError = 1
+    theSecondError = 2
+    theThirdError = 3
 }
