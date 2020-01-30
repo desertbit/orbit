@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/desertbit/closer/v3"
+	"github.com/desertbit/orbit/pkg/codec"
 	"github.com/desertbit/orbit/pkg/orbit"
 	"github.com/desertbit/orbit/pkg/packet"
 )
@@ -27,6 +28,10 @@ var (
 //##############//
 //### Errors ###//
 //##############//
+
+var (
+	ErrClosed = errors.New("closed")
+)
 
 const (
 	ErrCodeTheFirstError  = 1
@@ -202,33 +207,21 @@ func (c *En1WriteChan) Err() (err error) {
 //msgp:ignore ArgsReadChan
 type ArgsReadChan struct {
 	closer.Closer
-	c   chan *Args
-	mx  sync.Mutex
-	err error
+	stream net.Conn
+	codec  codec.Codec
 }
 
-func newArgsReadChan(cl closer.Closer, size uint) *ArgsReadChan {
-	return &ArgsReadChan{Closer: cl, c: make(chan *Args, size)}
+func newArgsReadChan(cl closer.Closer, stream net.Conn, cc codec.Codec) *ArgsReadChan {
+	return &ArgsReadChan{Closer: cl, stream: stream, codec: cc}
 }
 
-func (c *ArgsReadChan) setError(err error) {
-	c.mx.Lock()
-	c.err = err
-	c.mx.Unlock()
-}
-
-func (c *ArgsReadChan) Err() (err error) {
-	c.mx.Lock()
-	err = c.err
-	c.mx.Unlock()
-	return
-}
-
-func (c *ArgsReadChan) Read() (arg *Args, more bool) {
-	select {
-	case <-c.ClosingChan():
-		more = false
-	case arg = <-c.c:
+func (c *ArgsReadChan) Read() (arg *Args, err error) {
+	err = packet.ReadDecode(c.stream, &arg, c.codec)
+	if err != nil {
+		if errors.Is(err, packet.ErrZeroData) {
+			err = ErrClosed
+		}
+		return
 	}
 	return
 }
@@ -265,65 +258,28 @@ func (c *ArgsWriteChan) Err() (err error) {
 //msgp:ignore RetReadChan
 type RetReadChan struct {
 	closer.Closer
-	C   <-chan *Ret
-	c   chan *Ret
-	mx  sync.Mutex
-	err error
+	stream net.Conn
+	codec  codec.Codec
 }
 
-func newRetReadChan(cl closer.Closer, size uint) *RetReadChan {
-	c := &RetReadChan{Closer: cl, c: make(chan *Ret, size)}
-	c.C = c.c
-	return c
-}
-
-func (c *RetReadChan) setError(err error) {
-	c.mx.Lock()
-	c.err = err
-	c.mx.Unlock()
-	c.Close_()
-}
-
-func (c *RetReadChan) Err() (err error) {
-	c.mx.Lock()
-	err = c.err
-	c.mx.Unlock()
-	return
+func newRetReadChan(cl closer.Closer, stream net.Conn, cc codec.Codec) *RetReadChan {
+	return &RetReadChan{Closer: cl, stream: stream, codec: cc}
 }
 
 //msgp:ignore RetWriteChan
 type RetWriteChan struct {
 	closer.Closer
-	c   chan *Ret
-	mx  sync.Mutex
-	err error
+	stream net.Conn
+	codec  codec.Codec
 }
 
-func newRetWriteChan(cl closer.Closer, size uint) *RetWriteChan {
-	return &RetWriteChan{Closer: cl, c: make(chan *Ret, size)}
+func newRetWriteChan(cl closer.Closer, stream net.Conn, cc codec.Codec) *RetWriteChan {
+	cl.OnClosing(func() error { return packet.Write(stream, nil) })
+	return &RetWriteChan{Closer: cl, stream: stream, codec: cc}
 }
 
-func (c *RetWriteChan) setError(err error) {
-	c.mx.Lock()
-	c.err = err
-	c.mx.Unlock()
-	c.Close_()
-}
-
-func (c *RetWriteChan) Err() (err error) {
-	c.mx.Lock()
-	err = c.err
-	c.mx.Unlock()
-	return
-}
-
-func (c *RetWriteChan) Write(arg *Ret) (more bool) {
-	select {
-	case <-c.ClosingChan():
-		more = false
-	case c.c <- arg:
-	}
-	return
+func (c *RetWriteChan) Write(data *Ret) (err error) {
+	return packet.WriteEncode(c.stream, data, c.codec)
 }
 
 //msgp:ignore MapStringIntReadChan
@@ -435,7 +391,7 @@ type S1ConsumerHandler interface {
 	Rc2(ctx context.Context, s *orbit.Session, args *Rc2Args) (err error)
 	Rc3(ctx context.Context, s *orbit.Session) (err error)
 	// Streams
-	Rs1(s *orbit.Session, args *ArgsReadChan, ret *RetWriteChan) (err error)
+	Rs1(s *orbit.Session, args *ArgsReadChan, ret *RetWriteChan)
 	Rs2(s *orbit.Session, args *MapStringIntReadChan) (err error)
 	Rs3(s *orbit.Session, stream net.Conn) (err error)
 }
@@ -662,80 +618,17 @@ func (v1 *s1Consumer) S3(ctx context.Context) (ret *En1ReadChan, err error) {
 	return
 }
 
-func (v1 *s1Consumer) rs1(s *orbit.Session, stream net.Conn) (err error) {
-	defer stream.Close()
-	args := newArgsReadChan(v1.s.CloserOneWay(), v1.s.StreamChanSize())
+func (v1 *s1Consumer) rs1(s *orbit.Session, stream net.Conn) {
+	args := newArgsReadChan(v1.s.CloserOneWay(), stream, v1.s.Codec())
+	ret := newRetWriteChan(v1.s.CloserOneWay(), stream, v1.s.Codec())
 
 	go func() {
-		defer args.Close_()
-
-		closingChan := args.ClosingChan()
-		codec := v1.s.Codec()
-		for {
-			var arg *Args
-			err := packet.ReadDecode(stream, &arg, codec)
-			if err != nil {
-				if !errors.Is(err, packet.ErrZeroData) {
-					args.setError(err)
-				}
-				return
-			}
-			select {
-			case <-closingChan:
-				return
-			case args.c <- arg:
-			}
-		}
+		<-args.ClosedChan()
+		<-ret.ClosedChan()
+		_ = stream.Close()
 	}()
 
-	ret := newRetWriteChan(v1.s.CloserOneWay(), v1.s.StreamChanSize())
-	go func() {
-		defer ret.Close_()
-
-		closingChan := ret.ClosingChan()
-		codec := v1.s.Codec()
-		for {
-			select {
-			case <-closingChan:
-				if v1.s.IsClosing() {
-					return
-				}
-				for {
-					select {
-					case data := <-ret.c:
-						err := packet.WriteEncode(stream, data, codec)
-						if err != nil {
-							ret.setError(err)
-							return
-						}
-					default:
-						err := packet.Write(stream, nil)
-						if err != nil {
-							ret.setError(err)
-						}
-						return
-					}
-				}
-			case data := <-ret.c:
-				err = packet.WriteEncode(stream, data, codec)
-				if err != nil {
-					ret.setError(err)
-					return
-				}
-			}
-		}
-	}()
-
-	err = v1.h.Rs1(s, args, ret)
-	args.Close_()
-	ret.Close_()
-	// TODO: Maybe always wait until closed?
-	if err != nil {
-		return
-	}
-	<-args.ClosedChan()
-	<-ret.ClosedChan()
-	return
+	v1.h.Rs1(s, args, ret)
 }
 
 func (v1 *s1Consumer) rs2(s *orbit.Session, stream net.Conn) (err error) {
