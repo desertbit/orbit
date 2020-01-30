@@ -35,7 +35,6 @@ import (
 	"github.com/desertbit/closer/v3"
 	"github.com/desertbit/orbit/pkg/net/yamux"
 	"github.com/desertbit/orbit/pkg/orbit"
-	yamux2 "github.com/hashicorp/yamux"
 	"github.com/rs/zerolog/log"
 )
 
@@ -50,7 +49,7 @@ func run() (err error) {
 	cl := closer.New()
 	defer cl.Close_()
 
-	ln, err := yamux.NewTCPListener("127.0.0.1:6789", yamux2.DefaultConfig())
+	ln, err := yamux.NewTCPListener("127.0.0.1:6789", nil)
 	if err != nil {
 		return
 	}

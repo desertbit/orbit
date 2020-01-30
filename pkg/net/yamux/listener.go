@@ -45,10 +45,12 @@ type listener struct {
 	conf *yamux.Config
 }
 
+// Pass a nil yamux config for the default config.
 func NewListener(ln net.Listener, conf *yamux.Config) (orbit.Listener, error) {
 	return NewListenerWithCloser(ln, conf, closer.New())
 }
 
+// Pass a nil yamux config for the default config.
 func NewListenerWithCloser(ln net.Listener, conf *yamux.Config, cl closer.Closer) (orbit.Listener, error) {
 	l := &listener{
 		Closer: cl,
@@ -59,6 +61,7 @@ func NewListenerWithCloser(ln net.Listener, conf *yamux.Config, cl closer.Closer
 	return l, nil
 }
 
+// Pass a nil yamux config for the default config.
 func NewTCPListener(listenAddr string, conf *yamux.Config) (orbit.Listener, error) {
 	ln, err := net.Listen("tcp", listenAddr)
 	if err != nil {
@@ -68,6 +71,7 @@ func NewTCPListener(listenAddr string, conf *yamux.Config) (orbit.Listener, erro
 	return NewListener(ln, conf)
 }
 
+// Pass a nil yamux config for the default config.
 func NewTLSListener(listenAddr string, tlsConf *tls.Config, conf *yamux.Config) (orbit.Listener, error) {
 	ln, err := tls.Listen("tcp", listenAddr, tlsConf)
 	if err != nil {

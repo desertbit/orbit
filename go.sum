@@ -19,6 +19,8 @@ github.com/desertbit/closer/v3 v3.1.1 h1:3B6iFvZ1zbsSCRbHPZcwDCuPYIkMR1A4LCkPzzH
 github.com/desertbit/closer/v3 v3.1.1/go.mod h1:AAC4KRd8DC40nwvV967J/kDFhujMEiuwIKQfN0IDxXw=
 github.com/desertbit/columnize v2.1.0+incompatible h1:h55rYmdrWoTj7w9aAnCkxzM3C2Eb8zuFa2W41t0o5j0=
 github.com/desertbit/columnize v2.1.0+incompatible/go.mod h1:5kPrzQwKbQ8E5D28nvTVPqIBJyj+8jvJzwt6HXZvXgI=
+github.com/desertbit/event v0.0.0-20170911110340-fabed832af62 h1:IwFBeR7D0GrhIclWbfJDGjigHxYm6f1r5dksXZXKRq0=
+github.com/desertbit/event v0.0.0-20170911110340-fabed832af62/go.mod h1:TicgcsdNj+YB/nTTOKpxIIvvEg26WnyJHYrM6LALnqM=
 github.com/desertbit/go-shlex v0.0.0-20150515145356-3f9db97f8568 h1:Kt3BVZKcFOZ3xaI1G6EHd2eM8boRvm5qCs/AZBr9ysQ=
 github.com/desertbit/go-shlex v0.0.0-20150515145356-3f9db97f8568/go.mod h1:igZLYq+xJYskT7PXx1VyRk+3MlQ5geJnvQuO8HQlyKY=
 github.com/desertbit/grumble v1.0.3 h1:4ZxlYGOsNlaPW1R4SQjl/5cOvCvd4068CM6GeyAuQUQ=

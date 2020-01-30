@@ -36,7 +36,6 @@ import (
 	"github.com/desertbit/orbit/examples/simple/api"
 	"github.com/desertbit/orbit/pkg/net/yamux"
 	"github.com/desertbit/orbit/pkg/orbit"
-	yamux2 "github.com/hashicorp/yamux"
 	"github.com/rs/zerolog/log"
 )
 
@@ -51,7 +50,7 @@ func run() (err error) {
 	cl := closer.New()
 	defer cl.Close_()
 
-	conn, err := yamux.NewTCPConn("127.0.0.1:6789", yamux2.DefaultConfig())
+	conn, err := yamux.NewTCPConn("127.0.0.1:6789", nil)
 	if err != nil {
 		return
 	}

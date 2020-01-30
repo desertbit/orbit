@@ -50,7 +50,7 @@ const (
 	// our Error interface.
 	// This is done to prevent sensitive information to leak to the outside that
 	// is usually carried in normal errors.
-	defaultCallErrorMessage = "method call failed"
+	defaultCallErrorMessage = "call failed"
 
 	// The first byte send in a request to indicate a call to a remote function.
 	typeCall byte = 0

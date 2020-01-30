@@ -1,5 +1,6 @@
 # TODO:
 
+- rename consumer and provider to cleint and server?
 - provide a default auth module
 - provide a logging module
 - split service & call ID

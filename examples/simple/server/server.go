@@ -48,6 +48,7 @@ func NewServer(orbServ *orbit.Server) (s *Server) {
 	}
 
 	orbServ.SetOnSessionCreated(func(orbSess *orbit.Session) {
+		// TODO: Remove! Use the inline map.
 		// Create new session.
 		userID := orbSess.ID() // TODO: dummy, need to cast value from auth
 		session := &Session{}

@@ -30,7 +30,6 @@ package orbit
 import (
 	"errors"
 	"fmt"
-	"net"
 	"runtime/debug"
 	"sync"
 
@@ -47,15 +46,7 @@ const (
 	maxRetriesGenSessionID = 10
 )
 
-// The AuthnFunc type describes the function that is used during the authentication
-// phase of the session initialization.
-// It may use the given connection to perform some kind of data exchange between
-// the client and the server.
-// It can return some arbitrary data that will be saved to the session.
-// It must return a non nil error, if the authentication did fail.
-type AuthnFunc func(net.Conn) (value interface{}, err error)
-
-type SessionCreatedFunc func(s *Session)
+type OnSessionCreatedHook func(s *Session)
 
 // Server implements a simple orbit server.
 type Server struct {
@@ -71,8 +62,8 @@ type Server struct {
 	connChan    chan Conn
 	sessionChan chan *Session
 
-	callbackMx         sync.RWMutex
-	sessionCreatedFunc SessionCreatedFunc
+	onSessionCreatedHookMx sync.RWMutex
+	onSessionCreatedHook   OnSessionCreatedHook
 }
 
 // NewServer creates a new orbit server. A listener is required
@@ -155,11 +146,10 @@ func (s *Server) Sessions() []*Session {
 	return list
 }
 
-// TODO: Add prefix Hook?
-func (s *Server) SetOnSessionCreated(f SessionCreatedFunc) {
-	s.callbackMx.Lock()
-	s.sessionCreatedFunc = f
-	s.callbackMx.Unlock()
+func (s *Server) OnNewSession(h OnSessionCreatedHook) {
+	s.onSessionCreatedHookMx.Lock()
+	s.onSessionCreatedHook = h
+	s.onSessionCreatedHookMx.Unlock()
 }
 
 //###############//
@@ -269,13 +259,12 @@ func (s *Server) handleConnection(conn Conn) {
 	})
 
 	// Session created, call hook.
-	var f SessionCreatedFunc
-	s.callbackMx.RLock()
-	f = s.sessionCreatedFunc
-	s.callbackMx.RUnlock()
-
-	if f != nil {
-		f(sn)
+	var h OnSessionCreatedHook
+	s.onSessionCreatedHookMx.RLock()
+	h = s.onSessionCreatedHook
+	s.onSessionCreatedHookMx.RUnlock()
+	if h != nil {
+		h(sn)
 	}
 
 	s.log.Debug().

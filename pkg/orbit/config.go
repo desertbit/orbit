@@ -67,12 +67,10 @@ func prepareConfig(c *Config) *Config {
 	}
 
 	if c.Log == nil {
-		// TODO: human readable or efficient logger as default?
 		l := zerolog.New(zerolog.ConsoleWriter{
 			Out:        os.Stderr,
 			TimeFormat: time.RFC3339,
 		}).With().Timestamp().Str("component", "orbit").Logger()
-		//l := zerolog.New(os.Stderr).With().Timestamp().Str("component", "orbit").Logger()
 		c.Log = &l
 	}
 	if c.Codec == nil {
