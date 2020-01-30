@@ -36,9 +36,7 @@ import (
 )
 
 const (
-	flagForce          = "force"
-	flagNoMerge        = "no-merge"
-	flagStreamChanSize = "stream-chan-size"
+	flagForce = "force"
 )
 
 var cmdGen = &grumble.Command{
@@ -48,9 +46,6 @@ var cmdGen = &grumble.Command{
 	Run:       runGen,
 	Flags: func(f *grumble.Flags) {
 		f.Bool("f", flagForce, false, "generate all found files, ignoring their last modification time")
-		f.Bool("n", flagNoMerge, false, "generate an individual output file for each encountered .orbit file, instead of a single one")
-
-		f.UintL(flagStreamChanSize, 3, "size of channels used as stream argument and return values")
 	},
 }
 
@@ -71,12 +66,7 @@ func runGen(ctx *grumble.Context) (err error) {
 			return
 		}
 
-		err = gen.Generate(
-			absDir,
-			ctx.Flags.Uint(flagStreamChanSize),
-			ctx.Flags.Bool(flagNoMerge),
-			ctx.Flags.Bool(flagForce),
-		)
+		err = gen.Generate(absDir, ctx.Flags.Bool(flagForce))
 		if err != nil {
 			return
 		}

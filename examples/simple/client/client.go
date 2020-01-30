@@ -86,20 +86,27 @@ func (c *Client) ExampleHello3(s *orbit.Session, ret *api.PlateWriteChan) (err e
 }
 
 // Implements the api.ExampleConsumerHandler interface.
-func (c *Client) ExampleHello4(s *orbit.Session, args *api.ExampleCharReadChan, ret *api.PlateWriteChan) (err error) {
+func (c *Client) ExampleHello4(s *orbit.Session, args *api.ArgsReadChan, ret *api.RetWriteChan) (err error) {
 	go func() {
-		for i := 0; i < 3; i++ {
-			arg := <-args.C
+		for {
+			arg, more := args.Read()
+			if !more {
+				return
+			} else if c.IsClosing() {
+				args.Close_()
+				return
+			}
 			log.Info().Interface("arg", arg).Msg("Hello4 Handler")
 		}
 	}()
-	for i := 0; i < 3; i++ {
-		ret.C <- &api.Plate{
-			Name:    "not a dummy",
-			Ts:      time.Now(),
-			Version: 5,
+	for {
+		more := ret.Write(&api.Ret{B: 8})
+		if !more {
+			break
+		} else if c.IsClosing() {
+			ret.Close_()
+			return
 		}
 	}
-	ret.Close_()
 	return
 }

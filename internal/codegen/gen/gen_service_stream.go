@@ -34,12 +34,12 @@ import (
 func (g *generator) genServiceStreamClient(s *ast.Stream, srvcName, structName string, errs []*ast.Error) {
 	// Method declaration.
 	g.write("func (%s *%s) ", recv, structName)
-	g.write("%s(ctx context.Context) (", srvcName+s.Name)
+	g.write("%s(ctx context.Context) (", s.Name)
 	if s.Args != nil {
-		g.write("args %sWriteChan, ", s.Args.Decl())
+		g.write("args *%sWriteChan, ", s.Args.Name())
 	}
 	if s.Ret != nil {
-		g.write("ret %sReadChan, ", s.Ret.Decl())
+		g.write("ret *%sReadChan, ", s.Ret.Name())
 	} else if s.Args == nil {
 		g.write("stream net.Conn, ")
 	}
@@ -87,8 +87,8 @@ func (g *generator) genServiceStreamClient(s *ast.Stream, srvcName, structName s
 		g.writeLn("closingChan := ret.ClosingChan()")
 		g.writeLn("codec := %s.s.Codec()", recv)
 		g.writeLn("for {")
-		g.writeLn("data := &%s{}", s.Ret.Name())
-		g.writeLn("err := packet.ReadDecode(stream, data, codec)")
+		g.writeLn("var data %s", s.Ret.Decl())
+		g.writeLn("err := packet.ReadDecode(stream, &data, codec)")
 		g.writeLn("if err != nil {")
 		g.writeLn("if ret.IsClosing() { err = nil }")
 		g.writeLn("ret.setError(err)")
@@ -110,11 +110,11 @@ func (g *generator) genServiceStreamClient(s *ast.Stream, srvcName, structName s
 	g.writeLn("")
 }
 
-func (g *generator) genServiceStreamServer(s *ast.Stream, srvcName, srvcNamePrv, structName string, errs []*ast.Error) {
+func (g *generator) genServiceStreamServer(s *ast.Stream, structName string, errs []*ast.Error) {
 	// Method declaration.
 	g.writeLn(
 		"func (%s *%s) %s(s *orbit.Session, stream net.Conn) (err error) {",
-		recv, structName, srvcNamePrv+s.Name,
+		recv, structName, s.NamePrv(),
 	)
 	g.writeLn("defer stream.Close()")
 
@@ -130,8 +130,8 @@ func (g *generator) genServiceStreamServer(s *ast.Stream, srvcName, srvcNamePrv,
 		g.writeLn("closingChan := args.ClosingChan()")
 		g.writeLn("codec := %s.s.Codec()", recv)
 		g.writeLn("for {")
-		g.writeLn("arg := &%s{}", s.Args.Name())
-		g.writeLn("err := packet.ReadDecode(stream, arg, codec)")
+		g.writeLn("var arg %s", s.Args.Decl())
+		g.writeLn("err := packet.ReadDecode(stream, &arg, codec)")
 		g.writeLn("if err != nil {")
 		g.writeLn("if args.IsClosing() { err = nil }")
 		g.writeLn("args.setError(err)")
@@ -170,7 +170,7 @@ func (g *generator) genServiceStreamServer(s *ast.Stream, srvcName, srvcNamePrv,
 		g.writeLn("}()")
 	}
 
-	g.writeLn("err = %s.h.%s(%s)", recv, srvcName+s.Name, handlerArgs)
+	g.writeLn("err = %s.h.%s(%s)", recv, s.Name, handlerArgs)
 	g.errIfNil()
 	g.writeLn("return")
 	g.writeLn("}")

@@ -31,8 +31,8 @@ import (
 	"github.com/desertbit/orbit/internal/codegen/ast"
 )
 
-func (g *generator) genServiceCallCallerSignature(c *ast.Call, srvcName string) {
-	g.write("%s(ctx context.Context", srvcName+c.Name)
+func (g *generator) genServiceCallCallerSignature(c *ast.Call) {
+	g.write("%s(ctx context.Context", c.Name)
 	if c.Args != nil {
 		g.write(", args %s", c.Args.Decl())
 	}
@@ -43,8 +43,8 @@ func (g *generator) genServiceCallCallerSignature(c *ast.Call, srvcName string) 
 	g.write("err error)")
 }
 
-func (g *generator) genServiceCallHandlerSignature(c *ast.Call, srvcName string) {
-	g.write("%s(ctx context.Context, s *orbit.Session", srvcName+c.Name)
+func (g *generator) genServiceCallHandlerSignature(c *ast.Call) {
+	g.write("%s(ctx context.Context, s *orbit.Session", c.Name)
 	if c.Args != nil {
 		g.write(", args %s", c.Args.Decl())
 	}
@@ -58,7 +58,7 @@ func (g *generator) genServiceCallHandlerSignature(c *ast.Call, srvcName string)
 func (g *generator) genServiceCallClient(c *ast.Call, srvcName, structName string, errs []*ast.Error) {
 	// Method declaration.
 	g.write("func (%s *%s) ", recv, structName)
-	g.genServiceCallCallerSignature(c, srvcName)
+	g.genServiceCallCallerSignature(c)
 	g.writeLn(" {")
 
 	// Method body.
@@ -84,8 +84,7 @@ func (g *generator) genServiceCallClient(c *ast.Call, srvcName, structName strin
 
 	// If return arguments are expected, decode them.
 	if c.Ret != nil {
-		g.writeLn("ret := %s", c.Ret.Init())
-		g.writeLn("err = retData.Decode(ret)")
+		g.writeLn("err = retData.Decode(&ret)")
 		g.errIfNil()
 	}
 
@@ -96,11 +95,11 @@ func (g *generator) genServiceCallClient(c *ast.Call, srvcName, structName strin
 	g.writeLn("")
 }
 
-func (g *generator) genServiceCallServer(c *ast.Call, srvcName, srvcNamePrv, structName string, errs []*ast.Error) {
+func (g *generator) genServiceCallServer(c *ast.Call, structName string, errs []*ast.Error) {
 	// Method declaration.
 	g.writeLn(
 		"func (%s *%s) %s(ctx context.Context, s *orbit.Session, ad *orbit.Data) (r interface{}, err error) {",
-		recv, structName, srvcNamePrv+c.Name,
+		recv, structName, c.NamePrv(),
 	)
 
 	// Method body.
@@ -108,16 +107,16 @@ func (g *generator) genServiceCallServer(c *ast.Call, srvcName, srvcNamePrv, str
 	handlerArgs := "ctx, s"
 	if c.Args != nil {
 		handlerArgs += ", args"
-		g.writeLn("args := %s", c.Args.Init())
-		g.writeLn("err = ad.Decode(args)")
+		g.writeLn("var args %s", c.Args.Decl())
+		g.writeLn("err = ad.Decode(&args)")
 		g.errIfNil()
 	}
 
 	// Call the handler.
 	if c.Ret != nil {
-		g.writeLn("ret, err := %s.h.%s(%s)", recv, srvcName+c.Name, handlerArgs)
+		g.writeLn("ret, err := %s.h.%s(%s)", recv, c.Name, handlerArgs)
 	} else {
-		g.writeLn("err = %s.h.%s(%s)", recv, srvcName+c.Name, handlerArgs)
+		g.writeLn("err = %s.h.%s(%s)", recv, c.Name, handlerArgs)
 	}
 
 	// Check error and convert to orbit errors.

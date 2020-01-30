@@ -149,16 +149,16 @@ func resolveAnyType(dt ast.DataType, types []*ast.Type, enums []*ast.Enum) (ast.
 	case *ast.AnyType:
 		// Resolve the type.
 		for _, t := range types {
-			if t.Name == v.name {
-				return &ast.StructType{name: v.name, Line: v.Line}, nil
+			if t.Name == v.Name() {
+				return &ast.StructType{NamePrv: v.Name(), Line: v.Line}, nil
 			}
 		}
 		for _, en := range enums {
-			if en.Name == v.name {
-				return &ast.EnumType{name: v.name, Line: v.Line}, nil
+			if en.Name == v.Name() {
+				return &ast.EnumType{NamePrv: v.Name(), Line: v.Line}, nil
 			}
 		}
-		return nil, ast.NewErr(v.Line, "resolve: unknown type '%s'", v.name)
+		return nil, ast.NewErr(v.Line, "resolve: unknown type '%s'", v.Name())
 	case *ast.MapType:
 		v.Key, err = resolveAnyType(v.Key, types, enums)
 		if err != nil {

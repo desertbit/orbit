@@ -48,7 +48,7 @@ func (g *generator) genEnums(enums []*ast.Enum) {
 		g.writeLn("type %s int", en.Name)
 		g.writeLn("const (")
 		for _, env := range en.Values {
-			g.writeLn("%s %s = %d", env.Value, en.Name, env.Value)
+			g.writeLn("%s %s = %d", env.Name, en.Name, env.Value)
 		}
 		g.writeLn(")")
 	}

@@ -47,17 +47,17 @@ type test struct {
 func Tester(t *testing.T, c Codec) {
 	// Struct.
 	ssrc := &test{Name: "test"}
-	sdst := &test{}
+	var sdst *test
 	encoded, err := c.Encode(ssrc)
 	require.NoError(t, err)
 
-	err = c.Decode(encoded, sdst)
+	err = c.Decode(encoded, &sdst)
 	require.NoError(t, err)
 	require.Exactly(t, ssrc, sdst)
 
 	// Int.
 	isrc := 5
-	idst := 0
+	var idst int
 	encoded, err = c.Encode(isrc)
 	require.NoError(t, err)
 
@@ -67,7 +67,7 @@ func Tester(t *testing.T, c Codec) {
 
 	// Map.
 	msrc := map[string]float32{"test": 0.85}
-	mdst := make(map[string]float32)
+	var mdst map[string]float32
 	encoded, err = c.Encode(msrc)
 	require.NoError(t, err)
 
@@ -77,7 +77,7 @@ func Tester(t *testing.T, c Codec) {
 
 	// Slice.
 	slsrc := []rune{85, 48, 68}
-	sldst := make([]rune, 0)
+	var sldst []rune
 	encoded, err = c.Encode(slsrc)
 	require.NoError(t, err)
 
@@ -87,7 +87,7 @@ func Tester(t *testing.T, c Codec) {
 
 	// time.Time.
 	tsrc := time.Unix(584846, 471448)
-	tdst := time.Time{}
+	var tdst time.Time
 	encoded, err = c.Encode(tsrc)
 	require.NoError(t, err)
 

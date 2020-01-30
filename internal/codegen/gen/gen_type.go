@@ -98,7 +98,7 @@ func (g *generator) genChanType(dt ast.DataType) {
 		g.writeLn("")
 
 		// Constructor.
-		g.writeLn("func new%s%sChan(cl closer.Closer, size uint) %s%sChan {", dt.Name(), infix, dt.Decl(), infix)
+		g.writeLn("func new%s%sChan(cl closer.Closer, size uint) *%s%sChan {", dt.Name(), infix, dt.Name(), infix)
 		g.writeLn("c := &%s%sChan{Closer: cl, c: make(chan %s, size)}", dt.Name(), infix, dt.Decl())
 		g.writeLn("c.C = c.c")
 		g.writeLn("return c")
@@ -106,7 +106,7 @@ func (g *generator) genChanType(dt ast.DataType) {
 		g.writeLn("")
 
 		// setError method.
-		g.writeLn("func (c %s%sChan) setError(err error) {", dt.Decl(), infix)
+		g.writeLn("func (c *%s%sChan) setError(err error) {", dt.Name(), infix)
 		g.writeLn("c.mx.Lock()")
 		g.writeLn("c.err = err")
 		g.writeLn("c.mx.Unlock()")
@@ -115,7 +115,7 @@ func (g *generator) genChanType(dt ast.DataType) {
 		g.writeLn("")
 
 		// Err method.
-		g.writeLn("func (c %s%sChan) Err() (err error) {", dt.Decl(), infix)
+		g.writeLn("func (c *%s%sChan) Err() (err error) {", dt.Name(), infix)
 		g.writeLn("c.mx.Lock()")
 		g.writeLn("err = c.err")
 		g.writeLn("c.mx.Unlock()")

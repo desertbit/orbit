@@ -101,7 +101,7 @@ func (g *generator) genServiceInterface(name, srvcName string, calls, revCalls [
 	if len(calls) > 0 {
 		g.writeLn("// Calls")
 		for _, c := range calls {
-			g.genServiceCallCallerSignature(c, srvcName)
+			g.genServiceCallCallerSignature(c)
 			g.writeLn("")
 		}
 	}
@@ -109,12 +109,12 @@ func (g *generator) genServiceInterface(name, srvcName string, calls, revCalls [
 	if len(streams) > 0 {
 		g.writeLn("// Streams")
 		for _, s := range streams {
-			g.write("%s(ctx context.Context) (", srvcName+s.Name)
+			g.write("%s(ctx context.Context) (", s.Name)
 			if s.Args != nil {
-				g.write("args %sWriteChan, ", s.Args.Decl())
+				g.write("args *%sWriteChan, ", s.Args.Name())
 			}
 			if s.Ret != nil {
-				g.write("ret %sReadChan, ", s.Ret.Decl())
+				g.write("ret *%sReadChan, ", s.Ret.Name())
 			} else if s.Args == nil {
 				g.write("stream net.Conn, ")
 			}
@@ -132,7 +132,7 @@ func (g *generator) genServiceInterface(name, srvcName string, calls, revCalls [
 	if len(revCalls) > 0 {
 		g.writeLn("// Calls")
 		for _, rc := range revCalls {
-			g.genServiceCallHandlerSignature(rc, srvcName)
+			g.genServiceCallHandlerSignature(rc)
 			g.writeLn("")
 		}
 	}
@@ -140,12 +140,12 @@ func (g *generator) genServiceInterface(name, srvcName string, calls, revCalls [
 	if len(revStreams) > 0 {
 		g.writeLn("// Streams")
 		for _, rs := range revStreams {
-			g.write("%s(s *orbit.Session, ", srvcName+rs.Name)
+			g.write("%s(s *orbit.Session, ", rs.Name)
 			if rs.Args != nil {
-				g.write("args %sReadChan, ", rs.Args.Decl())
+				g.write("args *%sReadChan, ", rs.Args.Name())
 			}
 			if rs.Ret != nil {
-				g.write("ret %sWriteChan", rs.Ret.Decl())
+				g.write("ret *%sWriteChan", rs.Ret.Name())
 			} else if rs.Args == nil {
 				g.write("stream net.Conn")
 			}
@@ -184,7 +184,7 @@ func (g *generator) genServiceStruct(
 
 	// Generate the rev calls.
 	for _, rc := range revCalls {
-		g.genServiceCallServer(rc, srvcName, srvcNamePrv, strName, errs)
+		g.genServiceCallServer(rc, strName, errs)
 	}
 
 	// Generate the streams.
@@ -194,7 +194,7 @@ func (g *generator) genServiceStruct(
 
 	// generate the rev streams.
 	for _, rs := range revStreams {
-		g.genServiceStreamServer(rs, srvcName, srvcNamePrv, strName, errs)
+		g.genServiceStreamServer(rs, strName, errs)
 	}
 }
 
@@ -203,10 +203,10 @@ func (g *generator) genServiceStructConstructor(srvcName, srvcNamePrv, name stri
 	g.writeLn("func Register%s(s *orbit.Session, h %sHandler) %sCaller {", nameUp, nameUp, nameUp)
 	g.writeLn("cc := &%s{h: h, s: s}", name)
 	for _, rc := range revCalls {
-		g.writeLn("s.RegisterCall(Service%s, %s, cc.%s)", srvcName, srvcName+rc.Name, srvcNamePrv+rc.Name)
+		g.writeLn("s.RegisterCall(Service%s, %s, cc.%s)", srvcName, srvcName+rc.Name, rc.NamePrv())
 	}
 	for _, rs := range revStreams {
-		g.writeLn("s.RegisterStream(Service%s, %s, cc.%s)", srvcName, srvcName+rs.Name, srvcNamePrv+rs.Name)
+		g.writeLn("s.RegisterStream(Service%s, %s, cc.%s)", srvcName, srvcName+rs.Name, rs.NamePrv())
 	}
 	g.writeLn("return cc")
 	g.writeLn("}")

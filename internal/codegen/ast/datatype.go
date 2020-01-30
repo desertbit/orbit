@@ -57,8 +57,6 @@ const (
 type DataType interface {
 	// Returns go variable declaration.
 	Decl() string
-	// Returns go variable initialization.
-	Init() string
 	// Returns simple name.
 	Name() string
 }
@@ -71,13 +69,6 @@ type BaseType struct {
 func (b *BaseType) Decl() string {
 	if b.DataType == TypeTime {
 		return "time.Time"
-	}
-	return b.DataType
-}
-
-func (b *BaseType) Init() string {
-	if b.DataType == TypeTime {
-		return b.Decl() + "{}"
 	}
 	return b.DataType
 }
@@ -99,10 +90,6 @@ func (m *MapType) Decl() string {
 	return "map[" + m.Key.Decl() + "]" + m.Value.Decl()
 }
 
-func (m *MapType) Init() string {
-	return "make(" + m.Decl() + ")"
-}
-
 func (m *MapType) Name() string {
 	return "Map" + strings.Title(m.Key.Name()) + strings.Title(m.Value.Name())
 }
@@ -114,10 +101,6 @@ type ArrType struct {
 
 func (a *ArrType) Decl() string {
 	return "[]" + a.Elem.Decl()
-}
-
-func (a *ArrType) Init() string {
-	return "make(" + a.Decl() + ", 0)"
 }
 
 func (a *ArrType) Name() string {
@@ -133,10 +116,6 @@ func (s *StructType) Decl() string {
 	return "*" + s.NamePrv
 }
 
-func (s *StructType) Init() string {
-	return "&" + s.NamePrv + "{}"
-}
-
 func (s *StructType) Name() string {
 	return s.NamePrv
 }
@@ -150,10 +129,6 @@ func (e *EnumType) Decl() string {
 	return e.NamePrv
 }
 
-func (e *EnumType) Init() string {
-	return e.Decl()
-}
-
 func (e *EnumType) Name() string {
 	return e.NamePrv
 }
@@ -165,10 +140,6 @@ type AnyType struct {
 
 func (a *AnyType) Decl() string {
 	return "unresolved any type"
-}
-
-func (a *AnyType) Init() string {
-	return a.Decl()
 }
 
 func (a *AnyType) Name() string {
