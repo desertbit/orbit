@@ -41,7 +41,7 @@ type AuthzFunc func(s *Session, id string) (ok bool)
 
 type CallFunc func(ctx context.Context, s *Session, args *Data) (ret interface{}, err error)
 
-type StreamFunc func(s *Session, stream net.Conn) error
+type StreamFunc func(s *Session, stream net.Conn)
 
 type Session struct {
 	closer.Closer

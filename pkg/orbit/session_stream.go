@@ -199,11 +199,8 @@ func (s *Session) handleNewStream(stream net.Conn) {
 		s.log.Debug().Str("id", data.ID).Msg("new raw stream")
 
 		// Pass it the new stream.
-		err = f(s, stream)
-		if err != nil {
-			err = fmt.Errorf("stream='%v': %v", data.ID, err)
-			return
-		}
+		// The stream must be closed by the handler!
+		f(s, stream)
 
 	case api.StreamTypeCallAsync:
 		s.log.Debug().Msg("new call async stream")
