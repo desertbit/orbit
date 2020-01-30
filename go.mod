@@ -6,6 +6,7 @@ require (
 	github.com/davecgh/go-spew v1.1.1
 	github.com/desertbit/closer v2.0.1+incompatible
 	github.com/desertbit/closer/v3 v3.1.1
+	github.com/desertbit/event v0.0.0-20170911110340-fabed832af62 // indirect
 	github.com/desertbit/grumble v1.0.3
 	github.com/hashicorp/yamux v0.0.0-20181012175058-2f1d1f20f75d
 	github.com/json-iterator/go v1.1.9 // indirect

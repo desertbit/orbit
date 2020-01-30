@@ -36,14 +36,17 @@ import (
 	"github.com/hashicorp/yamux"
 )
 
+// Pass a nil yamux config for the default config.
 func NewConn(conn net.Conn, conf *yamux.Config) (orbit.Conn, error) {
 	return NewConnWithCloser(conn, conf, closer.New())
 }
 
+// Pass a nil yamux config for the default config.
 func NewConnWithCloser(conn net.Conn, conf *yamux.Config, cl closer.Closer) (orbit.Conn, error) {
 	return newSession(cl, conn, false, conf)
 }
 
+// Pass a nil yamux config for the default config.
 func NewTCPConn(remoteAddr string, conf *yamux.Config) (orbit.Conn, error) {
 	conn, err := net.Dial("tcp", remoteAddr)
 	if err != nil {
@@ -53,6 +56,7 @@ func NewTCPConn(remoteAddr string, conf *yamux.Config) (orbit.Conn, error) {
 	return NewConn(conn, conf)
 }
 
+// Pass a nil yamux config for the default config.
 func NewTLSConn(remoteAddr string, tlsConf *tls.Config, conf *yamux.Config) (orbit.Conn, error) {
 	conn, err := tls.Dial("tcp", remoteAddr, tlsConf)
 	if err != nil {
