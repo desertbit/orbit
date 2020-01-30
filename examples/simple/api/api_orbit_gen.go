@@ -4,6 +4,7 @@ package api
 import (
 	"context"
 	"errors"
+	"io"
 	"net"
 	"sync"
 	"time"
@@ -216,11 +217,16 @@ func newArgsReadChan(cl closer.Closer, stream net.Conn, cc codec.Codec) *ArgsRea
 }
 
 func (c *ArgsReadChan) Read() (arg *Args, err error) {
+	if c.IsClosing() {
+		err = ErrClosed
+		return
+	}
 	err = packet.ReadDecode(c.stream, &arg, c.codec)
 	if err != nil {
-		if errors.Is(err, packet.ErrZeroData) {
+		if errors.Is(err, packet.ErrZeroData) || errors.Is(err, io.EOF) {
 			err = ErrClosed
 		}
+		c.Close_()
 		return
 	}
 	return
@@ -279,7 +285,15 @@ func newRetWriteChan(cl closer.Closer, stream net.Conn, cc codec.Codec) *RetWrit
 }
 
 func (c *RetWriteChan) Write(data *Ret) (err error) {
-	return packet.WriteEncode(c.stream, data, c.codec)
+	if c.IsClosing() {
+		return ErrClosed
+	}
+	err = packet.WriteEncode(c.stream, data, c.codec)
+	if errors.Is(err, io.EOF) {
+		c.Close_()
+		return ErrClosed
+	}
+	return
 }
 
 //msgp:ignore MapStringIntReadChan
