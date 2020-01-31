@@ -41,14 +41,15 @@ const (
 	tkType    = "type"
 	tkEnum    = "enum"
 
-	tkEntryAsync     = "async"
-	tkEntryCall      = "call"
-	tkEntryRevCall   = "revcall"
-	tkEntryStream    = "stream"
-	tkEntryRevStream = "revstream"
+	tkSrvcCall      = "call"
+	tkSrcvRevCall   = "revcall"
+	tkSrvcStream    = "stream"
+	tkSrvcRevStream = "revstream"
 
-	tkEntryArgs = "args"
-	tkEntryRet  = "ret"
+	tkEntryAsync   = "async"
+	tkEntryArgs    = "args"
+	tkEntryRet     = "ret"
+	tkEntryTimeout = "timeout"
 
 	tkMap = "map"
 )

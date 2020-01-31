@@ -49,6 +49,7 @@ type reader struct {
 
 	nextValue      []rune
 	nextTokenReady bool
+	quote          bool
 	lines          int
 }
 
@@ -83,7 +84,9 @@ func (r *reader) Next() (t *Token, err error) {
 			return
 		}
 
-		if unicode.IsSpace(nr) {
+		if r.quote && nr != singQuote {
+			r.nextValue = append(r.nextValue, nr)
+		} else if unicode.IsSpace(nr) {
 			// Build the token before checking for a new line.
 			if len(r.nextValue) > 0 {
 				t = r.buildToken()
@@ -100,7 +103,12 @@ func (r *reader) Next() (t *Token, err error) {
 		} else if nr == braceL || nr == braceR ||
 			nr == bracketL || nr == bracketR ||
 			nr == colon ||
-			nr == equal {
+			nr == equal ||
+			nr == singQuote {
+			if nr == singQuote {
+				r.quote = !r.quote
+			}
+
 			// Return next token first.
 			if len(r.nextValue) > 0 {
 				t = r.buildToken()

@@ -43,14 +43,27 @@ func (g *generator) genServiceCallCallerSignature(c *ast.Call) {
 	g.write("err error)")
 }
 
-func (g *generator) genServiceCallClient(c *ast.Call, srvcName, structName string, errs []*ast.Error) {
+func (g *generator) genServiceCallCaller(c *ast.Call, srvcName, structName string, errs []*ast.Error) {
 	// Method declaration.
 	g.write("func (%s *%s) ", recv, structName)
 	g.genServiceCallCallerSignature(c)
 	g.writeLn(" {")
 
 	// Method body.
-	// First, make the call.
+	// Set the timeout, if needed.
+	if c.Timeout != nil && *c.Timeout > 0 {
+		g.writeLn("ctx, cancel := context.WithTimeout(ctx, %d*time.Nanosecond)", c.Timeout.Nanoseconds())
+		g.writeLn("defer cancel()")
+	} else {
+		g.writeLn("ct := %s.s.CallTimeout()", recv)
+		g.writeLn("if ct > 0 {")
+		g.writeLn("var cancel context.CancelFunc")
+		g.writeLn("ctx, cancel = context.WithTimeout(ctx, ct)")
+		g.writeLn("defer cancel()")
+		g.writeLn("}")
+	}
+
+	// Make the call.
 	if c.Ret != nil {
 		g.write("retData, err := ")
 	} else {
@@ -68,12 +81,29 @@ func (g *generator) genServiceCallClient(c *ast.Call, srvcName, structName strin
 	}
 
 	// Check error and parse control.ErrorCodes.
-	g.genErrCheckOrbitCaller(errs)
+	g.errIfNilFunc(func() {
+		g.writeLn("err = %s(err)", orbitErrorCodeCheck)
+		g.writeLn("return")
+	})
 
 	// If return arguments are expected, decode them.
 	if c.Ret != nil {
+		// Parse.
 		g.writeLn("err = retData.Decode(&ret)")
 		g.errIfNil()
+
+		// Validate.
+		if c.RetValTag != "" {
+			// Validate a single value.
+			g.writeLn("err = validate.Var(ret, \"%s\")", c.RetValTag)
+		} else {
+			// Validate a struct.
+			g.writeLn("err = validate.Struct(ret)")
+		}
+		g.errIfNilFunc(func() {
+			g.writeLn("err = %s(err)", valErrorCheck)
+			g.writeLn("return")
+		})
 	}
 
 	// Return.
@@ -95,7 +125,7 @@ func (g *generator) genServiceCallHandlerSignature(c *ast.Call) {
 	g.write("err error)")
 }
 
-func (g *generator) genServiceCallServer(c *ast.Call, structName string, errs []*ast.Error) {
+func (g *generator) genServiceCallHandler(c *ast.Call, structName string, errs []*ast.Error) {
 	// Method declaration.
 	g.writeLn(
 		"func (%s *%s) %s(ctx context.Context, s *orbit.Session, ad *orbit.Data) (r interface{}, err error) {",
@@ -103,13 +133,28 @@ func (g *generator) genServiceCallServer(c *ast.Call, structName string, errs []
 	)
 
 	// Method body.
-	// Parse the args.
+	// Parse and validate the args.
 	handlerArgs := "ctx, s"
 	if c.Args != nil {
 		handlerArgs += ", args"
+
+		// Parse.
 		g.writeLn("var args %s", c.Args.Decl())
 		g.writeLn("err = ad.Decode(&args)")
 		g.errIfNil()
+
+		// Validate.
+		if c.ArgsValTag != "" {
+			// Validate a single value.
+			g.writeLn("err = validate.Var(args, \"%s\")", c.ArgsValTag)
+		} else {
+			// Validate a struct.
+			g.writeLn("err = validate.Struct(args)")
+		}
+		g.errIfNilFunc(func() {
+			g.writeLn("err = %s(err)", valErrorCheck)
+			g.writeLn("return")
+		})
 	}
 
 	// Call the handler.
@@ -120,7 +165,10 @@ func (g *generator) genServiceCallServer(c *ast.Call, structName string, errs []
 	}
 
 	// Check error and convert to orbit errors.
-	g.genErrCheckOrbitHandler(errs)
+	g.errIfNilFunc(func() {
+		g.writeLn("err = %s(err)", errToOrbitErrorCodeCheck)
+		g.writeLn("return")
+	})
 
 	// Assign return value.
 	if c.Ret != nil {

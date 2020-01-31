@@ -31,6 +31,9 @@ import (
 	"github.com/desertbit/orbit/internal/codegen/ast"
 )
 
+// Resolve resolves the given tree by replacing any AnyTypes with their respective
+// EnumType or StructType.
+// In addition, a validation is performed, like checking for duplicate names, etc.
 func Resolve(tree *ast.Tree) (err error) {
 	// Services.
 	for i, srvc := range tree.Srvcs {
@@ -58,6 +61,14 @@ func Resolve(tree *ast.Tree) (err error) {
 			if err != nil {
 				return
 			}
+
+			// Check, that no StructType has a validation tag.
+			if st, ok := c.Args.(*ast.StructType); ok && c.ArgsValTag != "" {
+				return ast.NewErr(st.Line, "validation tags not allowed on type references")
+			}
+			if st, ok := c.Ret.(*ast.StructType); ok && c.RetValTag != "" {
+				return ast.NewErr(st.Line, "validation tags not allowed on type references")
+			}
 		}
 
 		for j, s := range srvc.Streams {
@@ -76,6 +87,14 @@ func Resolve(tree *ast.Tree) (err error) {
 			s.Ret, err = resolveAnyType(s.Ret, tree.Types, tree.Enums)
 			if err != nil {
 				return
+			}
+
+			// Check, that no StructType has a validation tag.
+			if st, ok := s.Args.(*ast.StructType); ok && s.ArgsValTag != "" {
+				return ast.NewErr(st.Line, "validation tags not allowed on type references")
+			}
+			if st, ok := s.Ret.(*ast.StructType); ok && s.RetValTag != "" {
+				return ast.NewErr(st.Line, "validation tags not allowed on type references")
 			}
 		}
 	}

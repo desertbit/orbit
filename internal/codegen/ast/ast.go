@@ -28,6 +28,8 @@
 package ast
 
 import (
+	"time"
+
 	"github.com/desertbit/orbit/internal/utils"
 )
 
@@ -65,6 +67,7 @@ type Type struct {
 type TypeField struct {
 	Name     string
 	DataType DataType
+	ValTag   string
 	Line     int
 }
 
@@ -76,12 +79,15 @@ type Service struct {
 }
 
 type Call struct {
-	Name  string
-	Rev   bool
-	Args  DataType
-	Ret   DataType
-	Async bool
-	Line  int
+	Name       string
+	Rev        bool
+	Args       DataType
+	ArgsValTag string
+	Ret        DataType
+	RetValTag  string
+	Async      bool
+	Timeout    *time.Duration
+	Line       int
 }
 
 func (c *Call) NamePrv() string {
@@ -89,11 +95,13 @@ func (c *Call) NamePrv() string {
 }
 
 type Stream struct {
-	Name string
-	Rev  bool
-	Args DataType
-	Ret  DataType
-	Line int
+	Name       string
+	Rev        bool
+	Args       DataType
+	ArgsValTag string
+	Ret        DataType
+	RetValTag  string
+	Line       int
 }
 
 func (s *Stream) NamePrv() string {

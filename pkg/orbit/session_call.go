@@ -84,7 +84,7 @@ func (s *Session) Call(ctx context.Context, service, id string, data interface{}
 	if !ok {
 		// First call, initialize the call stream.
 		var stream net.Conn
-		stream, err = s.openStream(ctx, "", api.StreamTypeCallInit)
+		stream, err = s.openStream(ctx, service, id, api.StreamTypeCallInit)
 		if err != nil {
 			return
 		}
@@ -101,12 +101,12 @@ func (s *Session) Call(ctx context.Context, service, id string, data interface{}
 		go s.readCallRoutine(cs, false)
 	}
 
-	return s.call(ctx, cs, service+"."+id, data)
+	return s.call(ctx, cs, service, id, data)
 }
 
 func (s *Session) CallAsync(ctx context.Context, service, id string, data interface{}) (d *Data, err error) {
 	// Open a new stream connection.
-	stream, err := s.openStream(ctx, "", api.StreamTypeCallAsync)
+	stream, err := s.openStream(ctx, service, id, api.StreamTypeCallAsync)
 	if err != nil {
 		return
 	}
@@ -117,21 +117,21 @@ func (s *Session) CallAsync(ctx context.Context, service, id string, data interf
 	// Start a read routine to receive the response.
 	go s.readCallRoutine(cs, true)
 
-	return s.call(ctx, cs, service+"."+id, data)
+	return s.call(ctx, cs, service, id, data)
 }
 
 //###############//
 //### Private ###//
 //###############//
 
-func (s *Session) call(ctx context.Context, cs *callStream, id string, data interface{}) (d *Data, err error) {
+func (s *Session) call(ctx context.Context, cs *callStream, service, id string, data interface{}) (d *Data, err error) {
 	// Create a new channel with its key. This will be used to send
 	// the data over that forms the response to the call.
 	key, channel := cs.RetChain.new()
 	defer cs.RetChain.delete(key)
 
 	// Write to the client.
-	err = s.writeCall(ctx, cs, typeCall, &api.Call{ID: id, Key: key}, data)
+	err = s.writeCall(ctx, cs, typeCall, &api.Call{Service: service, ID: id, Key: key}, data)
 	if err != nil {
 		return
 	}
@@ -238,14 +238,38 @@ func (s *Session) waitForCallResponse(
 	return
 }
 
-func (s *Session) handleAsyncCall(stream net.Conn) {
+func (s *Session) handleAsyncCall(stream net.Conn, service, id string) (err error) {
+	callID := service + "." + id
+	var ok bool
+	s.callFuncsMx.RLock()
+	_, ok = s.callFuncs[callID]
+	s.callFuncsMx.RUnlock()
+	if !ok {
+		err = fmt.Errorf("call handler '%s' not found", callID)
+		return
+	}
+
 	// No need to create a chain for return values. Not used on the server side.
 	go s.readCallRoutine(newCallStream(stream, nil), true)
+
+	return
 }
 
-func (s *Session) handleInitCall(stream net.Conn) {
+func (s *Session) handleInitCall(stream net.Conn, service, id string) (err error) {
+	callID := service + "." + id
+	var ok bool
+	s.callFuncsMx.RLock()
+	_, ok = s.callFuncs[callID]
+	s.callFuncsMx.RUnlock()
+	if !ok {
+		err = fmt.Errorf("call handler '%s' not found", callID)
+		return
+	}
+
 	// A fixed call stream, create a chain for it.
 	go s.readCallRoutine(newCallStream(stream, newChain()), false)
+
+	return
 }
 
 func (s *Session) readCallRoutine(cs *callStream, once bool) {
@@ -338,7 +362,7 @@ func (s *Session) handleCall(cs *callStream, headerData, payloadData []byte) (er
 	}
 
 	// Execute the handler for this call.
-	retHeader, retData := s.execCallHandler(header.Key, header.ID, payloadData)
+	retHeader, retData := s.execCallHandler(header.Key, header.Service, header.ID, payloadData)
 
 	ctx, cancel := context.WithTimeout(context.Background(), writeCallReturnTimeout)
 	defer cancel()
@@ -354,7 +378,11 @@ func (s *Session) handleCall(cs *callStream, headerData, payloadData []byte) (er
 
 // Sets the msg and code in the retHeader, in case of an error.
 // Recovers from panics.
-func (s *Session) execCallHandler(key uint32, id string, payloadData []byte) (retHeader *api.CallReturn, retData interface{}) {
+func (s *Session) execCallHandler(
+	key uint32,
+	service, id string,
+	payloadData []byte,
+) (retHeader *api.CallReturn, retData interface{}) {
 	// Build the header for the response.
 	retHeader = &api.CallReturn{Key: key}
 
@@ -371,7 +399,8 @@ func (s *Session) execCallHandler(key uint32, id string, payloadData []byte) (re
 		if err != nil {
 			// Log. Do not use the Err() field, as stack trace formatting is lost then.
 			s.log.Error().
-				Str("func", id).
+				Str("service", service).
+				Str("call", id).
 				Msgf("exec call handler: \n%v", err)
 
 			// Ensure an error message is always set.
@@ -390,17 +419,18 @@ func (s *Session) execCallHandler(key uint32, id string, payloadData []byte) (re
 		ok bool
 		f  CallFunc
 	)
+	callID := service + "." + id
 	s.callFuncsMx.RLock()
-	f, ok = s.callFuncs[id]
+	f, ok = s.callFuncs[callID]
 	s.callFuncsMx.RUnlock()
 	if !ok {
-		err = fmt.Errorf("call handler '%s' not found", id)
+		err = fmt.Errorf("call handler '%s' not found", callID)
 		return
 	}
 
 	// Authorize the call, if needed.
-	if s.authz != nil && !s.authz(s, id) {
-		err = fmt.Errorf("unauthorized access to call '%s'", id)
+	if s.authz != nil && !s.authz(s, callID) {
+		err = fmt.Errorf("unauthorized access to call '%s'", callID)
 		return
 	}
 

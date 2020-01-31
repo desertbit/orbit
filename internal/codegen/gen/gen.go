@@ -258,10 +258,13 @@ func generate(pkgName string, tree *ast.Tree) string {
 	imports := [][2]string{
 		{"context", "context"},
 		{"errors", "errors"},
+		{"fmt", "fmt"},
 		{"net", "net"},
 		{"time", "time"},
 		{"sync", "sync"},
 		{"io", "io"},
+		{"strings", "strings"},
+		{"validator", "github.com/go-playground/validator/v10"},
 		{"orbit", "github.com/desertbit/orbit/pkg/orbit"},
 		{"codec", "github.com/desertbit/orbit/pkg/codec"},
 		{"packet", "github.com/desertbit/orbit/pkg/packet"},
@@ -283,6 +286,11 @@ func generate(pkgName string, tree *ast.Tree) string {
 	g.writeLn("_ time.Time")
 	g.writeLn("_ sync.Locker")
 	g.writeLn("_ orbit.Conn")
+	g.writeLn("_ = fmt.Sprint()")
+	g.writeLn("_ = strings.Builder{}")
+	g.writeLn("_ = io.EOF")
+	g.writeLn("_ validator.StructLevel")
+	g.writeLn("_ codec.Codec")
 	g.writeLn("_ = packet.MaxSize")
 	g.writeLn("_ closer.Closer")
 	g.writeLn(")")
@@ -300,6 +308,7 @@ func generate(pkgName string, tree *ast.Tree) string {
 	}
 
 	// Generate the type definitions.
+	g.writeLn("var validate = validator.New()")
 	if len(tree.Types) > 0 {
 		g.writeLn("//#############//")
 		g.writeLn("//### Types ###//")
@@ -334,6 +343,12 @@ func generate(pkgName string, tree *ast.Tree) string {
 
 func (g *generator) errIfNil() {
 	g.writeLn("if err != nil { return }")
+}
+
+func (g *generator) errIfNilFunc(f func()) {
+	g.writeLn("if err != nil {")
+	f()
+	g.writeLn("}")
 }
 
 func (g *generator) writeLn(format string, a ...interface{}) {

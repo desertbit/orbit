@@ -47,7 +47,11 @@ func (g *generator) genTypes(ts []*ast.Type, srvcs []*ast.Service) {
 
 		g.writeLn("type %s struct {", t.Name)
 		for _, f := range t.Fields {
-			g.writeLn("%s %s", f.Name, f.DataType.Decl())
+			g.write("%s %s", f.Name, f.DataType.Decl())
+			if f.ValTag != "" {
+				g.write(" `validate:\"%s\"`", f.ValTag)
+			}
+			g.writeLn("")
 		}
 		g.writeLn("}")
 		g.writeLn("")
@@ -60,14 +64,15 @@ func (g *generator) genTypes(ts []*ast.Type, srvcs []*ast.Service) {
 			if s.Args != nil {
 				if _, ok := genChans[s.Args.Name()]; !ok {
 					genChans[s.Args.Name()] = struct{}{}
-					g.genReadChanType(s.Args)
+					// Check, if the data type is a validation
+					g.genReadChanType(s.Args, s.ArgsValTag)
 					g.genWriteChanType(s.Args)
 				}
 			}
 			if s.Ret != nil {
 				if _, ok := genChans[s.Ret.Name()]; !ok {
 					genChans[s.Ret.Name()] = struct{}{}
-					g.genReadChanType(s.Ret)
+					g.genReadChanType(s.Ret, s.RetValTag)
 					g.genWriteChanType(s.Ret)
 				}
 			}
@@ -75,7 +80,7 @@ func (g *generator) genTypes(ts []*ast.Type, srvcs []*ast.Service) {
 	}
 }
 
-func (g *generator) genReadChanType(dt ast.DataType) {
+func (g *generator) genReadChanType(dt ast.DataType, valTag string) {
 	// Type definition.
 	g.writeLn("//msgp:ignore %sReadChan", dt.Name())
 	g.writeLn("type %sReadChan struct {", dt.Name())
@@ -97,6 +102,7 @@ func (g *generator) genReadChanType(dt ast.DataType) {
 	g.writeLn("err = ErrClosed")
 	g.writeLn("return")
 	g.writeLn("}")
+	// Parse.
 	g.writeLn("err = packet.ReadDecode(c.stream, &arg, c.codec)")
 	g.writeLn("if err != nil {")
 	g.writeLn("if errors.Is(err, packet.ErrZeroData) || errors.Is(err, io.EOF) {")
@@ -105,6 +111,18 @@ func (g *generator) genReadChanType(dt ast.DataType) {
 	g.writeLn("c.Close_()")
 	g.writeLn("return")
 	g.writeLn("}")
+	// Validate.
+	if valTag != "" {
+		// Validate a single value.
+		g.writeLn("err = validate.Var(arg, \"%s\")", valTag)
+	} else {
+		// Validate a struct.
+		g.writeLn("err = validate.Struct(arg)")
+	}
+	g.errIfNilFunc(func() {
+		g.writeLn("err = %s(err)", valErrorCheck)
+		g.writeLn("return")
+	})
 	g.writeLn("return")
 	g.writeLn("}")
 	g.writeLn("")

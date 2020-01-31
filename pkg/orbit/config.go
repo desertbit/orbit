@@ -28,6 +28,7 @@
 package orbit
 
 import (
+	"net"
 	"os"
 	"time"
 
@@ -59,6 +60,11 @@ type Config struct {
 
 	// InitTimeout specifies the connection initialization timeout.
 	InitTimeout time.Duration
+
+	// CallTimeout specifies the default timeout for any Call.
+	// This value can be overridden per call in the .orbit file.
+	// Per default, no timeout is set.
+	CallTimeout time.Duration
 }
 
 func prepareConfig(c *Config) *Config {
@@ -76,6 +82,7 @@ func prepareConfig(c *Config) *Config {
 	if c.Codec == nil {
 		c.Codec = msgpack.Codec
 	}
+	var co net.Conn
 	if c.InitTimeout == 0 {
 		c.InitTimeout = defaultInitTimeout
 	}

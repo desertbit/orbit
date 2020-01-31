@@ -4,12 +4,15 @@ package api
 import (
 	context "context"
 	errors "errors"
+	fmt "fmt"
 	closer "github.com/desertbit/closer/v3"
 	codec "github.com/desertbit/orbit/pkg/codec"
 	orbit "github.com/desertbit/orbit/pkg/orbit"
 	packet "github.com/desertbit/orbit/pkg/packet"
+	validator "github.com/go-playground/validator/v10"
 	io "io"
 	net "net"
+	strings "strings"
 	sync "sync"
 	time "time"
 )
@@ -21,6 +24,11 @@ var (
 	_ time.Time
 	_ sync.Locker
 	_ orbit.Conn
+	_ = fmt.Sprint()
+	_ = strings.Builder{}
+	_ = io.EOF
+	_ validator.StructLevel
+	_ codec.Codec
 	_ = packet.MaxSize
 	_ closer.Closer
 )
@@ -46,6 +54,45 @@ var (
 	orbitErrTheThirdError  = orbit.Err(ErrTheThirdError, ErrTheThirdError.Error(), ErrCodeTheThirdError)
 )
 
+func _orbitErrCodeCheck(err error) error {
+	var cErr *orbit.ErrorCode
+	if errors.As(err, &cErr) {
+		switch cErr.Code {
+		case ErrCodeTheFirstError:
+			return ErrTheFirstError
+		case ErrCodeTheSecondError:
+			return ErrTheSecondError
+		case ErrCodeTheThirdError:
+			return ErrTheThirdError
+		}
+	}
+	return err
+}
+
+func _errToOrbitErrCodeCheck(err error) error {
+	if errors.Is(err, ErrTheFirstError) {
+		return orbitErrTheFirstError
+	} else if errors.Is(err, ErrTheSecondError) {
+		return orbitErrTheSecondError
+	} else if errors.Is(err, ErrTheThirdError) {
+		return orbitErrTheThirdError
+	}
+	return err
+}
+
+func _valErrCheck(err error) error {
+	if vErrs, ok := err.(validator.ValidationErrors); ok {
+		var errMsg strings.Builder
+		for _, err := range vErrs {
+			errMsg.WriteString(fmt.Sprintf("-> name: '%s', value: '%s', tag: '%s'", err.StructNamespace(), err.Value(), err.Tag()))
+		}
+		return errors.New(errMsg.String())
+	}
+	return err
+}
+
+var validate = validator.New()
+
 //#############//
 //### Types ###//
 //#############//
@@ -53,7 +100,7 @@ var (
 type Args struct {
 	Crazy map[string][][]map[string]En1
 	I     int
-	M     map[string]int
+	M     map[string]int `validate:"required"`
 	S     string
 	Sl    []time.Time
 	St    *Ret
@@ -63,14 +110,14 @@ type Rc1Ret struct {
 	Crazy map[string][][]map[string]En1
 	I     int
 	M     map[string]int
-	S     string
+	S     string `validate:"email"`
 	Sl    []time.Time
 	St    *Ret
 }
 
 type Rc2Args struct {
 	B   byte
-	F   float64
+	F   float64 `validate:"gte=-1"`
 	U16 uint16
 	U32 uint32
 	U64 uint64
@@ -78,8 +125,8 @@ type Rc2Args struct {
 }
 
 type Ret struct {
-	B   byte
-	F   float64
+	B   byte    `validate:"required,dive,required"`
+	F   float64 `validate:"gte=0,lte=130"`
 	U16 uint16
 	U32 uint32
 	U64 uint64
@@ -108,6 +155,11 @@ func (c *StringReadChan) Read() (arg string, err error) {
 			err = ErrClosed
 		}
 		c.Close_()
+		return
+	}
+	err = validate.Var(arg, "omitempty,email")
+	if err != nil {
+		err = _valErrCheck(err)
 		return
 	}
 	return
@@ -164,6 +216,11 @@ func (c *En1ReadChan) Read() (arg En1, err error) {
 		c.Close_()
 		return
 	}
+	err = validate.Var(arg, "required")
+	if err != nil {
+		err = _valErrCheck(err)
+		return
+	}
 	return
 }
 
@@ -216,6 +273,11 @@ func (c *ArgsReadChan) Read() (arg *Args, err error) {
 			err = ErrClosed
 		}
 		c.Close_()
+		return
+	}
+	err = validate.Struct(arg)
+	if err != nil {
+		err = _valErrCheck(err)
 		return
 	}
 	return
@@ -272,6 +334,11 @@ func (c *RetReadChan) Read() (arg *Ret, err error) {
 		c.Close_()
 		return
 	}
+	err = validate.Struct(arg)
+	if err != nil {
+		err = _valErrCheck(err)
+		return
+	}
 	return
 }
 
@@ -324,6 +391,11 @@ func (c *MapStringIntReadChan) Read() (arg map[string]int, err error) {
 			err = ErrClosed
 		}
 		c.Close_()
+		return
+	}
+	err = validate.Var(arg, "omitempty")
+	if err != nil {
+		err = _valErrCheck(err)
 		return
 	}
 	return
@@ -451,65 +523,63 @@ func RegisterS1Consumer(s *orbit.Session, h S1ConsumerHandler) S1ConsumerCaller 
 }
 
 func (v1 *s1Consumer) C1(ctx context.Context, args int) (ret float32, err error) {
+	ct := v1.s.CallTimeout()
+	if ct > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, ct)
+		defer cancel()
+	}
 	retData, err := v1.s.Call(ctx, ServiceS1, S1C1, args)
 	if err != nil {
-		var cErr *orbit.ErrorCode
-		if errors.As(err, &cErr) {
-			switch cErr.Code {
-			case ErrCodeTheFirstError:
-				err = ErrTheFirstError
-			case ErrCodeTheSecondError:
-				err = ErrTheSecondError
-			case ErrCodeTheThirdError:
-				err = ErrTheThirdError
-			}
-		}
+		err = _orbitErrCodeCheck(err)
 		return
 	}
 	err = retData.Decode(&ret)
 	if err != nil {
+		return
+	}
+	err = validate.Struct(ret)
+	if err != nil {
+		err = _valErrCheck(err)
 		return
 	}
 	return
 }
 
 func (v1 *s1Consumer) C2(ctx context.Context, args time.Time) (ret []map[string][]*Ret, err error) {
+	ct := v1.s.CallTimeout()
+	if ct > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, ct)
+		defer cancel()
+	}
 	retData, err := v1.s.CallAsync(ctx, ServiceS1, S1C2, args)
 	if err != nil {
-		var cErr *orbit.ErrorCode
-		if errors.As(err, &cErr) {
-			switch cErr.Code {
-			case ErrCodeTheFirstError:
-				err = ErrTheFirstError
-			case ErrCodeTheSecondError:
-				err = ErrTheSecondError
-			case ErrCodeTheThirdError:
-				err = ErrTheThirdError
-			}
-		}
+		err = _orbitErrCodeCheck(err)
 		return
 	}
 	err = retData.Decode(&ret)
 	if err != nil {
 		return
 	}
+	err = validate.Var(ret, "required,dive,required")
+	if err != nil {
+		err = _valErrCheck(err)
+		return
+	}
 	return
 }
 
 func (v1 *s1Consumer) C3(ctx context.Context) (err error) {
+	ct := v1.s.CallTimeout()
+	if ct > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, ct)
+		defer cancel()
+	}
 	_, err = v1.s.Call(ctx, ServiceS1, S1C3, nil)
 	if err != nil {
-		var cErr *orbit.ErrorCode
-		if errors.As(err, &cErr) {
-			switch cErr.Code {
-			case ErrCodeTheFirstError:
-				err = ErrTheFirstError
-			case ErrCodeTheSecondError:
-				err = ErrTheSecondError
-			case ErrCodeTheThirdError:
-				err = ErrTheThirdError
-			}
-		}
+		err = _orbitErrCodeCheck(err)
 		return
 	}
 	return
@@ -521,15 +591,14 @@ func (v1 *s1Consumer) rc1(ctx context.Context, s *orbit.Session, ad *orbit.Data)
 	if err != nil {
 		return
 	}
+	err = validate.Struct(args)
+	if err != nil {
+		err = _valErrCheck(err)
+		return
+	}
 	ret, err := v1.h.Rc1(ctx, s, args)
 	if err != nil {
-		if errors.Is(err, ErrTheFirstError) {
-			err = orbitErrTheFirstError
-		} else if errors.Is(err, ErrTheSecondError) {
-			err = orbitErrTheSecondError
-		} else if errors.Is(err, ErrTheThirdError) {
-			err = orbitErrTheThirdError
-		}
+		err = _errToOrbitErrCodeCheck(err)
 		return
 	}
 	r = ret
@@ -542,15 +611,14 @@ func (v1 *s1Consumer) rc2(ctx context.Context, s *orbit.Session, ad *orbit.Data)
 	if err != nil {
 		return
 	}
+	err = validate.Struct(args)
+	if err != nil {
+		err = _valErrCheck(err)
+		return
+	}
 	err = v1.h.Rc2(ctx, s, args)
 	if err != nil {
-		if errors.Is(err, ErrTheFirstError) {
-			err = orbitErrTheFirstError
-		} else if errors.Is(err, ErrTheSecondError) {
-			err = orbitErrTheSecondError
-		} else if errors.Is(err, ErrTheThirdError) {
-			err = orbitErrTheThirdError
-		}
+		err = _errToOrbitErrCodeCheck(err)
 		return
 	}
 	return
@@ -559,13 +627,7 @@ func (v1 *s1Consumer) rc2(ctx context.Context, s *orbit.Session, ad *orbit.Data)
 func (v1 *s1Consumer) rc3(ctx context.Context, s *orbit.Session, ad *orbit.Data) (r interface{}, err error) {
 	err = v1.h.Rc3(ctx, s)
 	if err != nil {
-		if errors.Is(err, ErrTheFirstError) {
-			err = orbitErrTheFirstError
-		} else if errors.Is(err, ErrTheSecondError) {
-			err = orbitErrTheSecondError
-		} else if errors.Is(err, ErrTheThirdError) {
-			err = orbitErrTheThirdError
-		}
+		err = _errToOrbitErrCodeCheck(err)
 		return
 	}
 	return
@@ -633,61 +695,50 @@ func RegisterS1Provider(s *orbit.Session, h S1ProviderHandler) S1ProviderCaller 
 }
 
 func (v1 *s1Provider) Rc1(ctx context.Context, args *Args) (ret *Rc1Ret, err error) {
+	ct := v1.s.CallTimeout()
+	if ct > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, ct)
+		defer cancel()
+	}
 	retData, err := v1.s.Call(ctx, ServiceS1, S1Rc1, args)
 	if err != nil {
-		var cErr *orbit.ErrorCode
-		if errors.As(err, &cErr) {
-			switch cErr.Code {
-			case ErrCodeTheFirstError:
-				err = ErrTheFirstError
-			case ErrCodeTheSecondError:
-				err = ErrTheSecondError
-			case ErrCodeTheThirdError:
-				err = ErrTheThirdError
-			}
-		}
+		err = _orbitErrCodeCheck(err)
 		return
 	}
 	err = retData.Decode(&ret)
 	if err != nil {
 		return
 	}
+	err = validate.Struct(ret)
+	if err != nil {
+		err = _valErrCheck(err)
+		return
+	}
 	return
 }
 
 func (v1 *s1Provider) Rc2(ctx context.Context, args *Rc2Args) (err error) {
+	ctx, cancel := context.WithTimeout(ctx, 5000000*time.Nanosecond)
+	defer cancel()
 	_, err = v1.s.CallAsync(ctx, ServiceS1, S1Rc2, args)
 	if err != nil {
-		var cErr *orbit.ErrorCode
-		if errors.As(err, &cErr) {
-			switch cErr.Code {
-			case ErrCodeTheFirstError:
-				err = ErrTheFirstError
-			case ErrCodeTheSecondError:
-				err = ErrTheSecondError
-			case ErrCodeTheThirdError:
-				err = ErrTheThirdError
-			}
-		}
+		err = _orbitErrCodeCheck(err)
 		return
 	}
 	return
 }
 
 func (v1 *s1Provider) Rc3(ctx context.Context) (err error) {
+	ct := v1.s.CallTimeout()
+	if ct > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, ct)
+		defer cancel()
+	}
 	_, err = v1.s.Call(ctx, ServiceS1, S1Rc3, nil)
 	if err != nil {
-		var cErr *orbit.ErrorCode
-		if errors.As(err, &cErr) {
-			switch cErr.Code {
-			case ErrCodeTheFirstError:
-				err = ErrTheFirstError
-			case ErrCodeTheSecondError:
-				err = ErrTheSecondError
-			case ErrCodeTheThirdError:
-				err = ErrTheThirdError
-			}
-		}
+		err = _orbitErrCodeCheck(err)
 		return
 	}
 	return
@@ -699,15 +750,14 @@ func (v1 *s1Provider) c1(ctx context.Context, s *orbit.Session, ad *orbit.Data) 
 	if err != nil {
 		return
 	}
+	err = validate.Var(args, "gte=0")
+	if err != nil {
+		err = _valErrCheck(err)
+		return
+	}
 	ret, err := v1.h.C1(ctx, s, args)
 	if err != nil {
-		if errors.Is(err, ErrTheFirstError) {
-			err = orbitErrTheFirstError
-		} else if errors.Is(err, ErrTheSecondError) {
-			err = orbitErrTheSecondError
-		} else if errors.Is(err, ErrTheThirdError) {
-			err = orbitErrTheThirdError
-		}
+		err = _errToOrbitErrCodeCheck(err)
 		return
 	}
 	r = ret
@@ -720,15 +770,14 @@ func (v1 *s1Provider) c2(ctx context.Context, s *orbit.Session, ad *orbit.Data) 
 	if err != nil {
 		return
 	}
+	err = validate.Var(args, "required")
+	if err != nil {
+		err = _valErrCheck(err)
+		return
+	}
 	ret, err := v1.h.C2(ctx, s, args)
 	if err != nil {
-		if errors.Is(err, ErrTheFirstError) {
-			err = orbitErrTheFirstError
-		} else if errors.Is(err, ErrTheSecondError) {
-			err = orbitErrTheSecondError
-		} else if errors.Is(err, ErrTheThirdError) {
-			err = orbitErrTheThirdError
-		}
+		err = _errToOrbitErrCodeCheck(err)
 		return
 	}
 	r = ret
@@ -738,13 +787,7 @@ func (v1 *s1Provider) c2(ctx context.Context, s *orbit.Session, ad *orbit.Data) 
 func (v1 *s1Provider) c3(ctx context.Context, s *orbit.Session, ad *orbit.Data) (r interface{}, err error) {
 	err = v1.h.C3(ctx, s)
 	if err != nil {
-		if errors.Is(err, ErrTheFirstError) {
-			err = orbitErrTheFirstError
-		} else if errors.Is(err, ErrTheSecondError) {
-			err = orbitErrTheSecondError
-		} else if errors.Is(err, ErrTheThirdError) {
-			err = orbitErrTheThirdError
-		}
+		err = _errToOrbitErrCodeCheck(err)
 		return
 	}
 	return

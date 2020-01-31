@@ -44,7 +44,7 @@ func (g *generator) genServiceStreamCallerSignature(s *ast.Stream) {
 	g.write("err error)")
 }
 
-func (g *generator) genServiceStreamClient(s *ast.Stream, srvcName, structName string, errs []*ast.Error) {
+func (g *generator) genServiceStreamCaller(s *ast.Stream, srvcName, structName string, errs []*ast.Error) {
 	// Method declaration.
 	g.write("func (%s *%s) ", recv, structName)
 	g.genServiceStreamCallerSignature(s)
@@ -107,7 +107,7 @@ func (g *generator) genServiceStreamHandlerSignature(s *ast.Stream) {
 	g.write(")")
 }
 
-func (g *generator) genServiceStreamServer(s *ast.Stream, structName string, errs []*ast.Error) {
+func (g *generator) genServiceStreamHandler(s *ast.Stream, structName string, errs []*ast.Error) {
 	// Method declaration.
 	g.writeLn("func (%s *%s) %s(s *orbit.Session, stream net.Conn) {", recv, structName, s.NamePrv())
 

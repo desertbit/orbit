@@ -30,6 +30,7 @@ package parse
 import (
 	"strconv"
 	"strings"
+	"time"
 	"unicode"
 
 	"github.com/desertbit/orbit/internal/codegen/ast"
@@ -109,4 +110,28 @@ func (p *parser) expectSymbol(sym string) (err error) {
 // Does not consume the current token.
 func (p *parser) peekSymbol(sym string) bool {
 	return p.value() == sym
+}
+
+// Consumes the current token.
+// Returns ast.Err.
+func (p *parser) expectTimeDuration() (d *time.Duration, err error) {
+	if p.empty() {
+		err = ast.NewErr(p.prevLine, "expected time duration, but is missing")
+		return
+	}
+
+	dur, err := time.ParseDuration(p.ct.Value)
+	if err != nil {
+		err = ast.NewErr(p.ct.Line, "expected time duration, %v", err)
+		return
+	}
+	d = &dur
+
+	// Advance to the next token.
+	err = p.next()
+	if err != nil {
+		return
+	}
+
+	return
 }

@@ -58,14 +58,14 @@ func (p *parser) expectService() (err error) {
 	// Parse fields.
 	for {
 		var (
-			revCall   = p.checkSymbol(tkEntryRevCall)
-			revStream = p.checkSymbol(tkEntryRevStream)
+			revCall   = p.checkSymbol(tkSrcvRevCall)
+			revStream = p.checkSymbol(tkSrvcRevStream)
 		)
 
 		if p.checkSymbol(token.BraceR) {
 			// End of service.
 			break
-		} else if revCall || p.checkSymbol(tkEntryCall) {
+		} else if revCall || p.checkSymbol(tkSrvcCall) {
 			// Expect call.
 			c, err = p.expectServiceCall(revCall)
 			if err != nil {
@@ -73,7 +73,7 @@ func (p *parser) expectService() (err error) {
 			}
 
 			srvc.Calls = append(srvc.Calls, c)
-		} else if revStream || p.checkSymbol(tkEntryStream) {
+		} else if revStream || p.checkSymbol(tkSrvcStream) {
 			// Expect stream.
 			s, err = p.expectServiceStream(revStream)
 			if err != nil {
@@ -117,7 +117,7 @@ func (p *parser) expectServiceCall(rev bool) (c *ast.Call, err error) {
 		} else if p.checkSymbol(tkEntryArgs) {
 			// Check for duplicate.
 			if c.Args != nil {
-				err = errors.New("double args")
+				err = ast.NewErr(p.line(), "double args")
 				return
 			}
 
@@ -125,14 +125,14 @@ func (p *parser) expectServiceCall(rev bool) (c *ast.Call, err error) {
 			_ = p.checkSymbol(token.Colon)
 
 			// Parse args.
-			c.Args, err = p.expectServiceEntryType(c.Name + "Args")
+			c.Args, c.ArgsValTag, err = p.expectServiceEntryType(c.Name + "Args")
 			if err != nil {
 				return
 			}
 		} else if p.checkSymbol(tkEntryRet) {
 			// Check for duplicate.
 			if c.Ret != nil {
-				err = errors.New("double ret")
+				err = ast.NewErr(p.line(), "double ret")
 				return
 			}
 
@@ -140,18 +140,33 @@ func (p *parser) expectServiceCall(rev bool) (c *ast.Call, err error) {
 			_ = p.checkSymbol(token.Colon)
 
 			// Parse ret.
-			c.Ret, err = p.expectServiceEntryType(c.Name + "Ret")
+			c.Ret, c.RetValTag, err = p.expectServiceEntryType(c.Name + "Ret")
 			if err != nil {
 				return
 			}
 		} else if p.checkSymbol(tkEntryAsync) {
 			// Check for duplicate.
 			if c.Async {
-				err = errors.New("double async")
+				err = ast.NewErr(p.line(), "double async")
 				return
 			}
 
 			c.Async = true
+		} else if p.checkSymbol(tkEntryTimeout) {
+			// Check for duplicate.
+			if c.Timeout != nil {
+				err = ast.NewErr(p.line(), "double timeout")
+				return
+			}
+
+			// Consume ':', if present.
+			_ = p.checkSymbol(token.Colon)
+
+			// Parse timeout.
+			c.Timeout, err = p.expectTimeDuration()
+			if err != nil {
+				return
+			}
 		} else {
 			err = ast.NewErr(p.line(), "unexpected symbol '%s'", p.value())
 			return
@@ -191,7 +206,7 @@ func (p *parser) expectServiceStream(rev bool) (s *ast.Stream, err error) {
 			_ = p.checkSymbol(token.Colon)
 
 			// Parse args.
-			s.Args, err = p.expectServiceEntryType(s.Name + "Args")
+			s.Args, s.ArgsValTag, err = p.expectServiceEntryType(s.Name + "Args")
 			if err != nil {
 				return
 			}
@@ -206,7 +221,7 @@ func (p *parser) expectServiceStream(rev bool) (s *ast.Stream, err error) {
 			_ = p.checkSymbol(token.Colon)
 
 			// Parse ret.
-			s.Ret, err = p.expectServiceEntryType(s.Name + "Ret")
+			s.Ret, s.RetValTag, err = p.expectServiceEntryType(s.Name + "Ret")
 			if err != nil {
 				return
 			}
@@ -218,7 +233,7 @@ func (p *parser) expectServiceStream(rev bool) (s *ast.Stream, err error) {
 }
 
 // Returns ast.Err.
-func (p *parser) expectServiceEntryType(name string) (dt ast.DataType, err error) {
+func (p *parser) expectServiceEntryType(name string) (dt ast.DataType, valTag string, err error) {
 	// Check for an inline type definition.
 	if p.peekSymbol(token.BraceL) {
 		// The struct type is a reference to the inline type.
@@ -234,10 +249,18 @@ func (p *parser) expectServiceEntryType(name string) (dt ast.DataType, err error
 		return
 	}
 
-	// The entry has is a normal data type.
+	// The entry has a normal data type.
 	dt, err = p.expectDataType()
 	if err != nil {
 		return
+	}
+
+	// Check for a validation tag definition.
+	if p.checkSymbol(token.SingQuote) {
+		valTag, err = p.expectValTag()
+		if err != nil {
+			return
+		}
 	}
 
 	return

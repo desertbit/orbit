@@ -42,13 +42,15 @@ const (
 )
 
 type InitStream struct {
-	ID   string
-	Type StreamType
+	Service string
+	ID      string
+	Type    StreamType
 }
 
 type Call struct {
-	ID  string
-	Key uint32
+	Service string
+	ID      string
+	Key     uint32
 }
 
 type CallReturn struct {

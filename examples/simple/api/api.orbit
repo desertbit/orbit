@@ -1,19 +1,19 @@
 service s1 {
     call c1 {
-        args: int
+        args: int 'gte=0'
         ret: float32
     }
     call c2 {
         async
-        args: time
-        ret: []map[string][]Ret
+        args: time 'required'
+        ret: []map[string][]Ret 'required,dive,required'
     }
     call c3 {}
 
     revcall rc1 {
         args: Args
         ret: {
-            s string
+            s string 'email'
             i int
             m map[string]int
             sl []time
@@ -22,9 +22,10 @@ service s1 {
         }
     }
     revcall rc2 {
+        timeout: 500ms
         async
         args: {
-            f float64
+            f float64 'gte=-1'
             b byte
             u8 uint8
             u16 uint16
@@ -36,10 +37,10 @@ service s1 {
 
     stream s1 {}
     stream s2 {
-        args: string
+        args: string 'omitempty,email'
     }
     stream s3 {
-        ret: En1
+        ret: En1 'required'
     }
 
     revstream rs1 {
@@ -47,7 +48,7 @@ service s1 {
         ret: Ret
     }
     revstream rs2 {
-        args: map[string]int
+        args: map[string]int 'omitempty'
     }
     revstream rs3 {}
 }
@@ -55,15 +56,15 @@ service s1 {
 type Args {
     s string
     i int
-    m map[string]int
+    m map[string]int 'required'
     sl []time
     st Ret
     crazy map[string][][]map[string]En1
 }
 
 type Ret {
-    f float64
-    b byte
+    f float64 'gte=0,lte=130'
+    b byte 'required,dive,required'
     u8 uint8
     u16 uint16
     u32 uint32

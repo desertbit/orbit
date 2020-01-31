@@ -161,22 +161,22 @@ func (g *generator) genServiceStruct(
 
 	// Generate the calls.
 	for _, c := range calls {
-		g.genServiceCallClient(c, srvcName, strName, errs)
+		g.genServiceCallCaller(c, srvcName, strName, errs)
 	}
 
 	// Generate the rev calls.
 	for _, rc := range revCalls {
-		g.genServiceCallServer(rc, strName, errs)
+		g.genServiceCallHandler(rc, strName, errs)
 	}
 
 	// Generate the streams.
 	for _, s := range streams {
-		g.genServiceStreamClient(s, srvcName, strName, errs)
+		g.genServiceStreamCaller(s, srvcName, strName, errs)
 	}
 
 	// generate the rev streams.
 	for _, rs := range revStreams {
-		g.genServiceStreamServer(rs, strName, errs)
+		g.genServiceStreamHandler(rs, strName, errs)
 	}
 }
 

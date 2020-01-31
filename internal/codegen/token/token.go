@@ -46,6 +46,9 @@ const (
 	equal = '='
 	Equal = string(equal)
 
+	singQuote = '\''
+	SingQuote = string(singQuote)
+
 	newLine = '\n'
 )
 

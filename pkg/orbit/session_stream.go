@@ -52,14 +52,14 @@ func (s *Session) RegisterStream(service, id string, f StreamFunc) {
 
 // OpenStream opens a new stream with the given channel ID.
 func (s *Session) OpenStream(ctx context.Context, service, id string) (stream net.Conn, err error) {
-	return s.openStream(ctx, id, api.StreamTypeRaw)
+	return s.openStream(ctx, service, id, api.StreamTypeRaw)
 }
 
 //###############//
 //### Private ###//
 //###############//
 
-func (s *Session) openStream(ctx context.Context, id string, t api.StreamType) (stream net.Conn, err error) {
+func (s *Session) openStream(ctx context.Context, service, id string, t api.StreamType) (stream net.Conn, err error) {
 	// Open the stream through our conn.
 	stream, err = s.conn.OpenStream(ctx)
 	if err != nil {
@@ -74,8 +74,9 @@ func (s *Session) openStream(ctx context.Context, id string, t api.StreamType) (
 	// Create the initial data that signals to the remote peer,
 	// which stream we want to open.
 	data := api.InitStream{
-		ID:   id,
-		Type: t,
+		Service: service,
+		ID:      id,
+		Type:    t,
 	}
 
 	// Set a write deadline, if needed.
@@ -181,24 +182,28 @@ func (s *Session) handleNewStream(stream net.Conn) {
 	switch data.Type {
 	case api.StreamTypeRaw:
 		// Obtain the stream handler.
+		streamID := data.Service + "." + data.ID
 		var f StreamFunc
 		s.streamFuncsMx.RLock()
-		f = s.streamFuncs[data.ID]
+		f = s.streamFuncs[streamID]
 		s.streamFuncsMx.RUnlock()
 		if f == nil {
-			err = fmt.Errorf("stream handler for id '%s' does not exist", data.ID)
+			err = fmt.Errorf("stream handler for id '%s' does not exist", streamID)
 			return
 		}
 
 		// TODO:
 		// Authorize the stream, if needed.
 		if s.authz != nil && !s.authz(s, data.ID) {
-			err = fmt.Errorf("unauthorized access to stream '%s'", data.ID)
+			err = fmt.Errorf("unauthorized access to stream '%s'", streamID)
 			return
 		}
 
 		// TODO: should we log here?
-		s.log.Debug().Str("id", data.ID).Msg("new raw stream")
+		s.log.Debug().
+			Str("service", data.Service).
+			Str("id", data.ID).
+			Msg("new raw stream")
 
 		// Pass it the new stream.
 		// The stream must be closed by the handler!
@@ -208,13 +213,15 @@ func (s *Session) handleNewStream(stream net.Conn) {
 		s.log.Debug().Msg("new call async stream")
 
 		// Handle the new async call stream.
-		s.handleAsyncCall(stream)
+		err = s.handleAsyncCall(stream, data.Service, data.ID)
+		return
 
 	case api.StreamTypeCallInit:
 		s.log.Debug().Msg("new call init stream")
 
 		// Handle the new init call stream.
-		s.handleInitCall(stream)
+		err = s.handleInitCall(stream, data.Service, data.ID)
+		return
 
 	default:
 		err = fmt.Errorf("invalid stream type: %v", data.Type)

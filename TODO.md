@@ -3,9 +3,8 @@
 - rename consumer and provider to client and server?
 - provide a default auth module
 - provide a logging module
-- split service & call ID
 - finish quic support
-- add timeout and maxmsgsize to calls (and streams?), but optional!!! take config value as default.
+- add maxmsgsize to calls (and streams?), but optional!!! take config value as default.
 - update the comments and remove unneeded parts.
 - update tests
 

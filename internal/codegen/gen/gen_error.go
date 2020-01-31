@@ -33,6 +33,12 @@ import (
 	"github.com/desertbit/orbit/internal/codegen/ast"
 )
 
+const (
+	orbitErrorCodeCheck      = "_orbitErrCodeCheck"
+	errToOrbitErrorCodeCheck = "_errToOrbitErrCodeCheck"
+	valErrorCheck            = "_valErrCheck"
+)
+
 func (g *generator) genErrors(errs []*ast.Error) {
 	// Sort the errors in alphabetical order.
 	sort.Slice(errs, func(i, j int) bool {
@@ -54,33 +60,37 @@ func (g *generator) genErrors(errs []*ast.Error) {
 	}
 	g.writeLn(")")
 	g.writeLn("")
+
+	// Generate error check helper funcs.
+	g.genOrbitErrorCodeCheckFunc(errs)
+	g.genErrToOrbitErrCodeFunc(errs)
+	g.genValErrCheckFunc()
 }
 
-func (g *generator) genErrCheckOrbitCaller(errs []*ast.Error) {
-	g.writeLn("if err != nil {")
+func (g *generator) genOrbitErrorCodeCheckFunc(errs []*ast.Error) {
+	g.writeLn("func %s(err error) error {", orbitErrorCodeCheck)
 	// Check, if a control.ErrorCode has been returned.
-	if len(errs) > 0 {
-		g.writeLn("var cErr *orbit.ErrorCode")
-		g.writeLn("if errors.As(err, &cErr) {")
-		g.writeLn("switch cErr.Code {")
-		for _, e := range errs {
-			g.writeLn("case ErrCode%s:", e.Name)
-			g.writeLn("err = Err%s", e.Name)
-		}
-		g.writeLn("}")
-		g.writeLn("}")
+	g.writeLn("var cErr *orbit.ErrorCode")
+	g.writeLn("if errors.As(err, &cErr) {")
+	g.writeLn("switch cErr.Code {")
+	for _, e := range errs {
+		g.writeLn("case ErrCode%s:", e.Name)
+		g.writeLn("return Err%s", e.Name)
 	}
-	g.writeLn("return")
 	g.writeLn("}")
+	g.writeLn("}")
+	g.writeLn("return err")
+	g.writeLn("}")
+	g.writeLn("")
 }
 
-func (g *generator) genErrCheckOrbitHandler(errs []*ast.Error) {
-	g.writeLn("if err != nil {")
-	// Check, if a api error has been returned and convert it to a control.ErrorCode.
+func (g *generator) genErrToOrbitErrCodeFunc(errs []*ast.Error) {
+	// Check, if one of our errors has been returned and convert it to an orbit ErrorCode.
+	g.writeLn("func %s(err error) error {", errToOrbitErrorCodeCheck)
 	if len(errs) > 0 {
 		for i, e := range errs {
 			g.writeLn("if errors.Is(err, Err%s) {", e.Name)
-			g.writeLn("err = orbitErr%s", e.Name)
+			g.writeLn("return orbitErr%s", e.Name)
 			if i < len(errs)-1 {
 				g.write("} else ")
 			} else {
@@ -88,6 +98,21 @@ func (g *generator) genErrCheckOrbitHandler(errs []*ast.Error) {
 			}
 		}
 	}
-	g.writeLn("return")
+	g.writeLn("return err")
 	g.writeLn("}")
+	g.writeLn("")
+}
+
+func (g *generator) genValErrCheckFunc() {
+	g.writeLn("func %s(err error) error {", valErrorCheck)
+	g.writeLn("if vErrs, ok := err.(validator.ValidationErrors); ok {")
+	g.writeLn("var errMsg strings.Builder")
+	g.writeLn("for _, err := range vErrs {")
+	g.writeLn("errMsg.WriteString(fmt.Sprintf(\"-> name: '%s', value: '%s', tag: '%s'\", err.StructNamespace(), err.Value(), err.Tag()))")
+	g.writeLn("}")
+	g.writeLn("return errors.New(errMsg.String())")
+	g.writeLn("}")
+	g.writeLn("return err")
+	g.writeLn("}")
+	g.writeLn("")
 }

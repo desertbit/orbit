@@ -31,6 +31,7 @@ import (
 	"context"
 	"net"
 	"sync"
+	"time"
 
 	"github.com/desertbit/closer/v3"
 	"github.com/desertbit/orbit/pkg/codec"
@@ -114,4 +115,9 @@ func (s *Session) LocalAddr() net.Addr {
 // RemoteAddr returns the remote network address.
 func (s *Session) RemoteAddr() net.Addr {
 	return s.conn.RemoteAddr()
+}
+
+// CallTimeout returns the default timeout for all calls.
+func (s *Session) CallTimeout() time.Duration {
+	return s.cf.CallTimeout
 }
