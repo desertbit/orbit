@@ -45,12 +45,27 @@ type listener struct {
 	ln quic.Listener
 }
 
-func NewListener(ln quic.Listener) (orbit.Listener, error) {
-	return NewListenerWithCloser(ln, closer.New())
+func NewListener(conn net.PacketConn, tlsConf *tls.Config, conf *quic.Config) (orbit.Listener, error) {
+	return NewListenerWithCloser(conn, tlsConf, conf, closer.New())
 }
 
 // Pass a nil quic config for the default config.
-func NewListenerWithCloser(ln quic.Listener, cl closer.Closer) (orbit.Listener, error) {
+func NewListenerWithCloser(
+	conn net.PacketConn,
+	tlsConf *tls.Config,
+	conf *quic.Config,
+	cl closer.Closer,
+) (orbit.Listener, error) {
+	// Prepare quic config.
+	if conf == nil {
+		conf = DefaultConfig()
+	}
+
+	ln, err := quic.Listen(conn, tlsConf, conf)
+	if err != nil {
+		return nil, err
+	}
+
 	l := &listener{
 		Closer: cl,
 		ln:     ln,
@@ -60,12 +75,12 @@ func NewListenerWithCloser(ln quic.Listener, cl closer.Closer) (orbit.Listener, 
 }
 
 // Pass a nil quic config for the default config.
-func NewTLSListener(listenAddr string, tlsConf *tls.Config, conf *quic.Config) (orbit.Listener, error) {
-	return NewTLSListenerWithCloser(listenAddr, tlsConf, conf, closer.New())
+func NewUDPListener(listenAddr string, tlsConf *tls.Config, conf *quic.Config) (orbit.Listener, error) {
+	return NewUDPListenerWithCloser(listenAddr, tlsConf, conf, closer.New())
 }
 
 // Pass a nil quic config for the default config.
-func NewTLSListenerWithCloser(
+func NewUDPListenerWithCloser(
 	listenAddr string,
 	tlsConf *tls.Config,
 	conf *quic.Config,
@@ -82,7 +97,12 @@ func NewTLSListenerWithCloser(
 		return nil, err
 	}
 
-	return NewListenerWithCloser(ln, cl)
+	l := &listener{
+		Closer: cl,
+		ln:     ln,
+	}
+	l.OnClosing(ln.Close)
+	return l, nil
 }
 
 // Implements the orbit.Listener interface.
