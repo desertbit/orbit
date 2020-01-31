@@ -45,8 +45,8 @@ type stream struct {
 }
 
 // newStream creates a new stream.
-func newStream(qs quic.Stream, la, ra net.Addr) (s *stream) {
-	s = &stream{
+func newStream(qs quic.Stream, la, ra net.Addr) *stream {
+	return &stream{
 		Stream: qs,
 		la:     la,
 		ra:     ra,
