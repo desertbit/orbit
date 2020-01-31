@@ -3,8 +3,8 @@
  *
  * The MIT License (MIT)
  *
- * Copyright (c) 2018 Roland Singer <roland.singer[at]desertbit.com>
- * Copyright (c) 2018 Sebastian Borchers <sebastian[at]desertbit.com>
+ * Copyright (c) 2020 Roland Singer <roland.singer[at]desertbit.com>
+ * Copyright (c) 2020 Sebastian Borchers <sebastian[at]desertbit.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -25,15 +25,16 @@
  * SOFTWARE.
  */
 
-package yamux
+package quic
 
 import (
+	"context"
 	"crypto/tls"
 	"net"
 
 	"github.com/desertbit/closer/v3"
 	"github.com/desertbit/orbit/pkg/orbit"
-	"github.com/hashicorp/yamux"
+	quic "github.com/lucas-clemente/quic-go"
 )
 
 var _ orbit.Listener = &listener{}
@@ -41,72 +42,61 @@ var _ orbit.Listener = &listener{}
 type listener struct {
 	closer.Closer
 
-	ln   net.Listener
-	conf *yamux.Config
+	ln quic.Listener
 }
 
-// Pass a nil yamux config for the default config.
-func NewListener(ln net.Listener, conf *yamux.Config) (orbit.Listener, error) {
-	return NewListenerWithCloser(ln, conf, closer.New())
+func NewListener(ln quic.Listener) (orbit.Listener, error) {
+	return NewListenerWithCloser(ln, closer.New())
 }
 
-// Pass a nil yamux config for the default config.
-func NewListenerWithCloser(ln net.Listener, conf *yamux.Config, cl closer.Closer) (orbit.Listener, error) {
+// Pass a nil quic config for the default config.
+func NewListenerWithCloser(ln quic.Listener, cl closer.Closer) (orbit.Listener, error) {
 	l := &listener{
 		Closer: cl,
 		ln:     ln,
-		conf:   conf,
 	}
 	l.OnClosing(ln.Close)
 	return l, nil
 }
 
-// Pass a nil yamux config for the default config.
-func NewTCPListener(listenAddr string, conf *yamux.Config) (orbit.Listener, error) {
-	return NewTCPListenerWithCloser(listenAddr, conf, closer.New())
-}
-
-// Pass a nil yamux config for the default config.
-func NewTCPListenerWithCloser(listenAddr string, conf *yamux.Config, cl closer.Closer) (orbit.Listener, error) {
-	ln, err := net.Listen("tcp", listenAddr)
-	if err != nil {
-		return nil, err
-	}
-
-	return NewListenerWithCloser(ln, conf, cl)
-}
-
-// Pass a nil yamux config for the default config.
-func NewTLSListener(listenAddr string, tlsConf *tls.Config, conf *yamux.Config) (orbit.Listener, error) {
+// Pass a nil quic config for the default config.
+func NewTLSListener(listenAddr string, tlsConf *tls.Config, conf *quic.Config) (orbit.Listener, error) {
 	return NewTLSListenerWithCloser(listenAddr, tlsConf, conf, closer.New())
 }
 
-// Pass a nil yamux config for the default config.
+// Pass a nil quic config for the default config.
 func NewTLSListenerWithCloser(
 	listenAddr string,
 	tlsConf *tls.Config,
-	conf *yamux.Config,
+	conf *quic.Config,
 	cl closer.Closer,
 ) (orbit.Listener, error) {
-	ln, err := tls.Listen("tcp", listenAddr, tlsConf)
+	// Prepare quic config.
+	if conf == nil {
+		conf = DefaultConfig()
+	}
+
+	// Create the listener.
+	ln, err := quic.ListenAddr(listenAddr, tlsConf, conf)
 	if err != nil {
 		return nil, err
 	}
 
-	return NewListenerWithCloser(ln, conf, cl)
+	return NewListenerWithCloser(ln, cl)
 }
 
-// Accept waits for and returns the next connection to the listener.
+// Implements the orbit.Listener interface.
 func (l *listener) Accept() (orbit.Conn, error) {
-	c, err := l.ln.Accept()
+	// No context passed, as listener is closed in onClosing of closer.
+	qs, err := l.ln.Accept(context.Background())
 	if err != nil {
 		return nil, err
 	}
 
-	return newSession(l.CloserOneWay(), c, true, l.conf)
+	return newSession(l.CloserOneWay(), qs)
 }
 
-// Addr returns the listener's network address.
+// Implements the orbit.Listener interface.
 func (l *listener) Addr() net.Addr {
 	return l.ln.Addr()
 }

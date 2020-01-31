@@ -48,20 +48,35 @@ func NewConnWithCloser(conn net.Conn, conf *yamux.Config, cl closer.Closer) (orb
 
 // Pass a nil yamux config for the default config.
 func NewTCPConn(remoteAddr string, conf *yamux.Config) (orbit.Conn, error) {
+	return NewTCPConnWithCloser(remoteAddr, conf, closer.New())
+}
+
+// Pass a nil yamux config for the default config.
+func NewTCPConnWithCloser(remoteAddr string, conf *yamux.Config, cl closer.Closer) (orbit.Conn, error) {
 	conn, err := net.Dial("tcp", remoteAddr)
 	if err != nil {
 		return nil, err
 	}
 
-	return NewConn(conn, conf)
+	return NewConnWithCloser(conn, conf, cl)
 }
 
 // Pass a nil yamux config for the default config.
 func NewTLSConn(remoteAddr string, tlsConf *tls.Config, conf *yamux.Config) (orbit.Conn, error) {
+	return NewTLSConnWithCloser(remoteAddr, tlsConf, conf, closer.New())
+}
+
+// Pass a nil yamux config for the default config.
+func NewTLSConnWithCloser(
+	remoteAddr string,
+	tlsConf *tls.Config,
+	conf *yamux.Config,
+	cl closer.Closer,
+) (orbit.Conn, error) {
 	conn, err := tls.Dial("tcp", remoteAddr, tlsConf)
 	if err != nil {
 		return nil, err
 	}
 
-	return NewConn(conn, conf)
+	return NewConnWithCloser(conn, conf, cl)
 }

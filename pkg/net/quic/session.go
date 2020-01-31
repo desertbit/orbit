@@ -3,8 +3,8 @@
  *
  * The MIT License (MIT)
  *
- * Copyright (c) 2018 Roland Singer <roland.singer[at]desertbit.com>
- * Copyright (c) 2018 Sebastian Borchers <sebastian[at]desertbit.com>
+ * Copyright (c) 2020 Roland Singer <roland.singer[at]desertbit.com>
+ * Copyright (c) 2020 Sebastian Borchers <sebastian[at]desertbit.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -28,69 +28,78 @@
 package quic
 
 import (
-	"crypto/tls"
+	"context"
 	"net"
-
-	quic "github.com/lucas-clemente/quic-go"
 
 	"github.com/desertbit/closer/v3"
 	"github.com/desertbit/orbit/pkg/orbit"
+	quic "github.com/lucas-clemente/quic-go"
 )
 
-func NewConn(
-	conn net.PacketConn,
-	remoteAddr net.Addr,
-	host string,
-	tlsConf *tls.Config,
-	conf *quic.Config,
-) (orbit.Conn, error) {
-	return NewConnWithCloser(conn, remoteAddr, host, tlsConf, conf, closer.New())
+var _ orbit.Conn = &session{}
+
+type session struct {
+	closer.Closer
+
+	qs quic.Session
+	la net.Addr
+	ra net.Addr
 }
 
-func NewConnWithCloser(
-	conn net.PacketConn,
-	remoteAddr net.Addr,
-	host string,
-	tlsConf *tls.Config,
-	conf *quic.Config,
-	cl closer.Closer,
-) (orbit.Conn, error) {
-	// Prepare quic config.
-	if conf == nil {
-		conf = DefaultConfig()
+func newSession(cl closer.Closer, qs quic.Session) (s *session, err error) {
+	s = &session{
+		Closer: cl,
+		qs:     qs,
+		la:     qs.LocalAddr(),
+		ra:     qs.RemoteAddr(),
 	}
+	s.OnClosing(qs.Close)
 
-	qs, err := quic.Dial(conn, remoteAddr, host, tlsConf, conf)
+	// Always close on error.
+	defer func() {
+		if err != nil {
+			s.Close_()
+		}
+	}()
+
+	// Always close if the quic session closes.
+	go func() {
+		select {
+		case <-s.ClosingChan():
+		case <-qs.Context().Done():
+		}
+		s.Close_()
+	}()
+
+	return
+}
+
+// Implements the orbit.Conn interface.
+func (s *session) AcceptStream(ctx context.Context) (net.Conn, error) {
+	stream, err := s.qs.AcceptStream(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	return newSession(cl, qs)
+	return newStream(stream, s.la, s.ra), nil
 }
 
-func NewUDPConn(
-	addr string,
-	tlsConf *tls.Config,
-	conf *quic.Config,
-) (orbit.Conn, error) {
-	return NewUDPConnWithCloser(addr, tlsConf, conf, closer.New())
-}
-
-func NewUDPConnWithCloser(
-	addr string,
-	tlsConf *tls.Config,
-	conf *quic.Config,
-	cl closer.Closer,
-) (orbit.Conn, error) {
-	// Prepare quic config.
-	if conf == nil {
-		conf = DefaultConfig()
-	}
-
-	qs, err := quic.DialAddr(addr, tlsConf, conf)
+// Implements the orbit.Conn interface.
+func (s *session) OpenStream(ctx context.Context) (net.Conn, error) {
+	stream, err := s.qs.OpenStreamSync(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	return newSession(cl, qs)
+	return newStream(stream, s.la, s.ra), nil
+}
+
+// Implements the orbit.Conn interface.
+func (s *session) LocalAddr() net.Addr {
+	return s.la
+}
+
+// Implements the orbit.Conn interface.
+func (s *session) RemoteAddr() net.Addr {
+	return s.ra
 }
