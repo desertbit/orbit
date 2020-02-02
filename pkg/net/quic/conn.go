@@ -38,17 +38,17 @@ import (
 )
 
 func NewConn(
-	conn net.PacketConn,
+	pconn net.PacketConn,
 	remoteAddr net.Addr,
 	host string,
 	tlsConf *tls.Config,
 	conf *quic.Config,
 ) (orbit.Conn, error) {
-	return NewConnWithCloser(conn, remoteAddr, host, tlsConf, conf, closer.New())
+	return NewConnWithCloser(pconn, remoteAddr, host, tlsConf, conf, closer.New())
 }
 
 func NewConnWithCloser(
-	conn net.PacketConn,
+	pconn net.PacketConn,
 	remoteAddr net.Addr,
 	host string,
 	tlsConf *tls.Config,
@@ -60,7 +60,11 @@ func NewConnWithCloser(
 		conf = DefaultConfig()
 	}
 
-	qs, err := quic.Dial(conn, remoteAddr, host, tlsConf, conf)
+	// Create context from closer.
+	ctx, cancel := cl.Context()
+	defer cancel()
+
+	qs, err := quic.DialContext(ctx, pconn, remoteAddr, host, tlsConf, conf)
 	if err != nil {
 		return nil, err
 	}
@@ -87,7 +91,11 @@ func NewUDPConnWithCloser(
 		conf = DefaultConfig()
 	}
 
-	qs, err := quic.DialAddr(addr, tlsConf, conf)
+	// Create a context from closer.
+	ctx, cancel := cl.Context()
+	defer cancel()
+
+	qs, err := quic.DialAddrContext(ctx, addr, tlsConf, conf)
 	if err != nil {
 		return nil, err
 	}

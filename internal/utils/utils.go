@@ -54,8 +54,9 @@ func RandomString(n uint) (string, error) {
 	return string(bytes), nil
 }
 
-// TODO: doc
-func ToLowerFirst(s string) string {
+// NoTitle performs the opposite operation of the strings.Title() func.
+// It ensures the first char of the given string is lowercase.
+func NoTitle(s string) string {
 	done := false
 	return strings.Map(func(r rune) rune {
 		if !done {

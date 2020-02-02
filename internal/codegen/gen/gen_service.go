@@ -35,6 +35,11 @@ import (
 	"github.com/desertbit/orbit/internal/utils"
 )
 
+const (
+	consumer = "Client"
+	provider = "Server"
+)
+
 func (g *generator) genServices(services []*ast.Service, errs []*ast.Error) {
 	// Sort the services in lexicographical order.
 	sort.Slice(services, func(i, j int) bool {
@@ -86,12 +91,12 @@ func (g *generator) genService(srvc *ast.Service, errs []*ast.Error) {
 	g.writeLn("")
 
 	// Create the interfaces.
-	g.genServiceInterface("Consumer", srvc.Name, calls, revCalls, streams, revStreams)
-	g.genServiceInterface("Provider", srvc.Name, revCalls, calls, revStreams, streams)
+	g.genServiceInterface(consumer, srvc.Name, calls, revCalls, streams, revStreams)
+	g.genServiceInterface(provider, srvc.Name, revCalls, calls, revStreams, streams)
 
 	// Create the private structs implementing the caller interfaces and providing the orbit handlers.
-	g.genServiceStruct("Consumer", srvc.Name, calls, revCalls, streams, revStreams, errs)
-	g.genServiceStruct("Provider", srvc.Name, revCalls, calls, revStreams, streams, errs)
+	g.genServiceStruct(consumer, srvc.Name, calls, revCalls, streams, revStreams, errs)
+	g.genServiceStruct(provider, srvc.Name, revCalls, calls, revStreams, streams, errs)
 }
 
 func (g *generator) genServiceInterface(name, srvcName string, calls, revCalls []*ast.Call, streams, revStreams []*ast.Stream) {
@@ -146,7 +151,7 @@ func (g *generator) genServiceStruct(
 	streams, revStreams []*ast.Stream,
 	errs []*ast.Error,
 ) {
-	srvcNamePrv := utils.ToLowerFirst(srvcName)
+	srvcNamePrv := utils.NoTitle(srvcName)
 
 	// Write struct.
 	strName := srvcNamePrv + name

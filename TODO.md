@@ -1,11 +1,7 @@
 # TODO:
-
-- check both yamux and quic to use dialContext/Timeout when establishing new connections. Probably must be connected with the closer
-- rename consumer and provider to client and server?
-- provide a default auth module
-- provide a logging module
+- use tls.dialContext in yamux, once the new go version has come out
 - add maxmsgsize to calls (and streams?), but optional!!! take config value as default.
-- update the comments and remove unneeded parts.
+- update the comments and remove unneeded parts (like old pkg).
 - update tests
 
 ## OLD:

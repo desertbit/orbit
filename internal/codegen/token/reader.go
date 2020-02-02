@@ -33,6 +33,10 @@ import (
 	"unicode"
 )
 
+var (
+	ErrNewlineInSingQuoteString = errors.New("newline in single quote string")
+)
+
 type Reader interface {
 	// Returns io.EOF, if no more tokens available.
 	// This especially means, that if a non nil token is returned, err is nil.
@@ -49,7 +53,7 @@ type reader struct {
 
 	nextValue      []rune
 	nextTokenReady bool
-	quote          bool
+	singQuote      bool
 	lines          int
 }
 
@@ -84,7 +88,13 @@ func (r *reader) Next() (t *Token, err error) {
 			return
 		}
 
-		if r.quote && nr != singQuote {
+		if r.singQuote && nr != singQuote {
+			// Newlines in single quotes are not allowed!
+			if nr == newLine {
+				err = ErrNewlineInSingQuoteString
+				return
+			}
+
 			r.nextValue = append(r.nextValue, nr)
 		} else if unicode.IsSpace(nr) {
 			// Build the token before checking for a new line.
@@ -106,7 +116,8 @@ func (r *reader) Next() (t *Token, err error) {
 			nr == equal ||
 			nr == singQuote {
 			if nr == singQuote {
-				r.quote = !r.quote
+				r.singQuote = !r.singQuote
+				println("singQuote", r.singQuote)
 			}
 
 			// Return next token first.
@@ -131,6 +142,7 @@ func (r *reader) Reset(rr io.RuneReader) {
 	r.rr = rr
 	r.nextValue = r.nextValue[:0]
 	r.nextTokenReady = false
+	r.singQuote = false
 	r.lines = 1
 }
 

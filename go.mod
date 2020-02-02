@@ -3,9 +3,8 @@ module github.com/desertbit/orbit
 go 1.13
 
 require (
-	github.com/davecgh/go-spew v1.1.1
-	github.com/desertbit/closer v2.0.1+incompatible
-	github.com/desertbit/closer/v3 v3.1.1
+	github.com/desertbit/closer v2.0.1+incompatible // indirect
+	github.com/desertbit/closer/v3 v3.1.2
 	github.com/desertbit/event v0.0.0-20170911110340-fabed832af62 // indirect
 	github.com/desertbit/grumble v1.0.3
 	github.com/go-playground/validator v9.31.0+incompatible // indirect
@@ -21,7 +20,7 @@ require (
 	github.com/tinylib/msgp v1.1.0
 	github.com/vmihailenco/msgpack v4.0.4+incompatible // indirect
 	golang.org/x/crypto v0.0.0-20190829043050-9756ffdc2472
-	golang.org/x/sys v0.0.0-20191228213918-04cbcbbfeed8
+	golang.org/x/sys v0.0.0-20191228213918-04cbcbbfeed8 // indirect
 	google.golang.org/appengine v1.5.0 // indirect
 	gopkg.in/AlecAivazis/survey.v1 v1.8.5
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 // indirect

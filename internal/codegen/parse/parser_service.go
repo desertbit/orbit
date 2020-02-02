@@ -121,8 +121,11 @@ func (p *parser) expectServiceCall(rev bool) (c *ast.Call, err error) {
 				return
 			}
 
-			// Consume ':', if present.
-			_ = p.checkSymbol(token.Colon)
+			// Consume ':'.
+			err = p.expectSymbol(token.Colon)
+			if err != nil {
+				return
+			}
 
 			// Parse args.
 			c.Args, c.ArgsValTag, err = p.expectServiceEntryType(c.Name + "Args")
@@ -136,8 +139,11 @@ func (p *parser) expectServiceCall(rev bool) (c *ast.Call, err error) {
 				return
 			}
 
-			// Consume ':', if present.
-			_ = p.checkSymbol(token.Colon)
+			// Consume ':'.
+			err = p.expectSymbol(token.Colon)
+			if err != nil {
+				return
+			}
 
 			// Parse ret.
 			c.Ret, c.RetValTag, err = p.expectServiceEntryType(c.Name + "Ret")
@@ -159,8 +165,11 @@ func (p *parser) expectServiceCall(rev bool) (c *ast.Call, err error) {
 				return
 			}
 
-			// Consume ':', if present.
-			_ = p.checkSymbol(token.Colon)
+			// Consume ':'.
+			err = p.expectSymbol(token.Colon)
+			if err != nil {
+				return
+			}
 
 			// Parse timeout.
 			c.Timeout, err = p.expectTimeDuration()
@@ -202,8 +211,11 @@ func (p *parser) expectServiceStream(rev bool) (s *ast.Stream, err error) {
 				return
 			}
 
-			// Consume ':', if present.
-			_ = p.checkSymbol(token.Colon)
+			// Consume ':'.
+			err = p.expectSymbol(token.Colon)
+			if err != nil {
+				return
+			}
 
 			// Parse args.
 			s.Args, s.ArgsValTag, err = p.expectServiceEntryType(s.Name + "Args")
@@ -217,8 +229,11 @@ func (p *parser) expectServiceStream(rev bool) (s *ast.Stream, err error) {
 				return
 			}
 
-			// Consume ':', if present.
-			_ = p.checkSymbol(token.Colon)
+			// Consume ':'.
+			err = p.expectSymbol(token.Colon)
+			if err != nil {
+				return
+			}
 
 			// Parse ret.
 			s.Ret, s.RetValTag, err = p.expectServiceEntryType(s.Name + "Ret")

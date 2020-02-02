@@ -35,11 +35,33 @@ import (
 )
 
 func TestRandomString(t *testing.T) {
+	t.Parallel()
+
 	testCases := []uint{0, 1, 10, 100}
 
 	for i, c := range testCases {
 		s, err := utils.RandomString(c)
-		require.NoErrorf(t, err, "case %d", i+1)
-		require.Lenf(t, s, int(c), "case %d", i+1)
+		require.NoErrorf(t, err, "case %d", i)
+		require.Lenf(t, s, int(c), "case %d", i)
+	}
+}
+
+func TestNoTitle(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		val string
+		exp string
+	}{
+		{val: "", exp: ""}, // 0
+		{val: "hello", exp: "hello"},
+		{val: "Hello", exp: "hello"},
+		{val: "HELLO", exp: "hELLO"},
+		{val: " Hello", exp: " Hello"},
+		{val: "He llo", exp: "he llo"}, // 5
+	}
+
+	for i, c := range testCases {
+		require.Exactly(t, c.exp, utils.NoTitle(c.val), "case %d", i)
 	}
 }

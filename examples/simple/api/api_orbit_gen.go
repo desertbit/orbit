@@ -462,7 +462,7 @@ const (
 	S1Rs3     = "Rs3"
 )
 
-type S1ConsumerCaller interface {
+type S1ClientCaller interface {
 	// Calls
 	C1(ctx context.Context, args int) (ret float32, err error)
 	C2(ctx context.Context, args time.Time) (ret []map[string][]*Ret, err error)
@@ -473,7 +473,7 @@ type S1ConsumerCaller interface {
 	S3(ctx context.Context) (ret *En1ReadChan, err error)
 }
 
-type S1ConsumerHandler interface {
+type S1ClientHandler interface {
 	// Calls
 	Rc1(ctx context.Context, s *orbit.Session, args *Args) (ret *Rc1Ret, err error)
 	Rc2(ctx context.Context, s *orbit.Session, args *Rc2Args) (err error)
@@ -484,7 +484,7 @@ type S1ConsumerHandler interface {
 	Rs3(s *orbit.Session, stream net.Conn)
 }
 
-type S1ProviderCaller interface {
+type S1ServerCaller interface {
 	// Calls
 	Rc1(ctx context.Context, args *Args) (ret *Rc1Ret, err error)
 	Rc2(ctx context.Context, args *Rc2Args) (err error)
@@ -495,7 +495,7 @@ type S1ProviderCaller interface {
 	Rs3(ctx context.Context) (stream net.Conn, err error)
 }
 
-type S1ProviderHandler interface {
+type S1ServerHandler interface {
 	// Calls
 	C1(ctx context.Context, s *orbit.Session, args int) (ret float32, err error)
 	C2(ctx context.Context, s *orbit.Session, args time.Time) (ret []map[string][]*Ret, err error)
@@ -506,13 +506,13 @@ type S1ProviderHandler interface {
 	S3(s *orbit.Session, ret *En1WriteChan)
 }
 
-type s1Consumer struct {
-	h S1ConsumerHandler
+type s1Client struct {
+	h S1ClientHandler
 	s *orbit.Session
 }
 
-func RegisterS1Consumer(s *orbit.Session, h S1ConsumerHandler) S1ConsumerCaller {
-	cc := &s1Consumer{h: h, s: s}
+func RegisterS1Client(s *orbit.Session, h S1ClientHandler) S1ClientCaller {
+	cc := &s1Client{h: h, s: s}
 	s.RegisterCall(ServiceS1, S1Rc1, cc.rc1)
 	s.RegisterCall(ServiceS1, S1Rc2, cc.rc2)
 	s.RegisterCall(ServiceS1, S1Rc3, cc.rc3)
@@ -522,7 +522,7 @@ func RegisterS1Consumer(s *orbit.Session, h S1ConsumerHandler) S1ConsumerCaller 
 	return cc
 }
 
-func (v1 *s1Consumer) C1(ctx context.Context, args int) (ret float32, err error) {
+func (v1 *s1Client) C1(ctx context.Context, args int) (ret float32, err error) {
 	ct := v1.s.CallTimeout()
 	if ct > 0 {
 		var cancel context.CancelFunc
@@ -546,7 +546,7 @@ func (v1 *s1Consumer) C1(ctx context.Context, args int) (ret float32, err error)
 	return
 }
 
-func (v1 *s1Consumer) C2(ctx context.Context, args time.Time) (ret []map[string][]*Ret, err error) {
+func (v1 *s1Client) C2(ctx context.Context, args time.Time) (ret []map[string][]*Ret, err error) {
 	ct := v1.s.CallTimeout()
 	if ct > 0 {
 		var cancel context.CancelFunc
@@ -570,7 +570,7 @@ func (v1 *s1Consumer) C2(ctx context.Context, args time.Time) (ret []map[string]
 	return
 }
 
-func (v1 *s1Consumer) C3(ctx context.Context) (err error) {
+func (v1 *s1Client) C3(ctx context.Context) (err error) {
 	ct := v1.s.CallTimeout()
 	if ct > 0 {
 		var cancel context.CancelFunc
@@ -585,7 +585,7 @@ func (v1 *s1Consumer) C3(ctx context.Context) (err error) {
 	return
 }
 
-func (v1 *s1Consumer) rc1(ctx context.Context, s *orbit.Session, ad *orbit.Data) (r interface{}, err error) {
+func (v1 *s1Client) rc1(ctx context.Context, s *orbit.Session, ad *orbit.Data) (r interface{}, err error) {
 	var args *Args
 	err = ad.Decode(&args)
 	if err != nil {
@@ -605,7 +605,7 @@ func (v1 *s1Consumer) rc1(ctx context.Context, s *orbit.Session, ad *orbit.Data)
 	return
 }
 
-func (v1 *s1Consumer) rc2(ctx context.Context, s *orbit.Session, ad *orbit.Data) (r interface{}, err error) {
+func (v1 *s1Client) rc2(ctx context.Context, s *orbit.Session, ad *orbit.Data) (r interface{}, err error) {
 	var args *Rc2Args
 	err = ad.Decode(&args)
 	if err != nil {
@@ -624,7 +624,7 @@ func (v1 *s1Consumer) rc2(ctx context.Context, s *orbit.Session, ad *orbit.Data)
 	return
 }
 
-func (v1 *s1Consumer) rc3(ctx context.Context, s *orbit.Session, ad *orbit.Data) (r interface{}, err error) {
+func (v1 *s1Client) rc3(ctx context.Context, s *orbit.Session, ad *orbit.Data) (r interface{}, err error) {
 	err = v1.h.Rc3(ctx, s)
 	if err != nil {
 		err = _errToOrbitErrCodeCheck(err)
@@ -633,11 +633,11 @@ func (v1 *s1Consumer) rc3(ctx context.Context, s *orbit.Session, ad *orbit.Data)
 	return
 }
 
-func (v1 *s1Consumer) S1(ctx context.Context) (stream net.Conn, err error) {
+func (v1 *s1Client) S1(ctx context.Context) (stream net.Conn, err error) {
 	return v1.s.OpenStream(ctx, ServiceS1, S1S1)
 }
 
-func (v1 *s1Consumer) S2(ctx context.Context) (args *StringWriteChan, err error) {
+func (v1 *s1Client) S2(ctx context.Context) (args *StringWriteChan, err error) {
 	stream, err := v1.s.OpenStream(ctx, ServiceS1, S1S2)
 	if err != nil {
 		return
@@ -647,7 +647,7 @@ func (v1 *s1Consumer) S2(ctx context.Context) (args *StringWriteChan, err error)
 	return
 }
 
-func (v1 *s1Consumer) S3(ctx context.Context) (ret *En1ReadChan, err error) {
+func (v1 *s1Client) S3(ctx context.Context) (ret *En1ReadChan, err error) {
 	stream, err := v1.s.OpenStream(ctx, ServiceS1, S1S3)
 	if err != nil {
 		return
@@ -657,7 +657,7 @@ func (v1 *s1Consumer) S3(ctx context.Context) (ret *En1ReadChan, err error) {
 	return
 }
 
-func (v1 *s1Consumer) rs1(s *orbit.Session, stream net.Conn) {
+func (v1 *s1Client) rs1(s *orbit.Session, stream net.Conn) {
 	args := newArgsReadChan(v1.s.CloserOneWay(), stream, v1.s.Codec())
 	ret := newRetWriteChan(v1.s.CloserOneWay(), stream, v1.s.Codec())
 	go func() {
@@ -668,23 +668,23 @@ func (v1 *s1Consumer) rs1(s *orbit.Session, stream net.Conn) {
 	v1.h.Rs1(s, args, ret)
 }
 
-func (v1 *s1Consumer) rs2(s *orbit.Session, stream net.Conn) {
+func (v1 *s1Client) rs2(s *orbit.Session, stream net.Conn) {
 	args := newMapStringIntReadChan(v1.s.CloserOneWay(), stream, v1.s.Codec())
 	args.OnClosing(stream.Close)
 	v1.h.Rs2(s, args)
 }
 
-func (v1 *s1Consumer) rs3(s *orbit.Session, stream net.Conn) {
+func (v1 *s1Client) rs3(s *orbit.Session, stream net.Conn) {
 	v1.h.Rs3(s, stream)
 }
 
-type s1Provider struct {
-	h S1ProviderHandler
+type s1Server struct {
+	h S1ServerHandler
 	s *orbit.Session
 }
 
-func RegisterS1Provider(s *orbit.Session, h S1ProviderHandler) S1ProviderCaller {
-	cc := &s1Provider{h: h, s: s}
+func RegisterS1Server(s *orbit.Session, h S1ServerHandler) S1ServerCaller {
+	cc := &s1Server{h: h, s: s}
 	s.RegisterCall(ServiceS1, S1C1, cc.c1)
 	s.RegisterCall(ServiceS1, S1C2, cc.c2)
 	s.RegisterCall(ServiceS1, S1C3, cc.c3)
@@ -694,7 +694,7 @@ func RegisterS1Provider(s *orbit.Session, h S1ProviderHandler) S1ProviderCaller 
 	return cc
 }
 
-func (v1 *s1Provider) Rc1(ctx context.Context, args *Args) (ret *Rc1Ret, err error) {
+func (v1 *s1Server) Rc1(ctx context.Context, args *Args) (ret *Rc1Ret, err error) {
 	ct := v1.s.CallTimeout()
 	if ct > 0 {
 		var cancel context.CancelFunc
@@ -718,8 +718,8 @@ func (v1 *s1Provider) Rc1(ctx context.Context, args *Args) (ret *Rc1Ret, err err
 	return
 }
 
-func (v1 *s1Provider) Rc2(ctx context.Context, args *Rc2Args) (err error) {
-	ctx, cancel := context.WithTimeout(ctx, 5000000*time.Nanosecond)
+func (v1 *s1Server) Rc2(ctx context.Context, args *Rc2Args) (err error) {
+	ctx, cancel := context.WithTimeout(ctx, 500000000*time.Nanosecond)
 	defer cancel()
 	_, err = v1.s.CallAsync(ctx, ServiceS1, S1Rc2, args)
 	if err != nil {
@@ -729,7 +729,7 @@ func (v1 *s1Provider) Rc2(ctx context.Context, args *Rc2Args) (err error) {
 	return
 }
 
-func (v1 *s1Provider) Rc3(ctx context.Context) (err error) {
+func (v1 *s1Server) Rc3(ctx context.Context) (err error) {
 	ct := v1.s.CallTimeout()
 	if ct > 0 {
 		var cancel context.CancelFunc
@@ -744,7 +744,7 @@ func (v1 *s1Provider) Rc3(ctx context.Context) (err error) {
 	return
 }
 
-func (v1 *s1Provider) c1(ctx context.Context, s *orbit.Session, ad *orbit.Data) (r interface{}, err error) {
+func (v1 *s1Server) c1(ctx context.Context, s *orbit.Session, ad *orbit.Data) (r interface{}, err error) {
 	var args int
 	err = ad.Decode(&args)
 	if err != nil {
@@ -764,7 +764,7 @@ func (v1 *s1Provider) c1(ctx context.Context, s *orbit.Session, ad *orbit.Data) 
 	return
 }
 
-func (v1 *s1Provider) c2(ctx context.Context, s *orbit.Session, ad *orbit.Data) (r interface{}, err error) {
+func (v1 *s1Server) c2(ctx context.Context, s *orbit.Session, ad *orbit.Data) (r interface{}, err error) {
 	var args time.Time
 	err = ad.Decode(&args)
 	if err != nil {
@@ -784,7 +784,7 @@ func (v1 *s1Provider) c2(ctx context.Context, s *orbit.Session, ad *orbit.Data) 
 	return
 }
 
-func (v1 *s1Provider) c3(ctx context.Context, s *orbit.Session, ad *orbit.Data) (r interface{}, err error) {
+func (v1 *s1Server) c3(ctx context.Context, s *orbit.Session, ad *orbit.Data) (r interface{}, err error) {
 	err = v1.h.C3(ctx, s)
 	if err != nil {
 		err = _errToOrbitErrCodeCheck(err)
@@ -793,7 +793,7 @@ func (v1 *s1Provider) c3(ctx context.Context, s *orbit.Session, ad *orbit.Data) 
 	return
 }
 
-func (v1 *s1Provider) Rs1(ctx context.Context) (args *ArgsWriteChan, ret *RetReadChan, err error) {
+func (v1 *s1Server) Rs1(ctx context.Context) (args *ArgsWriteChan, ret *RetReadChan, err error) {
 	stream, err := v1.s.OpenStream(ctx, ServiceS1, S1Rs1)
 	if err != nil {
 		return
@@ -808,7 +808,7 @@ func (v1 *s1Provider) Rs1(ctx context.Context) (args *ArgsWriteChan, ret *RetRea
 	return
 }
 
-func (v1 *s1Provider) Rs2(ctx context.Context) (args *MapStringIntWriteChan, err error) {
+func (v1 *s1Server) Rs2(ctx context.Context) (args *MapStringIntWriteChan, err error) {
 	stream, err := v1.s.OpenStream(ctx, ServiceS1, S1Rs2)
 	if err != nil {
 		return
@@ -818,20 +818,20 @@ func (v1 *s1Provider) Rs2(ctx context.Context) (args *MapStringIntWriteChan, err
 	return
 }
 
-func (v1 *s1Provider) Rs3(ctx context.Context) (stream net.Conn, err error) {
+func (v1 *s1Server) Rs3(ctx context.Context) (stream net.Conn, err error) {
 	return v1.s.OpenStream(ctx, ServiceS1, S1Rs3)
 }
 
-func (v1 *s1Provider) s1(s *orbit.Session, stream net.Conn) {
+func (v1 *s1Server) s1(s *orbit.Session, stream net.Conn) {
 	v1.h.S1(s, stream)
 }
-func (v1 *s1Provider) s2(s *orbit.Session, stream net.Conn) {
+func (v1 *s1Server) s2(s *orbit.Session, stream net.Conn) {
 	args := newStringReadChan(v1.s.CloserOneWay(), stream, v1.s.Codec())
 	args.OnClosing(stream.Close)
 	v1.h.S2(s, args)
 }
 
-func (v1 *s1Provider) s3(s *orbit.Session, stream net.Conn) {
+func (v1 *s1Server) s3(s *orbit.Session, stream net.Conn) {
 	ret := newEn1WriteChan(v1.s.CloserOneWay(), stream, v1.s.Codec())
 	ret.OnClosing(stream.Close)
 	v1.h.S3(s, ret)

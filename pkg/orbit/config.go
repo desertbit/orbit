@@ -28,7 +28,6 @@
 package orbit
 
 import (
-	"net"
 	"os"
 	"time"
 
@@ -40,18 +39,11 @@ import (
 const (
 	// todo:
 	defaultInitTimeout = 10 * time.Second
+	// todo:
+	defaultCallTimeout = 30 * time.Second
 )
 
 type Config struct {
-	// AuthnFunc authenticates the session connection, if defined.
-	// It gets called right after the version byte has been exchanged
-	// between client and server.
-	AuthnFunc AuthnFunc
-
-	// AuthzFunc authorizes every request made by a session, if defined.
-	// It gets called, before the associated handler func is executed.
-	AuthzFunc AuthzFunc
-
 	Log   *zerolog.Logger
 	Codec codec.Codec
 
@@ -63,7 +55,8 @@ type Config struct {
 
 	// CallTimeout specifies the default timeout for any Call.
 	// This value can be overridden per call in the .orbit file.
-	// Per default, no timeout is set.
+	// A value < 0 means no timeout.
+	// A value of 0 will take the default call timeout value.
 	CallTimeout time.Duration
 }
 
@@ -82,9 +75,12 @@ func prepareConfig(c *Config) *Config {
 	if c.Codec == nil {
 		c.Codec = msgpack.Codec
 	}
-	var co net.Conn
+
 	if c.InitTimeout == 0 {
 		c.InitTimeout = defaultInitTimeout
+	}
+	if c.CallTimeout == 0 {
+		c.CallTimeout = defaultCallTimeout
 	}
 	return c
 }

@@ -46,10 +46,6 @@ import (
 	yaml "gopkg.in/yaml.v3"
 )
 
-/*
-TODO: clean up generator struct, it was originally designed for multiple and single files.
-*/
-
 const (
 	dirPerm  = 0755
 	filePerm = 0666
@@ -161,7 +157,7 @@ func findModifiedOrbitFiles(dir string, force bool) (filePaths []string, err err
 		// Ensure, our directory exists.
 		err = os.MkdirAll(filepath.Join(ucd, cacheDir), dirPerm)
 		if err != nil {
-			err = fmt.Errorf("failed to create orbit config dir: %v", err)
+			err = fmt.Errorf("failed to create orbit cache dir: %v", err)
 			return
 		}
 

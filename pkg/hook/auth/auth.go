@@ -25,85 +25,34 @@
  * SOFTWARE.
  */
 
-package ast
+package auth
 
 import (
+	"crypto/sha256"
+	"errors"
 	"time"
 
-	"github.com/desertbit/orbit/internal/utils"
+	"github.com/desertbit/orbit/pkg/hook/auth/bcrypt"
 )
 
-type Tree struct {
-	Srvcs []*Service
-	Types []*Type
-	Errs  []*Error
-	Enums []*Enum
+const (
+	timeout      = 20 * time.Second
+	flushTimeout = 7 * time.Second
+)
+
+var (
+	errAuthFailed      = errors.New("authentication failed")
+	errInvalidUsername = errors.New("invalid username")
+	errInvalidPassword = errors.New("invalid password")
+)
+
+// Checksum calculates the SHA256 Checksum of the given string.
+func Checksum(s string) [32]byte {
+	return sha256.Sum256([]byte(s))
 }
 
-type Enum struct {
-	Name   string
-	Values []*EnumValue
-	Line   int
-}
-
-type EnumValue struct {
-	Name  string
-	Value int
-	Line  int
-}
-
-type Error struct {
-	Name string
-	ID   int
-	Line int
-}
-
-type Type struct {
-	Name   string
-	Fields []*TypeField
-	Line   int
-}
-
-type TypeField struct {
-	Name     string
-	DataType DataType
-	ValTag   string
-	Line     int
-}
-
-type Service struct {
-	Name    string
-	Calls   []*Call
-	Streams []*Stream
-	Line    int
-}
-
-type Call struct {
-	Name       string
-	Rev        bool
-	Args       DataType
-	ArgsValTag string
-	Ret        DataType
-	RetValTag  string
-	Async      bool
-	Timeout    *time.Duration
-	Line       int
-}
-
-func (c *Call) NamePrv() string {
-	return utils.NoTitle(c.Name)
-}
-
-type Stream struct {
-	Name       string
-	Rev        bool
-	Args       DataType
-	ArgsValTag string
-	Ret        DataType
-	RetValTag  string
-	Line       int
-}
-
-func (s *Stream) NamePrv() string {
-	return utils.NoTitle(s.Name)
+// Hash calculates the bcrypt hash of the SHA256 checksum of the given string.
+func Hash(s string) ([]byte, error) {
+	checksum := Checksum(s)
+	return bcrypt.Generate(checksum[:])
 }

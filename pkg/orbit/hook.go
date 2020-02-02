@@ -29,43 +29,30 @@ package orbit
 
 import (
 	"net"
-	"time"
-
-	"github.com/desertbit/orbit/internal/flusher"
 )
 
-const (
-	flushTimeout = 3 * time.Second
-)
+// Hook allows third-party code to hook into orbit's logic, to implement for example
+// logging or authentication functionality.
+// Hooks that return an error have the capability to abort the action that triggered them.
+// E.g. if OnNewSession() returns a non-nil error, the session will be closed.
+type Hook interface {
+	// Server
 
-// authnSession calls the authentication func defined in the given config.
-// If no such func has been defined, it returns immediately.
-// This is a convenience func that ensures the connection is flushed,
-// even if the authentication fails. That ensures that errors can be
-// handled appropriately on each peer's side.
-// Can be called for both the server and client side.
-func authnSession(conn net.Conn, config *Config) (v interface{}, err error) {
-	// Skip if no authentication hook is defined.
-	if config.AuthnFunc == nil {
-		return
-	}
+	// Called after the session has established a first stream and exchanged
+	// the version byte.
+	// The session has not an ID yet at this point!
+	// If the returned err != nil, the new session is closed immediately.
+	OnNewSession(s *Session, stream net.Conn) error
 
-	// Always flush the connection on defer.
-	// Otherwise authentication errors might not be send
-	// to the peer, because the connection is closed too fast.
-	defer func() {
-		derr := flusher.Flush(conn, flushTimeout)
-		if err == nil {
-			err = derr
-		}
-	}()
+	// Session
 
-	// Reset the deadlines.
-	err = conn.SetDeadline(time.Time{})
-	if err != nil {
-		return
-	}
+	// todo:
+	// If the returned err != nil, the call is aborted.
+	OnNewCall(s *Session, service, id string) error
+	// todo:
+	// If err == nil, then the call completed successfully.
+	OnCallCompleted(s *Session, service, id string, err error)
 
-	// Call the authentication func defined in the config.
-	return config.AuthnFunc(conn)
+	// If the returned err != nil, the stream is aborted.
+	OnNewStream(s *Session, service, id string) error
 }

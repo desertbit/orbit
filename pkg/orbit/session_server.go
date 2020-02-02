@@ -37,7 +37,7 @@ import (
 )
 
 // serverSession is the internal helper to initialize a new server-side session.
-func newServerSession(cl closer.Closer, conn Conn, cf *Config) (s *Session, err error) {
+func newServerSession(cl closer.Closer, conn Conn, cf *Config, hs []Hook) (s *Session, err error) {
 	// Always close the conn on error.
 	defer func() {
 		if err != nil {
@@ -99,18 +99,11 @@ func newServerSession(cl closer.Closer, conn Conn, cf *Config) (s *Session, err 
 		return
 	}
 
-	// TODO:
-	// Authenticate if required.
-	value, err := authnSession(stream, cf)
+	// Finally, create the orbit server session.
+	s, err = newSession(cl, conn, stream, cf, hs)
 	if err != nil {
 		return
 	}
 
-	// Finally, create the orbit server session.
-	s = newSession(cl, conn, cf)
-
-	// TODO: remove.
-	// Save the arbitrary data from the auth func.
-	s.Value = value
 	return
 }

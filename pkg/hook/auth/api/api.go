@@ -25,85 +25,14 @@
  * SOFTWARE.
  */
 
-package ast
+//go:generate msgp
+package api
 
-import (
-	"time"
-
-	"github.com/desertbit/orbit/internal/utils"
-)
-
-type Tree struct {
-	Srvcs []*Service
-	Types []*Type
-	Errs  []*Error
-	Enums []*Enum
+type Request struct {
+	Username string
+	Pw       []byte
 }
 
-type Enum struct {
-	Name   string
-	Values []*EnumValue
-	Line   int
-}
-
-type EnumValue struct {
-	Name  string
-	Value int
-	Line  int
-}
-
-type Error struct {
-	Name string
-	ID   int
-	Line int
-}
-
-type Type struct {
-	Name   string
-	Fields []*TypeField
-	Line   int
-}
-
-type TypeField struct {
-	Name     string
-	DataType DataType
-	ValTag   string
-	Line     int
-}
-
-type Service struct {
-	Name    string
-	Calls   []*Call
-	Streams []*Stream
-	Line    int
-}
-
-type Call struct {
-	Name       string
-	Rev        bool
-	Args       DataType
-	ArgsValTag string
-	Ret        DataType
-	RetValTag  string
-	Async      bool
-	Timeout    *time.Duration
-	Line       int
-}
-
-func (c *Call) NamePrv() string {
-	return utils.NoTitle(c.Name)
-}
-
-type Stream struct {
-	Name       string
-	Rev        bool
-	Args       DataType
-	ArgsValTag string
-	Ret        DataType
-	RetValTag  string
-	Line       int
-}
-
-func (s *Stream) NamePrv() string {
-	return utils.NoTitle(s.Name)
+type Response struct {
+	Ok bool
 }

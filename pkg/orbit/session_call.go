@@ -413,6 +413,14 @@ func (s *Session) execCallHandler(
 			}
 		}
 	}()
+	defer func() {
+		// Must be its own defer, to catch panics!
+
+		// Call OnCallCompleted hooks.
+		for _, h := range s.hooks {
+			h.OnCallCompleted(s, service, id, err)
+		}
+	}()
 
 	// Retrieve the handler function for this request.
 	var (
@@ -428,15 +436,17 @@ func (s *Session) execCallHandler(
 		return
 	}
 
-	// Authorize the call, if needed.
-	if s.authz != nil && !s.authz(s, callID) {
-		err = fmt.Errorf("unauthorized access to call '%s'", callID)
-		return
+	// Call OnNewCall hooks.
+	for _, h := range s.hooks {
+		err = h.OnNewCall(s, service, id)
+		if err != nil {
+			err = fmt.Errorf("on new call hook: %v", err)
+			return
+		}
 	}
 
 	// Save a context in our active contexts map so we can cancel it, if needed.
-	// TODO: context is not meant for canceling, see https://dave.cheney.net/2017/08/20/context-isnt-for-cancellation
-	// TODO: lets enhance our closer and bring it to the next level
+	// TODO: context is not meant for canceling, see https://dave.cheney.net/2017/08/20/context-isnt-for-cancellation ; lets enhance our closer and bring it to the next level
 	cc := newCallContext()
 	s.callActiveCtxsMx.Lock()
 	s.callActiveCtxs[retHeader.Key] = cc

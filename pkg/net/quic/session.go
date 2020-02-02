@@ -56,11 +56,12 @@ func newSession(cl closer.Closer, qs quic.Session) (s *session, err error) {
 	s.OnClosing(qs.Close)
 
 	// Always close on error.
-	defer func() {
+	// Uncomment this, if code with errors is added!
+	/*defer func() {
 		if err != nil {
 			s.Close_()
 		}
-	}()
+	}()*/
 
 	// Always close if the quic session closes.
 	go func() {

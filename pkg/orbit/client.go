@@ -31,6 +31,6 @@ import (
 	"github.com/desertbit/closer/v3"
 )
 
-func NewClient(cl closer.Closer, conn Conn, cf *Config) (s *Session, err error) {
-	return newClientSession(cl, conn, cf)
+func NewClient(cl closer.Closer, conn Conn, cf *Config, hs ...Hook) (s *Session, err error) {
+	return newClientSession(cl, conn, cf, hs)
 }

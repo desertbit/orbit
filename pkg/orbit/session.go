@@ -38,8 +38,6 @@ import (
 	"github.com/rs/zerolog"
 )
 
-type AuthzFunc func(s *Session, id string) (ok bool)
-
 type CallFunc func(ctx context.Context, s *Session, args *Data) (ret interface{}, err error)
 
 type StreamFunc func(s *Session, stream net.Conn)
@@ -47,16 +45,16 @@ type StreamFunc func(s *Session, stream net.Conn)
 type Session struct {
 	closer.Closer
 
-	// Arbitrary data that can be set during authentication.
-	Value interface{}
-
 	cf    *Config
 	log   *zerolog.Logger
 	codec codec.Codec
-	authz AuthzFunc
+	hooks []Hook
 
 	id   string
 	conn Conn
+
+	valuesMx sync.RWMutex
+	values   map[string]interface{}
 
 	// When a new stream has been opened, the first data sent on the stream must
 	// contain the key into this map to retrieve the correct function to handle
@@ -76,13 +74,20 @@ type Session struct {
 
 // newSession creates a new orbit session from the given parameters.
 // The created session closes, if the underlying connection is closed.
-func newSession(cl closer.Closer, conn Conn, cf *Config) (s *Session) {
+// The initial stream is closed by the caller.
+func newSession(
+	cl closer.Closer,
+	conn Conn,
+	initStream net.Conn,
+	cf *Config,
+	hs []Hook,
+) (s *Session, err error) {
 	s = &Session{
 		Closer:         cl,
 		cf:             cf,
-		authz:          cf.AuthzFunc,
 		log:            cf.Log,
 		codec:          cf.Codec,
+		hooks:          hs,
 		conn:           conn,
 		streamFuncs:    make(map[string]StreamFunc),
 		callStreams:    make(map[string]*callStream),
@@ -90,6 +95,14 @@ func newSession(cl closer.Closer, conn Conn, cf *Config) (s *Session) {
 		callActiveCtxs: make(map[uint32]*callContext),
 	}
 	s.OnClosing(conn.Close)
+
+	// Call OnNewSession hooks.
+	for _, h := range hs {
+		err = h.OnNewSession(s, initStream)
+		if err != nil {
+			return
+		}
+	}
 
 	// Start accepting streams.
 	go s.acceptStreamRoutine()
@@ -120,4 +133,28 @@ func (s *Session) RemoteAddr() net.Addr {
 // CallTimeout returns the default timeout for all calls.
 func (s *Session) CallTimeout() time.Duration {
 	return s.cf.CallTimeout
+}
+
+// SetValue saves the value v for the key k in the values map.
+func (s *Session) SetValue(k string, v interface{}) {
+	s.valuesMx.Lock()
+	s.values[k] = v
+	s.valuesMx.Unlock()
+}
+
+// Value returns the value for the key k from the values map.
+// If the key does not exist, v == nil.
+func (s *Session) Value(k string) (v interface{}) {
+	s.valuesMx.RLock()
+	v = s.values[k]
+	s.valuesMx.RUnlock()
+	return
+}
+
+// DeleteValue deletes the value for the key k in the values map.
+// If the key does not exist, this is a no-op.
+func (s *Session) DeleteValue(k string) {
+	s.valuesMx.Lock()
+	delete(s.values, k)
+	s.valuesMx.Unlock()
 }

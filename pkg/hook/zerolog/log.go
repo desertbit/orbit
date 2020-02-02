@@ -25,85 +25,54 @@
  * SOFTWARE.
  */
 
-package ast
+package zerolog
 
 import (
-	"time"
+	"net"
 
-	"github.com/desertbit/orbit/internal/utils"
+	"github.com/desertbit/orbit/pkg/orbit"
+	"github.com/rs/zerolog"
 )
 
-type Tree struct {
-	Srvcs []*Service
-	Types []*Type
-	Errs  []*Error
-	Enums []*Enum
+var _ orbit.Hook = &hook{}
+
+type hook struct {
+	log *zerolog.Logger
 }
 
-type Enum struct {
-	Name   string
-	Values []*EnumValue
-	Line   int
+func Hook(log *zerolog.Logger) orbit.Hook {
+	return &hook{
+		log: log,
+	}
 }
 
-type EnumValue struct {
-	Name  string
-	Value int
-	Line  int
+func (h *hook) OnNewSession(s *orbit.Session, stream net.Conn) error {
+	h.log.Debug().
+		Str("remoteAddr", s.RemoteAddr().String()).
+		Msg("new session")
+	return nil
 }
 
-type Error struct {
-	Name string
-	ID   int
-	Line int
+func (h *hook) OnNewCall(s *orbit.Session, service, id string) error {
+	h.log.Debug().
+		Str("service", service).
+		Str("id", id).
+		Msg("new call")
+	return nil
 }
 
-type Type struct {
-	Name   string
-	Fields []*TypeField
-	Line   int
+func (h *hook) OnCallCompleted(s *orbit.Session, service, id string, err error) {
+	h.log.Debug().
+		Err(err).
+		Str("service", service).
+		Str("id", id).
+		Msg("call completed")
 }
 
-type TypeField struct {
-	Name     string
-	DataType DataType
-	ValTag   string
-	Line     int
-}
-
-type Service struct {
-	Name    string
-	Calls   []*Call
-	Streams []*Stream
-	Line    int
-}
-
-type Call struct {
-	Name       string
-	Rev        bool
-	Args       DataType
-	ArgsValTag string
-	Ret        DataType
-	RetValTag  string
-	Async      bool
-	Timeout    *time.Duration
-	Line       int
-}
-
-func (c *Call) NamePrv() string {
-	return utils.NoTitle(c.Name)
-}
-
-type Stream struct {
-	Name       string
-	Rev        bool
-	Args       DataType
-	ArgsValTag string
-	Ret        DataType
-	RetValTag  string
-	Line       int
-}
-
-func (s *Stream) NamePrv() string {
-	return utils.NoTitle(s.Name)
+func (h *hook) OnNewStream(s *orbit.Session, service, id string) error {
+	h.log.Debug().
+		Str("service", service).
+		Str("id", id).
+		Msg("new stream")
+	return nil
 }

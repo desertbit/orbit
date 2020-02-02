@@ -46,24 +46,20 @@ const (
 	maxRetriesGenSessionID = 10
 )
 
-type OnSessionCreatedHook func(s *Session)
-
 // Server implements a simple orbit server.
 type Server struct {
 	closer.Closer
 
-	ln  Listener
-	cf  *ServerConfig
-	log *zerolog.Logger
+	ln    Listener
+	cf    *ServerConfig
+	log   *zerolog.Logger
+	hooks []Hook
 
-	sessionsMutex sync.RWMutex
-	sessions      map[string]*Session
+	sessionsMx sync.RWMutex
+	sessions   map[string]*Session
 
 	connChan    chan Conn
 	sessionChan chan *Session
-
-	onSessionCreatedHookMx sync.RWMutex
-	onSessionCreatedHook   OnSessionCreatedHook
 }
 
 // NewServer creates a new orbit server. A listener is required
@@ -72,12 +68,12 @@ type Server struct {
 // been set will be initialized with a default value.
 // That makes it possible to overwrite only the interesting properties
 // for the caller.
-func NewServer(cl closer.Closer, ln Listener, cf *ServerConfig) *Server {
-	return newServer(cl, ln, cf)
+func NewServer(cl closer.Closer, ln Listener, cf *ServerConfig, hs ...Hook) *Server {
+	return newServer(cl, ln, cf, hs...)
 }
 
 // newServer is the internal helper to create a new orbit server.
-func newServer(cl closer.Closer, ln Listener, cf *ServerConfig) *Server {
+func newServer(cl closer.Closer, ln Listener, cf *ServerConfig, hs ...Hook) *Server {
 	// Prepare the config.
 	cf = prepareServerConfig(cf)
 
@@ -86,6 +82,7 @@ func newServer(cl closer.Closer, ln Listener, cf *ServerConfig) *Server {
 		ln:       ln,
 		cf:       cf,
 		log:      cf.Log,
+		hooks:    hs,
 		sessions: make(map[string]*Session),
 		connChan: make(chan Conn, cf.NewConnChanSize),
 	}
@@ -121,17 +118,17 @@ func (s *Server) Listen() error {
 // Session obtains a session by its ID.
 // Returns nil if not found.
 func (s *Server) Session(id string) (sn *Session) {
-	s.sessionsMutex.RLock()
+	s.sessionsMx.RLock()
 	sn = s.sessions[id]
-	s.sessionsMutex.RUnlock()
+	s.sessionsMx.RUnlock()
 	return
 }
 
 // Sessions returns a list of all currently connected sessions.
 func (s *Server) Sessions() []*Session {
 	// Lock the mutex.
-	s.sessionsMutex.RLock()
-	defer s.sessionsMutex.RUnlock()
+	s.sessionsMx.RLock()
+	defer s.sessionsMx.RUnlock()
 
 	// Create the slice.
 	list := make([]*Session, len(s.sessions))
@@ -144,12 +141,6 @@ func (s *Server) Sessions() []*Session {
 	}
 
 	return list
-}
-
-func (s *Server) OnNewSession(h OnSessionCreatedHook) {
-	s.onSessionCreatedHookMx.Lock()
-	s.onSessionCreatedHook = h
-	s.onSessionCreatedHookMx.Unlock()
 }
 
 //###############//
@@ -202,7 +193,7 @@ func (s *Server) handleConnection(conn Conn) {
 	}()
 
 	// Create a new server session.
-	sn, err := newServerSession(s.CloserOneWay(), conn, s.cf.Config)
+	sn, err := newServerSession(s.CloserOneWay(), conn, s.cf.Config, s.hooks)
 	if err != nil {
 		return
 	}
@@ -226,8 +217,8 @@ func (s *Server) handleConnection(conn Conn) {
 		}
 
 		added = func() bool {
-			s.sessionsMutex.Lock()
-			defer s.sessionsMutex.Unlock()
+			s.sessionsMx.Lock()
+			defer s.sessionsMx.Unlock()
 
 			if _, ok := s.sessions[id]; ok {
 				return false
@@ -246,27 +237,20 @@ func (s *Server) handleConnection(conn Conn) {
 		return
 	}
 
+	// Remove the session from the session map, once it closes.
 	sn.OnClosing(func() error {
-		// Speed up the closing process when the server closes by returning directly.
+		// Speed up the closing process when the server closes.
 		if s.IsClosing() {
 			return nil
 		}
 
-		s.sessionsMutex.Lock()
+		s.sessionsMx.Lock()
 		delete(s.sessions, id)
-		s.sessionsMutex.Unlock()
+		s.sessionsMx.Unlock()
 		return nil
 	})
 
-	// Session created, call hook.
-	var h OnSessionCreatedHook
-	s.onSessionCreatedHookMx.RLock()
-	h = s.onSessionCreatedHook
-	s.onSessionCreatedHookMx.RUnlock()
-	if h != nil {
-		h(sn)
-	}
-
+	// todo:
 	s.log.Debug().
 		Str("ID", id).
 		Msg("server: new session")

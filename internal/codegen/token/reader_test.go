@@ -37,6 +37,11 @@ import (
 )
 
 func TestReader_Next(t *testing.T) {
+	t.Run("ok", testReaderNextOk)
+	t.Run("fail", testReaderNextFail)
+}
+
+func testReaderNextOk(t *testing.T) {
 	t.Parallel()
 
 	const data = ` this 
@@ -81,6 +86,35 @@ is some ex123ample{ text
 		{val: token.SingQuote, line: 8, err: nil},
 		{val: "yaa", line: 8, err: nil},
 		{err: io.EOF}, // 20
+	}
+	tr := token.NewReader(strings.NewReader(data))
+
+	for i, c := range cases {
+		tk, err := tr.Next()
+		require.Equal(t, c.err, err, "case %d", i)
+
+		if c.err != nil {
+			require.Nil(t, tk)
+		} else {
+			require.Equal(t, c.val, tk.Value, "case %d", i)
+			require.Equal(t, c.line, tk.Line, "case %d", i)
+		}
+	}
+}
+
+func testReaderNextFail(t *testing.T) {
+	t.Parallel()
+
+	const data = `'
+test'`
+
+	cases := []struct {
+		val  string
+		line int
+		err  error
+	}{
+		{val: token.SingQuote, line: 1, err: nil}, // 0
+		{val: "", line: 1, err: token.ErrNewlineInSingQuoteString},
 	}
 	tr := token.NewReader(strings.NewReader(data))
 

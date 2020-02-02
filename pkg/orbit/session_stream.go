@@ -192,11 +192,13 @@ func (s *Session) handleNewStream(stream net.Conn) {
 			return
 		}
 
-		// TODO:
-		// Authorize the stream, if needed.
-		if s.authz != nil && !s.authz(s, data.ID) {
-			err = fmt.Errorf("unauthorized access to stream '%s'", streamID)
-			return
+		// Call OnNewStream hooks.
+		for _, h := range s.hooks {
+			err = h.OnNewStream(s, data.Service, data.ID)
+			if err != nil {
+				err = fmt.Errorf("on new stream hook: %v", err)
+				return
+			}
 		}
 
 		// TODO: should we log here?
