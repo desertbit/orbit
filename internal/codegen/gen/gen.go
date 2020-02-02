@@ -299,9 +299,7 @@ func generate(pkgName string, tree *ast.Tree) string {
 	g.writeLn("")
 
 	g.writeLn("var ErrClosed = errors.New(\"closed\")")
-	if len(tree.Errs) > 0 {
-		g.genErrors(tree.Errs)
-	}
+	g.genErrors(tree.Errs)
 
 	// Generate the type definitions.
 	g.writeLn("var validate = validator.New()")

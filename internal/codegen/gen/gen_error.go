@@ -46,20 +46,22 @@ func (g *generator) genErrors(errs []*ast.Error) {
 	})
 
 	// Write error codes.
-	g.writeLn("const (")
-	for _, e := range errs {
-		g.writeLn("ErrCode%s = %d", e.Name, e.ID)
-	}
-	g.writeLn(")")
+	if len(errs) > 0 {
+		g.writeLn("const (")
+		for _, e := range errs {
+			g.writeLn("ErrCode%s = %d", e.Name, e.ID)
+		}
+		g.writeLn(")")
 
-	// Write standard error variables along with the orbit Error ones.
-	g.writeLn("var (")
-	for _, e := range errs {
-		g.writeLn("Err%s = errors.New(\"%s\")", e.Name, strExplode(e.Name))
-		g.writeLn("orbitErr%s = orbit.Err(Err%s, Err%s.Error(), ErrCode%s)", e.Name, e.Name, e.Name, e.Name)
+		// Write standard error variables along with the orbit Error ones.
+		g.writeLn("var (")
+		for _, e := range errs {
+			g.writeLn("Err%s = errors.New(\"%s\")", e.Name, strExplode(e.Name))
+			g.writeLn("orbitErr%s = orbit.Err(Err%s, Err%s.Error(), ErrCode%s)", e.Name, e.Name, e.Name, e.Name)
+		}
+		g.writeLn(")")
+		g.writeLn("")
 	}
-	g.writeLn(")")
-	g.writeLn("")
 
 	// Generate error check helper funcs.
 	g.genOrbitErrorCodeCheckFunc(errs)
@@ -69,6 +71,12 @@ func (g *generator) genErrors(errs []*ast.Error) {
 
 func (g *generator) genOrbitErrorCodeCheckFunc(errs []*ast.Error) {
 	g.writeLn("func %s(err error) error {", orbitErrorCodeCheck)
+	if len(errs) == 0 {
+		g.writeLn("return err")
+		g.writeLn("}")
+		return
+	}
+
 	// Check, if a control.ErrorCode has been returned.
 	g.writeLn("var cErr *orbit.ErrorCode")
 	g.writeLn("if errors.As(err, &cErr) {")
@@ -87,15 +95,19 @@ func (g *generator) genOrbitErrorCodeCheckFunc(errs []*ast.Error) {
 func (g *generator) genErrToOrbitErrCodeFunc(errs []*ast.Error) {
 	// Check, if one of our errors has been returned and convert it to an orbit ErrorCode.
 	g.writeLn("func %s(err error) error {", errToOrbitErrorCodeCheck)
-	if len(errs) > 0 {
-		for i, e := range errs {
-			g.writeLn("if errors.Is(err, Err%s) {", e.Name)
-			g.writeLn("return orbitErr%s", e.Name)
-			if i < len(errs)-1 {
-				g.write("} else ")
-			} else {
-				g.writeLn("}")
-			}
+	if len(errs) == 0 {
+		g.writeLn("return err")
+		g.writeLn("}")
+		return
+	}
+
+	for i, e := range errs {
+		g.writeLn("if errors.Is(err, Err%s) {", e.Name)
+		g.writeLn("return orbitErr%s", e.Name)
+		if i < len(errs)-1 {
+			g.write("} else ")
+		} else {
+			g.writeLn("}")
 		}
 	}
 	g.writeLn("return err")

@@ -30,7 +30,6 @@ package main
 import (
 	"sync"
 
-	"github.com/desertbit/orbit/examples/simple/api"
 	"github.com/desertbit/orbit/pkg/orbit"
 )
 
@@ -46,30 +45,6 @@ func NewServer(orbServ *orbit.Server) (s *Server) {
 		Server:   orbServ,
 		sessions: make(map[string]*Session),
 	}
-
-	orbServ.SetOnSessionCreated(func(orbSess *orbit.Session) {
-		// TODO: Remove! Use the inline map.
-		// Create new session.
-		userID := orbSess.ID() // TODO: dummy, need to cast value from auth
-		session := &Session{}
-		s.sessionsMx.Lock()
-		s.sessions[userID] = session
-		s.sessionsMx.Unlock()
-
-		orbSess.OnClosing(func() error {
-			// Early return, if possible.
-			if orbServ.IsClosing() {
-				return nil
-			}
-
-			s.sessionsMx.Lock()
-			delete(s.sessions, userID)
-			s.sessionsMx.Unlock()
-			return nil
-		})
-
-		session.ExampleProviderCaller = api.RegisterExampleProvider(orbSess, session)
-	})
 
 	return
 }

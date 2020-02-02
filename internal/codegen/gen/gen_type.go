@@ -40,11 +40,6 @@ func (g *generator) genTypes(ts []*ast.Type, srvcs []*ast.Service) {
 	})
 
 	for _, t := range ts {
-		// Sort its fields in alphabetical order.
-		sort.Slice(t.Fields, func(i, j int) bool {
-			return t.Fields[i].Name < t.Fields[j].Name
-		})
-
 		g.writeLn("type %s struct {", t.Name)
 		for _, f := range t.Fields {
 			g.write("%s %s", f.Name, f.DataType.Decl())

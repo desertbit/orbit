@@ -29,86 +29,32 @@ package main
 
 import (
 	"context"
-	"errors"
-	"time"
 
-	"github.com/desertbit/orbit/examples/simple/api"
+	"github.com/desertbit/orbit/examples/simple/hello"
 	"github.com/desertbit/orbit/pkg/orbit"
-	"github.com/rs/zerolog/log"
 )
 
-var _ api.ExampleConsumerHandler = &Client{}
+var _ hello.HelloClientHandler = &Client{}
 
 type Client struct {
-	api.ExampleConsumerCaller
+	hello.HelloClientCaller
 }
 
-func NewClient(co *orbit.Session) (caller api.ExampleConsumerCaller) {
+func NewClient(co *orbit.Session) (caller hello.HelloClientCaller) {
 	c := &Client{}
-	c.ExampleConsumerCaller = api.RegisterExampleConsumer(co, c)
+	c.HelloClientCaller = hello.RegisterHelloClient(co, c)
 
 	caller = c
 	return
 }
 
-// Implements the api.ExampleConsumerHandler interface.
-func (c *Client) ExampleTest3(ctx context.Context, s *orbit.Session, args *api.ExampleTest3Args) (ret *api.ExampleTest3Ret, err error) {
-	log.Info().Interface("args", args).Msg("Test3 Handler")
-	ret = &api.ExampleTest3Ret{Lol: "not a dummy"}
-	return
-}
-
-// Implements the api.ExampleConsumerHandler interface.
-func (c *Client) ExampleTest4(ctx context.Context, s *orbit.Session) (ret *api.ExampleRect, err error) {
-	ret = &api.ExampleRect{C: &api.ExampleChar{Lol: "not a dummy"}, X1: 1, X2: 1, Y1: 1, Y2: 1}
-	return
-}
-
-// Implements the api.ExampleConsumerHandler interface.
-func (c *Client) ExampleHello3(s *orbit.Session, ret *api.PlateWriteChan) (err error) {
-	for i := 0; i < 3; i++ {
-		ret.C <- &api.Plate{
-			Name:  "not a dummy",
-			Rect:  &api.Rect{C: &api.Char{Lol: "not a dummy"}, X1: 1, X2: 1, Y1: 1, Y2: 1},
-			Test:  map[int]*api.Rect{0: {C: &api.Char{Lol: "not a dummy"}, X1: 1, X2: 1, Y1: 1, Y2: 1}},
-			Test2: []*api.Rect{{C: &api.Char{Lol: "not a dummy"}, X1: 1, X2: 1, Y1: 1, Y2: 1}},
-			Test3: []float32{1, 2, 3},
-			Test4: map[string]map[int][]*api.Rect{
-				"Test": {
-					0: []*api.Rect{{C: &api.Char{Lol: "not a dummy"}, X1: 1, X2: 1, Y1: 1, Y2: 1}},
-				},
-			},
-			Ts:      time.Now(),
-			Version: 5,
-		}
+// Implements the api.HelloClientHandler interface.
+func (c *Client) WhoAreYou(ctx context.Context, s *orbit.Session) (ret *hello.Info, err error) {
+	ret = &hello.Info{
+		Name:    "Max Mustermann",
+		Age:     21,
+		Locale:  "de_DE",
+		Address: "Musterweg 14",
 	}
-	ret.Close_()
 	return
-}
-
-// Implements the api.ExampleConsumerHandler interface.
-func (c *Client) ExampleHello4(s *orbit.Session, args *api.ArgsReadChan, ret *api.RetWriteChan) {
-	defer ret.Close_()
-	go func() {
-		defer args.Close_()
-		for {
-			arg, err := args.Read()
-			if err != nil {
-				if !errors.Is(err, api.ErrClosed) {
-					log.Error().Err(err).Msg("ExampleHello4: read args")
-				}
-				return
-			}
-			log.Info().Interface("arg", arg).Msg("Hello4 Handler")
-		}
-	}()
-	for {
-		err := ret.Write(&api.Ret{B: 8})
-		if err != nil {
-			if !errors.Is(err, api.ErrClosed) {
-				log.Error().Err(err).Msg("ExampleHello4: write ret")
-			}
-			return
-		}
-	}
 }

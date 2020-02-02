@@ -117,7 +117,6 @@ func (r *reader) Next() (t *Token, err error) {
 			nr == singQuote {
 			if nr == singQuote {
 				r.singQuote = !r.singQuote
-				println("singQuote", r.singQuote)
 			}
 
 			// Return next token first.

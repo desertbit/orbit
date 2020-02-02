@@ -1,0 +1,23 @@
+service hello {
+    call sayHi {
+        args: {
+            name string 'required,min=1'
+        }
+    }
+
+    revcall whoAreYou {
+        timeout: 500ms
+        ret: info
+    }
+
+    stream clockTime {
+        ret: time 'required'
+    }
+}
+
+type info {
+    name string 'required,min=1'
+    age int 'required,min=1,max=155'
+    locale string 'required,len=5'
+    address string 'omitempty'
+}

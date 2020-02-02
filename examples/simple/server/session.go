@@ -29,43 +29,43 @@ package main
 
 import (
 	"context"
-	"net"
+	"errors"
+	"time"
 
-	"github.com/desertbit/orbit/examples/simple/api"
+	"github.com/desertbit/orbit/examples/simple/hello"
 	"github.com/desertbit/orbit/pkg/orbit"
 	"github.com/rs/zerolog/log"
 )
 
-var _ api.ExampleProviderHandler = &Session{}
+var _ hello.HelloServerHandler = &Session{}
 
 type Session struct {
-	api.ExampleProviderCaller
+	hello.HelloServerCaller
 }
 
-// Implements the api.ExampleProviderHandler interface.
-func (*Session) ExampleTest(ctx context.Context, s *orbit.Session, args *api.Plate) (ret *api.ExampleRect, err error) {
-	log.Info().Interface("args", args).Msg("Test handler")
-	ret = &api.ExampleRect{C: &api.ExampleChar{Lol: "not a dummy"}, X1: 0.58}
+func (s *Session) SayHi(ctx context.Context, sn *orbit.Session, args *hello.SayHiArgs) (err error) {
+	log.Info().Str("name", args.Name).Msg("said hi")
 	return
 }
 
-// Implements the api.ExampleProviderHandler interface.
-func (*Session) ExampleTest2(ctx context.Context, s *orbit.Session, args *api.ExampleRect) (err error) {
-	log.Info().Interface("args", args).Msg("Test2 handler")
-	return
-}
+func (s *Session) ClockTime(sn *orbit.Session, ret *hello.TimeWriteChan) {
+	var err error
+	defer func() {
+		if err != nil {
+			log.Error().Err(err).Msg("hello.ClockTime")
+		}
+	}()
 
-// Implements the api.ExampleProviderHandler interface.
-func (*Session) ExampleHello(s *orbit.Session, stream net.Conn) (err error) {
-	panic("implement me")
-}
+	t := time.NewTicker(time.Second)
+	defer t.Stop()
 
-// Implements the api.ExampleProviderHandler interface.
-func (*Session) ExampleHello2(s *orbit.Session, args *api.ExampleCharReadChan) (err error) {
-	for i := 0; i < 3; i++ {
-		arg := <-args.C
-		log.Info().Interface("arg", arg).Msg("Hello2 handler")
+	for range t.C {
+		err := ret.Write(time.Now())
+		if err != nil {
+			if errors.Is(err, hello.ErrClosed) {
+				err = nil
+			}
+			return
+		}
 	}
-	args.Close_()
-	return
 }
