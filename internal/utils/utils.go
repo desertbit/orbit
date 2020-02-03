@@ -37,19 +37,26 @@ import (
 	"unicode"
 )
 
-// alphanum defines the possible characters for the RandomString() function.
-const alphanum = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+const (
+	// randStrChars defines the possible characters for the RandomString() function.
+	// RandomString() expects only ASCII characters, therefore, no char spanning
+	// more than 1 byte in UTF-8 encoding must be used.
+	randStrChars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz!?$#:;=&.,"
+	// randStrCharsLen stores the length of randStrChars for performance reasons.
+	randStrCharsLen = byte(len(randStrChars))
+)
 
 // RandomString generates a random string with len n using the crypto/rand RNG.
-// The returned string contains only chars defined in the alphanum constant.
+// The returned string contains only chars defined in the randStrChars constant.
 func RandomString(n uint) (string, error) {
-	var bytes = make([]byte, n)
+	bytes := make([]byte, n)
 	_, err := rand.Read(bytes)
 	if err != nil {
 		return "", err
 	}
+
 	for i, b := range bytes {
-		bytes[i] = alphanum[b%byte(len(alphanum))]
+		bytes[i] = randStrChars[b%randStrCharsLen]
 	}
 	return string(bytes), nil
 }

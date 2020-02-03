@@ -87,7 +87,9 @@ func (s *server) OnNewSession(sn *orbit.Session, stream net.Conn) (err error) {
 	pwHash, ok := s.hf(data.Username)
 
 	// Determine if the sent password is correct.
-	ret := api.Response{Ok: ok && (bcrypt.Compare(pwHash, data.Pw) == nil)}
+	ret := api.Response{
+		Ok: ok && (bcrypt.Compare(pwHash, data.Pw) == nil),
+	}
 
 	// Send a response back to the client if
 	// the authentication was successful.
@@ -111,13 +113,13 @@ func (s *server) OnNewSession(sn *orbit.Session, stream net.Conn) (err error) {
 	}
 
 	// Save the username to the session values.
-	sn.SetValue("Username", data.Username)
+	sn.SetValue(keyUsername, data.Username)
 
 	return
 }
 
 // Implements the orbit.Hook interface.
-func (s *server) OnNewCall(sn *orbit.Session, service, id string) error { return nil }
+func (s *server) OnCall(sn *orbit.Session, service, id string) error { return nil }
 
 // Implements the orbit.Hook interface.
 func (s *server) OnCallCompleted(sn *orbit.Session, service, id string, err error) {}

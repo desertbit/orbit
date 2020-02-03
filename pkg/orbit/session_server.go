@@ -29,81 +29,91 @@ package orbit
 
 import (
 	"context"
-	"errors"
+	"fmt"
 	"time"
 
 	"github.com/desertbit/closer/v3"
 	"github.com/desertbit/orbit/internal/api"
+	"github.com/desertbit/orbit/internal/utils"
+	"github.com/desertbit/orbit/pkg/packet"
 )
 
-// serverSession is the internal helper to initialize a new server-side session.
-func newServerSession(cl closer.Closer, conn Conn, cf *Config, hs []Hook) (s *Session, err error) {
-	// Always close the conn on error.
+const (
+	// The length of the randomly created session ids.
+	sessionIDLength = 32
+)
+
+func newServerSession(cl closer.Closer, conn Conn, cf *Config, hs []Hook) (sn *Session, err error) {
+	// Close connection on error.
 	defer func() {
 		if err != nil {
 			conn.Close_()
 		}
 	}()
 
-	// Prepare the config with default values, where needed.
-	cf = prepareConfig(cf)
+	// Generate an id for the session.
+	id, err := utils.RandomString(sessionIDLength)
+	if err != nil {
+		return nil, err
+	}
 
 	// Create new context with a timeout.
 	ctx, cancel := context.WithTimeout(context.Background(), cf.InitTimeout)
 	defer cancel()
 
-	// Wait for an incoming stream.
+	// Wait for an incoming stream from the client.
 	stream, err := conn.AcceptStream(ctx)
 	if err != nil {
-		return
+		return nil, err
 	}
 	defer stream.Close()
 
 	// Deadline is certainly available.
 	deadline, _ := ctx.Deadline()
 
-	// Set a read & write timeout.
+	// Set the deadline for the handshake.
 	err = stream.SetDeadline(deadline)
 	if err != nil {
-		return
+		return nil, err
 	}
 
-	// Ensure client has the same protocol version.
-	var (
-		res byte
-		buf = make([]byte, 1)
-	)
-	n, err := stream.Read(buf)
+	// Wait for the client's handshake request.
+	var args api.HandshakeArgs
+	err = packet.ReadDecode(stream, &args, cf.Codec)
 	if err != nil {
-		return
-	} else if n != 1 {
-		return nil, errors.New("failed to read version byte from connection")
-	} else if buf[0] != api.Version {
-		res = 1
+		return nil, err
 	}
 
-	// Tell the client about the result of the version check.
-	buf[0] = res
-	n, err = stream.Write(buf)
+	// Set the response data for the handshake.
+	var ret api.HandshakeRet
+	if args.Version != api.Version {
+		ret.Code = api.HSInvalidVersion
+	} else {
+		ret.Code = api.HSOk
+		ret.SessionID = id
+	}
+
+	// Send the handshake response back to the client.
+	err = packet.WriteEncode(stream, &ret, cf.Codec)
 	if err != nil {
-		return
-	} else if n != 1 {
-		return nil, errors.New("failed to write version byte to connection")
-	} else if res != 0 {
+		return nil, err
+	}
+
+	// Abort, if the handshake failed.
+	if ret.Code == api.HSInvalidVersion {
 		return nil, ErrInvalidVersion
+	} else if ret.Code != api.HSOk {
+		return nil, fmt.Errorf("unknown handshake code %d", ret.Code)
 	}
 
-	// Reset the read & write deadline.
+	// Reset the deadline.
 	err = stream.SetDeadline(time.Time{})
 	if err != nil {
-		return
+		return nil, err
 	}
 
-	// Finally, create the orbit server session.
-	s, err = newSession(cl, conn, stream, cf, hs)
-	if err != nil {
-		return
-	}
-
-	return
+	// Finally, create the orbit session.
+	// Hooks will be called, which are the last chance that the
+	// session might not be established.
+	return newSession(cl, conn, stream, id, cf, hs)
 }

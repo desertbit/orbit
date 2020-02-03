@@ -38,10 +38,15 @@ func TestMsgpImplementation(t *testing.T) {
 	t.Parallel()
 
 	testCases := []interface{}{
-		&InitStream{}, &Call{}, &CallReturn{}, &CallCancel{},
+		&HandshakeArgs{}, // 0
+		&HandshakeRet{},
+		&InitStream{},
+		&Call{},
+		&CallReturn{},
+		&CallCancel{}, // 5
 	}
 
 	for i, tc := range testCases {
-		require.Implements(t, (*msgp.Marshaler)(nil), tc, "Test Case %d", i+1)
+		require.Implements(t, (*msgp.Marshaler)(nil), tc, "case %d", i)
 	}
 }

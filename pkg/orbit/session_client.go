@@ -29,11 +29,12 @@ package orbit
 
 import (
 	"context"
-	"errors"
+	"fmt"
 	"time"
 
 	"github.com/desertbit/closer/v3"
 	"github.com/desertbit/orbit/internal/api"
+	"github.com/desertbit/orbit/pkg/packet"
 )
 
 // newClientSession is the internal helper to initialize a new client-side session.
@@ -55,49 +56,44 @@ func newClientSession(cl closer.Closer, conn Conn, cf *Config, hs []Hook) (s *Se
 	// Open the stream to the server.
 	stream, err := conn.OpenStream(ctx)
 	if err != nil {
-		return
+		return nil, err
 	}
 	defer stream.Close()
 
 	// Deadline is certainly available.
 	deadline, _ := ctx.Deadline()
 
-	// Set a write & read timeout.
+	// Set the deadline for the handshake.
 	err = stream.SetDeadline(deadline)
 	if err != nil {
-		return
+		return nil, err
 	}
 
-	// Tell the server our protocol version.
-	buf := []byte{api.Version}
-	n, err := stream.Write(buf)
+	// Send the arguments for the handshake to the server.
+	err = packet.WriteEncode(stream, &api.HandshakeArgs{Version: api.Version}, cf.Codec)
 	if err != nil {
-		return
-	} else if n != 1 {
-		return nil, errors.New("failed to write version byte to connection")
+		return nil, err
 	}
 
-	// Wait for the server's response.
-	n, err = stream.Read(buf)
+	// Wait for the server's handshake response.
+	var ret api.HandshakeRet
+	err = packet.ReadDecode(stream, &ret, cf.Codec)
 	if err != nil {
-		return
-	} else if n != 1 {
-		return nil, errors.New("failed to read version result byte from connection")
-	} else if buf[0] != 0 {
+		return nil, err
+	} else if ret.Code == api.HSInvalidVersion {
 		return nil, ErrInvalidVersion
+	} else if ret.Code != api.HSOk {
+		return nil, fmt.Errorf("unknown handshake code %d", ret.Code)
 	}
 
-	// Reset the write & read deadline.
+	// Reset the deadline.
 	err = stream.SetDeadline(time.Time{})
 	if err != nil {
 		return
 	}
 
-	// Finally, create the orbit client session.
-	s, err = newSession(cl, conn, stream, cf, hs)
-	if err != nil {
-		return
-	}
-
-	return
+	// Finally, create the orbit session.
+	// Hooks will be called, which are the last chance that the
+	// session might not be established.
+	return newSession(cl, conn, stream, ret.SessionID, cf, hs)
 }

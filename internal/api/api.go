@@ -33,6 +33,22 @@ const (
 	Version = 2
 )
 
+type HandshakeCode int
+
+const (
+	HSOk             HandshakeCode = 0
+	HSInvalidVersion HandshakeCode = 1
+)
+
+type HandshakeArgs struct {
+	Version byte
+}
+
+type HandshakeRet struct {
+	Code      HandshakeCode
+	SessionID string
+}
+
 type StreamType int
 
 const (

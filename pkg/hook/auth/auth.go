@@ -38,6 +38,8 @@ import (
 const (
 	timeout      = 20 * time.Second
 	flushTimeout = 7 * time.Second
+
+	keyUsername = "auth_username"
 )
 
 var (

@@ -28,22 +28,10 @@
 package orbit
 
 import (
-	"errors"
-	"fmt"
-	"runtime/debug"
 	"sync"
 
 	"github.com/desertbit/closer/v3"
-	"github.com/desertbit/orbit/internal/utils"
 	"github.com/rs/zerolog"
-)
-
-const (
-	// The length of the randomly created session ids.
-	sessionIDLength = 20
-
-	// The maximum number of times it is tried to generate a unique random session id.
-	maxRetriesGenSessionID = 10
 )
 
 // Server implements a simple orbit server.
@@ -168,90 +156,47 @@ func (s *Server) handleConnectionLoop() {
 
 // handleConnection handles one new connection.
 // It creates a new server session and stores it in the sessions map.
-// It starts a routine that takes care of removing the session from said map
-// once it has been closed.
-// The session is finally passed to the new session channel.
-// This method recovers from panics and logs errors.
+// Errors are logged, instead of being returned.
 func (s *Server) handleConnection(conn Conn) {
-	var err error
-
-	// Catch panics.
-	defer func() {
-		if e := recover(); e != nil {
-			if s.cf.PrintPanicStackTraces {
-				err = fmt.Errorf("catched panic: \n%v\n%s", e, string(debug.Stack()))
-			} else {
-				err = fmt.Errorf("catched panic: \n%v", e)
-			}
-		}
-
-		if err != nil {
-			// Log. Do not use the Err() field, as stack trace formatting is lost then.
-			s.log.Error().
-				Msgf("server: handle new connection: \n%v", err)
-		}
-	}()
-
 	// Create a new server session.
 	sn, err := newServerSession(s.CloserOneWay(), conn, s.cf.Config, s.hooks)
 	if err != nil {
+		// Log. Do not use the Err() field, as stack trace formatting is lost then.
+		s.log.Error().
+			Msgf("server handle new connection: \n%v", err)
 		return
 	}
 
-	// Close the session on error.
-	defer func() {
-		if err != nil {
-			sn.Close_()
-		}
-	}()
-
-	// Generate a unique random id for the new session.
-	var (
-		id    string
-		added bool
-	)
-	for i := 0; i < maxRetriesGenSessionID; i++ {
-		id, err = utils.RandomString(sessionIDLength)
-		if err != nil {
-			return
-		}
-
-		added = func() bool {
-			s.sessionsMx.Lock()
-			defer s.sessionsMx.Unlock()
-
-			if _, ok := s.sessions[id]; ok {
-				return false
-			}
-
-			sn.id = id
-			s.sessions[id] = sn
-			return true
-		}()
-		if added {
-			break
-		}
+	// Save the session in the map.
+	var idExists bool
+	s.sessionsMx.Lock()
+	_, idExists = s.sessions[sn.id]
+	if !idExists {
+		s.sessions[sn.id] = sn
 	}
-	if !added {
-		err = errors.New("failed to generate unique random session id")
+	s.sessionsMx.Unlock()
+
+	// Close the new session, if its id is already taken.
+	if idExists {
+		sn.Close_()
 		return
 	}
 
 	// Remove the session from the session map, once it closes.
 	sn.OnClosing(func() error {
-		// Speed up the closing process when the server closes.
+		// Speed up the closing process if the server closes.
 		if s.IsClosing() {
 			return nil
 		}
 
 		s.sessionsMx.Lock()
-		delete(s.sessions, id)
+		delete(s.sessions, sn.id)
 		s.sessionsMx.Unlock()
 		return nil
 	})
 
-	// todo:
+	// TODO:
 	s.log.Debug().
-		Str("ID", id).
+		Str("ID", sn.id).
 		Msg("server: new session")
 }

@@ -29,31 +29,42 @@ package zerolog
 
 import (
 	"net"
+	"os"
+	"time"
 
 	"github.com/desertbit/orbit/pkg/orbit"
 	"github.com/rs/zerolog"
 )
 
-var _ orbit.Hook = &hook{}
+var _ orbit.Hook = &debug{}
 
-type hook struct {
-	log *zerolog.Logger
+type debug struct {
+	log zerolog.Logger
 }
 
-func Hook(log *zerolog.Logger) orbit.Hook {
-	return &hook{
+func DebugHook() orbit.Hook {
+	return DebugHookWithLogger(zerolog.New(
+		zerolog.ConsoleWriter{
+			Out:        os.Stderr,
+			TimeFormat: time.RFC3339,
+		}).With().Timestamp().Str("component", "orbit").Logger(),
+	)
+}
+
+func DebugHookWithLogger(log zerolog.Logger) orbit.Hook {
+	return &debug{
 		log: log,
 	}
 }
 
-func (h *hook) OnNewSession(s *orbit.Session, stream net.Conn) error {
+func (h *debug) OnNewSession(s *orbit.Session, stream net.Conn) error {
 	h.log.Debug().
 		Str("remoteAddr", s.RemoteAddr().String()).
 		Msg("new session")
 	return nil
 }
 
-func (h *hook) OnNewCall(s *orbit.Session, service, id string) error {
+func (h *debug) OnCall(s *orbit.Session, service, id string) error {
 	h.log.Debug().
 		Str("service", service).
 		Str("id", id).
@@ -61,7 +72,7 @@ func (h *hook) OnNewCall(s *orbit.Session, service, id string) error {
 	return nil
 }
 
-func (h *hook) OnCallCompleted(s *orbit.Session, service, id string, err error) {
+func (h *debug) OnCallCompleted(s *orbit.Session, service, id string, err error) {
 	h.log.Debug().
 		Err(err).
 		Str("service", service).
@@ -69,7 +80,7 @@ func (h *hook) OnCallCompleted(s *orbit.Session, service, id string, err error) 
 		Msg("call completed")
 }
 
-func (h *hook) OnNewStream(s *orbit.Session, service, id string) error {
+func (h *debug) OnNewStream(s *orbit.Session, service, id string) error {
 	h.log.Debug().
 		Str("service", service).
 		Str("id", id).

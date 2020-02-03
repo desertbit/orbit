@@ -25,33 +25,19 @@
  * SOFTWARE.
  */
 
-package orbit
+package auth
 
 import (
-	"net"
+	"github.com/desertbit/orbit/pkg/orbit"
 )
 
-// Hook allows third-party code to hook into orbit's logic, to implement for example
-// logging or authentication functionality.
-// Hooks that return an error have the capability to abort the action that triggered them.
-// E.g. if OnNewSession() returns a non-nil error, the session will be closed.
-type Hook interface {
-	// Server
+var ServerValues = &serverValues{}
 
-	// Called after the session has established a first stream and
-	// performed the handshake.
-	// If the returned err != nil, the new session is closed immediately.
-	OnNewSession(s *Session, stream net.Conn) error
+type serverValues struct{}
 
-	// Session
-
-	// todo:
-	// If the returned err != nil, the call is aborted.
-	OnCall(s *Session, service, id string) error
-	// todo:
-	// If err == nil, then the call completed successfully.
-	OnCallCompleted(s *Session, service, id string, err error)
-
-	// If the returned err != nil, the stream is aborted.
-	OnNewStream(s *Session, service, id string) error
+// Returns empty string, if username is not set.
+func (*serverValues) Username(s *orbit.Session) (username string) {
+	v := s.Value(keyUsername)
+	username, _ = v.(string)
+	return
 }

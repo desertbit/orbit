@@ -42,7 +42,7 @@ import (
 	"github.com/desertbit/orbit/pkg/packet"
 )
 
-var _ orbit.Hook
+var _ orbit.Hook = &client{}
 
 type client struct {
 	username   string
@@ -97,7 +97,7 @@ func (c *client) OnNewSession(s *orbit.Session, stream net.Conn) (err error) {
 }
 
 // Implements the orbit.Hook interface.
-func (*client) OnNewCall(s *orbit.Session, service, id string) error { return nil }
+func (*client) OnCall(s *orbit.Session, service, id string) error { return nil }
 
 // Implements the orbit.Hook interface.
 func (*client) OnCallCompleted(s *orbit.Session, service, id string, err error) {}

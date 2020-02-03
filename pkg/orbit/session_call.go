@@ -436,9 +436,9 @@ func (s *Session) execCallHandler(
 		return
 	}
 
-	// Call OnNewCall hooks.
+	// Call OnCall hooks.
 	for _, h := range s.hooks {
-		err = h.OnNewCall(s, service, id)
+		err = h.OnCall(s, service, id)
 		if err != nil {
 			err = fmt.Errorf("on new call hook: %v", err)
 			return

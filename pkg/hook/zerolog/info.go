@@ -25,33 +25,65 @@
  * SOFTWARE.
  */
 
-package orbit
+package zerolog
 
 import (
 	"net"
+	"os"
+	"time"
+
+	"github.com/desertbit/orbit/pkg/orbit"
+	"github.com/rs/zerolog"
 )
 
-// Hook allows third-party code to hook into orbit's logic, to implement for example
-// logging or authentication functionality.
-// Hooks that return an error have the capability to abort the action that triggered them.
-// E.g. if OnNewSession() returns a non-nil error, the session will be closed.
-type Hook interface {
-	// Server
+var _ orbit.Hook = &info{}
 
-	// Called after the session has established a first stream and
-	// performed the handshake.
-	// If the returned err != nil, the new session is closed immediately.
-	OnNewSession(s *Session, stream net.Conn) error
+type info struct {
+	log zerolog.Logger
+}
 
-	// Session
+func InfoHook() orbit.Hook {
+	return InfoHookWithLogger(zerolog.New(
+		zerolog.ConsoleWriter{
+			Out:        os.Stderr,
+			TimeFormat: time.RFC3339,
+		}).With().Timestamp().Str("component", "orbit").Logger(),
+	)
+}
 
-	// todo:
-	// If the returned err != nil, the call is aborted.
-	OnCall(s *Session, service, id string) error
-	// todo:
-	// If err == nil, then the call completed successfully.
-	OnCallCompleted(s *Session, service, id string, err error)
+func InfoHookWithLogger(log zerolog.Logger) orbit.Hook {
+	return &info{
+		log: log,
+	}
+}
 
-	// If the returned err != nil, the stream is aborted.
-	OnNewStream(s *Session, service, id string) error
+func (h *info) OnNewSession(s *orbit.Session, stream net.Conn) error {
+	h.log.Info().
+		Str("remoteAddr", s.RemoteAddr().String()).
+		Msg("new session")
+	return nil
+}
+
+func (h *info) OnCall(s *orbit.Session, service, id string) error {
+	h.log.Info().
+		Str("service", service).
+		Str("id", id).
+		Msg("new call")
+	return nil
+}
+
+func (h *info) OnCallCompleted(s *orbit.Session, service, id string, err error) {
+	h.log.Info().
+		Err(err).
+		Str("service", service).
+		Str("id", id).
+		Msg("call completed")
+}
+
+func (h *info) OnNewStream(s *orbit.Session, service, id string) error {
+	h.log.Info().
+		Str("service", service).
+		Str("id", id).
+		Msg("new stream")
+	return nil
 }

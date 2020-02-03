@@ -29,7 +29,9 @@ package orbit
 
 import (
 	"context"
+	"fmt"
 	"net"
+	"runtime/debug"
 	"sync"
 	"time"
 
@@ -79,6 +81,7 @@ func newSession(
 	cl closer.Closer,
 	conn Conn,
 	initStream net.Conn,
+	id string,
 	cf *Config,
 	hs []Hook,
 ) (s *Session, err error) {
@@ -88,13 +91,26 @@ func newSession(
 		log:            cf.Log,
 		codec:          cf.Codec,
 		hooks:          hs,
+		id:             id,
 		conn:           conn,
+		values:         make(map[string]interface{}),
 		streamFuncs:    make(map[string]StreamFunc),
 		callStreams:    make(map[string]*callStream),
 		callFuncs:      make(map[string]CallFunc),
 		callActiveCtxs: make(map[uint32]*callContext),
 	}
 	s.OnClosing(conn.Close)
+
+	// Catch panics.
+	defer func() {
+		if e := recover(); e != nil {
+			if cf.PrintPanicStackTraces {
+				err = fmt.Errorf("catched panic: \n%v\n%s", e, string(debug.Stack()))
+			} else {
+				err = fmt.Errorf("catched panic: \n%v", e)
+			}
+		}
+	}()
 
 	// Call OnNewSession hooks.
 	for _, h := range hs {

@@ -2,7 +2,7 @@
 - use tls.dialContext in yamux, once the new go version has come out
 - add maxmsgsize to calls (and streams?), but optional!!! take config value as default.
 - update the comments and remove unneeded parts (like old pkg).
-- update tests
+- add & update tests
 
 ## OLD:
 
