@@ -37,6 +37,8 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+var _ orbit.ServerHandler = &Server{}
+
 type Server struct {
 	os *orbit.Server
 
@@ -44,10 +46,12 @@ type Server struct {
 	sessions   map[string]*Session
 }
 
+// Implements the orbit.ServerHandler interface.
 func (s *Server) InitServer(os *orbit.Server) {
 	s.os = os
 }
 
+// Implements the orbit.SessionHandler interface.
 func (s *Server) InitSession(osn *orbit.Session) {
 	sn := &Session{}
 	sn.HelloServerCaller = hello.RegisterHelloServer(osn, sn)

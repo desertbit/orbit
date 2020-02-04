@@ -29,7 +29,6 @@ package main
 
 import (
 	"errors"
-	"path/filepath"
 
 	"github.com/desertbit/grumble"
 	"github.com/desertbit/orbit/internal/codegen/gen"
@@ -60,13 +59,7 @@ func runGen(ctx *grumble.Context) (err error) {
 
 	// Iterate over each provided directory and generate the .orbit files in them.
 	for _, dir := range ctx.Args {
-		var absDir string
-		absDir, err = filepath.Abs(dir)
-		if err != nil {
-			return
-		}
-
-		err = gen.Generate(absDir, ctx.Flags.Bool(flagForce))
+		err = gen.Generate(dir, ctx.Flags.Bool(flagForce))
 		if err != nil {
 			return
 		}

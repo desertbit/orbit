@@ -99,7 +99,7 @@ func Generate(dir string, force bool) (err error) {
 				return
 			}
 
-			// Combine the tree.
+			// Combine the trees.
 			tree.Srvcs = append(tree.Srvcs, tree2.Srvcs...)
 			tree.Types = append(tree.Types, tree2.Types...)
 			tree.Errs = append(tree.Errs, tree2.Errs...)

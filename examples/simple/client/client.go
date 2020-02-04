@@ -35,12 +35,16 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-var _ hello.HelloClientHandler = &Client{}
+var (
+	_ hello.HelloClientHandler = &Client{}
+	_ orbit.SessionHandler     = &Client{}
+)
 
 type Client struct {
 	hello.HelloClientCaller
 }
 
+// Implements the orbit.SessionHandler interface.
 func (c *Client) InitSession(s *orbit.Session) {
 	c.HelloClientCaller = hello.RegisterHelloClient(s, c)
 }
