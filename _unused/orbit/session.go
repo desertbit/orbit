@@ -34,8 +34,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/desertbit/orbit/old/api"
-	"github.com/desertbit/orbit/old/packet"
+	"github.com/desertbit/orbit/_unused/api"
+	"github.com/desertbit/orbit/_unused/packet"
 
 	"github.com/desertbit/closer/v3"
 	"github.com/hashicorp/yamux"

@@ -28,13 +28,10 @@
 package main
 
 import (
-	"context"
 	"sync"
-	"time"
 
 	"github.com/desertbit/orbit/examples/simple/hello"
 	"github.com/desertbit/orbit/pkg/orbit"
-	"github.com/rs/zerolog/log"
 )
 
 var _ orbit.ServerHandler = &Server{}
@@ -57,13 +54,21 @@ func (s *Server) InitSession(osn *orbit.Session) {
 	sn.HelloServerCaller = hello.RegisterHelloServer(osn, sn)
 	osn.SetValue("HelloServer", sn)
 
-	go func() {
+	/*go func() {
 		time.Sleep(time.Second)
-		err := sn.SayHi(context.Background(), osn, &hello.SayHiArgs{Name: "Roland"})
+		ret, err := sn.WhoAreYou(context.Background())
 		if err != nil {
+
+			spew.Dump(err)
+			var qErr quic.StreamError
+			if errors.As(err, &qErr) {
+				println(qErr.Canceled(), qErr.ErrorCode())
+			}
 			log.Error().Err(err).Msg("say hi to client")
+			return
 		}
-	}()
+		log.Info().Str("name", ret.Name).Msg("who are you")
+	}()*/
 }
 
 func (s *Server) Session(id string) (sn *Session) {

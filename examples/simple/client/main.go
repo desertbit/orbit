@@ -30,7 +30,6 @@ package main
 import (
 	"context"
 	"crypto/tls"
-	"time"
 
 	"github.com/desertbit/closer/v3"
 	"github.com/desertbit/orbit/examples/simple/hello"
@@ -80,12 +79,15 @@ func run() (err error) {
 	}
 
 	// Make example calls.
-	err = c.SayHi(context.Background(), &hello.SayHiArgs{Name: "Marc"})
-	if err != nil {
-		return
+	for i := 0; i < 1; i++ {
+		err = c.SayHi(context.Background(), &hello.SayHiArgs{Name: "Marc"})
+		if err != nil {
+			return
+		}
 	}
+	println("ok")
 
-	ret, err := c.ClockTime(context.Background())
+	/*ret, err := c.ClockTime(context.Background())
 	if err != nil {
 		return
 	}
@@ -98,5 +100,6 @@ func run() (err error) {
 
 		log.Debug().Time("time", t).Msg("server clock time")
 	}
-	return ret.Close()
+	return ret.Close()*/
+	return
 }

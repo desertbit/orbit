@@ -40,7 +40,6 @@ import (
 
 	"github.com/desertbit/closer/v3"
 	"github.com/desertbit/orbit/pkg/hook/auth"
-	"github.com/desertbit/orbit/pkg/hook/zerolog"
 	"github.com/desertbit/orbit/pkg/net/quic"
 	"github.com/desertbit/orbit/pkg/orbit"
 	"github.com/rs/zerolog/log"
@@ -83,7 +82,7 @@ func run() (err error) {
 	}
 
 	// Create the orbit server.
-	s := orbit.NewServer(ln, cf, &Server{}, auth.ServerHook(uhf), zerolog.DebugHookWithLogger(*cf.Log))
+	s := orbit.NewServer(ln, cf, &Server{}, auth.ServerHook(uhf) /*zerolog.DebugHookWithLogger(*cf.Log)*/)
 
 	go func() {
 		err := s.Listen()
