@@ -519,6 +519,58 @@ func (z HandshakeArgs) Msgsize() (s int) {
 }
 
 // DecodeMsg implements msgp.Decodable
+func (z *HandshakeCode) DecodeMsg(dc *msgp.Reader) (err error) {
+	{
+		var zb0001 int
+		zb0001, err = dc.ReadInt()
+		if err != nil {
+			err = msgp.WrapError(err)
+			return
+		}
+		(*z) = HandshakeCode(zb0001)
+	}
+	return
+}
+
+// EncodeMsg implements msgp.Encodable
+func (z HandshakeCode) EncodeMsg(en *msgp.Writer) (err error) {
+	err = en.WriteInt(int(z))
+	if err != nil {
+		err = msgp.WrapError(err)
+		return
+	}
+	return
+}
+
+// MarshalMsg implements msgp.Marshaler
+func (z HandshakeCode) MarshalMsg(b []byte) (o []byte, err error) {
+	o = msgp.Require(b, z.Msgsize())
+	o = msgp.AppendInt(o, int(z))
+	return
+}
+
+// UnmarshalMsg implements msgp.Unmarshaler
+func (z *HandshakeCode) UnmarshalMsg(bts []byte) (o []byte, err error) {
+	{
+		var zb0001 int
+		zb0001, bts, err = msgp.ReadIntBytes(bts)
+		if err != nil {
+			err = msgp.WrapError(err)
+			return
+		}
+		(*z) = HandshakeCode(zb0001)
+	}
+	o = bts
+	return
+}
+
+// Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
+func (z HandshakeCode) Msgsize() (s int) {
+	s = msgp.IntSize
+	return
+}
+
+// DecodeMsg implements msgp.Decodable
 func (z *HandshakeRet) DecodeMsg(dc *msgp.Reader) (err error) {
 	var field []byte
 	_ = field
@@ -536,11 +588,15 @@ func (z *HandshakeRet) DecodeMsg(dc *msgp.Reader) (err error) {
 			return
 		}
 		switch msgp.UnsafeString(field) {
-		case "VersionOk":
-			z.VersionOk, err = dc.ReadBool()
-			if err != nil {
-				err = msgp.WrapError(err, "VersionOk")
-				return
+		case "Code":
+			{
+				var zb0002 int
+				zb0002, err = dc.ReadInt()
+				if err != nil {
+					err = msgp.WrapError(err, "Code")
+					return
+				}
+				z.Code = HandshakeCode(zb0002)
 			}
 		case "SessionID":
 			z.SessionID, err = dc.ReadString()
@@ -562,14 +618,14 @@ func (z *HandshakeRet) DecodeMsg(dc *msgp.Reader) (err error) {
 // EncodeMsg implements msgp.Encodable
 func (z HandshakeRet) EncodeMsg(en *msgp.Writer) (err error) {
 	// map header, size 2
-	// write "VersionOk"
-	err = en.Append(0x82, 0xa9, 0x56, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e, 0x4f, 0x6b)
+	// write "Code"
+	err = en.Append(0x82, 0xa4, 0x43, 0x6f, 0x64, 0x65)
 	if err != nil {
 		return
 	}
-	err = en.WriteBool(z.VersionOk)
+	err = en.WriteInt(int(z.Code))
 	if err != nil {
-		err = msgp.WrapError(err, "VersionOk")
+		err = msgp.WrapError(err, "Code")
 		return
 	}
 	// write "SessionID"
@@ -589,9 +645,9 @@ func (z HandshakeRet) EncodeMsg(en *msgp.Writer) (err error) {
 func (z HandshakeRet) MarshalMsg(b []byte) (o []byte, err error) {
 	o = msgp.Require(b, z.Msgsize())
 	// map header, size 2
-	// string "VersionOk"
-	o = append(o, 0x82, 0xa9, 0x56, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e, 0x4f, 0x6b)
-	o = msgp.AppendBool(o, z.VersionOk)
+	// string "Code"
+	o = append(o, 0x82, 0xa4, 0x43, 0x6f, 0x64, 0x65)
+	o = msgp.AppendInt(o, int(z.Code))
 	// string "SessionID"
 	o = append(o, 0xa9, 0x53, 0x65, 0x73, 0x73, 0x69, 0x6f, 0x6e, 0x49, 0x44)
 	o = msgp.AppendString(o, z.SessionID)
@@ -616,11 +672,15 @@ func (z *HandshakeRet) UnmarshalMsg(bts []byte) (o []byte, err error) {
 			return
 		}
 		switch msgp.UnsafeString(field) {
-		case "VersionOk":
-			z.VersionOk, bts, err = msgp.ReadBoolBytes(bts)
-			if err != nil {
-				err = msgp.WrapError(err, "VersionOk")
-				return
+		case "Code":
+			{
+				var zb0002 int
+				zb0002, bts, err = msgp.ReadIntBytes(bts)
+				if err != nil {
+					err = msgp.WrapError(err, "Code")
+					return
+				}
+				z.Code = HandshakeCode(zb0002)
 			}
 		case "SessionID":
 			z.SessionID, bts, err = msgp.ReadStringBytes(bts)
@@ -642,7 +702,7 @@ func (z *HandshakeRet) UnmarshalMsg(bts []byte) (o []byte, err error) {
 
 // Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
 func (z HandshakeRet) Msgsize() (s int) {
-	s = 1 + 10 + msgp.BoolSize + 10 + msgp.StringPrefixSize + len(z.SessionID)
+	s = 1 + 5 + msgp.IntSize + 10 + msgp.StringPrefixSize + len(z.SessionID)
 	return
 }
 

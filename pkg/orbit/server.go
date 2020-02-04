@@ -34,6 +34,12 @@ import (
 	"github.com/rs/zerolog"
 )
 
+type ServerHandler interface {
+	SessionHandler
+
+	InitServer(s *Server)
+}
+
 // Server implements a simple orbit server.
 type Server struct {
 	closer.Closer
@@ -41,6 +47,7 @@ type Server struct {
 	ln    Listener
 	cf    *ServerConfig
 	log   *zerolog.Logger
+	h     ServerHandler
 	hooks []Hook
 
 	sessionsMx sync.RWMutex
@@ -56,12 +63,12 @@ type Server struct {
 // been set will be initialized with a default value.
 // That makes it possible to overwrite only the interesting properties
 // for the caller.
-func NewServer(cl closer.Closer, ln Listener, cf *ServerConfig, hs ...Hook) *Server {
-	return newServer(cl, ln, cf, hs...)
+func NewServer(cl closer.Closer, ln Listener, cf *ServerConfig, h ServerHandler, hs ...Hook) *Server {
+	return newServer(cl, ln, cf, h, hs...)
 }
 
 // newServer is the internal helper to create a new orbit server.
-func newServer(cl closer.Closer, ln Listener, cf *ServerConfig, hs ...Hook) *Server {
+func newServer(cl closer.Closer, ln Listener, cf *ServerConfig, h ServerHandler, hs ...Hook) *Server {
 	// Prepare the config.
 	cf = prepareServerConfig(cf)
 
@@ -70,11 +77,15 @@ func newServer(cl closer.Closer, ln Listener, cf *ServerConfig, hs ...Hook) *Ser
 		ln:       ln,
 		cf:       cf,
 		log:      cf.Log,
+		h:        h,
 		hooks:    hs,
 		sessions: make(map[string]*Session),
 		connChan: make(chan Conn, cf.NewConnChanSize),
 	}
 	s.OnClosing(ln.Close)
+
+	// Call the handler.
+	h.InitServer(s)
 
 	// Start the workers that listen for incoming connections.
 	for i := 0; i < cf.NewConnNumberWorkers; i++ {
@@ -159,7 +170,7 @@ func (s *Server) handleConnectionLoop() {
 // Errors are logged, instead of being returned.
 func (s *Server) handleConnection(conn Conn) {
 	// Create a new server session.
-	sn, err := newServerSession(s.CloserOneWay(), conn, s.cf.Config, s.hooks)
+	sn, err := newServerSession(s.CloserOneWay(), conn, s.cf.Config, s.h, s.hooks)
 	if err != nil {
 		// Log. Do not use the Err() field, as stack trace formatting is lost then.
 		s.log.Error().
@@ -194,9 +205,4 @@ func (s *Server) handleConnection(conn Conn) {
 		s.sessionsMx.Unlock()
 		return nil
 	})
-
-	// TODO:
-	s.log.Debug().
-		Str("ID", sn.id).
-		Msg("server: new session")
 }

@@ -58,7 +58,7 @@ func newSession(orbitSession *orbit.Session) (s *Session, err error) {
 		}
 	}()
 
-	s.ctrl, s.sig, err = s.Init(&orbit.Init{
+	s.ctrl, s.sig, err = s.Init(&orbit.SessionHandler{
 		Control: orbit.InitControl{
 			Funcs: map[string]control.Func{
 				api.ControlClientInfo: s.clientsInfo,

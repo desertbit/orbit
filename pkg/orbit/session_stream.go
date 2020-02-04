@@ -46,7 +46,7 @@ const (
 
 func (s *Session) RegisterStream(service, id string, f StreamFunc) {
 	s.streamFuncsMx.Lock()
-	s.streamFuncs[id] = f
+	s.streamFuncs[service+"."+id] = f
 	s.streamFuncsMx.Unlock()
 }
 
@@ -201,26 +201,16 @@ func (s *Session) handleNewStream(stream net.Conn) {
 			}
 		}
 
-		// TODO: should we log here?
-		s.log.Debug().
-			Str("service", data.Service).
-			Str("id", data.ID).
-			Msg("new raw stream")
-
 		// Pass it the new stream.
 		// The stream must be closed by the handler!
 		f(s, stream)
 
 	case api.StreamTypeCallAsync:
-		s.log.Debug().Msg("new call async stream")
-
 		// Handle the new async call stream.
 		err = s.handleAsyncCall(stream, data.Service, data.ID)
 		return
 
 	case api.StreamTypeCallInit:
-		s.log.Debug().Msg("new call init stream")
-
 		// Handle the new init call stream.
 		err = s.handleInitCall(stream, data.Service, data.ID)
 		return

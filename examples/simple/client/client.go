@@ -32,6 +32,7 @@ import (
 
 	"github.com/desertbit/orbit/examples/simple/hello"
 	"github.com/desertbit/orbit/pkg/orbit"
+	"github.com/rs/zerolog/log"
 )
 
 var _ hello.HelloClientHandler = &Client{}
@@ -40,16 +41,13 @@ type Client struct {
 	hello.HelloClientCaller
 }
 
-func NewClient(co *orbit.Session) (caller hello.HelloClientCaller) {
-	c := &Client{}
-	c.HelloClientCaller = hello.RegisterHelloClient(co, c)
-
-	caller = c
-	return
+func (c *Client) InitSession(s *orbit.Session) {
+	c.HelloClientCaller = hello.RegisterHelloClient(s, c)
 }
 
 // Implements the api.HelloClientHandler interface.
 func (c *Client) WhoAreYou(ctx context.Context, s *orbit.Session) (ret *hello.Info, err error) {
+	log.Info().Msg("server asks who I am")
 	ret = &hello.Info{
 		Name:    "Max Mustermann",
 		Age:     21,

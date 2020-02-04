@@ -44,6 +44,10 @@ type CallFunc func(ctx context.Context, s *Session, args *Data) (ret interface{}
 
 type StreamFunc func(s *Session, stream net.Conn)
 
+type SessionHandler interface {
+	InitSession(s *Session)
+}
+
 type Session struct {
 	closer.Closer
 
@@ -83,6 +87,7 @@ func newSession(
 	initStream net.Conn,
 	id string,
 	cf *Config,
+	h SessionHandler,
 	hs []Hook,
 ) (s *Session, err error) {
 	s = &Session{
@@ -119,6 +124,9 @@ func newSession(
 			return
 		}
 	}
+
+	// Call handler.
+	h.InitSession(s)
 
 	// Start accepting streams.
 	go s.acceptStreamRoutine()

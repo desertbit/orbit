@@ -61,7 +61,7 @@ func newSession(server *Server, orbitSession *orbit.Session) (s *Session, err er
 		return nil
 	})
 
-	s.ctrl, s.sig, err = s.Init(&orbit.Init{
+	s.ctrl, s.sig, err = s.Init(&orbit.SessionHandler{
 		AcceptStreams: orbit.InitAcceptStreams{
 			api.ChannelOrbit: handleStreamOrbit,
 		},

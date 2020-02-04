@@ -60,6 +60,22 @@ type Config struct {
 	CallTimeout time.Duration
 }
 
+// DefaultConfig returns a config, where all fields are set to their default values.
+func DefaultConfig() *Config {
+	// Default logger.
+	l := zerolog.New(zerolog.ConsoleWriter{
+		Out:        os.Stderr,
+		TimeFormat: time.RFC3339,
+	}).With().Timestamp().Str("component", "orbit").Logger()
+
+	return &Config{
+		Log:         &l,
+		Codec:       msgpack.Codec,
+		InitTimeout: defaultInitTimeout,
+		CallTimeout: defaultCallTimeout,
+	}
+}
+
 func prepareConfig(c *Config) *Config {
 	if c == nil {
 		c = &Config{}

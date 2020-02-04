@@ -59,11 +59,12 @@ func (s *Session) ClockTime(sn *orbit.Session, ret *hello.TimeWriteChan) {
 	t := time.NewTicker(time.Second)
 	defer t.Stop()
 
-	for range t.C {
-		err := ret.Write(time.Now())
+	for ti := range t.C {
+		err := ret.Write(ti)
 		if err != nil {
 			if errors.Is(err, hello.ErrClosed) {
 				err = nil
+				log.Debug().Msg("clock time successfully closed")
 			}
 			return
 		}

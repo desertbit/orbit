@@ -17,6 +17,25 @@ commands:
         exec: |
             go generate ./internal/...
 
+    run:
+        help: run commands
+        commands:
+            simple:
+                help: run the simple example application.
+                commands:
+                    client:
+                        help: run the client of the simple example application.
+                        deps:
+                            - build.simple
+                        exec: |
+                            "${BINDIR}/simple-client"
+                    server:
+                        help: run the server of the simple example application.
+                        deps:
+                            - build.simple
+                        exec: |
+                            "${BINDIR}/simple-server"
+
     build:
         help: build commands
         commands:

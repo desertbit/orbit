@@ -38,7 +38,7 @@ import (
 )
 
 // newClientSession is the internal helper to initialize a new client-side session.
-func newClientSession(cl closer.Closer, conn Conn, cf *Config, hs []Hook) (s *Session, err error) {
+func newClientSession(cl closer.Closer, conn Conn, cf *Config, h SessionHandler, hs []Hook) (s *Session, err error) {
 	// Always close the conn on error.
 	defer func() {
 		if err != nil {
@@ -95,5 +95,5 @@ func newClientSession(cl closer.Closer, conn Conn, cf *Config, hs []Hook) (s *Se
 	// Finally, create the orbit session.
 	// Hooks will be called, which are the last chance that the
 	// session might not be established.
-	return newSession(cl, conn, stream, ret.SessionID, cf, hs)
+	return newSession(cl, conn, stream, ret.SessionID, cf, h, hs)
 }

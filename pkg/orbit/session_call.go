@@ -315,10 +315,14 @@ func (s *Session) readCallRoutine(cs *callStream, once bool) {
 			return
 		}
 
-		// Read the payload from the stream.
+		// Read the optional payload from the stream.
 		payloadData, err = packet.Read(cs, nil)
 		if err != nil {
-			return
+			if errors.Is(err, packet.ErrZeroData) {
+				err = nil
+			} else {
+				return
+			}
 		}
 
 		if once {

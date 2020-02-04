@@ -43,7 +43,7 @@ const (
 	sessionIDLength = 32
 )
 
-func newServerSession(cl closer.Closer, conn Conn, cf *Config, hs []Hook) (sn *Session, err error) {
+func newServerSession(cl closer.Closer, conn Conn, cf *Config, h SessionHandler, hs []Hook) (sn *Session, err error) {
 	// Close connection on error.
 	defer func() {
 		if err != nil {
@@ -115,5 +115,5 @@ func newServerSession(cl closer.Closer, conn Conn, cf *Config, hs []Hook) (sn *S
 	// Finally, create the orbit session.
 	// Hooks will be called, which are the last chance that the
 	// session might not be established.
-	return newSession(cl, conn, stream, id, cf, hs)
+	return newSession(cl, conn, stream, id, cf, h, hs)
 }

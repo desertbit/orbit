@@ -28,25 +28,46 @@
 package main
 
 import (
+	"context"
 	"sync"
+	"time"
 
+	"github.com/desertbit/orbit/examples/simple/hello"
 	"github.com/desertbit/orbit/pkg/orbit"
+	"github.com/rs/zerolog/log"
 )
 
 type Server struct {
-	*orbit.Server
+	os *orbit.Server
 
 	sessionsMx sync.RWMutex
 	sessions   map[string]*Session
 }
 
-func NewServer(orbServ *orbit.Server) (s *Server) {
-	s = &Server{
-		Server:   orbServ,
-		sessions: make(map[string]*Session),
+func (s *Server) InitServer(os *orbit.Server) {
+	s.os = os
+}
+
+func (s *Server) InitSession(osn *orbit.Session) {
+	sn := &Session{}
+	sn.HelloServerCaller = hello.RegisterHelloServer(osn, sn)
+	osn.SetValue("HelloServer", sn)
+
+	go func() {
+		time.Sleep(time.Second)
+		err := sn.SayHi(context.Background(), osn, &hello.SayHiArgs{Name: "Roland"})
+		if err != nil {
+			log.Error().Err(err).Msg("say hi to client")
+		}
+	}()
+}
+
+func (s *Server) Session(id string) (sn *Session) {
+	osn := s.os.Session(id)
+	if osn == nil {
+		return
 	}
 
-	orbServ.RegisterHandler(s)
-
+	sn, _ = osn.Value("HelloServer").(*Session)
 	return
 }

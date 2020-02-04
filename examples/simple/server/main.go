@@ -51,28 +51,29 @@ func run() (err error) {
 	cl := closer.New()
 	defer cl.Close_()
 
+	// Create the listener.
 	ln, err := yamux.NewTCPListener("127.0.0.1:6789", nil)
 	if err != nil {
 		return
 	}
 
-	orbServ := orbit.NewServer(
-		cl.CloserTwoWay(),
-		ln,
-		&orbit.ServerConfig{
-			Config: &orbit.Config{PrintPanicStackTraces: true},
-		},
-		auth.ServerHook(func(username string) (hash []byte, ok bool) {
-			if username == "marc" {
-				hash, _ = auth.Hash("test")
-				ok = true
-			}
-			return
-		}),
-		zerolog.DebugHook(),
-	)
+	// Create the config.
+	cf := &orbit.ServerConfig{Config: orbit.DefaultConfig()}
+	cf.PrintPanicStackTraces = true
+	cf.SendErrToCaller = true
 
-	s := NewServer(orbServ)
+	// Create the user hash func.
+	uhf := func(username string) (hash []byte, ok bool) {
+		if username == "marc" {
+			hash, _ = auth.Hash("test")
+			ok = true
+		}
+		return
+	}
+
+	// Create the orbit server.
+	s := orbit.NewServer(cl.CloserTwoWay(), ln, cf, &Server{}, auth.ServerHook(uhf), zerolog.DebugHookWithLogger(*cf.Log))
+
 	go func() {
 		err := s.Listen()
 		if err != nil && !s.IsClosing() {

@@ -60,6 +60,7 @@ func DebugHookWithLogger(log zerolog.Logger) orbit.Hook {
 func (h *debug) OnNewSession(s *orbit.Session, stream net.Conn) error {
 	h.log.Debug().
 		Str("remoteAddr", s.RemoteAddr().String()).
+		Str("id", s.ID()).
 		Msg("new session")
 	return nil
 }

@@ -33,6 +33,7 @@ import (
 
 	"github.com/desertbit/closer/v3"
 	"github.com/desertbit/orbit/examples/simple/hello"
+	"github.com/desertbit/orbit/pkg/hook/auth"
 	"github.com/desertbit/orbit/pkg/net/yamux"
 	"github.com/desertbit/orbit/pkg/orbit"
 	"github.com/rs/zerolog/log"
@@ -49,24 +50,31 @@ func run() (err error) {
 	cl := closer.New()
 	defer cl.Close_()
 
+	// Create the tcp connection.
 	conn, err := yamux.NewTCPConn("127.0.0.1:6789", nil)
 	if err != nil {
 		return
 	}
 
-	co, err := orbit.NewClient(cl.CloserTwoWay(), conn, &orbit.Config{PrintPanicStackTraces: true})
+	// Create the config.
+	cf := orbit.DefaultConfig()
+	cf.PrintPanicStackTraces = true
+	cf.SendErrToCaller = true
+
+	// Create our client.
+	c := &Client{}
+
+	// Create the orbit client.
+	_, err = orbit.NewClient(cl.CloserTwoWay(), conn, cf, c, auth.ClientHook("marc", "test"))
 	if err != nil {
 		return
 	}
-
-	c := NewClient(co)
 
 	// Make example calls.
 	err = c.SayHi(context.Background(), &hello.SayHiArgs{Name: "Marc"})
 	if err != nil {
 		return
 	}
-	println("said hi to server")
 
 	ret, err := c.ClockTime(context.Background())
 	if err != nil {
