@@ -33,6 +33,8 @@ import (
 	"syscall"
 
 	"github.com/desertbit/closer/v3"
+	"github.com/desertbit/orbit/pkg/hook/auth"
+	"github.com/desertbit/orbit/pkg/hook/zerolog"
 	"github.com/desertbit/orbit/pkg/net/yamux"
 	"github.com/desertbit/orbit/pkg/orbit"
 	"github.com/rs/zerolog/log"
@@ -60,6 +62,14 @@ func run() (err error) {
 		&orbit.ServerConfig{
 			Config: &orbit.Config{PrintPanicStackTraces: true},
 		},
+		auth.ServerHook(func(username string) (hash []byte, ok bool) {
+			if username == "marc" {
+				hash, _ = auth.Hash("test")
+				ok = true
+			}
+			return
+		}),
+		zerolog.DebugHook(),
 	)
 
 	s := NewServer(orbServ)

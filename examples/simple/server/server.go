@@ -46,5 +46,7 @@ func NewServer(orbServ *orbit.Server) (s *Server) {
 		sessions: make(map[string]*Session),
 	}
 
+	orbServ.RegisterHandler(s)
+
 	return
 }

@@ -28,7 +28,11 @@
 package main
 
 import (
+	"context"
+	"time"
+
 	"github.com/desertbit/closer/v3"
+	"github.com/desertbit/orbit/examples/simple/hello"
 	"github.com/desertbit/orbit/pkg/net/yamux"
 	"github.com/desertbit/orbit/pkg/orbit"
 	"github.com/rs/zerolog/log"
@@ -58,5 +62,24 @@ func run() (err error) {
 	c := NewClient(co)
 
 	// Make example calls.
-	return
+	err = c.SayHi(context.Background(), &hello.SayHiArgs{Name: "Marc"})
+	if err != nil {
+		return
+	}
+	println("said hi to server")
+
+	ret, err := c.ClockTime(context.Background())
+	if err != nil {
+		return
+	}
+	for i := 0; i < 3; i++ {
+		var t time.Time
+		t, err = ret.Read()
+		if err != nil {
+			return
+		}
+
+		println(t.String())
+	}
+	return ret.Close()
 }
