@@ -82,7 +82,6 @@ type Session struct {
 // The created session closes, if the underlying connection is closed.
 // The initial stream is closed by the caller.
 func newSession(
-	cl closer.Closer,
 	conn Conn,
 	initStream net.Conn,
 	id string,
@@ -91,7 +90,7 @@ func newSession(
 	hs []Hook,
 ) (s *Session, err error) {
 	s = &Session{
-		Closer:         cl,
+		Closer:         conn,
 		cf:             cf,
 		log:            cf.Log,
 		codec:          cf.Codec,
@@ -104,7 +103,6 @@ func newSession(
 		callFuncs:      make(map[string]CallFunc),
 		callActiveCtxs: make(map[uint32]*callContext),
 	}
-	s.OnClosing(conn.Close)
 
 	// Catch panics.
 	defer func() {

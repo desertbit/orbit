@@ -27,10 +27,6 @@
 
 package orbit
 
-import (
-	"github.com/desertbit/closer/v3"
-)
-
-func NewClient(cl closer.Closer, conn Conn, cf *Config, h SessionHandler, hs ...Hook) (s *Session, err error) {
-	return newClientSession(cl, conn, cf, h, hs)
+func NewClient(conn Conn, cf *Config, h SessionHandler, hs ...Hook) (s *Session, err error) {
+	return newClientSession(conn, cf, h, hs)
 }

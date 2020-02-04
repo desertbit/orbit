@@ -63,17 +63,17 @@ type Server struct {
 // been set will be initialized with a default value.
 // That makes it possible to overwrite only the interesting properties
 // for the caller.
-func NewServer(cl closer.Closer, ln Listener, cf *ServerConfig, h ServerHandler, hs ...Hook) *Server {
-	return newServer(cl, ln, cf, h, hs...)
+func NewServer(ln Listener, cf *ServerConfig, h ServerHandler, hs ...Hook) *Server {
+	return newServer(ln, cf, h, hs...)
 }
 
 // newServer is the internal helper to create a new orbit server.
-func newServer(cl closer.Closer, ln Listener, cf *ServerConfig, h ServerHandler, hs ...Hook) *Server {
+func newServer(ln Listener, cf *ServerConfig, h ServerHandler, hs ...Hook) *Server {
 	// Prepare the config.
 	cf = prepareServerConfig(cf)
 
 	s := &Server{
-		Closer:   cl,
+		Closer:   ln,
 		ln:       ln,
 		cf:       cf,
 		log:      cf.Log,
@@ -82,7 +82,6 @@ func newServer(cl closer.Closer, ln Listener, cf *ServerConfig, h ServerHandler,
 		sessions: make(map[string]*Session),
 		connChan: make(chan Conn, cf.NewConnChanSize),
 	}
-	s.OnClosing(ln.Close)
 
 	// Call the handler.
 	h.InitServer(s)
@@ -170,7 +169,7 @@ func (s *Server) handleConnectionLoop() {
 // Errors are logged, instead of being returned.
 func (s *Server) handleConnection(conn Conn) {
 	// Create a new server session.
-	sn, err := newServerSession(s.CloserOneWay(), conn, s.cf.Config, s.h, s.hooks)
+	sn, err := newServerSession(conn, s.cf.Config, s.h, s.hooks)
 	if err != nil {
 		// Log. Do not use the Err() field, as stack trace formatting is lost then.
 		s.log.Error().

@@ -53,12 +53,22 @@ func newStream(qs quic.Stream, la, ra net.Addr) *stream {
 	}
 }
 
-// Implements the net.Conn interface.
+// Implements the orbit.Stream interface.
 func (s *stream) LocalAddr() net.Addr {
 	return s.la
 }
 
-// Implements the net.Conn interface.
+// Implements the orbit.Stream interface.
 func (s *stream) RemoteAddr() net.Addr {
 	return s.ra
+}
+
+// Implements the orbit.Stream interface.
+func (s *stream) IsClosed() bool {
+	select {
+	case <-s.Context().Done():
+		return true
+	default:
+		return false
+	}
 }

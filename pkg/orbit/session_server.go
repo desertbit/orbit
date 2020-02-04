@@ -32,7 +32,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/desertbit/closer/v3"
 	"github.com/desertbit/orbit/internal/api"
 	"github.com/desertbit/orbit/internal/utils"
 	"github.com/desertbit/orbit/pkg/packet"
@@ -43,7 +42,7 @@ const (
 	sessionIDLength = 32
 )
 
-func newServerSession(cl closer.Closer, conn Conn, cf *Config, h SessionHandler, hs []Hook) (sn *Session, err error) {
+func newServerSession(conn Conn, cf *Config, h SessionHandler, hs []Hook) (sn *Session, err error) {
 	// Close connection on error.
 	defer func() {
 		if err != nil {
@@ -115,5 +114,5 @@ func newServerSession(cl closer.Closer, conn Conn, cf *Config, h SessionHandler,
 	// Finally, create the orbit session.
 	// Hooks will be called, which are the last chance that the
 	// session might not be established.
-	return newSession(cl, conn, stream, id, cf, h, hs)
+	return newSession(conn, stream, id, cf, h, hs)
 }

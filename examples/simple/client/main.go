@@ -29,12 +29,13 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"time"
 
 	"github.com/desertbit/closer/v3"
 	"github.com/desertbit/orbit/examples/simple/hello"
 	"github.com/desertbit/orbit/pkg/hook/auth"
-	"github.com/desertbit/orbit/pkg/net/yamux"
+	"github.com/desertbit/orbit/pkg/net/quic"
 	"github.com/desertbit/orbit/pkg/orbit"
 	"github.com/rs/zerolog/log"
 )
@@ -51,7 +52,15 @@ func run() (err error) {
 	defer cl.Close_()
 
 	// Create the tcp connection.
-	conn, err := yamux.NewTCPConn("127.0.0.1:6789", nil)
+	/*conn, err := yamux.NewTCPConn("127.0.0.1:6789", nil)
+	if err != nil {
+		return
+	}*/
+
+	conn, err := quic.NewUDPConnWithCloser("127.0.0.1:6789", &tls.Config{
+		InsecureSkipVerify: true,
+		NextProtos:         []string{"orbit-simple-example"},
+	}, quic.DefaultConfig(), cl.CloserTwoWay())
 	if err != nil {
 		return
 	}
@@ -65,7 +74,7 @@ func run() (err error) {
 	c := &Client{}
 
 	// Create the orbit client.
-	_, err = orbit.NewClient(cl.CloserTwoWay(), conn, cf, c, auth.ClientHook("marc", "test"))
+	_, err = orbit.NewClient(conn, cf, c, auth.ClientHook("marc", "test"))
 	if err != nil {
 		return
 	}
@@ -87,7 +96,7 @@ func run() (err error) {
 			return
 		}
 
-		println(t.String())
+		log.Debug().Time("time", t).Msg("server clock time")
 	}
 	return ret.Close()
 }
