@@ -40,6 +40,10 @@ import (
 	"github.com/rs/zerolog"
 )
 
+const (
+	flushTimeout = 7 * time.Second
+)
+
 type CallFunc func(ctx context.Context, s *Session, args *Data) (ret interface{}, err error)
 
 type StreamFunc func(s *Session, stream net.Conn)
@@ -119,6 +123,7 @@ func newSession(
 	for _, h := range hs {
 		err = h.OnNewSession(s, initStream)
 		if err != nil {
+			err = fmt.Errorf("on new session hook: %w", err)
 			return
 		}
 	}

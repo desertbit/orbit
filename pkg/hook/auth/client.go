@@ -33,10 +33,10 @@
 package auth
 
 import (
+	"fmt"
 	"net"
 	"time"
 
-	"github.com/desertbit/orbit/internal/flusher"
 	"github.com/desertbit/orbit/pkg/hook/auth/api"
 	"github.com/desertbit/orbit/pkg/orbit"
 	"github.com/desertbit/orbit/pkg/packet"
@@ -64,29 +64,29 @@ func (c *client) OnNewSession(s *orbit.Session, stream net.Conn) (err error) {
 	// Set a deadline.
 	err = stream.SetDeadline(time.Now().Add(timeout))
 	if err != nil {
-		return
+		return fmt.Errorf("auth set deadline: %w", err)
 	}
 
 	// Send an authentication request with our credentials.
 	err = packet.WriteEncode(stream, &api.Request{Username: c.username, Pw: c.pwChecksum}, cc)
 	if err != nil {
-		return
+		return fmt.Errorf("auth packet write encode: %w", err)
 	}
 
 	// Read the server's response for it.
 	var data api.Response
 	err = packet.ReadDecode(stream, &data, cc)
 	if err != nil {
-		return
+		return fmt.Errorf("auth read decode: %w", err)
 	}
 
 	// Always flush the connection.
 	// Otherwise authentication errors might not be send
 	// to the peer, because the connection is closed too fast.
-	err = flusher.Flush(stream, flushTimeout)
+	/*err = flusher.Flush(stream, flushTimeout)
 	if err != nil {
-		return
-	}
+		return fmt.Errorf("auth flush: %w", err)
+	}*/
 
 	// Check if the authentication was successful.
 	if !data.Ok {

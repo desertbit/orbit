@@ -285,6 +285,9 @@ func (s *Session) readCallRoutine(cs *callStream, once bool) {
 	// Log errors, but only, if the server or stream are not closing.
 	defer func() {
 		if err != nil && !s.IsClosing() && !errors.Is(err, io.EOF) {
+			if v, ok := cs.Conn.(interface{ IsClosed() bool }); ok && v.IsClosed() {
+				return
+			}
 			s.log.Error().
 				Err(err).
 				Msg("read call routine")

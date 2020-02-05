@@ -33,10 +33,10 @@
 package auth
 
 import (
+	"fmt"
 	"net"
 	"time"
 
-	"github.com/desertbit/orbit/internal/flusher"
 	"github.com/desertbit/orbit/pkg/hook/auth/api"
 	"github.com/desertbit/orbit/pkg/hook/auth/bcrypt"
 	"github.com/desertbit/orbit/pkg/orbit"
@@ -66,14 +66,14 @@ func (s *server) OnNewSession(sn *orbit.Session, stream net.Conn) (err error) {
 	// Set a deadline.
 	err = stream.SetDeadline(time.Now().Add(timeout))
 	if err != nil {
-		return
+		return fmt.Errorf("auth set deadline: %w", err)
 	}
 
 	// Read an incoming authentication request.
 	var data api.Request
 	err = packet.ReadDecode(stream, &data, cc)
 	if err != nil {
-		return
+		return fmt.Errorf("auth packet read decode: %w", err)
 	}
 
 	// Validate the request data.
@@ -95,16 +95,17 @@ func (s *server) OnNewSession(sn *orbit.Session, stream net.Conn) (err error) {
 	// the authentication was successful.
 	err = packet.WriteEncode(stream, &ret, cc)
 	if err != nil {
-		return
+		return fmt.Errorf("auth packet write encode: %w", err)
 	}
 
 	// Always flush the connection.
 	// Otherwise authentication errors might not be send
 	// to the peer, because the connection is closed too fast.
-	err = flusher.Flush(stream, flushTimeout)
+	/*err = flusher.Flush(stream, flushTimeout)
 	if err != nil {
-		return
+		return fmt.Errorf("auth flush: %w", err)
 	}
+	time.Sleep(1000 * time.Millisecond)*/
 
 	// Check if the authentication was successful.
 	if !ret.Ok {

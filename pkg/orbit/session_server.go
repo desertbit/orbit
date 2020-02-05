@@ -33,6 +33,7 @@ import (
 	"time"
 
 	"github.com/desertbit/orbit/internal/api"
+	"github.com/desertbit/orbit/internal/flusher"
 	"github.com/desertbit/orbit/internal/utils"
 	"github.com/desertbit/orbit/pkg/packet"
 )
@@ -65,7 +66,13 @@ func newServerSession(conn Conn, cf *Config, h SessionHandler, hs []Hook) (sn *S
 	if err != nil {
 		return nil, err
 	}
-	defer stream.Close()
+	defer func() {
+		fErr := flusher.Flush(stream, flushTimeout)
+		if err == nil {
+			err = fErr
+		}
+		_ = stream.Close()
+	}()
 
 	// Deadline is certainly available.
 	deadline, _ := ctx.Deadline()

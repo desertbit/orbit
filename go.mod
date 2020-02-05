@@ -10,7 +10,7 @@ require (
 	github.com/go-playground/validator/v10 v10.1.0
 	github.com/golang/protobuf v1.3.3 // indirect
 	github.com/hashicorp/yamux v0.0.0-20190923154419-df201c70410d
-	github.com/lucas-clemente/quic-go v0.14.2
+	github.com/lucas-clemente/quic-go v0.14.3
 	github.com/mattn/go-isatty v0.0.12 // indirect
 	github.com/philhofer/fwd v1.0.0 // indirect
 	github.com/rs/zerolog v1.17.2

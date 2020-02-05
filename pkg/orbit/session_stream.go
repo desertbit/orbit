@@ -38,6 +38,7 @@ import (
 
 	"github.com/desertbit/orbit/internal/api"
 	"github.com/desertbit/orbit/pkg/packet"
+	quic "github.com/lucas-clemente/quic-go"
 )
 
 const (
@@ -108,11 +109,8 @@ func (s *Session) openStream(ctx context.Context, service, id string, t api.Stre
 func (s *Session) acceptStreamRoutine() {
 	defer s.Close_()
 
-	ctx, cancel := context.WithCancel(context.Background())
-	s.OnClosing(func() error {
-		cancel()
-		return nil
-	})
+	ctx, cancel := s.Context()
+	defer cancel()
 
 	for {
 		// Quit if the session has been closed.
@@ -123,6 +121,14 @@ func (s *Session) acceptStreamRoutine() {
 		// Wait for new incoming connections.
 		stream, err := s.conn.AcceptStream(ctx)
 		if err != nil {
+			var t net.Error
+			if errors.As(err, &t) {
+				println("accept stream routine NET ERROR", t.Timeout(), t.Temporary(), t.Error())
+			}
+			var se quic.StreamError
+			if errors.As(err, &se) {
+				println("accept stream routine STREAM ERROR", se.ErrorCode(), se.Canceled(), se.Error())
+			}
 			if !s.IsClosing() && !errors.Is(err, io.EOF) {
 				s.log.Error().
 					Err(err).
@@ -168,7 +174,7 @@ func (s *Session) handleNewStream(stream net.Conn) {
 	var data api.InitStream
 	err = packet.ReadDecode(stream, &data, s.cf.Codec)
 	if err != nil {
-		err = fmt.Errorf("init stream header: %v", err)
+		err = fmt.Errorf("init stream header: %w", err)
 		return
 	}
 

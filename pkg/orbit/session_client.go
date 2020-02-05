@@ -33,6 +33,7 @@ import (
 	"time"
 
 	"github.com/desertbit/orbit/internal/api"
+	"github.com/desertbit/orbit/internal/flusher"
 	"github.com/desertbit/orbit/pkg/packet"
 )
 
@@ -55,9 +56,15 @@ func newClientSession(conn Conn, cf *Config, h SessionHandler, hs []Hook) (s *Se
 	// Open the stream to the server.
 	stream, err := conn.OpenStream(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("open stream: %w", err)
 	}
-	defer stream.Close()
+	defer func() {
+		fErr := flusher.Flush(stream, flushTimeout)
+		if err == nil {
+			err = fErr
+		}
+		_ = stream.Close()
+	}()
 
 	// Deadline is certainly available.
 	deadline, _ := ctx.Deadline()
@@ -65,20 +72,20 @@ func newClientSession(conn Conn, cf *Config, h SessionHandler, hs []Hook) (s *Se
 	// Set the deadline for the handshake.
 	err = stream.SetDeadline(deadline)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("set deadline: %w", err)
 	}
 
 	// Send the arguments for the handshake to the server.
 	err = packet.WriteEncode(stream, &api.HandshakeArgs{Version: api.Version}, cf.Codec)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("packet write encode: %w", err)
 	}
 
 	// Wait for the server's handshake response.
 	var ret api.HandshakeRet
 	err = packet.ReadDecode(stream, &ret, cf.Codec)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("packet read decode: %w", err)
 	} else if ret.Code == api.HSInvalidVersion {
 		return nil, ErrInvalidVersion
 	} else if ret.Code != api.HSOk {
@@ -88,7 +95,7 @@ func newClientSession(conn Conn, cf *Config, h SessionHandler, hs []Hook) (s *Se
 	// Reset the deadline.
 	err = stream.SetDeadline(time.Time{})
 	if err != nil {
-		return
+		return nil, fmt.Errorf("set deadline 2: %w", err)
 	}
 
 	// Finally, create the orbit session.
