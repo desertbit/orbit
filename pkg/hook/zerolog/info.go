@@ -28,7 +28,6 @@
 package zerolog
 
 import (
-	"net"
 	"os"
 	"time"
 
@@ -57,7 +56,7 @@ func InfoHookWithLogger(log zerolog.Logger) orbit.Hook {
 	}
 }
 
-func (h *info) OnNewSession(s *orbit.Session, stream net.Conn) error {
+func (h *info) OnNewSession(s *orbit.Session, stream orbit.Stream) error {
 	h.log.Info().
 		Str("remoteAddr", s.RemoteAddr().String()).
 		Str("id", s.ID()).

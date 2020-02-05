@@ -32,7 +32,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net"
 	"runtime/debug"
 	"time"
 
@@ -83,7 +82,7 @@ func (s *Session) Call(ctx context.Context, service, id string, data interface{}
 
 	if !ok {
 		// First call, initialize the call stream.
-		var stream net.Conn
+		var stream Stream
 		stream, err = s.openStream(ctx, service, id, api.StreamTypeCallInit)
 		if err != nil {
 			return
@@ -238,7 +237,7 @@ func (s *Session) waitForCallResponse(
 	return
 }
 
-func (s *Session) handleAsyncCall(stream net.Conn, service, id string) (err error) {
+func (s *Session) handleAsyncCall(stream Stream, service, id string) (err error) {
 	callID := service + "." + id
 	var ok bool
 	s.callFuncsMx.RLock()
@@ -255,7 +254,7 @@ func (s *Session) handleAsyncCall(stream net.Conn, service, id string) (err erro
 	return
 }
 
-func (s *Session) handleInitCall(stream net.Conn, service, id string) (err error) {
+func (s *Session) handleInitCall(stream Stream, service, id string) (err error) {
 	callID := service + "." + id
 	var ok bool
 	s.callFuncsMx.RLock()
@@ -282,12 +281,9 @@ func (s *Session) readCallRoutine(cs *callStream, once bool) {
 		reqTypeBuf   = make([]byte, 1)
 	)
 
-	// Log errors, but only, if the server or stream are not closing.
+	// Log errors, but only, if the session or stream are not closing.
 	defer func() {
-		if err != nil && !s.IsClosing() && !errors.Is(err, io.EOF) {
-			if v, ok := cs.Conn.(interface{ IsClosed() bool }); ok && v.IsClosed() {
-				return
-			}
+		if err != nil && !s.IsClosing() && !cs.IsClosed() && !errors.Is(err, io.EOF) {
 			s.log.Error().
 				Err(err).
 				Msg("read call routine")

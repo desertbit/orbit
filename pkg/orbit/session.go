@@ -87,7 +87,7 @@ type Session struct {
 // The initial stream is closed by the caller.
 func newSession(
 	conn Conn,
-	initStream net.Conn,
+	initStream Stream,
 	id string,
 	cf *Config,
 	h SessionHandler,
@@ -123,7 +123,6 @@ func newSession(
 	for _, h := range hs {
 		err = h.OnNewSession(s, initStream)
 		if err != nil {
-			err = fmt.Errorf("on new session hook: %w", err)
 			return
 		}
 	}

@@ -32,13 +32,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net"
 	"runtime/debug"
 	"time"
 
 	"github.com/desertbit/orbit/internal/api"
 	"github.com/desertbit/orbit/pkg/packet"
-	quic "github.com/lucas-clemente/quic-go"
 )
 
 const (
@@ -52,7 +50,7 @@ func (s *Session) RegisterStream(service, id string, f StreamFunc) {
 }
 
 // OpenStream opens a new stream with the given channel ID.
-func (s *Session) OpenStream(ctx context.Context, service, id string) (stream net.Conn, err error) {
+func (s *Session) OpenStream(ctx context.Context, service, id string) (stream Stream, err error) {
 	return s.openStream(ctx, service, id, api.StreamTypeRaw)
 }
 
@@ -60,7 +58,7 @@ func (s *Session) OpenStream(ctx context.Context, service, id string) (stream ne
 //### Private ###//
 //###############//
 
-func (s *Session) openStream(ctx context.Context, service, id string, t api.StreamType) (stream net.Conn, err error) {
+func (s *Session) openStream(ctx context.Context, service, id string, t api.StreamType) (stream Stream, err error) {
 	// Open the stream through our conn.
 	stream, err = s.conn.OpenStream(ctx)
 	if err != nil {
@@ -121,14 +119,6 @@ func (s *Session) acceptStreamRoutine() {
 		// Wait for new incoming connections.
 		stream, err := s.conn.AcceptStream(ctx)
 		if err != nil {
-			var t net.Error
-			if errors.As(err, &t) {
-				println("accept stream routine NET ERROR", t.Timeout(), t.Temporary(), t.Error())
-			}
-			var se quic.StreamError
-			if errors.As(err, &se) {
-				println("accept stream routine STREAM ERROR", se.ErrorCode(), se.Canceled(), se.Error())
-			}
 			if !s.IsClosing() && !errors.Is(err, io.EOF) {
 				s.log.Error().
 					Err(err).
@@ -142,7 +132,7 @@ func (s *Session) acceptStreamRoutine() {
 	}
 }
 
-func (s *Session) handleNewStream(stream net.Conn) {
+func (s *Session) handleNewStream(stream Stream) {
 	var err error
 	defer func() {
 		// Catch panics. Might be caused by the channel interface.

@@ -28,7 +28,6 @@
 package zerolog
 
 import (
-	"net"
 	"os"
 	"time"
 
@@ -57,7 +56,7 @@ func DebugHookWithLogger(log zerolog.Logger) orbit.Hook {
 	}
 }
 
-func (h *debug) OnNewSession(s *orbit.Session, stream net.Conn) error {
+func (h *debug) OnNewSession(s *orbit.Session, stream orbit.Stream) error {
 	h.log.Debug().
 		Str("remoteAddr", s.RemoteAddr().String()).
 		Str("id", s.ID()).

@@ -76,7 +76,7 @@ func newSession(cl closer.Closer, qs quic.Session) (s *session, err error) {
 }
 
 // Implements the orbit.Conn interface.
-func (s *session) AcceptStream(ctx context.Context) (net.Conn, error) {
+func (s *session) AcceptStream(ctx context.Context) (orbit.Stream, error) {
 	stream, err := s.qs.AcceptStream(ctx)
 	if err != nil {
 		return nil, err
@@ -86,7 +86,7 @@ func (s *session) AcceptStream(ctx context.Context) (net.Conn, error) {
 }
 
 // Implements the orbit.Conn interface.
-func (s *session) OpenStream(ctx context.Context) (net.Conn, error) {
+func (s *session) OpenStream(ctx context.Context) (orbit.Stream, error) {
 	stream, err := s.qs.OpenStreamSync(ctx)
 	if err != nil {
 		return nil, err

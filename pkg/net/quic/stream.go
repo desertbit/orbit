@@ -28,12 +28,15 @@
 package quic
 
 import (
+	"errors"
+	"io"
 	"net"
 
+	"github.com/desertbit/orbit/pkg/orbit"
 	quic "github.com/lucas-clemente/quic-go"
 )
 
-var _ net.Conn = &stream{}
+var _ orbit.Stream = &stream{}
 
 // Type stream wraps a quic.Stream and implements the
 // two missing methods so it can be used as a net.Conn.
@@ -51,6 +54,21 @@ func newStream(qs quic.Stream, la, ra net.Addr) *stream {
 		la:     la,
 		ra:     ra,
 	}
+}
+
+// Implements the orbit.Stream interface.
+func (s *stream) Read(b []byte) (n int, err error) {
+	// We want the quic.Stream to behave like a net.Conn.
+	// Since the quic.Stream implements the io.Reader interface, it may return
+	// an io.EOF error also, if at least one byte could be read.
+	// But we only want io.EOF, if the connection closed, which is the case, if no bytes
+	// were read.
+	n, err = s.Stream.Read(b)
+	if n > 0 && err != nil && errors.Is(err, io.EOF) {
+		// Ignore io.EOF, if at least one byte could be read.
+		err = nil
+	}
+	return
 }
 
 // Implements the orbit.Stream interface.

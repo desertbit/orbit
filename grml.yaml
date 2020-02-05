@@ -28,7 +28,10 @@ commands:
                         deps:
                             - build.simple
                         exec: |
-                            "${BINDIR}/simple-client"
+                            while true
+                            do
+                                "${BINDIR}/simple-client"
+                            done
                     server:
                         help: run the server of the simple example application.
                         deps:

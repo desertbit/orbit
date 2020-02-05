@@ -67,11 +67,14 @@ func newServerSession(conn Conn, cf *Config, h SessionHandler, hs []Hook) (sn *S
 		return nil, err
 	}
 	defer func() {
-		fErr := flusher.Flush(stream, flushTimeout)
+		dErr := flusher.Flush(stream, flushTimeout)
 		if err == nil {
-			err = fErr
+			err = dErr
 		}
-		_ = stream.Close()
+		dErr = stream.Close()
+		if err == nil {
+			err = dErr
+		}
 	}()
 
 	// Deadline is certainly available.

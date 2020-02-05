@@ -25,22 +25,27 @@
  * SOFTWARE.
  */
 
-package orbit
+package yamux
 
 import (
-	"sync"
+	"github.com/desertbit/orbit/pkg/orbit"
+	"github.com/hashicorp/yamux"
+	"github.com/rs/zerolog/log"
 )
 
-type callStream struct {
-	Stream
+var _ orbit.Stream = &stream{}
 
-	// Synchronises write access to the net.Conn.
-	WriteMx sync.Mutex
-
-	// Stores channels, where return values are expected during calls.
-	RetChain *chain
+type stream struct {
+	*yamux.Stream
 }
 
-func newCallStream(stream Stream, retChain *chain) *callStream {
-	return &callStream{Stream: stream, RetChain: retChain}
+func newStream(s *yamux.Stream) *stream {
+	return &stream{Stream: s}
+}
+
+// Implements the orbit.Stream interface.
+func (s *stream) IsClosed() bool {
+	// TODO: Fork the yamux package and implement it.
+	log.Warn().Msg("IsClosed() not implemented for yamux streams!")
+	return false
 }

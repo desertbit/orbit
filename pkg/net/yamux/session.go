@@ -102,15 +102,25 @@ func (s *session) RemoteAddr() net.Addr {
 }
 
 // AcceptStream returns the next stream opened by the peer, blocking until one is available.
-func (s *session) AcceptStream(ctx context.Context) (net.Conn, error) {
+func (s *session) AcceptStream(ctx context.Context) (orbit.Stream, error) {
 	// TODO: Fork the yamux package and implement the context cancel handling.
-	return s.ys.Accept()
+	stream, err := s.ys.AcceptStream()
+	if err != nil {
+		return nil, err
+	}
+
+	return newStream(stream), nil
 }
 
 // OpenStream opens a new bidirectional stream.
 // There is no signaling to the peer about new streams:
 // The peer can only accept the stream after data has been sent on the stream.
-func (s *session) OpenStream(ctx context.Context) (net.Conn, error) {
+func (s *session) OpenStream(ctx context.Context) (orbit.Stream, error) {
 	// TODO: Fork the yamux package and implement the context cancel handling.
-	return s.ys.Open()
+	stream, err := s.ys.OpenStream()
+	if err != nil {
+		return nil, err
+	}
+
+	return newStream(stream), nil
 }

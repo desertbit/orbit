@@ -63,9 +63,10 @@ type Config struct {
 // DefaultConfig returns a config, where all fields are set to their default values.
 func DefaultConfig() *Config {
 	// Default logger.
+	zerolog.TimeFieldFormat = time.RFC3339Nano
 	l := zerolog.New(zerolog.ConsoleWriter{
 		Out:        os.Stderr,
-		TimeFormat: time.RFC3339,
+		TimeFormat: "2006-01-02T15:04:05.999999Z07:00",
 	}).With().Timestamp().Str("component", "orbit").Logger()
 
 	return &Config{
@@ -76,6 +77,7 @@ func DefaultConfig() *Config {
 	}
 }
 
+// TODO: maybe only DefaultConfig()?
 func prepareConfig(c *Config) *Config {
 	if c == nil {
 		c = &Config{}

@@ -30,16 +30,14 @@ package main
 import (
 	"context"
 	"crypto/tls"
-	"errors"
 	"fmt"
-	"net"
+	"time"
 
 	"github.com/desertbit/closer/v3"
 	"github.com/desertbit/orbit/examples/simple/hello"
 	"github.com/desertbit/orbit/pkg/hook/auth"
 	"github.com/desertbit/orbit/pkg/net/quic"
 	"github.com/desertbit/orbit/pkg/orbit"
-	quic2 "github.com/lucas-clemente/quic-go"
 	"github.com/rs/zerolog/log"
 )
 
@@ -84,24 +82,13 @@ func run() (err error) {
 	}
 
 	// Make example calls.
-	for i := 0; i < 1000; i++ {
-		err = c.SayHi(context.Background(), &hello.SayHiArgs{Name: "Marc"})
-		if err != nil {
-			var t net.Error
-			if errors.As(err, &t) {
-				println("main say hi NET ERROR", t.Timeout(), t.Temporary(), t.Error())
-			}
-			var s quic2.StreamError
-			if errors.As(err, &s) {
-				println("main say hi STREAM ERROR", s.ErrorCode(), s.Canceled(), s.Error())
-			}
-			err = fmt.Errorf("say hi: %w", err)
-			return
-		}
+	err = c.SayHi(context.Background(), &hello.SayHiArgs{Name: "Marc"})
+	if err != nil {
+		err = fmt.Errorf("say hi: %w", err)
+		return
 	}
-	println("ok")
 
-	/*ret, err := c.ClockTime(context.Background())
+	ret, err := c.ClockTime(context.Background())
 	if err != nil {
 		return
 	}
@@ -114,6 +101,5 @@ func run() (err error) {
 
 		log.Debug().Time("time", t).Msg("server clock time")
 	}
-	return ret.Close()*/
-	return
+	return ret.Close()
 }

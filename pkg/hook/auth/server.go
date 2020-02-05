@@ -34,7 +34,6 @@ package auth
 
 import (
 	"fmt"
-	"net"
 	"time"
 
 	"github.com/desertbit/orbit/pkg/hook/auth/api"
@@ -60,7 +59,7 @@ func ServerHook(hf UserHashFunc) orbit.Hook {
 }
 
 // Implements the orbit.Hook interface.
-func (s *server) OnNewSession(sn *orbit.Session, stream net.Conn) (err error) {
+func (s *server) OnNewSession(sn *orbit.Session, stream orbit.Stream) (err error) {
 	cc := sn.Codec()
 
 	// Set a deadline.
@@ -97,15 +96,6 @@ func (s *server) OnNewSession(sn *orbit.Session, stream net.Conn) (err error) {
 	if err != nil {
 		return fmt.Errorf("auth packet write encode: %w", err)
 	}
-
-	// Always flush the connection.
-	// Otherwise authentication errors might not be send
-	// to the peer, because the connection is closed too fast.
-	/*err = flusher.Flush(stream, flushTimeout)
-	if err != nil {
-		return fmt.Errorf("auth flush: %w", err)
-	}
-	time.Sleep(1000 * time.Millisecond)*/
 
 	// Check if the authentication was successful.
 	if !ret.Ok {

@@ -38,18 +38,25 @@ type Conn interface {
 	closer.Closer
 
 	// AcceptStream returns the next stream opened by the peer, blocking until one is available.
-	AcceptStream(context.Context) (net.Conn, error)
+	AcceptStream(context.Context) (Stream, error)
 
 	// OpenStream opens a new bidirectional stream.
 	// There is no signaling to the peer about new streams:
 	// The peer can only accept the stream after data has been sent on the stream.
-	OpenStream(context.Context) (net.Conn, error)
+	OpenStream(context.Context) (Stream, error)
 
 	// LocalAddr returns the local address.
 	LocalAddr() net.Addr
 
 	// RemoteAddr returns the address of the peer.
 	RemoteAddr() net.Addr
+}
+
+type Stream interface {
+	net.Conn
+
+	// IsClosed returns true, if the stream has been closed locally or by the remote peer.
+	IsClosed() bool
 }
 
 type Listener interface {

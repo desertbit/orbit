@@ -27,10 +27,6 @@
 
 package orbit
 
-import (
-	"net"
-)
-
 // Hook allows third-party code to hook into orbit's logic, to implement for example
 // logging or authentication functionality.
 // Hooks that return an error have the capability to abort the action that triggered them.
@@ -41,7 +37,7 @@ type Hook interface {
 	// Called after the session has established a first stream and
 	// performed the handshake.
 	// If the returned err != nil, the new session is closed immediately.
-	OnNewSession(s *Session, stream net.Conn) error
+	OnNewSession(s *Session, stream Stream) error
 
 	// Session
 
