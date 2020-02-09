@@ -69,12 +69,14 @@ type Session struct {
 	// When a new stream has been opened, the first data sent on the stream must
 	// contain the key into this map to retrieve the correct function to handle
 	// the stream.
+	// TODO: Can't this be saved in the server once?
 	streamFuncsMx sync.RWMutex
 	streamFuncs   map[string]StreamFunc
 
 	callStreamsMx sync.RWMutex
 	callStreams   map[string]*callStream // Key: service id
 
+	// TODO: Can't this be saved in the server once?
 	callFuncsMx sync.RWMutex
 	callFuncs   map[string]CallFunc // Key: serviceID.callID
 

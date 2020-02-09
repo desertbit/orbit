@@ -28,7 +28,6 @@
 package quic
 
 import (
-	"errors"
 	"io"
 	"net"
 
@@ -64,7 +63,7 @@ func (s *stream) Read(b []byte) (n int, err error) {
 	// But we only want io.EOF, if the connection closed, which is the case, if no bytes
 	// were read.
 	n, err = s.Stream.Read(b)
-	if n > 0 && err != nil && errors.Is(err, io.EOF) {
+	if n > 0 && err == io.EOF {
 		// Ignore io.EOF, if at least one byte could be read.
 		err = nil
 	}
