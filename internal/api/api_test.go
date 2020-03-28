@@ -41,9 +41,9 @@ func TestMsgpImplementation(t *testing.T) {
 		&HandshakeArgs{}, // 0
 		&HandshakeRet{},
 		&InitStream{},
-		&Call{},
-		&CallReturn{},
-		&CallCancel{}, // 5
+		&RPCCall{},
+		&RPCReturn{},
+		&RPCCancel{}, // 5
 	}
 
 	for i, tc := range testCases {
