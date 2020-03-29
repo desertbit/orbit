@@ -33,6 +33,7 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/cloudfoundry/bytefmt"
 	"github.com/desertbit/orbit/internal/codegen/ast"
 )
 
@@ -114,18 +115,40 @@ func (p *parser) peekSymbol(sym string) bool {
 
 // Consumes the current token.
 // Returns ast.Err.
-func (p *parser) expectTimeDuration() (d *time.Duration, err error) {
+func (p *parser) expectDuration() (dur time.Duration, err error) {
 	if p.empty() {
 		err = ast.NewErr(p.prevLine, "expected time duration, but is missing")
 		return
 	}
 
-	dur, err := time.ParseDuration(p.ct.Value)
+	dur, err = time.ParseDuration(p.ct.Value)
 	if err != nil {
 		err = ast.NewErr(p.ct.Line, "expected time duration, %v", err)
 		return
 	}
-	d = &dur
+
+	// Advance to the next token.
+	err = p.next()
+	if err != nil {
+		return
+	}
+
+	return
+}
+
+// Consumes the current token.
+// Returns ast.Err.
+func (p *parser) expectByteSize() (size uint64, err error) {
+	if p.empty() {
+		err = ast.NewErr(p.prevLine, "expected byte size, but is missing")
+		return
+	}
+
+	size, err = bytefmt.ToBytes(p.ct.Value)
+	if err != nil {
+		err = ast.NewErr(p.ct.Line, "invalid byte size, %v", err)
+		return
+	}
 
 	// Advance to the next token.
 	err = p.next()

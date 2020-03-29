@@ -46,6 +46,9 @@ const (
 	equal = '='
 	Equal = string(equal)
 
+	hyphen = '-'
+	Hyphen = string(hyphen)
+
 	singQuote = '\''
 	SingQuote = string(singQuote)
 

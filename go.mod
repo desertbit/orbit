@@ -3,13 +3,14 @@ module github.com/desertbit/orbit
 go 1.13
 
 require (
+	github.com/cloudfoundry/bytefmt v0.0.0-20200131002437-cf55d5288a48
 	github.com/davecgh/go-spew v1.1.1
 	github.com/desertbit/closer v2.0.1+incompatible
 	github.com/desertbit/closer/v3 v3.1.2
 	github.com/desertbit/grumble v1.0.4
 	github.com/fatih/color v1.9.0 // indirect
 	github.com/go-log/log v0.2.0 // indirect
-	github.com/go-playground/validator/v10 v10.1.0
+	github.com/go-playground/validator/v10 v10.2.0
 	github.com/golang/protobuf v1.3.5 // indirect
 	github.com/hashicorp/yamux v0.0.0-20190923154419-df201c70410d
 	github.com/lucas-clemente/quic-go v0.15.2

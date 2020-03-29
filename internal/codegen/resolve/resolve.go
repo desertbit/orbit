@@ -38,63 +38,13 @@ import (
 // In addition, a validation is performed, like checking for duplicate names, etc.
 func Resolve(tree *ast.Tree) (err error) {
 	// Service.
-	srvc := tree.Srvc
-	if srvc == nil {
+	if tree.Srvc == nil {
 		return errors.New("no service definition found")
 	}
 
-	for j, c := range srvc.Calls {
-		for k := j + 1; k < len(srvc.Calls); k++ {
-			// Check for duplicate names.
-			if c.Name == srvc.Calls[k].Name {
-				return ast.NewErr(c.Line, "call '%s' declared twice", c.Name)
-			}
-		}
-
-		// Resolve all AnyTypes.
-		c.Arg, err = resolveAnyType(c.Arg, tree.Types, tree.Enums)
-		if err != nil {
-			return
-		}
-		c.Ret, err = resolveAnyType(c.Ret, tree.Types, tree.Enums)
-		if err != nil {
-			return
-		}
-
-		// Check, that no StructType has a validation tag.
-		if st, ok := c.Arg.(*ast.StructType); ok && c.ArgValTag != "" {
-			return ast.NewErr(st.Line, "validation tags not allowed on type references")
-		}
-		if st, ok := c.Ret.(*ast.StructType); ok && c.RetValTag != "" {
-			return ast.NewErr(st.Line, "validation tags not allowed on type references")
-		}
-	}
-
-	for j, s := range srvc.Streams {
-		for k := j + 1; k < len(srvc.Streams); k++ {
-			// Check for duplicate names.
-			if s.Name == srvc.Streams[k].Name {
-				return ast.NewErr(s.Line, "stream '%s' declared twice", s.Name)
-			}
-		}
-
-		// Resolve all AnyTypes.
-		s.Arg, err = resolveAnyType(s.Arg, tree.Types, tree.Enums)
-		if err != nil {
-			return
-		}
-		s.Ret, err = resolveAnyType(s.Ret, tree.Types, tree.Enums)
-		if err != nil {
-			return
-		}
-
-		// Check, that no StructType has a validation tag.
-		if st, ok := s.Arg.(*ast.StructType); ok && s.ArgValTag != "" {
-			return ast.NewErr(st.Line, "validation tags not allowed on type references")
-		}
-		if st, ok := s.Ret.(*ast.StructType); ok && s.RetValTag != "" {
-			return ast.NewErr(st.Line, "validation tags not allowed on type references")
-		}
+	err = resolveService(tree.Srvc, tree.Types, tree.Enums)
+	if err != nil {
+		return
 	}
 
 	// Types.
