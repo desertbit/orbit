@@ -57,7 +57,8 @@ import (
 )
 
 const (
-	MaxSize = math.MaxUint32
+	MaxSize            = math.MaxUint32
+	NoPayloadSizeLimit = -1
 )
 
 var (
@@ -81,8 +82,8 @@ func ReadDecode(conn net.Conn, value interface{}, codec codec.Codec, maxPayloadS
 
 // Read reads a packet from the connection and returns the raw bytes of it.
 //
-// A timeout must be specified, where a timeout <= 0 means no timeout.
 // A maxPayloadSize of 0 specifies no limit.
+// A maxPayloadSize of -1 (NoPayloadSizeLimit) specifies no limit.
 //
 // If buffer is set and is big enough to fit the packet,
 // then the buffer is used. Otherwise a new buffer is allocated.
@@ -114,7 +115,7 @@ func Read(conn net.Conn, buffer []byte, maxPayloadSize int) ([]byte, error) {
 	payloadLen := int(payloadLen32)
 	if payloadLen == 0 {
 		return []byte{}, ErrZeroData
-	} else if maxPayloadSize != 0 && payloadLen > maxPayloadSize {
+	} else if maxPayloadSize != NoPayloadSizeLimit && payloadLen > maxPayloadSize {
 		return nil, ErrMaxPayloadSizeExceeded
 	}
 
@@ -157,12 +158,15 @@ func WriteEncode(conn net.Conn, value interface{}, codec codec.Codec, maxPayload
 //
 // If data is empty, an empty packet is sent that consists of
 // a header with payload size 0 and no payload.
-// A maxPayloadSize of 0 specifies no limit.
 //
-// A timeout must be specified, where a timeout <= 0 means no timeout.
+// A maxPayloadSize of 0 specifies no limit.
+// A maxPayloadSize of -1 (NoPayloadSizeLimit) specifies no limit.
+//
+// Returns ErrMaxPayloadSizeExceeded if the payload size is exceeded.
 func Write(conn net.Conn, data []byte, maxPayloadSize int) error {
 	payloadLen := len(data)
-	if payloadLen > MaxSize || maxPayloadSize != 0 && payloadLen > maxPayloadSize {
+
+	if payloadLen > MaxSize || maxPayloadSize != NoPayloadSizeLimit && payloadLen > maxPayloadSize {
 		return ErrMaxPayloadSizeExceeded
 	}
 

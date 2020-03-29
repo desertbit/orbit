@@ -41,6 +41,7 @@ import (
 
 const (
 	earlyCancelLifetime = 10 * time.Second
+	maxCancelHeaderSize = 1024 // 1 KB
 )
 
 func (s *session) handleCancelStream(stream transport.Stream) (err error) {
@@ -79,7 +80,7 @@ func (s *session) rpcCancelReadRoutine(stream transport.Stream) {
 
 	for {
 		// Read and reuse the header buffer.
-		reqType, header, _, err = rpc.Read(stream, header, nil)
+		reqType, header, _, err = rpc.Read(stream, header, nil, maxCancelHeaderSize, 0)
 		if err != nil {
 			// Log errors, but only, if the session or stream are not closing.
 			if !s.IsClosing() && !stream.IsClosed() && !s.conn.IsClosedError(err) {

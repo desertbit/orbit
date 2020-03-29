@@ -38,10 +38,11 @@ type clientHandler interface {
 	hookClose() error
 	hookOnSession(session Session, stream transport.Stream) error
 	hookOnSessionClosed(session Session)
+
 	hookOnCall(ctx Context, id string, callKey uint32) error
 	hookOnCallDone(ctx Context, id string, callKey uint32, err error)
 	hookOnCallCanceled(ctx Context, id string, callKey uint32)
-	hookOnStream(ctx Context, id string, stream transport.Stream) error
+	hookOnStream(ctx Context, id string) error
 }
 
 func (c *client) hookClose() (err error) {
@@ -170,7 +171,7 @@ func (c *client) hookOnCallCanceled(ctx Context, id string, callKey uint32) {
 	}
 }
 
-func (c *client) hookOnStream(ctx Context, id string, stream transport.Stream) (err error) {
+func (c *client) hookOnStream(ctx Context, id string) (err error) {
 	// Catch panics.
 	defer func() {
 		if e := recover(); e != nil {
@@ -185,7 +186,7 @@ func (c *client) hookOnStream(ctx Context, id string, stream transport.Stream) (
 
 	// Call the OnStream hooks.
 	for _, h := range c.hooks {
-		err = h.OnStream(ctx, id, stream)
+		err = h.OnStream(ctx, id)
 		if err != nil {
 			err = fmt.Errorf("on stream hook: %w", err)
 			return

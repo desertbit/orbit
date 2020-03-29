@@ -36,29 +36,32 @@ import (
 	"github.com/desertbit/orbit/pkg/transport"
 )
 
-func (s *session) OpenStream(ctx context.Context, id string) (stream transport.Stream, err error) {
-	stream, err = s.openStream(ctx, id, api.StreamTypeRaw)
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		if err != nil {
-			_ = stream.Close()
-		}
-	}()
-
+func (s *session) OpenStream(ctx context.Context, id string) (transport.Stream, error) {
 	// Create a new client context.
 	cctx := newContext(ctx, s)
 
 	// Call the OnStream hooks.
-	err = s.handler.hookOnStream(cctx, id, stream)
+	err := s.handler.hookOnStream(cctx, id)
 	if err != nil {
 		return nil, err
 	}
-	return
+
+	// Open the stream.
+	return s.openStream(ctx, api.StreamTypeRaw, &api.StreamRaw{
+		ID:   id,
+		Data: cctx.header,
+	}, s.maxHeaderSize)
 }
 
-func (s *session) openStream(ctx context.Context, id string, t api.StreamType) (stream transport.Stream, err error) {
+func (s *session) openStream(
+	ctx context.Context,
+	streamType api.StreamType,
+	header interface{},
+	maxHeaderSize int,
+) (
+	stream transport.Stream,
+	err error,
+) {
 	// Open the stream through our conn.
 	stream, err = s.conn.OpenStream(ctx)
 	if err != nil {
@@ -70,13 +73,6 @@ func (s *session) openStream(ctx context.Context, id string, t api.StreamType) (
 		}
 	}()
 
-	// Create the initial data that signals to the remote peer,
-	// which stream we want to open.
-	data := api.InitStream{
-		ID:   id,
-		Type: t,
-	}
-
 	// Set a write deadline, if needed.
 	if deadline, ok := ctx.Deadline(); ok {
 		err = stream.SetWriteDeadline(deadline)
@@ -85,17 +81,21 @@ func (s *session) openStream(ctx context.Context, id string, t api.StreamType) (
 		}
 	}
 
-	// Write the initial request to the stream.
-	err = packet.WriteEncode(stream, &data, api.Codec)
+	// Write the stream type.
+	_, err = stream.Write([]byte{byte(streamType)})
 	if err != nil {
 		return
+	}
+
+	// Write the header if set.
+	if header != nil {
+		err = packet.WriteEncode(stream, &header, api.Codec, maxHeaderSize)
+		if err != nil {
+			return
+		}
 	}
 
 	// Reset the deadlines.
 	err = stream.SetDeadline(time.Time{})
-	if err != nil {
-		return
-	}
-
 	return
 }

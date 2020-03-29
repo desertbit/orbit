@@ -45,6 +45,7 @@ func (s *session) writeRPCRequest(
 	streamLocker sync.Locker,
 	reqType api.RPCType,
 	headerI, dataI interface{},
+	maxPayloadSize int,
 ) (err error) {
 	var header, payload []byte
 
@@ -97,7 +98,7 @@ func (s *session) writeRPCRequest(
 	}
 
 	// Write the rpc request.
-	return rpc.Write(stream, reqType, header, payload)
+	return rpc.Write(stream, reqType, header, payload, s.maxHeaderSize, maxPayloadSize)
 }
 
 func (s *session) startRPCReadRoutine() {
@@ -109,7 +110,7 @@ func (s *session) rpcReadRoutine() {
 	defer s.Close_()
 
 	for {
-		reqType, header, payload, err := rpc.Read(s.stream, nil, nil)
+		reqType, header, payload, err := rpc.Read(s.stream, nil, nil, s.maxHeaderSize, s.maxArgSize)
 		if err != nil {
 			// Log errors, but only, if the session or stream are not closing.
 			if !s.IsClosing() && !s.stream.IsClosed() && !s.conn.IsClosedError(err) {
@@ -132,7 +133,7 @@ func (s *session) handleRPCRequest(reqType api.RPCType, header, payload []byte) 
 	// The service supports a different range of requests than the client.
 	switch reqType {
 	case api.RPCTypeCall:
-		err = s.handleCall(s.stream, &s.streamWriteMx, header, payload)
+		err = s.handleCall(s.stream, &s.streamWriteMx, header, payload, s.maxRetSize)
 	default:
 		err = fmt.Errorf("invalid request type '%v'", reqType)
 	}
@@ -148,6 +149,7 @@ func (s *session) handleCall(
 	streamLocker sync.Locker,
 	header []byte,
 	payload []byte,
+	maxRetSize int,
 ) (err error) {
 	// Decode the request header.
 	var h api.RPCCall
@@ -156,41 +158,58 @@ func (s *session) handleCall(
 		return fmt.Errorf("call: decode header: %w", err)
 	}
 
-	// Create a context for the cancelation.
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	// Create the service context.
-	sctx := newContext(ctx, s, h.Data)
-
-	// Always call the cancel hooks if the context has been canceled.
-	defer func() {
-		select {
-		case <-ctx.Done():
-			s.handler.hookOnCallCanceled(sctx, h.ID, h.Key)
-		default:
-		}
-	}()
-
-	// Publish the cancel function, so the client can cancel it with the key.
-	alreadyCanceled := s.setCancelFunc(h.Key, cancel)
-	if alreadyCanceled {
-		cancel()
-		// The call has been already canceled.
-		// Cancel requests may be handled earlier than the actual call request.
-		return fmt.Errorf("call %s: canceled early", h.ID)
+	// Get the call.
+	c, err := s.handler.getCall(h.ID)
+	if err != nil {
+		return fmt.Errorf("call %s: %w", h.ID, err)
 	}
-
-	// Always remove the cancel function.
-	defer s.deleteCancelFunc(h.Key)
 
 	// Prepare our return header.
 	retHeader := api.RPCReturn{
 		Key: h.Key,
 	}
 
-	// Call the user provided function and hooks...
-	ret, err := s.handler.handleCall(sctx, h.ID, h.Key, payload)
+	// Create a context for cancelation and add the timeout.
+	ctx, cancel := context.WithTimeout(context.Background(), c.timeout)
+	defer cancel()
+
+	// Call the hooks and function in a nested function.
+	// We must pass the error from the function call to the done hook.
+	ret, err := func() (ret interface{}, err error) {
+		// Create the service context.
+		sctx := newContext(ctx, s, h.Data)
+
+		// Call the OnCall hooks.
+		err = s.handler.hookOnCall(sctx, h.ID, h.Key)
+		if err != nil {
+			return nil, fmt.Errorf("call %s: %w", h.ID, err)
+		}
+
+		// Call the OnCallDone or OnCallCanceled hooks.
+		defer func() {
+			select {
+			case <-ctx.Done():
+				s.handler.hookOnCallCanceled(sctx, h.ID, h.Key)
+			default:
+				s.handler.hookOnCallDone(sctx, h.ID, h.Key, err)
+			}
+		}()
+
+		// Publish the cancel function, so the client can cancel it with the key.
+		alreadyCanceled := s.setCancelFunc(h.Key, cancel)
+		if alreadyCanceled {
+			cancel()
+			// The call has been already canceled.
+			// Cancel requests may be handled earlier than the actual call request.
+			return nil, fmt.Errorf("call %s: canceled early", h.ID)
+		}
+
+		// Always remove the cancel function.
+		defer s.deleteCancelFunc(h.Key)
+
+		// Call the actual call handler.
+		return s.handler.handleCall(sctx, c.f, payload)
+	}()
 	if err != nil {
 		// Check, if an orbit error was returned.
 		var oErr Error
@@ -208,20 +227,12 @@ func (s *session) handleCall(
 			}
 		}
 
-		// Always log this.
-		s.log.Error().
-			Err(err).
-			Str("id", h.ID).
-			Str("errMsg", retHeader.Err).
-			Int("errCode", retHeader.ErrCode).
-			Msgf("call failed")
-
 		// Reset the error, because we handled it already and the result should be send to the caller.
 		err = nil
 	}
 
 	// Send the response back to the caller.
-	err = s.writeRPCRequest(ctx, stream, streamLocker, api.RPCTypeReturn, retHeader, ret)
+	err = s.writeRPCRequest(ctx, stream, streamLocker, api.RPCTypeReturn, retHeader, ret, maxRetSize)
 	if err != nil {
 		return fmt.Errorf("call %s: write response: %w", h.ID, err)
 	}

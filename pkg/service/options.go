@@ -40,9 +40,14 @@ import (
 )
 
 const (
+	defaultCallTimeout       = 30 * time.Second
+	defaultHandshakeTimeout  = 7 * time.Second
 	defaultAcceptConnWorkers = 5
 	defaultSessionIDLen      = 32
-	defaultHandshakeTimeout  = 7 * time.Second
+
+	defaultMaxArgSize    = 4 * 1024 * 1024 // 4 MB
+	defaultMaxRetSize    = 4 * 1024 * 1024 // 4 MB
+	defaultMaxHeaderSize = 500 * 1024      // 500 KB
 )
 
 type Options struct {
@@ -67,20 +72,33 @@ type Options struct {
 	// Log specifies the default logger backend. A default logger will be used if unspecified.
 	Log *zerolog.Logger
 
+	// CallTimeout specifies the default timeout for each call.
+	// Set to -1 (NoTimeout) for no timeout.
+	CallTimeout time.Duration
+
+	// HandshakeTimeout specifies the timeout for the initial handshake.
+	HandshakeTimeout time.Duration
+
 	// AcceptConnWorkers specifies the routines accepting new connections.
 	AcceptConnWorkers int
 
 	// SessionIDLen specifies the length of each session ID.
 	SessionIDLen uint
 
-	// HandshakeTimeout specifies the timeout for the initial handshake.
-	HandshakeTimeout time.Duration
-
 	// PrintPanicStackTraces prints stack traces of catched panics.
 	PrintPanicStackTraces bool
 
 	// SendInternalErrors sends all errors to the client, even if the Error interface is not satisfied.
 	SendInternalErrors bool
+
+	// MaxArgSize defines the default maximum argument payload size for RPC calls.
+	MaxArgSize int
+
+	// MaxRetSize defines the default maximum return payload size for RPC calls.
+	MaxRetSize int
+
+	// MaxHeaderSize defines the maximum header size for calls and streams.
+	MaxHeaderSize int
 }
 
 func (o *Options) setDefaults() {
@@ -97,14 +115,26 @@ func (o *Options) setDefaults() {
 		}).With().Timestamp().Str("component", "orbit").Logger()
 		o.Log = &l
 	}
+	if o.CallTimeout == 0 {
+		o.CallTimeout = defaultCallTimeout
+	}
+	if o.HandshakeTimeout == 0 {
+		o.HandshakeTimeout = defaultHandshakeTimeout
+	}
 	if o.AcceptConnWorkers == 0 {
 		o.AcceptConnWorkers = defaultAcceptConnWorkers
 	}
 	if o.SessionIDLen == 0 {
 		o.SessionIDLen = defaultSessionIDLen
 	}
-	if o.HandshakeTimeout == 0 {
-		o.HandshakeTimeout = defaultHandshakeTimeout
+	if o.MaxArgSize == 0 {
+		o.MaxArgSize = defaultMaxArgSize
+	}
+	if o.MaxRetSize == 0 {
+		o.MaxRetSize = defaultMaxRetSize
+	}
+	if o.MaxHeaderSize == 0 {
+		o.MaxHeaderSize = defaultMaxHeaderSize
 	}
 }
 

@@ -32,11 +32,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/desertbit/orbit/pkg/codec/msgpack"
 	"github.com/desertbit/orbit/pkg/packet"
 	"github.com/stretchr/testify/require"
 )
 
-/*
 func TestReadWriteEncode(t *testing.T) {
 	t.Parallel()
 
@@ -55,10 +55,10 @@ func TestReadWriteEncode(t *testing.T) {
 	// Needed, since net.Pipe() returns conn with no internal buffering.
 	errChan := make(chan error)
 	go func() {
-		errChan <- packet.ReadDecode(connR, &ret, msgpack.Codec, 0)
+		errChan <- packet.ReadDecode(connR, &ret, msgpack.Codec, packet.NoPayloadSizeLimit)
 	}()
 
-	err := packet.WriteEncode(connW, data, msgpack.Codec, 0)
+	err := packet.WriteEncode(connW, data, msgpack.Codec, packet.NoPayloadSizeLimit)
 	require.NoError(t, err)
 
 	// Wait for the read to finish.
@@ -85,28 +85,34 @@ func TestWrite(t *testing.T) {
 		exactError     error
 	}{
 		{
-			data:   data,
-			buffer: nil,
+			data:           data,
+			buffer:         nil,
+			maxPayloadSize: packet.NoPayloadSizeLimit,
 		},
 		{
-			data:   data,
-			buffer: make([]byte, 1),
+			data:           data,
+			buffer:         make([]byte, 1),
+			maxPayloadSize: packet.NoPayloadSizeLimit,
 		},
 		{
-			data:   data,
-			buffer: make([]byte, len(data)),
+			data:           data,
+			buffer:         make([]byte, len(data)),
+			maxPayloadSize: packet.NoPayloadSizeLimit,
 		},
 		{
-			data:   data,
-			buffer: make([]byte, len(data)+1),
+			data:           data,
+			buffer:         make([]byte, len(data)+1),
+			maxPayloadSize: packet.NoPayloadSizeLimit,
 		},
 		{
-			data:   []byte{},
-			buffer: nil,
+			data:           []byte{},
+			buffer:         nil,
+			maxPayloadSize: packet.NoPayloadSizeLimit,
 		},
 		{
-			data:   nil,
-			buffer: nil,
+			data:           nil,
+			buffer:         nil,
+			maxPayloadSize: packet.NoPayloadSizeLimit,
 		},
 		{
 			data:       make([]byte, packet.MaxSize+1),
@@ -187,7 +193,7 @@ func TestWrite(t *testing.T) {
 		}
 	}
 }
-*/
+
 func TestRead(t *testing.T) {
 	t.Parallel()
 
@@ -203,34 +209,40 @@ func TestRead(t *testing.T) {
 		flushReadBytes int
 	}{
 		{
-			data:   data,
-			buffer: nil,
+			data:           data,
+			buffer:         nil,
+			maxPayloadSize: packet.NoPayloadSizeLimit,
 		},
 		{
-			data:   data,
-			buffer: make([]byte, 1),
+			data:           data,
+			buffer:         make([]byte, 1),
+			maxPayloadSize: packet.NoPayloadSizeLimit,
 		},
 		{
-			data:        data,
-			reuseBuffer: true,
-			buffer:      make([]byte, len(data)),
+			data:           data,
+			reuseBuffer:    true,
+			buffer:         make([]byte, len(data)),
+			maxPayloadSize: packet.NoPayloadSizeLimit,
 		},
 		{
-			data:        data,
-			reuseBuffer: true,
-			buffer:      make([]byte, len(data)+1),
+			data:           data,
+			reuseBuffer:    true,
+			buffer:         make([]byte, len(data)+1),
+			maxPayloadSize: packet.NoPayloadSizeLimit,
 		},
 		{
-			data:       []byte{},
-			buffer:     nil,
-			shouldFail: true,
-			exactError: packet.ErrZeroData,
+			data:           []byte{},
+			buffer:         nil,
+			shouldFail:     true,
+			exactError:     packet.ErrZeroData,
+			maxPayloadSize: packet.NoPayloadSizeLimit,
 		},
 		{
-			data:       nil,
-			buffer:     nil,
-			shouldFail: true,
-			exactError: packet.ErrZeroData,
+			data:           nil,
+			buffer:         nil,
+			shouldFail:     true,
+			exactError:     packet.ErrZeroData,
+			maxPayloadSize: packet.NoPayloadSizeLimit,
 		},
 		{
 			data:           data,
@@ -258,7 +270,7 @@ func TestRead(t *testing.T) {
 	errChan := make(chan error, 1)
 	go func() {
 		for _, c := range cases {
-			errChan <- packet.Write(connW, c.data, 0)
+			errChan <- packet.Write(connW, c.data, packet.NoPayloadSizeLimit)
 		}
 	}()
 

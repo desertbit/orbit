@@ -29,6 +29,7 @@ package rpc
 
 import (
 	"errors"
+	"fmt"
 	"net"
 
 	"github.com/desertbit/orbit/internal/api"
@@ -42,6 +43,8 @@ func Read(
 	conn net.Conn,
 	headerBuffer []byte,
 	payloadBuffer []byte,
+	maxHeaderSize int,
+	maxPayloadSize int,
 ) (
 	reqType api.RPCType,
 	header []byte,
@@ -65,17 +68,19 @@ func Read(
 	reqType = api.RPCType(reqTypeBuf[0])
 
 	// Read the header from the stream.
-	header, err = packet.Read(conn, headerBuffer)
+	header, err = packet.Read(conn, headerBuffer, maxHeaderSize)
 	if err != nil {
+		err = fmt.Errorf("failed to read header: %w", err)
 		return
 	}
 
 	// Read the optional payload from the stream.
-	payload, err = packet.Read(conn, payloadBuffer)
+	payload, err = packet.Read(conn, payloadBuffer, maxPayloadSize)
 	if err != nil {
 		if errors.Is(err, packet.ErrZeroData) {
 			err = nil
 		} else {
+			err = fmt.Errorf("failed to read payload: %w", err)
 			return
 		}
 	}
@@ -89,6 +94,8 @@ func Write(
 	reqType api.RPCType,
 	header []byte,
 	payload []byte,
+	maxHeaderSize int,
+	maxPayloadSize int,
 ) (err error) {
 	// Write the request type.
 	_, err = conn.Write([]byte{byte(reqType)})
@@ -97,11 +104,17 @@ func Write(
 	}
 
 	// Write the header.
-	err = packet.Write(conn, header)
+	err = packet.Write(conn, header, maxHeaderSize)
 	if err != nil {
+		err = fmt.Errorf("failed to write header: %w", err)
 		return
 	}
 
 	// Write the payload.
-	return packet.Write(conn, payload)
+	err = packet.Write(conn, payload, maxPayloadSize)
+	if err != nil {
+		err = fmt.Errorf("failed to write payload: %w", err)
+		return
+	}
+	return
 }

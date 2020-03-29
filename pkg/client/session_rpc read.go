@@ -58,7 +58,7 @@ func (s *session) rpcReadRoutine() {
 
 	for {
 		s.streamReadMx.Lock()
-		reqType, header, payload, err = rpc.Read(s.stream, nil, nil)
+		reqType, header, payload, err = rpc.Read(s.stream, nil, nil, s.maxHeaderSize, s.maxRetSize)
 		s.streamReadMx.Unlock()
 		if err != nil {
 			// Log errors, but only, if the session or stream are not closing.

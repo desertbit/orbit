@@ -42,6 +42,10 @@ import (
 	"github.com/rs/zerolog"
 )
 
+const (
+	sessionHandshakeMaxPayloadSize = 1024 // 1 KB
+)
+
 type Session interface {
 	closer.Closer
 
@@ -59,6 +63,10 @@ type session struct {
 	codec              codec.Codec
 	log                *zerolog.Logger
 	sendInternalErrors bool
+
+	maxArgSize    int
+	maxRetSize    int
+	maxHeaderSize int
 
 	streamWriteMx sync.Mutex
 	stream        transport.Stream
@@ -118,7 +126,7 @@ func initSession(
 
 	// Wait for the client's handshake request.
 	var args api.HandshakeArgs
-	err = packet.ReadDecode(stream, &args, api.Codec)
+	err = packet.ReadDecode(stream, &args, api.Codec, sessionHandshakeMaxPayloadSize)
 	if err != nil {
 		return
 	}
@@ -133,7 +141,7 @@ func initSession(
 	}
 
 	// Send the handshake response back to the client.
-	err = packet.WriteEncode(stream, &ret, api.Codec)
+	err = packet.WriteEncode(stream, &ret, api.Codec, sessionHandshakeMaxPayloadSize)
 	if err != nil {
 		return
 	}
@@ -155,15 +163,22 @@ func initSession(
 
 	// Create the session.
 	s = &session{
-		Closer:             conn,
+		Closer: conn,
+
 		id:                 id,
 		conn:               conn,
 		handler:            h,
 		codec:              opts.Codec,
 		log:                opts.Log,
 		sendInternalErrors: opts.SendInternalErrors,
-		stream:             stream,
-		cancelCalls:        make(map[uint32]context.CancelFunc),
+
+		maxArgSize:    opts.MaxArgSize,
+		maxRetSize:    opts.MaxRetSize,
+		maxHeaderSize: opts.MaxHeaderSize,
+
+		stream: stream,
+
+		cancelCalls: make(map[uint32]context.CancelFunc),
 	}
 
 	// Call the OnSession hooks.

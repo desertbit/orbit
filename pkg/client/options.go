@@ -45,6 +45,10 @@ const (
 	defaultConnectThrottleDuration = 2 * time.Second
 	defaultHandshakeTimeout        = 7 * time.Second
 	defaultStreamInitTimeout       = 10 * time.Second
+
+	defaultMaxArgSize    = 4 * 1024 * 1024 // 4 MB
+	defaultMaxRetSize    = 4 * 1024 * 1024 // 4 MB
+	defaultMaxHeaderSize = 500 * 1024      // 500 KB
 )
 
 type Options struct {
@@ -87,6 +91,15 @@ type Options struct {
 
 	// PrintPanicStackTraces prints stack traces of catched panics.
 	PrintPanicStackTraces bool
+
+	// MaxArgSize defines the default maximum argument payload size for RPC calls.
+	MaxArgSize int
+
+	// MaxRetSize defines the default maximum return payload size for RPC calls.
+	MaxRetSize int
+
+	// MaxHeaderSize defines the maximum header size for calls and streams.
+	MaxHeaderSize int
 }
 
 func (o *Options) setDefaults() {
@@ -117,6 +130,15 @@ func (o *Options) setDefaults() {
 	}
 	if o.StreamInitTimeout == 0 {
 		o.StreamInitTimeout = defaultStreamInitTimeout
+	}
+	if o.MaxArgSize == 0 {
+		o.MaxArgSize = defaultMaxArgSize
+	}
+	if o.MaxRetSize == 0 {
+		o.MaxRetSize = defaultMaxRetSize
+	}
+	if o.MaxHeaderSize == 0 {
+		o.MaxHeaderSize = defaultMaxHeaderSize
 	}
 }
 
