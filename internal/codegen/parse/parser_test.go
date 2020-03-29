@@ -51,7 +51,7 @@ service {
     call c3 {}
 
     call rc1 {
-        arg: Args
+        arg: Arg
         ret: {
             s string
             i int
@@ -83,7 +83,7 @@ service {
     }
 
     stream rs1 {
-        arg: Args
+        arg: Arg
         ret: Ret
     }
     stream rs2 {
@@ -92,7 +92,7 @@ service {
     stream rs3 {}
 }
 
-type Args {
+type Arg {
     s string
     i int
     m map[string]int
@@ -143,13 +143,13 @@ var (
 	c3  = &ast.Call{Name: "C3"}
 	rc1 = &ast.Call{
 		Name: "Rc1",
-		Arg:  &ast.AnyType{NamePrv: "Args"},
+		Arg:  &ast.AnyType{NamePrv: "Arg"},
 		Ret:  &ast.StructType{NamePrv: "Rc1Ret"},
 	}
 	rc2 = &ast.Call{
 		Name:  "Rc2",
 		Async: true,
-		Arg:   &ast.StructType{NamePrv: "Rc2Args"},
+		Arg:   &ast.StructType{NamePrv: "Rc2Arg"},
 	}
 	rc3 = &ast.Call{
 		Name: "Rc3",
@@ -165,7 +165,7 @@ var (
 	}
 	rst1 = &ast.Stream{
 		Name: "Rs1",
-		Arg:  &ast.AnyType{NamePrv: "Args"},
+		Arg:  &ast.AnyType{NamePrv: "Arg"},
 		Ret:  &ast.AnyType{NamePrv: "Ret"},
 	}
 	rst2 = &ast.Stream{
@@ -215,7 +215,7 @@ var (
 			},
 		},
 		{
-			Name: "Rc2Args",
+			Name: "Rc2Arg",
 			Fields: []*ast.TypeField{
 				{Name: "F", DataType: &ast.BaseType{DataType: ast.TypeFloat64}},
 				{Name: "B", DataType: &ast.BaseType{DataType: ast.TypeByte}},
@@ -226,7 +226,7 @@ var (
 			},
 		},
 		{
-			Name: "Args",
+			Name: "Arg",
 			Fields: []*ast.TypeField{
 				{Name: "S", DataType: &ast.BaseType{DataType: ast.TypeString}},
 				{Name: "I", DataType: &ast.BaseType{DataType: ast.TypeInt}},

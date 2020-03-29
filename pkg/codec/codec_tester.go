@@ -93,7 +93,7 @@ func Tester(t *testing.T, c Codec) {
 
 	err = c.Decode(encoded, &tdst)
 	require.NoError(t, err)
-	require.Exactly(t, tsrc, tdst)
+	require.True(t, tsrc.Equal(tdst))
 }
 
 func init() {
