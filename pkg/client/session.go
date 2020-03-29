@@ -42,6 +42,10 @@ import (
 	"github.com/rs/zerolog"
 )
 
+const (
+	sessionHandshakeMaxPayloadSize = 1024 // 1 KB
+)
+
 type Session interface {
 	closer.Closer
 
@@ -59,6 +63,10 @@ type session struct {
 	log     *zerolog.Logger
 	codec   codec.Codec
 	chain   *chain
+
+	maxArgSize    int
+	maxRetSize    int
+	maxHeaderSize int
 
 	streamReadMx  sync.Mutex
 	streamWriteMx sync.Mutex
@@ -120,14 +128,14 @@ func connectSession(h clientHandler, opts *Options) (s *session, err error) {
 	}
 
 	// Send the arguments for the handshake to the server.
-	err = packet.WriteEncode(stream, &api.HandshakeArgs{Version: api.Version}, api.Codec)
+	err = packet.WriteEncode(stream, &api.HandshakeArgs{Version: api.Version}, api.Codec, sessionHandshakeMaxPayloadSize)
 	if err != nil {
 		return
 	}
 
 	// Wait for the server's handshake response.
 	var ret api.HandshakeRet
-	err = packet.ReadDecode(stream, &ret, api.Codec)
+	err = packet.ReadDecode(stream, &ret, api.Codec, sessionHandshakeMaxPayloadSize)
 	if err != nil {
 		return
 	} else if ret.Code == api.HSInvalidVersion {
@@ -144,14 +152,20 @@ func connectSession(h clientHandler, opts *Options) (s *session, err error) {
 
 	// Finally, create the orbit session.
 	s = &session{
-		Closer:  conn,
+		Closer: conn,
+
 		id:      ret.SessionID,
 		conn:    conn,
 		handler: h,
 		log:     opts.Log,
 		codec:   opts.Codec,
 		chain:   newChain(),
-		stream:  stream,
+
+		maxArgSize:    opts.MaxArgSize,
+		maxRetSize:    opts.MaxRetSize,
+		maxHeaderSize: opts.MaxHeaderSize,
+
+		stream: stream,
 	}
 
 	// Call the OnSession hooks.

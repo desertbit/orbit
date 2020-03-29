@@ -63,5 +63,5 @@ type Hook interface {
 
 	// OnStream is called during a new stream setup.
 	// Return an error to abort the stream setup.
-	OnStream(ctx Context, id string, stream transport.Stream) error
+	OnStream(ctx Context, id string) error
 }

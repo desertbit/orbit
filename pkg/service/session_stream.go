@@ -37,7 +37,8 @@ import (
 )
 
 const (
-	initStreamHeaderTimeout = 7 * time.Second
+	initStreamTimeout        = 7 * time.Second
+	asyncStreamMaxHeaderSize = 1024 // 1 KB
 )
 
 func (s *session) startAcceptStreamRoutine() {
@@ -88,37 +89,73 @@ func (s *session) handleNewStream(stream transport.Stream) (err error) {
 		}
 	}()
 
+	var (
+		n, bytesRead  int
+		streamType    api.StreamType
+		streamTypeBuf = make([]byte, 1)
+	)
+
 	// Set a read deadline for the header.
-	err = stream.SetReadDeadline(time.Now().Add(initStreamHeaderTimeout))
+	err = stream.SetReadDeadline(time.Now().Add(initStreamTimeout))
 	if err != nil {
 		return
 	}
 
-	// Read the header from the stream.
-	var header api.InitStream
-	err = packet.ReadDecode(stream, &header, api.Codec)
-	if err != nil {
-		return fmt.Errorf("init stream header: %w", err)
+	// Read the type from the stream.
+	for bytesRead < 1 {
+		n, err = stream.Read(streamTypeBuf[bytesRead:])
+		if err != nil {
+			return fmt.Errorf("init stream: failed to read stream type: %w", err)
+		}
+		bytesRead += n
 	}
-
-	// Reset the deadlines.
-	err = stream.SetDeadline(time.Time{})
-	if err != nil {
-		return
-	}
+	streamType = api.StreamType(streamTypeBuf[0])
 
 	// Decide the type of stream.
-	switch header.Type {
+	switch streamType {
 	case api.StreamTypeRaw:
+		// Read the header from the stream.
+		var header api.StreamRaw
+		err = packet.ReadDecode(stream, &header, api.Codec, s.maxHeaderSize)
+		if err != nil {
+			return fmt.Errorf("init stream header: %w", err)
+		}
+
+		// Reset the deadlines.
+		err = stream.SetDeadline(time.Time{})
+		if err != nil {
+			return
+		}
+
+		// Call the handler function for the stream.
 		return s.handler.handleStream(s, header.ID, header.Data, stream)
 
 	case api.StreamTypeAsyncCall:
-		return s.handleAsyncCallStream(stream)
+		// Read the header from the stream.
+		var header api.StreamAsync
+		err = packet.ReadDecode(stream, &header, api.Codec, asyncStreamMaxHeaderSize)
+		if err != nil {
+			return fmt.Errorf("init stream header: %w", err)
+		}
+
+		// Reset the deadlines.
+		err = stream.SetDeadline(time.Time{})
+		if err != nil {
+			return
+		}
+
+		return s.handleAsyncCallStream(stream, header.ID)
 
 	case api.StreamTypeCancelCalls:
+		// Reset the deadlines.
+		err = stream.SetDeadline(time.Time{})
+		if err != nil {
+			return
+		}
+
 		return s.handleCancelStream(stream)
 
 	default:
-		return fmt.Errorf("invalid stream type: %v", header.Type)
+		return fmt.Errorf("invalid stream type: %v", streamType)
 	}
 }

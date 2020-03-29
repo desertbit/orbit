@@ -29,17 +29,15 @@ package packet_test
 
 import (
 	"net"
-	"sync"
 	"testing"
 	"time"
 
 	"github.com/desertbit/orbit/pkg/codec/msgpack"
 	"github.com/desertbit/orbit/pkg/packet"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestWriteEncode(t *testing.T) {
+func TestReadWriteEncode(t *testing.T) {
 	t.Parallel()
 
 	type test struct {
@@ -50,25 +48,24 @@ func TestWriteEncode(t *testing.T) {
 	var ret test
 
 	connW, connR := net.Pipe()
+	defer connW.Close()
+	defer connR.Close()
 
 	// Start a routine that reads from the connection.
 	// Needed, since net.Pipe() returns conn with no internal buffering.
-	done := make(chan struct{})
+	errChan := make(chan error)
 	go func() {
-		err := packet.ReadDecode(connR, &ret, msgpack.Codec)
-		if err != nil {
-			t.Fatal(err)
-		}
-		done <- struct{}{}
+		errChan <- packet.ReadDecode(connR, &ret, msgpack.Codec, packet.NoPayloadSizeLimit)
 	}()
 
-	err := packet.WriteEncode(connW, data, msgpack.Codec)
+	err := packet.WriteEncode(connW, data, msgpack.Codec, packet.NoPayloadSizeLimit)
 	require.NoError(t, err)
 
 	// Wait for the read to finish.
 	select {
-	case <-done:
-	case <-time.After(time.Millisecond * 10):
+	case err = <-errChan:
+		require.NoError(t, err)
+	case <-time.After(time.Millisecond * 100):
 		t.Fatal("timeout")
 	}
 
@@ -81,119 +78,120 @@ func TestWrite(t *testing.T) {
 	data := []byte("This is some test data")
 
 	cases := []struct {
-		data        []byte
-		buffer      []byte
-		shouldPanic bool
+		data           []byte
+		buffer         []byte
+		maxPayloadSize int
+		shouldFail     bool
+		exactError     error
 	}{
-		{ // 0
-			data:   data,
-			buffer: nil,
+		{
+			data:           data,
+			buffer:         nil,
+			maxPayloadSize: packet.NoPayloadSizeLimit,
 		},
 		{
-			data:   data,
-			buffer: make([]byte, 1),
+			data:           data,
+			buffer:         make([]byte, 1),
+			maxPayloadSize: packet.NoPayloadSizeLimit,
 		},
 		{
-			data:   data,
-			buffer: make([]byte, len(data)),
+			data:           data,
+			buffer:         make([]byte, len(data)),
+			maxPayloadSize: packet.NoPayloadSizeLimit,
 		},
 		{
-			data:   data,
-			buffer: make([]byte, len(data)+1),
+			data:           data,
+			buffer:         make([]byte, len(data)+1),
+			maxPayloadSize: packet.NoPayloadSizeLimit,
 		},
 		{
-			data:   []byte{},
-			buffer: nil,
-		},
-		{ // 5
-			data:   nil,
-			buffer: nil,
+			data:           []byte{},
+			buffer:         nil,
+			maxPayloadSize: packet.NoPayloadSizeLimit,
 		},
 		{
-			data:        make([]byte, packet.MaxSize+1),
-			buffer:      nil,
-			shouldPanic: true,
+			data:           nil,
+			buffer:         nil,
+			maxPayloadSize: packet.NoPayloadSizeLimit,
+		},
+		{
+			data:       make([]byte, packet.MaxSize+1),
+			buffer:     nil,
+			shouldFail: true,
+			exactError: packet.ErrMaxPayloadSizeExceeded,
+		},
+		{
+			data:           data,
+			maxPayloadSize: len(data),
+		},
+		{
+			data:           data,
+			maxPayloadSize: len(data) + 1,
+		},
+		{
+			data:           data,
+			maxPayloadSize: len(data) - 1,
+			shouldFail:     true,
+			exactError:     packet.ErrMaxPayloadSizeExceeded,
+		},
+		{
+			data:           data,
+			maxPayloadSize: packet.MaxSize,
+		},
+		{
+			data:           data,
+			maxPayloadSize: packet.MaxSize + 1,
+		},
+		{
+			data:           make([]byte, packet.MaxSize),
+			maxPayloadSize: packet.MaxSize,
+		},
+		{
+			data:           make([]byte, packet.MaxSize+1),
+			maxPayloadSize: packet.MaxSize,
+			shouldFail:     true,
+			exactError:     packet.ErrMaxPayloadSizeExceeded,
+		},
+		{
+			data:           make([]byte, packet.MaxSize+1),
+			maxPayloadSize: packet.MaxSize + 1,
+			shouldFail:     true,
+			exactError:     packet.ErrMaxPayloadSizeExceeded,
+		},
+		{
+			data:       make([]byte, packet.MaxSize+1),
+			shouldFail: true,
+			exactError: packet.ErrMaxPayloadSizeExceeded,
 		},
 	}
 
 	connW, connR := net.Pipe()
+	defer connW.Close()
+	defer connR.Close()
 
 	// Start a routine that reads from the connection.
 	// Needed, since net.Pipe() returns conn with no internal buffering.
-	done := make(chan struct{})
 	go func() {
-		for i, c := range cases {
-			func() {
-				defer func() { done <- struct{}{} }()
-				if c.shouldPanic {
-					return
-				}
-
-				// Try to read the same data off of the buffer.
-				ret, err := packet.Read(connR, nil)
-				if len(c.data) == 0 {
-					if !assert.Error(t, packet.ErrZeroData, "read case %d", i) {
-						return
-					}
-				} else {
-					if !assert.NoErrorf(t, err, "read case %d", i) {
-						return
-					}
-					if !assert.Equalf(t, c.data, ret, "read case %d", i) {
-						return
-					}
-				}
-			}()
+		buf := make([]byte, 1000)
+		for {
+			_, err := connR.Read(buf)
+			if err != nil {
+				return
+			}
 		}
 	}()
 
 	for i, c := range cases {
-		if c.shouldPanic {
-			require.Panicsf(t, func() {
-				_ = packet.Write(connW, c.data)
-			}, "write case %d", i)
+		err := packet.Write(connW, c.data, c.maxPayloadSize)
+		if c.shouldFail {
+			require.Errorf(t, err, "write case %d", i)
+			if c.exactError != nil {
+				require.Equalf(t, err, c.exactError, "write case %d", i)
+			}
 		} else {
-			err := packet.Write(connW, c.data)
 			require.NoErrorf(t, err, "write case %d", i)
 		}
-
-		// Wait for read to finish.
-		select {
-		case <-done:
-		case <-time.After(time.Millisecond * 100):
-			if t.Failed() {
-				return
-			}
-			t.Fatal("timeout")
-		}
 	}
-}
-
-func TestReadDecode(t *testing.T) {
-	t.Parallel()
-
-	type test struct {
-		Msg string
-	}
-
-	data := test{Msg: "hello world"}
-
-	connW, connR := net.Pipe()
-
-	// Write in a goroutine, because net.Pipe() does not buffer.
-	wg := sync.WaitGroup{}
-	wg.Add(1)
-	go func() {
-		err := packet.WriteEncode(connW, data, msgpack.Codec)
-		require.NoError(t, err)
-		wg.Done()
-	}()
-
-	var ret test
-	err := packet.ReadDecode(connR, &ret, msgpack.Codec)
-	require.NoError(t, err)
-	require.Equal(t, data.Msg, ret.Msg)
-	wg.Wait()
 }
 
 func TestRead(t *testing.T) {
@@ -202,81 +200,114 @@ func TestRead(t *testing.T) {
 	data := []byte("This is some test data")
 
 	cases := []struct {
-		data        []byte
-		buffer      []byte
-		reuseBuffer bool
+		data           []byte
+		buffer         []byte
+		maxPayloadSize int
+		reuseBuffer    bool
+		shouldFail     bool
+		exactError     error
+		flushReadBytes int
 	}{
 		{
-			data:   data,
-			buffer: nil,
+			data:           data,
+			buffer:         nil,
+			maxPayloadSize: packet.NoPayloadSizeLimit,
 		},
 		{
-			data:   data,
-			buffer: make([]byte, 1),
+			data:           data,
+			buffer:         make([]byte, 1),
+			maxPayloadSize: packet.NoPayloadSizeLimit,
 		},
 		{
-			data:        data,
-			reuseBuffer: true,
-			buffer:      make([]byte, len(data)),
+			data:           data,
+			reuseBuffer:    true,
+			buffer:         make([]byte, len(data)),
+			maxPayloadSize: packet.NoPayloadSizeLimit,
 		},
 		{
-			data:        data,
-			reuseBuffer: true,
-			buffer:      make([]byte, len(data)+1),
+			data:           data,
+			reuseBuffer:    true,
+			buffer:         make([]byte, len(data)+1),
+			maxPayloadSize: packet.NoPayloadSizeLimit,
 		},
 		{
-			data:   []byte{},
-			buffer: nil,
+			data:           []byte{},
+			buffer:         nil,
+			shouldFail:     true,
+			exactError:     packet.ErrZeroData,
+			maxPayloadSize: packet.NoPayloadSizeLimit,
 		},
 		{
-			data:   []byte{},
-			buffer: nil,
+			data:           nil,
+			buffer:         nil,
+			shouldFail:     true,
+			exactError:     packet.ErrZeroData,
+			maxPayloadSize: packet.NoPayloadSizeLimit,
+		},
+		{
+			data:           data,
+			maxPayloadSize: len(data),
+		},
+		{
+			data:           data,
+			maxPayloadSize: len(data) + 1,
+		},
+		{
+			data:           data,
+			maxPayloadSize: len(data) - 1,
+			shouldFail:     true,
+			exactError:     packet.ErrMaxPayloadSizeExceeded,
+			flushReadBytes: len(data),
 		},
 	}
 
 	connW, connR := net.Pipe()
+	defer connW.Close()
+	defer connR.Close()
 
 	// Start a routine that reads from the connection.
 	// Needed, since net.Pipe() returns conn with no internal buffering.
-	done := make(chan struct{})
+	errChan := make(chan error, 1)
 	go func() {
-		for i, c := range cases {
-			func() {
-				defer func() { done <- struct{}{} }()
-
-				// Try to read the same data off of the buffer.
-				ret, err := packet.Read(connR, c.buffer)
-				if len(c.data) == 0 {
-					if !assert.Error(t, packet.ErrZeroData, "read case %d", i) {
-						return
-					}
-				} else {
-					if !assert.NoErrorf(t, err, "read case %d", i) {
-						return
-					}
-					if !assert.Equalf(t, c.data, ret, "read case %d", i) {
-						return
-					}
-					if c.reuseBuffer && !assert.Samef(t, &c.buffer[0], &ret[0], "read case %d", i) {
-						return
-					}
-				}
-			}()
+		for _, c := range cases {
+			errChan <- packet.Write(connW, c.data, packet.NoPayloadSizeLimit)
 		}
 	}()
 
 	for i, c := range cases {
-		err := packet.Write(connW, c.data)
-		require.NoErrorf(t, err, "write case %d", i)
-
-		// Wait for read to finish.
-		select {
-		case <-done:
-		case <-time.After(time.Millisecond * 100):
-			if t.Failed() {
-				return
+		// Try to read the same data off of the buffer.
+		ret, err := packet.Read(connR, c.buffer, c.maxPayloadSize)
+		if err != nil {
+			if c.shouldFail {
+				require.Errorf(t, err, "read case %d", i)
+				if c.exactError != nil {
+					require.Equalf(t, err, c.exactError, "read case %d", i)
+				}
+			} else {
+				require.NoErrorf(t, err, "read case %d", i)
 			}
-			t.Fatal("timeout")
+		} else {
+			require.Equalf(t, c.data, ret, "read case %d", i)
+			if c.reuseBuffer {
+				require.Samef(t, &c.buffer[0], &ret[0], "read case %d", i)
+			}
+		}
+
+		if c.flushReadBytes > 0 {
+			buf := make([]byte, c.flushReadBytes)
+			var bytesRead int
+			for bytesRead < c.flushReadBytes {
+				n, err := connR.Read(buf[bytesRead:])
+				require.NoErrorf(t, err, "read case %d", i)
+				bytesRead += n
+			}
+		}
+
+		select {
+		case err := <-errChan:
+			require.NoErrorf(t, err, "write case %d", i)
+		case <-time.After(time.Millisecond * 500):
+			t.Fatal("timeout", i)
 		}
 	}
 }

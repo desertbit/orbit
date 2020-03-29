@@ -1,3 +1,5 @@
+version 1
+
 errors {
     thisIsATest = 1
     iAmAnError = 2
@@ -16,6 +18,8 @@ service {
             name string 'required,min=1'
         }
         timeout: 500ms
+        maxArgSize: 4M
+        maxRetSize: 10K
     }
 
     stream lul {}

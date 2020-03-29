@@ -36,13 +36,38 @@ import (
 )
 
 type serviceHandler interface {
-	handleStream(session Session, id string, data map[string][]byte, stream transport.Stream) error
-	handleCall(sctx Context, id string, callKey uint32, payload []byte) (ret interface{}, err error)
+	getCall(id string) (c call, err error)
+	getAsyncCallOptions(id string) (opts asyncCallOptions, err error)
 
-	hookOnCallCanceled(sctx Context, id string, callKey uint32)
+	handleStream(session Session, id string, data map[string][]byte, stream transport.Stream) error
+	handleCall(sctx Context, f CallFunc, payload []byte) (ret interface{}, err error)
+
 	hookClose() error
 	hookOnSession(session Session, stream transport.Stream) error
 	hookOnSessionClosed(session Session)
+
+	hookOnCall(ctx Context, id string, callKey uint32) error
+	hookOnCallDone(ctx Context, id string, callKey uint32, err error)
+	hookOnCallCanceled(ctx Context, id string, callKey uint32)
+}
+
+func (s *service) getCall(id string) (c call, err error) {
+	var ok bool
+	c, ok = s.calls[id]
+	if !ok {
+		err = fmt.Errorf("call handler '%s' does not exist", id)
+		return
+	}
+	return
+}
+
+func (s *service) getAsyncCallOptions(id string) (opts asyncCallOptions, err error) {
+	var ok bool
+	opts, ok = s.asyncCallOpts[id]
+	if !ok {
+		err = fmt.Errorf("no options available for async call '%s'", id)
+	}
+	return
 }
 
 func (s *service) handleStream(session Session, id string, data map[string][]byte, stream transport.Stream) (err error) {
@@ -59,7 +84,7 @@ func (s *service) handleStream(session Session, id string, data map[string][]byt
 	}()
 
 	// Obtain the stream handler function.
-	f, ok := s.streamFunc(id)
+	f, ok := s.streamFuncs[id]
 	if !ok {
 		return fmt.Errorf("stream handler '%s' does not exist", id)
 	}
@@ -69,7 +94,7 @@ func (s *service) handleStream(session Session, id string, data map[string][]byt
 
 	// Call the OnStream hooks.
 	for _, h := range s.hooks {
-		err = h.OnStream(sctx, id, stream)
+		err = h.OnStream(sctx, id)
 		if err != nil {
 			err = fmt.Errorf("on new stream hook: %w", err)
 			return
@@ -83,7 +108,7 @@ func (s *service) handleStream(session Session, id string, data map[string][]byt
 	return
 }
 
-func (s *service) handleCall(sctx Context, id string, callKey uint32, payload []byte) (ret interface{}, err error) {
+func (s *service) handleCall(sctx Context, f CallFunc, payload []byte) (ret interface{}, err error) {
 	// Catch panics.
 	defer func() {
 		if e := recover(); e != nil {
@@ -96,48 +121,8 @@ func (s *service) handleCall(sctx Context, id string, callKey uint32, payload []
 		}
 	}()
 
-	// Obtain the call function.
-	f, ok := s.callFunc(id)
-	if !ok {
-		err = fmt.Errorf("call handler '%s' does not exist", id)
-		return
-	}
-
-	// Call the OnCall hooks.
-	for _, h := range s.hooks {
-		err = h.OnCall(sctx, id, callKey)
-		if err != nil {
-			err = fmt.Errorf("on call hook: %w", err)
-			return
-		}
-	}
-
 	// Execute the handler function.
-	ret, err = f(sctx, payload)
-
-	// Call the OnCallDone hooks.
-	for _, h := range s.hooks {
-		h.OnCallDone(sctx, id, callKey, err)
-	}
-	return ret, err
-}
-
-func (s *service) hookOnCallCanceled(sctx Context, id string, callKey uint32) {
-	// Catch panics.
-	defer func() {
-		if e := recover(); e != nil {
-			if s.opts.PrintPanicStackTraces {
-				s.log.Error().Msgf("catched panic: hookOnCallCanceled: %v\n%s", e, string(debug.Stack()))
-			} else {
-				s.log.Error().Msgf("catched panic: hookOnCallCanceled: %v", e)
-			}
-		}
-	}()
-
-	// Call the OnCallCanceled hooks.
-	for _, h := range s.hooks {
-		h.OnCallCanceled(sctx, id, callKey)
-	}
+	return f(sctx, payload)
 }
 
 func (s *service) hookClose() (err error) {
@@ -203,5 +188,65 @@ func (s *service) hookOnSessionClosed(session Session) {
 	// Call the OnSessionClosed hooks.
 	for _, h := range s.hooks {
 		h.OnSessionClosed(session)
+	}
+}
+
+func (s *service) hookOnCall(ctx Context, id string, callKey uint32) (err error) {
+	// Catch panics.
+	defer func() {
+		if e := recover(); e != nil {
+			err = ErrCatchedPanic
+			if s.opts.PrintPanicStackTraces {
+				s.log.Error().Msgf("catched panic: hookOnCall: %v\n%s", e, string(debug.Stack()))
+			} else {
+				s.log.Error().Msgf("catched panic: hookOnCall: %v", e)
+			}
+		}
+	}()
+
+	// Call the OnCall hooks.
+	for _, h := range s.hooks {
+		err = h.OnCall(ctx, id, callKey)
+		if err != nil {
+			err = fmt.Errorf("on call hook: %w", err)
+			return
+		}
+	}
+	return
+}
+
+func (s *service) hookOnCallDone(ctx Context, id string, callKey uint32, err error) {
+	// Catch panics.
+	defer func() {
+		if e := recover(); e != nil {
+			if s.opts.PrintPanicStackTraces {
+				s.log.Error().Msgf("catched panic: hookOnCallDone: %v\n%s", e, string(debug.Stack()))
+			} else {
+				s.log.Error().Msgf("catched panic: hookOnCallDone: %v", e)
+			}
+		}
+	}()
+
+	// Call the OnCallDone hooks.
+	for _, h := range s.hooks {
+		h.OnCallDone(ctx, id, callKey, err)
+	}
+}
+
+func (s *service) hookOnCallCanceled(sctx Context, id string, callKey uint32) {
+	// Catch panics.
+	defer func() {
+		if e := recover(); e != nil {
+			if s.opts.PrintPanicStackTraces {
+				s.log.Error().Msgf("catched panic: hookOnCallCanceled: %v\n%s", e, string(debug.Stack()))
+			} else {
+				s.log.Error().Msgf("catched panic: hookOnCallCanceled: %v", e)
+			}
+		}
+	}()
+
+	// Call the OnCallCanceled hooks.
+	for _, h := range s.hooks {
+		h.OnCallCanceled(sctx, id, callKey)
 	}
 }
