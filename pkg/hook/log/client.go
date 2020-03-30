@@ -101,12 +101,13 @@ func (c *clientHook) OnCallDone(ctx client.Context, id string, callKey uint32, e
 			Str("localAddr", s.LocalAddr().String()).
 			Str("remoteAddr", s.RemoteAddr().String()).
 			Msg("call done")
+		return
 	}
 
 	// Check, if an orbit client error was returned.
 	var oErr client.Error
 	if errors.As(err, &oErr) {
-		c.log.Info().
+		c.log.Error().
 			Err(err).
 			Int("errCode", oErr.Code()).
 			Str("callID", id).
@@ -116,7 +117,7 @@ func (c *clientHook) OnCallDone(ctx client.Context, id string, callKey uint32, e
 			Str("remoteAddr", s.RemoteAddr().String()).
 			Msg("call failed")
 	} else {
-		c.log.Info().
+		c.log.Error().
 			Err(err).
 			Str("callID", id).
 			Uint32("callKey", callKey).
