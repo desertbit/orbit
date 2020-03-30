@@ -28,6 +28,8 @@
 package gen
 
 import (
+	"strconv"
+
 	"github.com/desertbit/orbit/internal/codegen/ast"
 )
 
@@ -87,12 +89,18 @@ func (g *generator) genServiceClientCall(c *ast.Call, errs []*ast.Error) {
 
 	if c.Async {
 		// MaxArgSize for async.
-		g.writeMaxSizeParam(c.MaxArgSize, false)
-		g.write(",")
+		if c.Arg == nil {
+			g.write("0,")
+		} else {
+			g.writeCallMaxSizeParam(c.MaxArgSize, false)
+		}
 
 		// MaxRetSize for async.
-		g.writeMaxSizeParam(c.MaxRetSize, false)
-		g.write(",")
+		if c.Ret == nil {
+			g.write("0,")
+		} else {
+			g.writeCallMaxSizeParam(c.MaxRetSize, false)
+		}
 	}
 
 	g.writeLn(")")
@@ -200,4 +208,29 @@ func (g *generator) genServiceHandlerCall(c *ast.Call, errs []*ast.Error) {
 
 	g.writeLn("}")
 	g.writeLn("")
+}
+
+// writeCallMaxSize is a helper to determine which max size param must be written
+// based on the given params. It automatically handles the special cases
+// like no max size or default max size.
+// This method must only be used where Call max size syntax is required.
+func (g *generator) writeCallMaxSizeParam(maxSize *int64, service bool) {
+	if maxSize != nil {
+		if *maxSize == -1 {
+			if service {
+				g.write("oservice.NoMaxSizeLimit")
+			} else {
+				g.write("oclient.NoMaxSizeLimit")
+			}
+		} else {
+			g.write(strconv.FormatInt(*maxSize, 10))
+		}
+	} else {
+		if service {
+			g.write("oservice.DefaultMaxSize")
+		} else {
+			g.write("oclient.DefaultMaxSize")
+		}
+	}
+	g.write(",")
 }

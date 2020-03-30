@@ -35,7 +35,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
@@ -299,29 +298,6 @@ func generate(pkgName string, tree *ast.Tree) string {
 	return g.s.String()
 }
 
-// writeMaxSize is a helper to determine which max size param must be written
-// based on the given params. It automatically handles the special cases
-// like no max size or default max size.
-func (g *generator) writeMaxSizeParam(maxSize *int64, service bool) {
-	if maxSize != nil {
-		if *maxSize == -1 {
-			if service {
-				g.write("oservice.NoMaxSizeLimit")
-			} else {
-				g.write("oclient.NoMaxSizeLimit")
-			}
-		} else {
-			g.write(strconv.FormatInt(*maxSize, 10))
-		}
-	} else {
-		if service {
-			g.write("oservice.DefaultMaxSize")
-		} else {
-			g.write("oclient.DefaultMaxSize")
-		}
-	}
-}
-
 // writeTimeoutParam is a helper to determine which timeout param must be written
 // based on the given pointer. It automatically handles the special cases
 // like no timeout or default timeout.
@@ -335,6 +311,7 @@ func (g *generator) writeTimeoutParam(timeout *time.Duration) {
 	} else {
 		g.write("oservice.DefaultTimeout")
 	}
+	g.write(",")
 }
 
 func (g *generator) errIfNil() {

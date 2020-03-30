@@ -113,12 +113,12 @@ type TestRet struct {
 //msgp:ignore InfoReadStream
 type InfoReadStream struct {
 	closer.Closer
-	stream  net.Conn
+	stream  transport.Stream
 	codec   codec.Codec
 	maxSize int
 }
 
-func newInfoReadStream(cl closer.Closer, s net.Conn, cc codec.Codec, ms int) *InfoReadStream {
+func newInfoReadStream(cl closer.Closer, s transport.Stream, cc codec.Codec, ms int) *InfoReadStream {
 	return &InfoReadStream{Closer: cl, stream: s, codec: cc, maxSize: ms}
 }
 
@@ -129,7 +129,7 @@ func (v1 *InfoReadStream) Read() (arg *Info, err error) {
 	}
 	err = packet.ReadDecode(v1.stream, &arg, v1.codec, v1.maxSize)
 	if err != nil {
-		if errors.Is(err, packet.ErrZeroData) || errors.Is(err, io.EOF) {
+		if errors.Is(err, packet.ErrZeroData) || errors.Is(err, io.EOF) || v1.stream.IsClosed() {
 			err = ErrClosed
 		}
 		v1.Close_()
@@ -146,12 +146,12 @@ func (v1 *InfoReadStream) Read() (arg *Info, err error) {
 //msgp:ignore InfoWriteStream
 type InfoWriteStream struct {
 	closer.Closer
-	stream  net.Conn
+	stream  transport.Stream
 	codec   codec.Codec
 	maxSize int
 }
 
-func newInfoWriteStream(cl closer.Closer, s net.Conn, cc codec.Codec, ms int) *InfoWriteStream {
+func newInfoWriteStream(cl closer.Closer, s transport.Stream, cc codec.Codec, ms int) *InfoWriteStream {
 	cl.OnClosing(func() error { return packet.Write(s, nil, 0) })
 	return &InfoWriteStream{Closer: cl, stream: s, codec: cc, maxSize: ms}
 }
@@ -163,7 +163,7 @@ func (v1 *InfoWriteStream) Write(ret *Info) (err error) {
 	}
 	err = packet.WriteEncode(v1.stream, ret, v1.codec, v1.maxSize)
 	if err != nil {
-		if errors.Is(err, io.EOF) {
+		if errors.Is(err, io.EOF) || v1.stream.IsClosed() {
 			v1.Close_()
 			return ErrClosed
 		}
@@ -174,12 +174,12 @@ func (v1 *InfoWriteStream) Write(ret *Info) (err error) {
 //msgp:ignore TimeReadStream
 type TimeReadStream struct {
 	closer.Closer
-	stream  net.Conn
+	stream  transport.Stream
 	codec   codec.Codec
 	maxSize int
 }
 
-func newTimeReadStream(cl closer.Closer, s net.Conn, cc codec.Codec, ms int) *TimeReadStream {
+func newTimeReadStream(cl closer.Closer, s transport.Stream, cc codec.Codec, ms int) *TimeReadStream {
 	return &TimeReadStream{Closer: cl, stream: s, codec: cc, maxSize: ms}
 }
 
@@ -190,7 +190,7 @@ func (v1 *TimeReadStream) Read() (arg time.Time, err error) {
 	}
 	err = packet.ReadDecode(v1.stream, &arg, v1.codec, v1.maxSize)
 	if err != nil {
-		if errors.Is(err, packet.ErrZeroData) || errors.Is(err, io.EOF) {
+		if errors.Is(err, packet.ErrZeroData) || errors.Is(err, io.EOF) || v1.stream.IsClosed() {
 			err = ErrClosed
 		}
 		v1.Close_()
@@ -207,12 +207,12 @@ func (v1 *TimeReadStream) Read() (arg time.Time, err error) {
 //msgp:ignore TimeWriteStream
 type TimeWriteStream struct {
 	closer.Closer
-	stream  net.Conn
+	stream  transport.Stream
 	codec   codec.Codec
 	maxSize int
 }
 
-func newTimeWriteStream(cl closer.Closer, s net.Conn, cc codec.Codec, ms int) *TimeWriteStream {
+func newTimeWriteStream(cl closer.Closer, s transport.Stream, cc codec.Codec, ms int) *TimeWriteStream {
 	cl.OnClosing(func() error { return packet.Write(s, nil, 0) })
 	return &TimeWriteStream{Closer: cl, stream: s, codec: cc, maxSize: ms}
 }
@@ -224,7 +224,7 @@ func (v1 *TimeWriteStream) Write(ret time.Time) (err error) {
 	}
 	err = packet.WriteEncode(v1.stream, ret, v1.codec, v1.maxSize)
 	if err != nil {
-		if errors.Is(err, io.EOF) {
+		if errors.Is(err, io.EOF) || v1.stream.IsClosed() {
 			v1.Close_()
 			return ErrClosed
 		}
@@ -288,6 +288,8 @@ type client struct {
 	codec             codec.Codec
 	callTimeout       time.Duration
 	streamInitTimeout time.Duration
+	maxArgSize        int
+	maxRetSize        int
 }
 
 func NewClient(opts *oclient.Options) (c Client, err error) {
@@ -295,7 +297,7 @@ func NewClient(opts *oclient.Options) (c Client, err error) {
 	if err != nil {
 		return
 	}
-	c = &client{Client: oc, codec: opts.Codec, callTimeout: opts.CallTimeout, streamInitTimeout: opts.StreamInitTimeout}
+	c = &client{Client: oc, codec: opts.Codec, callTimeout: opts.CallTimeout, streamInitTimeout: opts.StreamInitTimeout, maxArgSize: opts.MaxArgSize, maxRetSize: opts.MaxRetSize}
 	return
 }
 
@@ -316,7 +318,7 @@ func (v1 *client) SayHi(ctx context.Context, arg *SayHiArg) (err error) {
 func (v1 *client) Test(ctx context.Context) (ret *TestRet, err error) {
 	ctx, cancel := context.WithTimeout(ctx, 500000000*time.Nanosecond)
 	defer cancel()
-	err = v1.AsyncCall(ctx, Test, nil, &ret, oclient.DefaultMaxSize, 10240)
+	err = v1.AsyncCall(ctx, Test, nil, &ret, 0, 10240)
 	if err != nil {
 		err = _clientErrorCheck(err)
 		return
@@ -352,7 +354,7 @@ func (v1 *client) TimeStream(ctx context.Context) (arg *InfoWriteStream, err err
 	if err != nil {
 		return
 	}
-	arg = newInfoWriteStream(v1.CloserOneWay(), stream, v1.codec, oclient.NoMaxSizeLimit)
+	arg = newInfoWriteStream(v1.CloserOneWay(), stream, v1.codec, v1.maxArgSize)
 	arg.OnClosing(stream.Close)
 	return
 }
@@ -367,15 +369,17 @@ func (v1 *client) ClockTime(ctx context.Context) (ret *TimeReadStream, err error
 	if err != nil {
 		return
 	}
-	ret = newTimeReadStream(v1.CloserOneWay(), stream, v1.codec, oclient.DefaultMaxSize)
+	ret = newTimeReadStream(v1.CloserOneWay(), stream, v1.codec, v1.maxRetSize)
 	ret.OnClosing(stream.Close)
 	return
 }
 
 type service struct {
 	oservice.Service
-	h     ServiceHandler
-	codec codec.Codec
+	h          ServiceHandler
+	codec      codec.Codec
+	maxArgSize int
+	maxRetSize int
 }
 
 func NewService(h ServiceHandler, opts *oservice.Options) (s Service, err error) {
@@ -383,9 +387,9 @@ func NewService(h ServiceHandler, opts *oservice.Options) (s Service, err error)
 	if err != nil {
 		return
 	}
-	srvc := &service{Service: os, h: h, codec: opts.Codec}
+	srvc := &service{Service: os, h: h, codec: opts.Codec, maxArgSize: opts.MaxArgSize, maxRetSize: opts.MaxRetSize}
 	os.RegisterCall(SayHi, srvc.sayHi, oservice.DefaultTimeout)
-	os.RegisterCall(Test, srvc.test, 500000000*time.Nanosecond)
+	os.RegisterAsyncCall(Test, srvc.test, 500000000*time.Nanosecond, oservice.DefaultMaxSize, 10240)
 	os.RegisterStream(Lul, srvc.lul)
 	os.RegisterStream(TimeStream, srvc.timeStream)
 	os.RegisterStream(ClockTime, srvc.clockTime)
@@ -430,13 +434,13 @@ func (v1 *service) lul(ctx oservice.Context, stream transport.Stream) {
 	v1.h.Lul(ctx, stream)
 }
 func (v1 *service) timeStream(ctx oservice.Context, stream transport.Stream) {
-	arg := newInfoReadStream(v1.CloserOneWay(), stream, v1.codec, oclient.NoMaxSizeLimit)
+	arg := newInfoReadStream(v1.CloserOneWay(), stream, v1.codec, v1.maxArgSize)
 	arg.OnClosing(stream.Close)
 	v1.h.TimeStream(ctx, arg)
 }
 
 func (v1 *service) clockTime(ctx oservice.Context, stream transport.Stream) {
-	ret := newTimeWriteStream(v1.CloserOneWay(), stream, v1.codec, oclient.DefaultMaxSize)
+	ret := newTimeWriteStream(v1.CloserOneWay(), stream, v1.codec, v1.maxRetSize)
 	ret.OnClosing(stream.Close)
 	v1.h.ClockTime(ctx, ret)
 }

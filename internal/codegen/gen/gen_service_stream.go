@@ -28,6 +28,9 @@
 package gen
 
 import (
+	"fmt"
+	"strconv"
+
 	"github.com/desertbit/orbit/internal/codegen/ast"
 )
 
@@ -68,7 +71,7 @@ func (g *generator) genServiceClientStream(s *ast.Stream, errs []*ast.Error) {
 
 	if s.Arg != nil {
 		g.writef("arg = new%sWriteStream(%s.CloserOneWay(), stream, %s.codec,", s.Arg.Name(), recv, recv)
-		g.writeMaxSizeParam(s.MaxArgSize, false)
+		g.writePacketMaxSizeParam(s.MaxArgSize, fmt.Sprintf("%s.maxArgSize", recv))
 		g.writeLn(")")
 
 		// Close unidirectional stream immediately.
@@ -79,7 +82,7 @@ func (g *generator) genServiceClientStream(s *ast.Stream, errs []*ast.Error) {
 
 	if s.Ret != nil {
 		g.writef("ret = new%sReadStream(%s.CloserOneWay(), stream, %s.codec,", s.Ret.Name(), recv, recv)
-		g.writeMaxSizeParam(s.MaxRetSize, false)
+		g.writePacketMaxSizeParam(s.MaxRetSize, fmt.Sprintf("%s.maxRetSize", recv))
 		g.writeLn(")")
 
 		// Close unidirectional stream immediately.
@@ -129,7 +132,7 @@ func (g *generator) genServiceHandlerStream(s *ast.Stream, errs []*ast.Error) {
 	if s.Arg != nil {
 		handlerArgs += "arg,"
 		g.writef("arg := new%sReadStream(%s.CloserOneWay(), stream, %s.codec,", s.Arg.Name(), recv, recv)
-		g.writeMaxSizeParam(s.MaxArgSize, false)
+		g.writePacketMaxSizeParam(s.MaxArgSize, fmt.Sprintf("%s.maxArgSize", recv))
 		g.writeLn(")")
 
 		// Close unidirectional stream immediately.
@@ -140,7 +143,7 @@ func (g *generator) genServiceHandlerStream(s *ast.Stream, errs []*ast.Error) {
 	if s.Ret != nil {
 		handlerArgs += "ret,"
 		g.writef("ret := new%sWriteStream(%s.CloserOneWay(), stream, %s.codec,", s.Ret.Name(), recv, recv)
-		g.writeMaxSizeParam(s.MaxRetSize, false)
+		g.writePacketMaxSizeParam(s.MaxRetSize, fmt.Sprintf("%s.maxRetSize", recv))
 		g.writeLn(")")
 
 		// Close unidirectional stream immediately.
@@ -161,4 +164,21 @@ func (g *generator) genServiceHandlerStream(s *ast.Stream, errs []*ast.Error) {
 	g.writefLn("%s.h.%s(%s)", recv, s.Name, handlerArgs)
 	g.writeLn("}")
 	g.writeLn("")
+}
+
+// writePacketMaxSizeParam is a helper to determine which max size param must be written
+// based on the given params. It automatically handles the special cases
+// like no max size or default max size.
+// This method must only be used where Packet max size syntax is required.
+func (g *generator) writePacketMaxSizeParam(maxSize *int64, defSize string) {
+	if maxSize != nil {
+		if *maxSize == -1 {
+			g.write("packet.NoPayloadSizeLimit")
+		} else {
+			g.write(strconv.FormatInt(*maxSize, 10))
+		}
+	} else {
+		g.write(defSize)
+	}
+	g.write(",")
 }

@@ -118,6 +118,8 @@ func (g *generator) genServiceClientStruct(calls []*ast.Call, streams []*ast.Str
 	g.writeLn("codec codec.Codec")
 	g.writeLn("callTimeout time.Duration")
 	g.writeLn("streamInitTimeout time.Duration")
+	g.writeLn("maxArgSize int")
+	g.writeLn("maxRetSize int")
 	g.writeLn("}")
 	g.writeLn("")
 
@@ -125,7 +127,8 @@ func (g *generator) genServiceClientStruct(calls []*ast.Call, streams []*ast.Str
 	g.writeLn("func NewClient(opts *oclient.Options) (c Client, err error) {")
 	g.writeLn("oc, err := oclient.New(opts)")
 	g.errIfNil()
-	g.writeLn("c = &client{Client: oc, codec: opts.Codec, callTimeout: opts.CallTimeout, streamInitTimeout: opts.StreamInitTimeout}")
+	g.writeLn("c = &client{Client: oc, codec: opts.Codec, callTimeout: opts.CallTimeout, streamInitTimeout: opts.StreamInitTimeout, " +
+		"maxArgSize: opts.MaxArgSize, maxRetSize:opts.MaxRetSize}")
 	g.writeLn("return")
 	g.writeLn("}")
 	g.writeLn("")
@@ -147,6 +150,8 @@ func (g *generator) genServiceStruct(calls []*ast.Call, streams []*ast.Stream, e
 	g.writeLn("oservice.Service")
 	g.writeLn("h ServiceHandler")
 	g.writeLn("codec codec.Codec")
+	g.writeLn("maxArgSize int")
+	g.writeLn("maxRetSize int")
 	g.writeLn("}")
 	g.writeLn("")
 
@@ -154,11 +159,19 @@ func (g *generator) genServiceStruct(calls []*ast.Call, streams []*ast.Stream, e
 	g.writeLn("func NewService(h ServiceHandler, opts *oservice.Options) (s Service, err error) {")
 	g.writeLn("os, err := oservice.New(opts)")
 	g.errIfNil()
-	g.writeLn("srvc := &service{Service: os, h: h, codec: opts.Codec}")
+	g.writeLn("srvc := &service{Service: os, h: h, codec: opts.Codec, maxArgSize: opts.MaxArgSize, maxRetSize:opts.MaxRetSize}")
 	for _, c := range calls {
-		g.writef("os.RegisterCall(%s, srvc.%s,", c.Name, c.NamePrv())
-		g.writeTimeoutParam(c.Timeout)
-		g.writeLn(")")
+		if c.Async {
+			g.writef("os.RegisterAsyncCall(%s, srvc.%s,", c.Name, c.NamePrv())
+			g.writeTimeoutParam(c.Timeout)
+			g.writeCallMaxSizeParam(c.MaxArgSize, true)
+			g.writeCallMaxSizeParam(c.MaxRetSize, true)
+			g.writeLn(")")
+		} else {
+			g.writef("os.RegisterCall(%s, srvc.%s,", c.Name, c.NamePrv())
+			g.writeTimeoutParam(c.Timeout)
+			g.writeLn(")")
+		}
 	}
 	for _, s := range streams {
 		g.writefLn("os.RegisterStream(%s, srvc.%s)", s.Name, s.NamePrv())
