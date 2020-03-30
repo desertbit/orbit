@@ -39,7 +39,7 @@ import (
 )
 
 const orbit = `
-version 5
+version 1
 
 service {
     call c1 {
@@ -81,7 +81,7 @@ enum En1 {
 `
 
 var (
-	version = 5
+	version = 1
 	c1      = &ast.Call{
 		Name: "C1",
 		Ret: &ast.ArrType{
