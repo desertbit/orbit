@@ -143,10 +143,6 @@ func TestWrite(t *testing.T) {
 			maxPayloadSize: packet.MaxSize + 1,
 		},
 		{
-			data:           make([]byte, packet.MaxSize),
-			maxPayloadSize: packet.MaxSize,
-		},
-		{
 			data:           make([]byte, packet.MaxSize+1),
 			maxPayloadSize: packet.MaxSize,
 			shouldFail:     true,

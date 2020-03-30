@@ -40,7 +40,8 @@ func TestMsgpImplementation(t *testing.T) {
 	testCases := []interface{}{
 		&HandshakeArgs{}, // 0
 		&HandshakeRet{},
-		&InitStream{},
+		&StreamRaw{},
+		&StreamAsync{},
 		&RPCCall{},
 		&RPCReturn{},
 		&RPCCancel{}, // 5
