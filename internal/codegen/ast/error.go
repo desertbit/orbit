@@ -32,7 +32,7 @@ import (
 )
 
 func NewErr(line int, format string, args ...interface{}) error {
-	return &Err{
+	return Err{
 		msg:  fmt.Sprintf(format, args...),
 		line: line,
 	}
@@ -43,6 +43,6 @@ type Err struct {
 	line int
 }
 
-func (e *Err) Error() string {
+func (e Err) Error() string {
 	return fmt.Sprintf("%s --- line: %d", e.msg, e.line)
 }

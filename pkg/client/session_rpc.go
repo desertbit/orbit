@@ -38,6 +38,10 @@ import (
 	"github.com/desertbit/orbit/pkg/transport"
 )
 
+const (
+	asyncStreamMaxHeaderSize = 1024 // 1 KB
+)
+
 func (s *session) Call(ctx context.Context, id string, arg, ret interface{}) (err error) {
 	// Create a new channel with its key. This will be used to send
 	// the data over that forms the response to the call.
@@ -70,7 +74,7 @@ func (s *session) Call(ctx context.Context, id string, arg, ret interface{}) (er
 		ID:   id,
 		Key:  key,
 		Data: cctx.header,
-	}, arg)
+	}, arg, s.maxArgSize)
 	if err != nil {
 		return
 	}
@@ -112,9 +116,17 @@ func (s *session) Call(ctx context.Context, id string, arg, ret interface{}) (er
 	}
 }
 
-func (s *session) AsyncCall(ctx context.Context, id string, arg, ret interface{}) (err error) {
+func (s *session) AsyncCall(ctx context.Context, id string, arg, ret interface{}, maxArgSize, maxRetSize int) (err error) {
+	// Use default options limits if required.
+	if maxArgSize == DefaultMaxSize {
+		maxArgSize = s.maxArgSize
+	}
+	if maxRetSize == DefaultMaxSize {
+		maxRetSize = s.maxRetSize
+	}
+
 	// Open a new stream for this call.
-	stream, err := s.openStream(ctx, "", api.StreamTypeAsyncCall)
+	stream, err := s.openStream(ctx, api.StreamTypeAsyncCall, &api.StreamAsync{ID: id}, asyncStreamMaxHeaderSize)
 	if err != nil {
 		return
 	}
@@ -162,7 +174,7 @@ func (s *session) AsyncCall(ctx context.Context, id string, arg, ret interface{}
 			ID:   id,
 			Key:  key,
 			Data: cctx.header,
-		}, arg)
+		}, arg, maxArgSize)
 		if err != nil {
 			errChan <- err
 			return
@@ -188,7 +200,7 @@ func (s *session) AsyncCall(ctx context.Context, id string, arg, ret interface{}
 		}
 
 		// Wait for the response.
-		reqType, headerData, payloadData, err := rpc.Read(stream, nil, nil)
+		reqType, headerData, payloadData, err := rpc.Read(stream, nil, nil, s.maxHeaderSize, maxRetSize)
 		if err != nil {
 			errChan <- err
 			return
@@ -266,6 +278,7 @@ func (s *session) writeRPCRequest(
 	streamLocker sync.Locker,
 	reqType api.RPCType,
 	headerI, dataI interface{},
+	maxPayloadSize int,
 ) (err error) {
 	var header, payload []byte
 
@@ -318,5 +331,5 @@ func (s *session) writeRPCRequest(
 	}
 
 	// Write the rpc request.
-	return rpc.Write(stream, reqType, header, payload)
+	return rpc.Write(stream, reqType, header, payload, s.maxHeaderSize, maxPayloadSize)
 }

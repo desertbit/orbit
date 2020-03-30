@@ -30,6 +30,7 @@ package parse_test
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/desertbit/orbit/internal/codegen/ast"
 	"github.com/desertbit/orbit/internal/codegen/parse"
@@ -49,6 +50,9 @@ service {
         async
         arg: time
         ret: []map[string][]Ret
+		timeout: 500ms
+		maxArgSize: 154KB
+		maxRetSize: 5MiB
     }
     call c3 {}
 
@@ -57,7 +61,7 @@ service {
         ret: {
             s string
             i int
-            m map[string]int
+            m map[string]int 'required'
             sl []time
             st Ret
             crazy map[string][][]map[string]En1
@@ -66,11 +70,11 @@ service {
     call rc2 {
         async
         arg: {
-            f float64
+            f float64 'required'
             b byte
             u8 uint8
             u16 uint16
-            u32 uint32
+            u32 uint32 'required'
             u64 uint64
         }
     }
@@ -78,7 +82,7 @@ service {
 
     stream s1 {}
     stream s2 {
-        arg: string
+        arg: string 'required'
     }
     stream s3 {
         ret: En1
@@ -89,7 +93,7 @@ service {
         ret: Ret
     }
     stream rs2 {
-        arg: map[string]int
+        arg: map[string]int 'required'
     }
     stream rs3 {}
 }
@@ -126,8 +130,14 @@ errors {
 `
 
 var (
-	version = 5
-	c1      = &ast.Call{
+	version            = 5
+	c2Timeout          = 500 * time.Millisecond
+	c2MaxArgSize int64 = 154 * 1024
+	c2MaxRetSize int64 = 5 * 1024 * 1024
+)
+
+var (
+	c1 = &ast.Call{
 		Name: "C1",
 		Arg:  &ast.BaseType{DataType: ast.TypeInt},
 		Ret:  &ast.BaseType{DataType: ast.TypeFloat32},
@@ -142,6 +152,9 @@ var (
 				Value: &ast.ArrType{Elem: &ast.AnyType{NamePrv: "Ret"}},
 			},
 		},
+		Timeout:    &c2Timeout,
+		MaxArgSize: &c2MaxArgSize,
+		MaxRetSize: &c2MaxRetSize,
 	}
 	c3  = &ast.Call{Name: "C3"}
 	rc1 = &ast.Call{
@@ -159,8 +172,9 @@ var (
 	}
 	st1 = &ast.Stream{Name: "S1"}
 	st2 = &ast.Stream{
-		Name: "S2",
-		Arg:  &ast.BaseType{DataType: ast.TypeString},
+		Name:      "S2",
+		Arg:       &ast.BaseType{DataType: ast.TypeString},
+		ArgValTag: "required",
 	}
 	st3 = &ast.Stream{
 		Name: "S3",
@@ -177,6 +191,7 @@ var (
 			Key:   &ast.BaseType{DataType: ast.TypeString},
 			Value: &ast.BaseType{DataType: ast.TypeInt},
 		},
+		ArgValTag: "required",
 	}
 	rst3 = &ast.Stream{
 		Name: "Rs3",
@@ -198,6 +213,7 @@ var (
 						Key:   &ast.BaseType{DataType: ast.TypeString},
 						Value: &ast.BaseType{DataType: ast.TypeInt},
 					},
+					ValTag: "required",
 				},
 				{Name: "Sl", DataType: &ast.ArrType{Elem: &ast.BaseType{DataType: ast.TypeTime}}},
 				{Name: "St", DataType: &ast.AnyType{NamePrv: "Ret"}},
@@ -220,11 +236,11 @@ var (
 		{
 			Name: "Rc2Arg",
 			Fields: []*ast.TypeField{
-				{Name: "F", DataType: &ast.BaseType{DataType: ast.TypeFloat64}},
+				{Name: "F", DataType: &ast.BaseType{DataType: ast.TypeFloat64}, ValTag: "required"},
 				{Name: "B", DataType: &ast.BaseType{DataType: ast.TypeByte}},
 				{Name: "U8", DataType: &ast.BaseType{DataType: ast.TypeUInt8}},
 				{Name: "U16", DataType: &ast.BaseType{DataType: ast.TypeUInt16}},
-				{Name: "U32", DataType: &ast.BaseType{DataType: ast.TypeUInt32}},
+				{Name: "U32", DataType: &ast.BaseType{DataType: ast.TypeUInt32}, ValTag: "required"},
 				{Name: "U64", DataType: &ast.BaseType{DataType: ast.TypeUInt64}},
 			},
 		},
@@ -340,12 +356,19 @@ func requireEqualService(t *testing.T, exp, act *ast.Service) {
 func requireEqualCall(t *testing.T, exp, act *ast.Call) {
 	require.Exactly(t, exp.Name, act.Name)
 	require.Exactly(t, exp.Async, act.Async)
+	require.Exactly(t, exp.Timeout, act.Timeout)
+	require.Exactly(t, exp.MaxArgSize, act.MaxArgSize)
+	require.Exactly(t, exp.MaxRetSize, act.MaxRetSize)
+	require.Exactly(t, exp.ArgValTag, act.ArgValTag)
+	require.Exactly(t, exp.RetValTag, act.RetValTag)
 	requireEqualDataType(t, exp.Arg, act.Arg)
 	requireEqualDataType(t, exp.Ret, act.Ret)
 }
 
 func requireEqualStream(t *testing.T, exp, act *ast.Stream) {
 	require.Exactly(t, exp.Name, act.Name)
+	require.Exactly(t, exp.MaxArgSize, act.MaxArgSize)
+	require.Exactly(t, exp.MaxRetSize, act.MaxRetSize)
 	requireEqualDataType(t, exp.Arg, act.Arg)
 	requireEqualDataType(t, exp.Ret, act.Ret)
 }

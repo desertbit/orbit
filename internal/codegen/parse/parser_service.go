@@ -29,6 +29,8 @@ package parse
 
 import (
 	"errors"
+	"math"
+	"time"
 
 	"github.com/desertbit/orbit/internal/codegen/ast"
 	"github.com/desertbit/orbit/internal/codegen/token"
@@ -141,7 +143,7 @@ func (p *parser) expectServiceCall() (c *ast.Call, err error) {
 		} else if p.checkSymbol(tkEntryArg) {
 			// Check for duplicate.
 			if c.Arg != nil {
-				err = ast.NewErr(p.line(), "duplicate arg")
+				err = ast.NewErr(p.line(), "duplicate %s", tkEntryArg)
 				return
 			}
 
@@ -159,7 +161,7 @@ func (p *parser) expectServiceCall() (c *ast.Call, err error) {
 		} else if p.checkSymbol(tkEntryRet) {
 			// Check for duplicate.
 			if c.Ret != nil {
-				err = ast.NewErr(p.line(), "duplicate ret")
+				err = ast.NewErr(p.line(), "duplicate %s", tkEntryRet)
 				return
 			}
 
@@ -177,7 +179,7 @@ func (p *parser) expectServiceCall() (c *ast.Call, err error) {
 		} else if p.checkSymbol(tkEntryAsync) {
 			// Check for duplicate.
 			if c.Async {
-				err = ast.NewErr(p.line(), "duplicate async")
+				err = ast.NewErr(p.line(), "duplicate %s", tkEntryAsync)
 				return
 			}
 
@@ -185,7 +187,7 @@ func (p *parser) expectServiceCall() (c *ast.Call, err error) {
 		} else if p.checkSymbol(tkEntryTimeout) {
 			// Check for duplicate.
 			if c.Timeout != nil {
-				err = ast.NewErr(p.line(), "duplicate timeout")
+				err = ast.NewErr(p.line(), "duplicate %s", tkEntryTimeout)
 				return
 			}
 
@@ -195,8 +197,34 @@ func (p *parser) expectServiceCall() (c *ast.Call, err error) {
 				return
 			}
 
-			// Parse timeout.
-			c.Timeout, err = p.expectTimeDuration()
+			// Parse duration.
+			var d time.Duration
+			d, err = p.expectDuration()
+			if err != nil {
+				return
+			}
+			c.Timeout = &d
+		} else if p.checkSymbol(tkEntryMaxArgSize) {
+			// Check for duplicate.
+			if c.MaxArgSize != nil {
+				err = ast.NewErr(p.line(), "duplicate %s", tkEntryMaxArgSize)
+				return
+			}
+
+			// Expect a data size entry.
+			c.MaxArgSize, err = p.expectServiceEntryDataSize(tkEntryMaxArgSize)
+			if err != nil {
+				return
+			}
+		} else if p.checkSymbol(tkEntryMaxRetSize) {
+			// Check for duplicate.
+			if c.MaxRetSize != nil {
+				err = ast.NewErr(p.line(), "duplicate %s", tkEntryMaxRetSize)
+				return
+			}
+
+			// Expect a data size entry.
+			c.MaxRetSize, err = p.expectServiceEntryDataSize(tkEntryMaxRetSize)
 			if err != nil {
 				return
 			}
@@ -264,6 +292,30 @@ func (p *parser) expectServiceStream() (s *ast.Stream, err error) {
 			if err != nil {
 				return
 			}
+		} else if p.checkSymbol(tkEntryMaxArgSize) {
+			// Check for duplicate.
+			if s.MaxArgSize != nil {
+				err = ast.NewErr(p.line(), "duplicate %s", tkEntryMaxArgSize)
+				return
+			}
+
+			// Expect a data size entry.
+			s.MaxArgSize, err = p.expectServiceEntryDataSize(tkEntryMaxArgSize)
+			if err != nil {
+				return
+			}
+		} else if p.checkSymbol(tkEntryMaxRetSize) {
+			// Check for duplicate.
+			if s.MaxRetSize != nil {
+				err = ast.NewErr(p.line(), "duplicate %s", tkEntryMaxRetSize)
+				return
+			}
+
+			// Expect a data size entry.
+			s.MaxRetSize, err = p.expectServiceEntryDataSize(tkEntryMaxRetSize)
+			if err != nil {
+				return
+			}
 		} else {
 			err = ast.NewErr(p.line(), "unexpected symbol '%s'", p.value())
 			return
@@ -302,5 +354,45 @@ func (p *parser) expectServiceEntryType(name string) (dt ast.DataType, valTag st
 		}
 	}
 
+	return
+}
+
+// expectServiceEntryDataSize is a convenience func to parse a data size in a service entry.
+// Returns ast.Err.
+func (p *parser) expectServiceEntryDataSize(symbol string) (size *int64, err error) {
+	// Consume ':'.
+	err = p.expectSymbol(token.Colon)
+	if err != nil {
+		return
+	}
+
+	var sp int64
+
+	// Check for special '-1' value.
+	if p.checkSymbol(token.Hyphen) {
+		err = p.expectSymbol("1")
+		if err != nil {
+			return
+		}
+
+		sp = -1
+	} else {
+		// Parse byte size.
+		var s uint64
+		s, err = p.expectByteSize()
+		if err != nil {
+			return
+		}
+
+		// Check, that the size is not larger than uint32.
+		if s > uint64(math.MaxUint32) {
+			err = ast.NewErr(p.prevLine, "byte size too large, max is %d", math.MaxUint32)
+			return
+		}
+
+		sp = int64(s)
+	}
+
+	size = &sp
 	return
 }

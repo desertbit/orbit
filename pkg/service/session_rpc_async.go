@@ -35,12 +35,18 @@ import (
 	"github.com/desertbit/orbit/pkg/transport"
 )
 
-func (s *session) handleAsyncCallStream(stream transport.Stream) error {
+func (s *session) handleAsyncCallStream(stream transport.Stream, id string) error {
 	// Always close the stream.
 	defer stream.Close()
 
+	// Get the options for this call.
+	opts, err := s.handler.getAsyncCallOptions(id)
+	if err != nil {
+		return fmt.Errorf("async call: %w", err)
+	}
+
 	// Read the single async request from the stream.
-	reqType, header, payload, err := rpc.Read(stream, nil, nil)
+	reqType, header, payload, err := rpc.Read(stream, nil, nil, s.maxHeaderSize, opts.maxArgSize)
 	if err != nil {
 		return fmt.Errorf("async call: read failed: %w", err)
 	} else if reqType != api.RPCTypeCall {
@@ -48,7 +54,7 @@ func (s *session) handleAsyncCallStream(stream transport.Stream) error {
 	}
 
 	// Handle it like a normal call.
-	err = s.handleCall(stream, nil, header, payload)
+	err = s.handleCall(stream, nil, header, payload, opts.maxRetSize)
 	if err != nil {
 		return fmt.Errorf("async: %w", err)
 	}

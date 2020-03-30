@@ -114,6 +114,7 @@ func (r *reader) Next() (t *Token, err error) {
 			nr == bracketL || nr == bracketR ||
 			nr == colon ||
 			nr == equal ||
+			nr == hyphen ||
 			nr == singQuote {
 			if nr == singQuote {
 				r.singQuote = !r.singQuote

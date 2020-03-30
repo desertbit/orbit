@@ -80,14 +80,16 @@ type Service struct {
 }
 
 type Call struct {
-	Name      string
-	Arg       DataType
-	ArgValTag string
-	Ret       DataType
-	RetValTag string
-	Async     bool
-	Timeout   *time.Duration
-	Line      int
+	Name       string
+	Arg        DataType
+	ArgValTag  string
+	Ret        DataType
+	RetValTag  string
+	Async      bool
+	Timeout    *time.Duration
+	MaxArgSize *int64
+	MaxRetSize *int64
+	Line       int
 }
 
 func (c *Call) NamePrv() string {
@@ -95,12 +97,14 @@ func (c *Call) NamePrv() string {
 }
 
 type Stream struct {
-	Name      string
-	Arg       DataType
-	ArgValTag string
-	Ret       DataType
-	RetValTag string
-	Line      int
+	Name       string
+	Arg        DataType
+	ArgValTag  string
+	Ret        DataType
+	RetValTag  string
+	MaxArgSize *int64
+	MaxRetSize *int64
+	Line       int
 }
 
 func (s *Stream) NamePrv() string {

@@ -28,6 +28,7 @@
 package log
 
 import (
+	"errors"
 	"os"
 	"time"
 
@@ -91,13 +92,40 @@ func (c *clientHook) OnCall(ctx client.Context, id string, callKey uint32) error
 
 func (c *clientHook) OnCallDone(ctx client.Context, id string, callKey uint32, err error) {
 	s := ctx.Session()
-	c.log.Info().
-		Str("callID", id).
-		Uint32("callKey", callKey).
-		Str("sessionID", s.ID()).
-		Str("localAddr", s.LocalAddr().String()).
-		Str("remoteAddr", s.RemoteAddr().String()).
-		Msg("call done")
+
+	if err == nil {
+		c.log.Info().
+			Str("callID", id).
+			Uint32("callKey", callKey).
+			Str("sessionID", s.ID()).
+			Str("localAddr", s.LocalAddr().String()).
+			Str("remoteAddr", s.RemoteAddr().String()).
+			Msg("call done")
+		return
+	}
+
+	// Check, if an orbit client error was returned.
+	var oErr client.Error
+	if errors.As(err, &oErr) {
+		c.log.Error().
+			Err(err).
+			Int("errCode", oErr.Code()).
+			Str("callID", id).
+			Uint32("callKey", callKey).
+			Str("sessionID", s.ID()).
+			Str("localAddr", s.LocalAddr().String()).
+			Str("remoteAddr", s.RemoteAddr().String()).
+			Msg("call failed")
+	} else {
+		c.log.Error().
+			Err(err).
+			Str("callID", id).
+			Uint32("callKey", callKey).
+			Str("sessionID", s.ID()).
+			Str("localAddr", s.LocalAddr().String()).
+			Str("remoteAddr", s.RemoteAddr().String()).
+			Msg("call failed")
+	}
 }
 
 func (c *clientHook) OnCallCanceled(ctx client.Context, id string, callKey uint32) {
@@ -111,7 +139,7 @@ func (c *clientHook) OnCallCanceled(ctx client.Context, id string, callKey uint3
 		Msg("call canceled")
 }
 
-func (c *clientHook) OnStream(ctx client.Context, id string, stream transport.Stream) error {
+func (c *clientHook) OnStream(ctx client.Context, id string) error {
 	s := ctx.Session()
 	c.log.Info().
 		Str("streamID", id).

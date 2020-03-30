@@ -49,15 +49,15 @@ func (g *generator) genErrors(errs []*ast.Error) {
 	if len(errs) > 0 {
 		g.writeLn("const (")
 		for _, e := range errs {
-			g.writeLn("ErrCode%s = %d", e.Name, e.ID)
+			g.writefLn("ErrCode%s = %d", e.Name, e.ID)
 		}
 		g.writeLn(")")
 
 		// Write standard error variables along with the service Error ones.
 		g.writeLn("var (")
 		for _, e := range errs {
-			g.writeLn("Err%s = errors.New(\"%s\")", e.Name, strExplode(e.Name))
-			g.writeLn("serviceErr%s = oservice.Err(Err%s, Err%s.Error(), ErrCode%s)", e.Name, e.Name, e.Name, e.Name)
+			g.writefLn("Err%s = errors.New(\"%s\")", e.Name, strExplode(e.Name))
+			g.writefLn("serviceErr%s = oservice.Err(Err%s, Err%s.Error(), ErrCode%s)", e.Name, e.Name, e.Name, e.Name)
 		}
 		g.writeLn(")")
 		g.writeLn("")
@@ -70,7 +70,7 @@ func (g *generator) genErrors(errs []*ast.Error) {
 }
 
 func (g *generator) genClientErrorCheckFunc(errs []*ast.Error) {
-	g.writeLn("func %s(err error) error {", clientErrorCheck)
+	g.writefLn("func %s(err error) error {", clientErrorCheck)
 	if len(errs) == 0 {
 		g.writeLn("return err")
 		g.writeLn("}")
@@ -82,8 +82,8 @@ func (g *generator) genClientErrorCheckFunc(errs []*ast.Error) {
 	g.writeLn("if errors.As(err, &cErr) {")
 	g.writeLn("switch cErr.Code() {")
 	for _, e := range errs {
-		g.writeLn("case ErrCode%s:", e.Name)
-		g.writeLn("return Err%s", e.Name)
+		g.writefLn("case ErrCode%s:", e.Name)
+		g.writefLn("return Err%s", e.Name)
 	}
 	g.writeLn("}")
 	g.writeLn("}")
@@ -94,7 +94,7 @@ func (g *generator) genClientErrorCheckFunc(errs []*ast.Error) {
 
 func (g *generator) genServiceErrorCheckFunc(errs []*ast.Error) {
 	// Check, if one of our errors has been returned and convert it to a service Error.
-	g.writeLn("func %s(err error) error {", serviceErrorCheck)
+	g.writefLn("func %s(err error) error {", serviceErrorCheck)
 	if len(errs) == 0 {
 		g.writeLn("return err")
 		g.writeLn("}")
@@ -102,8 +102,8 @@ func (g *generator) genServiceErrorCheckFunc(errs []*ast.Error) {
 	}
 
 	for i, e := range errs {
-		g.writeLn("if errors.Is(err, Err%s) {", e.Name)
-		g.writeLn("return serviceErr%s", e.Name)
+		g.writefLn("if errors.Is(err, Err%s) {", e.Name)
+		g.writefLn("return serviceErr%s", e.Name)
 		if i < len(errs)-1 {
 			g.write("} else ")
 		} else {
@@ -116,11 +116,11 @@ func (g *generator) genServiceErrorCheckFunc(errs []*ast.Error) {
 }
 
 func (g *generator) genValErrCheckFunc() {
-	g.writeLn("func %s(err error) error {", valErrorCheck)
+	g.writefLn("func %s(err error) error {", valErrorCheck)
 	g.writeLn("if vErrs, ok := err.(validator.ValidationErrors); ok {")
 	g.writeLn("var errMsg strings.Builder")
 	g.writeLn("for _, err := range vErrs {")
-	g.writeLn("errMsg.WriteString(\"-> name: '\"+err.StructNamespace()+\"', value: '\"+err.Value()+\"', tag: '\"+err.Tag()+\"'\"")
+	g.writeLn("errMsg.WriteString(fmt.Sprintf(\"-> name: '%s', value: '%s', tag: '%s'\", err.StructNamespace(), err.Value(), err.Tag()))")
 	g.writeLn("}")
 	g.writeLn("return errors.New(errMsg.String())")
 	g.writeLn("}")

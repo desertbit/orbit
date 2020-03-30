@@ -52,7 +52,7 @@ func (s *session) cancelCall(key uint32) error {
 	defer cancel()
 
 	// Cancel the call on the remote peer.
-	return s.writeRPCRequest(ctx, stream, &s.cancelStreamMx, api.RPCTypeCancel, &api.RPCCall{Key: key}, nil)
+	return s.writeRPCRequest(ctx, stream, &s.cancelStreamMx, api.RPCTypeCancel, &api.RPCCall{Key: key}, nil, 0)
 }
 
 func (s *session) openCancelStream() (stream transport.Stream, err error) {
@@ -68,7 +68,7 @@ func (s *session) openCancelStream() (stream transport.Stream, err error) {
 	ctx, cancel := context.WithTimeout(context.Background(), openCancelStreamTimeout)
 	defer cancel()
 
-	stream, err = s.openStream(ctx, "", api.StreamTypeCancelCalls)
+	stream, err = s.openStream(ctx, api.StreamTypeCancelCalls, nil, 0)
 	if err != nil {
 		err = fmt.Errorf("failed to open cancel stream: %w", err)
 		return

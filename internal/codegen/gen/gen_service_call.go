@@ -28,63 +28,86 @@
 package gen
 
 import (
+	"strconv"
+
 	"github.com/desertbit/orbit/internal/codegen/ast"
 )
 
 func (g *generator) genServiceClientCallSignature(c *ast.Call) {
-	g.write("%s(ctx context.Context", c.Name)
+	g.writef("%s(ctx context.Context", c.Name)
 	if c.Arg != nil {
-		g.write(", arg %s", c.Arg.Decl())
+		g.writef(", arg %s", c.Arg.Decl())
 	}
 	g.write(") (")
 	if c.Ret != nil {
-		g.write("ret %s, ", c.Ret.Decl())
+		g.writef("ret %s, ", c.Ret.Decl())
 	}
 	g.write("err error)")
 }
 
 func (g *generator) genServiceClientCall(c *ast.Call, errs []*ast.Error) {
 	// Method declaration.
-	g.write("func (%s *client) ", recv)
+	g.writef("func (%s *client) ", recv)
 	g.genServiceClientCallSignature(c)
 	g.writeLn(" {")
 
 	// Method body.
 	// Set the timeout, if needed.
-	if c.Timeout != nil && *c.Timeout > 0 {
-		g.writeLn("ctx, cancel := context.WithTimeout(ctx, %d*time.Nanosecond)", c.Timeout.Nanoseconds())
-		g.writeLn("defer cancel()")
+	if c.Timeout != nil {
+		if *c.Timeout > 0 {
+			g.writefLn("ctx, cancel := context.WithTimeout(ctx, %d*time.Nanosecond)", c.Timeout.Nanoseconds())
+			g.writeLn("defer cancel()")
+		}
 	} else {
-		g.writeLn("if %s.callTimeout > 0 {", recv)
+		g.writefLn("if %s.callTimeout > 0 {", recv)
 		g.writeLn("var cancel context.CancelFunc")
-		g.writeLn("ctx, cancel = context.WithTimeout(ctx, %s.callTimeout)", recv)
+		g.writefLn("ctx, cancel = context.WithTimeout(ctx, %s.callTimeout)", recv)
 		g.writeLn("defer cancel()")
 		g.writeLn("}")
 	}
 
-	g.write("err = %s.", recv)
+	g.writef("err = %s.", recv)
 	if c.Async {
 		g.write("Async")
 	}
 	g.write("Call")
 
-	g.write("(ctx, %s, ", c.Name)
+	g.writef("(ctx, %s, ", c.Name)
+	// Arg.
 	if c.Arg != nil {
 		g.write("arg,")
 	} else {
 		g.write("nil,")
 	}
 
+	// Ret.
 	if c.Ret != nil {
 		g.write("&ret,")
 	} else {
 		g.write("nil,")
 	}
+
+	if c.Async {
+		// MaxArgSize for async.
+		if c.Arg == nil {
+			g.write("0,")
+		} else {
+			g.writeCallMaxSizeParam(c.MaxArgSize, false)
+		}
+
+		// MaxRetSize for async.
+		if c.Ret == nil {
+			g.write("0,")
+		} else {
+			g.writeCallMaxSizeParam(c.MaxRetSize, false)
+		}
+	}
+
 	g.writeLn(")")
 
 	// Check error and parse control.ErrorCodes.
 	g.errIfNilFunc(func() {
-		g.writeLn("err = %s(err)", clientErrorCheck)
+		g.writefLn("err = %s(err)", clientErrorCheck)
 		g.writeLn("return")
 	})
 
@@ -92,13 +115,13 @@ func (g *generator) genServiceClientCall(c *ast.Call, errs []*ast.Error) {
 	if c.Ret != nil {
 		if c.RetValTag != "" {
 			// Validate a single value.
-			g.writeLn("err = validate.Var(ret, \"%s\")", c.RetValTag)
+			g.writefLn("err = validate.Var(ret, \"%s\")", c.RetValTag)
 		} else {
 			// Validate a struct.
 			g.writeLn("err = validate.Struct(ret)")
 		}
 		g.errIfNilFunc(func() {
-			g.writeLn("err = %s(err)", valErrorCheck)
+			g.writefLn("err = %s(err)", valErrorCheck)
 			g.writeLn("return")
 		})
 	}
@@ -111,20 +134,20 @@ func (g *generator) genServiceClientCall(c *ast.Call, errs []*ast.Error) {
 }
 
 func (g *generator) genServiceHandlerCallSignature(c *ast.Call) {
-	g.write("%s(ctx oservice.Context", c.Name)
+	g.writef("%s(ctx oservice.Context", c.Name)
 	if c.Arg != nil {
-		g.write(", arg %s", c.Arg.Decl())
+		g.writef(", arg %s", c.Arg.Decl())
 	}
 	g.write(") (")
 	if c.Ret != nil {
-		g.write("ret %s, ", c.Ret.Decl())
+		g.writef("ret %s, ", c.Ret.Decl())
 	}
 	g.write("err error)")
 }
 
 func (g *generator) genServiceHandlerCall(c *ast.Call, errs []*ast.Error) {
 	// Method declaration.
-	g.writeLn(
+	g.writefLn(
 		"func (%s *service) %s(ctx oservice.Context, argData []byte) (retData interface{}, err error) {",
 		recv, c.NamePrv(),
 	)
@@ -136,34 +159,34 @@ func (g *generator) genServiceHandlerCall(c *ast.Call, errs []*ast.Error) {
 		handlerArgs += "arg,"
 
 		// Parse.
-		g.writeLn("var arg %s", c.Arg.Decl())
-		g.writeLn("err = %s.codec.Decode(argData, &arg)", recv)
+		g.writefLn("var arg %s", c.Arg.Decl())
+		g.writefLn("err = %s.codec.Decode(argData, &arg)", recv)
 		g.errIfNil()
 
 		// Validate.
 		if c.ArgValTag != "" {
 			// Validate a single value.
-			g.writeLn("err = validate.Var(arg, \"%s\")", c.ArgValTag)
+			g.writefLn("err = validate.Var(arg, \"%s\")", c.ArgValTag)
 		} else {
 			// Validate a struct.
 			g.writeLn("err = validate.Struct(arg)")
 		}
 		g.errIfNilFunc(func() {
-			g.writeLn("err = %s(err)", valErrorCheck)
+			g.writefLn("err = %s(err)", valErrorCheck)
 			g.writeLn("return")
 		})
 	}
 
 	// Call the handler.
 	if c.Ret != nil {
-		g.writeLn("ret, err := %s.h.%s(%s)", recv, c.Name, handlerArgs)
+		g.writefLn("ret, err := %s.h.%s(%s)", recv, c.Name, handlerArgs)
 	} else {
-		g.writeLn("err = %s.h.%s(%s)", recv, c.Name, handlerArgs)
+		g.writefLn("err = %s.h.%s(%s)", recv, c.Name, handlerArgs)
 	}
 
 	// Check error and convert to orbit errors.
 	g.errIfNilFunc(func() {
-		g.writeLn("err = %s(err)", serviceErrorCheck)
+		g.writefLn("err = %s(err)", serviceErrorCheck)
 		g.writeLn("return")
 	})
 
@@ -185,4 +208,29 @@ func (g *generator) genServiceHandlerCall(c *ast.Call, errs []*ast.Error) {
 
 	g.writeLn("}")
 	g.writeLn("")
+}
+
+// writeCallMaxSize is a helper to determine which max size param must be written
+// based on the given params. It automatically handles the special cases
+// like no max size or default max size.
+// This method must only be used where Call max size syntax is required.
+func (g *generator) writeCallMaxSizeParam(maxSize *int64, service bool) {
+	if maxSize != nil {
+		if *maxSize == -1 {
+			if service {
+				g.write("oservice.NoMaxSizeLimit")
+			} else {
+				g.write("oclient.NoMaxSizeLimit")
+			}
+		} else {
+			g.write(strconv.FormatInt(*maxSize, 10))
+		}
+	} else {
+		if service {
+			g.write("oservice.DefaultMaxSize")
+		} else {
+			g.write("oclient.DefaultMaxSize")
+		}
+	}
+	g.write(",")
 }

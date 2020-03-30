@@ -3,8 +3,8 @@
  *
  * The MIT License (MIT)
  *
- * Copyright (c) 2018 Roland Singer <roland.singer[at]desertbit.com>
- * Copyright (c) 2018 Sebastian Borchers <sebastian[at]desertbit.com>
+ * Copyright (c) 2020 Roland Singer <roland.singer[at]desertbit.com>
+ * Copyright (c) 2020 Sebastian Borchers <sebastian[at]desertbit.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -57,17 +57,21 @@ import (
 )
 
 const (
-	MaxSize = math.MaxUint32
+	MaxSize            = math.MaxUint32
+	NoPayloadSizeLimit = -1
 )
 
-var ErrZeroData = errors.New("zero data")
+var (
+	ErrZeroData               = errors.New("zero data")
+	ErrMaxPayloadSizeExceeded = errors.New("maximum payload size exceeded")
+)
 
 // ReadDecode reads the packet from the connection using Read()
 // and decodes it into the value, using the provided codec.
 // Ensure to pass a pointer value.
-func ReadDecode(conn net.Conn, value interface{}, codec codec.Codec) error {
+func ReadDecode(conn net.Conn, value interface{}, codec codec.Codec, maxPayloadSize int) error {
 	// Read the packet from the connection.
-	payload, err := Read(conn, nil)
+	payload, err := Read(conn, nil, maxPayloadSize)
 	if err != nil {
 		return err
 	}
@@ -78,13 +82,15 @@ func ReadDecode(conn net.Conn, value interface{}, codec codec.Codec) error {
 
 // Read reads a packet from the connection and returns the raw bytes of it.
 //
-// A timeout must be specified, where a timeout <= 0 means no timeout.
+// A maxPayloadSize of 0 specifies no limit.
+// A maxPayloadSize of -1 (NoPayloadSizeLimit) specifies no limit.
 //
 // If buffer is set and is big enough to fit the packet,
 // then the buffer is used. Otherwise a new buffer is allocated.
 // Returns an empty byte slice when no data was send.
 // Returns ErrZeroData, if a packet with length 0 is received.
-func Read(conn net.Conn, buffer []byte) ([]byte, error) {
+// Returns ErrMaxPayloadSizeExceeded if the payload size is exceeded.
+func Read(conn net.Conn, buffer []byte, maxPayloadSize int) ([]byte, error) {
 	var (
 		err          error
 		n, bytesRead int
@@ -109,6 +115,8 @@ func Read(conn net.Conn, buffer []byte) ([]byte, error) {
 	payloadLen := int(payloadLen32)
 	if payloadLen == 0 {
 		return []byte{}, ErrZeroData
+	} else if maxPayloadSize != NoPayloadSizeLimit && payloadLen > maxPayloadSize {
+		return nil, ErrMaxPayloadSizeExceeded
 	}
 
 	// Create a new buffer if the passed buffer is too small.
@@ -134,7 +142,7 @@ func Read(conn net.Conn, buffer []byte) ([]byte, error) {
 
 // WriteEncode encodes the value using the provided codec
 // and writes it to the connection using WriteTimeout().
-func WriteEncode(conn net.Conn, value interface{}, codec codec.Codec) error {
+func WriteEncode(conn net.Conn, value interface{}, codec codec.Codec, maxPayloadSize int) error {
 	// Encode the value using the codec.
 	data, err := codec.Encode(value)
 	if err != nil {
@@ -142,7 +150,7 @@ func WriteEncode(conn net.Conn, value interface{}, codec codec.Codec) error {
 	}
 
 	// Write the data to the connection with a timeout.
-	return Write(conn, data)
+	return Write(conn, data, maxPayloadSize)
 }
 
 // Write writes the packet data to the connection, without
@@ -151,11 +159,15 @@ func WriteEncode(conn net.Conn, value interface{}, codec codec.Codec) error {
 // If data is empty, an empty packet is sent that consists of
 // a header with payload size 0 and no payload.
 //
-// A timeout must be specified, where a timeout <= 0 means no timeout.
-func Write(conn net.Conn, data []byte) error {
+// A maxPayloadSize of 0 specifies no limit.
+// A maxPayloadSize of -1 (NoPayloadSizeLimit) specifies no limit.
+//
+// Returns ErrMaxPayloadSizeExceeded if the payload size is exceeded.
+func Write(conn net.Conn, data []byte, maxPayloadSize int) error {
 	payloadLen := len(data)
-	if payloadLen > MaxSize {
-		panic("maximum packet size exceeded in write")
+
+	if payloadLen > MaxSize || maxPayloadSize != NoPayloadSizeLimit && payloadLen > maxPayloadSize {
+		return ErrMaxPayloadSizeExceeded
 	}
 
 	// Write the payload length.
