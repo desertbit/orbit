@@ -107,7 +107,7 @@ func (c *serviceHook) OnCallDone(ctx service.Context, id string, callKey uint32,
 	// Check, if an orbit service error was returned.
 	var oErr service.Error
 	if errors.As(err, &oErr) {
-		c.log.Info().
+		c.log.Error().
 			Err(err).
 			Int("errCode", oErr.Code()).
 			Str("errMsg", oErr.Msg()).
@@ -118,7 +118,7 @@ func (c *serviceHook) OnCallDone(ctx service.Context, id string, callKey uint32,
 			Str("remoteAddr", s.RemoteAddr().String()).
 			Msg("call failed")
 	} else {
-		c.log.Info().
+		c.log.Error().
 			Err(err).
 			Str("callID", id).
 			Uint32("callKey", callKey).
