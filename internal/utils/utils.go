@@ -41,7 +41,7 @@ const (
 	// randStrChars defines the possible characters for the RandomString() function.
 	// RandomString() expects only ASCII characters, therefore, no char spanning
 	// more than 1 byte in UTF-8 encoding must be used.
-	randStrChars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz!?$#:;=&.,"
+	randStrChars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 	// randStrCharsLen stores the length of randStrChars for performance reasons.
 	randStrCharsLen = byte(len(randStrChars))
 )
