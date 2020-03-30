@@ -39,6 +39,8 @@ import (
 )
 
 const orbit = `
+version 5
+
 service {
     call c1 {
         ret: []map[string]Ret
@@ -79,7 +81,8 @@ enum En1 {
 `
 
 var (
-	c1 = &ast.Call{
+	version = 5
+	c1      = &ast.Call{
 		Name: "C1",
 		Ret: &ast.ArrType{
 			Elem: &ast.MapType{
@@ -167,6 +170,9 @@ func TestResolve(t *testing.T) {
 
 	err = resolve.Resolve(tree)
 	require.NoError(t, err)
+
+	// Version.
+	require.Exactly(t, version, tree.Version)
 
 	// Service.
 	require.NotNil(t, tree.Srvc)

@@ -38,6 +38,8 @@ import (
 )
 
 const orbit = `
+version 5
+
 service {
     call c1 {
         arg: int
@@ -124,7 +126,8 @@ errors {
 `
 
 var (
-	c1 = &ast.Call{
+	version = 5
+	c1      = &ast.Call{
 		Name: "C1",
 		Arg:  &ast.BaseType{DataType: ast.TypeInt},
 		Ret:  &ast.BaseType{DataType: ast.TypeFloat32},
@@ -292,6 +295,9 @@ func TestParser_Parse(t *testing.T) {
 	p := parse.NewParser()
 	tree, err := p.Parse(token.NewReader(strings.NewReader(orbit)))
 	require.NoError(t, err)
+
+	// Version.
+	require.Exactly(t, version, tree.Version)
 
 	// Services.
 	require.NotNil(t, tree.Srvc)

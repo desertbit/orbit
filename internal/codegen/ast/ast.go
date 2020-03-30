@@ -34,10 +34,11 @@ import (
 )
 
 type Tree struct {
-	Srvc  *Service
-	Types []*Type
-	Errs  []*Error
-	Enums []*Enum
+	Version int
+	Srvc    *Service
+	Types   []*Type
+	Errs    []*Error
+	Enums   []*Enum
 }
 
 type Enum struct {
