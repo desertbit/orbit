@@ -85,15 +85,23 @@ func resolveCall(c *ast.Call, types []*ast.Type, enums []*ast.Enum) (err error) 
 	}
 
 	// Check async calls and their special properties.
-	if !c.Async {
-		// For standard calls, no custom max sizes are allowed.
-		if c.MaxArgSize != nil || c.MaxRetSize != nil {
-			return ast.NewErr(c.Line, "only async calls can have custom max arg/ret sizes")
-		}
-	} else {
+	if c.Async {
 		// No negative timeouts.
 		if c.Timeout != nil && *c.Timeout < 0 {
 			return ast.NewErr(c.Line, "negative timeouts are not allowed")
+		}
+
+		// Check, that max sizes are only set, if the respective call data is defined.
+		if c.Arg == nil && c.MaxArgSize != nil {
+			return ast.NewErr(c.Line, "max arg size given, but arg not defined")
+		}
+		if c.Ret == nil && c.MaxRetSize != nil {
+			return ast.NewErr(c.Line, "max ret size given, but ret not defined")
+		}
+	} else {
+		// For standard calls, no custom max sizes are allowed.
+		if c.MaxArgSize != nil || c.MaxRetSize != nil {
+			return ast.NewErr(c.Line, "only async calls can have custom max arg/ret sizes")
 		}
 	}
 

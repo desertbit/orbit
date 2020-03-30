@@ -144,10 +144,13 @@ func (p *parser) expectByteSize() (size uint64, err error) {
 		return
 	}
 
-	size, err = bytefmt.ToBytes(p.ct.Value)
-	if err != nil {
-		err = ast.NewErr(p.ct.Line, "invalid byte size, %v", err)
-		return
+	// Special case 0. Also allow without unit suffix.
+	if p.ct.Value != "0" {
+		size, err = bytefmt.ToBytes(p.ct.Value)
+		if err != nil {
+			err = ast.NewErr(p.ct.Line, "invalid byte size, %v", err)
+			return
+		}
 	}
 
 	// Advance to the next token.

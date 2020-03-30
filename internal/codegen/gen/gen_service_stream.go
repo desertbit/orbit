@@ -32,12 +32,12 @@ import (
 )
 
 func (g *generator) genServiceClientStreamSignature(s *ast.Stream) {
-	g.write("%s(ctx context.Context) (", s.Name)
+	g.writef("%s(ctx context.Context) (", s.Name)
 	if s.Arg != nil {
-		g.write("arg *%sWriteStream, ", s.Arg.Name())
+		g.writef("arg *%sWriteStream, ", s.Arg.Name())
 	}
 	if s.Ret != nil {
-		g.write("ret *%sReadStream, ", s.Ret.Name())
+		g.writef("ret *%sReadStream, ", s.Ret.Name())
 	} else if s.Arg == nil {
 		g.write("stream transport.Stream, ")
 	}
@@ -46,14 +46,14 @@ func (g *generator) genServiceClientStreamSignature(s *ast.Stream) {
 
 func (g *generator) genServiceClientStream(s *ast.Stream, errs []*ast.Error) {
 	// Method declaration.
-	g.write("func (%s *client) ", recv)
+	g.writef("func (%s *client) ", recv)
 	g.genServiceClientStreamSignature(s)
 	g.writeLn(" {")
 
 	// Method body.
-	g.writeLn("if %s.streamInitTimeout > 0 {", recv)
+	g.writefLn("if %s.streamInitTimeout > 0 {", recv)
 	g.writeLn("var cancel context.CancelFunc")
-	g.writeLn("ctx, cancel = context.WithTimeout(ctx, %s.streamInitTimeout)", recv)
+	g.writefLn("ctx, cancel = context.WithTimeout(ctx, %s.streamInitTimeout)", recv)
 	g.writeLn("defer cancel()")
 	g.writeLn("}")
 
@@ -63,11 +63,13 @@ func (g *generator) genServiceClientStream(s *ast.Stream, errs []*ast.Error) {
 	} else {
 		g.write(" := ")
 	}
-	g.writeLn("%s.Stream(ctx, %s)", recv, s.Name)
+	g.writefLn("%s.Stream(ctx, %s)", recv, s.Name)
 	g.errIfNil()
 
 	if s.Arg != nil {
-		g.writeLn("arg = new%sWriteStream(%s.CloserOneWay(), stream, %s.codec)", s.Arg.Name(), recv, recv)
+		g.writef("arg = new%sWriteStream(%s.CloserOneWay(), stream, %s.codec,", s.Arg.Name(), recv, recv)
+		g.writeMaxSizeParam(s.MaxArgSize, false)
+		g.writeLn(")")
 
 		// Close unidirectional stream immediately.
 		if s.Ret == nil {
@@ -76,7 +78,9 @@ func (g *generator) genServiceClientStream(s *ast.Stream, errs []*ast.Error) {
 	}
 
 	if s.Ret != nil {
-		g.writeLn("ret = new%sReadStream(%s.CloserOneWay(), stream, %s.codec)", s.Ret.Name(), recv, recv)
+		g.writef("ret = new%sReadStream(%s.CloserOneWay(), stream, %s.codec,", s.Ret.Name(), recv, recv)
+		g.writeMaxSizeParam(s.MaxRetSize, false)
+		g.writeLn(")")
 
 		// Close unidirectional stream immediately.
 		if s.Arg == nil {
@@ -99,12 +103,12 @@ func (g *generator) genServiceClientStream(s *ast.Stream, errs []*ast.Error) {
 }
 
 func (g *generator) genServiceHandlerStreamSignature(s *ast.Stream) {
-	g.write("%s(ctx oservice.Context,", s.Name)
+	g.writef("%s(ctx oservice.Context,", s.Name)
 	if s.Arg != nil {
-		g.write("arg *%sReadStream,", s.Arg.Name())
+		g.writef("arg *%sReadStream,", s.Arg.Name())
 	}
 	if s.Ret != nil {
-		g.write("ret *%sWriteStream,", s.Ret.Name())
+		g.writef("ret *%sWriteStream,", s.Ret.Name())
 	} else if s.Arg == nil {
 		g.write("stream transport.Stream,")
 	}
@@ -113,10 +117,10 @@ func (g *generator) genServiceHandlerStreamSignature(s *ast.Stream) {
 
 func (g *generator) genServiceHandlerStream(s *ast.Stream, errs []*ast.Error) {
 	// Method declaration.
-	g.writeLn("func (%s *service) %s(ctx oservice.Context, stream transport.Stream) {", recv, s.NamePrv())
+	g.writefLn("func (%s *service) %s(ctx oservice.Context, stream transport.Stream) {", recv, s.NamePrv())
 
 	if s.Arg == nil && s.Ret == nil {
-		g.writeLn("%s.h.%s(ctx, stream)", recv, s.Name)
+		g.writefLn("%s.h.%s(ctx, stream)", recv, s.Name)
 		g.writeLn("}")
 		return
 	}
@@ -124,7 +128,9 @@ func (g *generator) genServiceHandlerStream(s *ast.Stream, errs []*ast.Error) {
 	handlerArgs := "ctx,"
 	if s.Arg != nil {
 		handlerArgs += "arg,"
-		g.writeLn("arg := new%sReadStream(%s.CloserOneWay(), stream, %s.codec)", s.Arg.Name(), recv, recv)
+		g.writef("arg := new%sReadStream(%s.CloserOneWay(), stream, %s.codec,", s.Arg.Name(), recv, recv)
+		g.writeMaxSizeParam(s.MaxArgSize, false)
+		g.writeLn(")")
 
 		// Close unidirectional stream immediately.
 		if s.Ret == nil {
@@ -133,7 +139,9 @@ func (g *generator) genServiceHandlerStream(s *ast.Stream, errs []*ast.Error) {
 	}
 	if s.Ret != nil {
 		handlerArgs += "ret,"
-		g.writeLn("ret := new%sWriteStream(%s.CloserOneWay(), stream, %s.codec)", s.Ret.Name(), recv, recv)
+		g.writef("ret := new%sWriteStream(%s.CloserOneWay(), stream, %s.codec,", s.Ret.Name(), recv, recv)
+		g.writeMaxSizeParam(s.MaxRetSize, false)
+		g.writeLn(")")
 
 		// Close unidirectional stream immediately.
 		if s.Arg == nil {
@@ -150,7 +158,7 @@ func (g *generator) genServiceHandlerStream(s *ast.Stream, errs []*ast.Error) {
 		g.writeLn("}()")
 	}
 
-	g.writeLn("%s.h.%s(%s)", recv, s.Name, handlerArgs)
+	g.writefLn("%s.h.%s(%s)", recv, s.Name, handlerArgs)
 	g.writeLn("}")
 	g.writeLn("")
 }
