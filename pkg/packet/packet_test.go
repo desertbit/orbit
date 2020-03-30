@@ -115,12 +115,6 @@ func TestWrite(t *testing.T) {
 			maxPayloadSize: packet.NoPayloadSizeLimit,
 		},
 		{
-			data:       make([]byte, packet.MaxSize+1),
-			buffer:     nil,
-			shouldFail: true,
-			exactError: packet.ErrMaxPayloadSizeExceeded,
-		},
-		{
 			data:           data,
 			maxPayloadSize: len(data),
 		},
@@ -141,23 +135,6 @@ func TestWrite(t *testing.T) {
 		{
 			data:           data,
 			maxPayloadSize: packet.MaxSize + 1,
-		},
-		{
-			data:           make([]byte, packet.MaxSize+1),
-			maxPayloadSize: packet.MaxSize,
-			shouldFail:     true,
-			exactError:     packet.ErrMaxPayloadSizeExceeded,
-		},
-		{
-			data:           make([]byte, packet.MaxSize+1),
-			maxPayloadSize: packet.MaxSize + 1,
-			shouldFail:     true,
-			exactError:     packet.ErrMaxPayloadSizeExceeded,
-		},
-		{
-			data:       make([]byte, packet.MaxSize+1),
-			shouldFail: true,
-			exactError: packet.ErrMaxPayloadSizeExceeded,
 		},
 	}
 
