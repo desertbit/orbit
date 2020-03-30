@@ -31,6 +31,7 @@ import (
 	"errors"
 	"io"
 
+	"github.com/desertbit/orbit/internal/codegen"
 	"github.com/desertbit/orbit/internal/codegen/ast"
 	"github.com/desertbit/orbit/internal/codegen/token"
 )
@@ -167,8 +168,8 @@ func (p *parser) Parse(tr token.Reader) (tree *ast.Tree, err error) {
 		}
 	}
 
-	if !versionFound {
-		err = ast.NewErr(0, "version missing")
+	if p.version != codegen.OrbitFileVersion {
+		err = ast.NewErr(0, "incompatible orbit file version, expected '%d' but got '%d'", codegen.OrbitFileVersion, p.version)
 		return
 	}
 

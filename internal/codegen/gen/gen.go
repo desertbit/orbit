@@ -42,8 +42,6 @@ import (
 	"github.com/desertbit/orbit/internal/codegen/parse"
 	"github.com/desertbit/orbit/internal/codegen/resolve"
 	"github.com/desertbit/orbit/internal/codegen/token"
-	"github.com/rs/zerolog/log"
-	yaml "gopkg.in/yaml.v3"
 )
 
 const (
@@ -125,76 +123,6 @@ func Generate(orbitFile string, force bool) (err error) {
 		}
 		return
 	}
-	return
-}
-
-func checkIfModified(orbitFile string, force bool) (modified bool, err error) {
-	fileModTimes := make(map[string]time.Time)
-
-	// Retrieve our cache dir.
-	ucd, err := os.UserCacheDir()
-	if err != nil {
-		log.Warn().
-			Err(err).
-			Msg("unable to retrieve cache dir, all files will be generated")
-		err = nil
-	} else {
-		// Ensure, our directory exists.
-		err = os.MkdirAll(filepath.Join(ucd, cacheDir), dirPerm)
-		if err != nil {
-			err = fmt.Errorf("failed to create orbit cache dir: %v", err)
-			return
-		}
-
-		// Read the data from the cache file.
-		var data []byte
-		data, err = ioutil.ReadFile(filepath.Join(ucd, cacheDir, modTimesFile))
-		if err != nil && !errors.Is(err, os.ErrNotExist) {
-			return
-		}
-
-		// Parse it to our struct using yaml.
-		err = yaml.Unmarshal(data, &fileModTimes)
-		if err != nil {
-			return
-		}
-	}
-
-	// Retrieve the file's info.
-	fi, err := os.Lstat(orbitFile)
-	if err != nil {
-		return
-	}
-
-	// The file counts as modified, if its last modification timestamp
-	// does not match our saved modification time, if its generated file
-	// does not exist or if force is enabled.
-	var exists bool
-	exists, err = fileExists(strings.Replace(orbitFile, orbitSuffix, genOrbitSuffix, 1))
-	if err != nil {
-		return
-	}
-	lastModified, ok := fileModTimes[orbitFile]
-
-	modified = !ok || !lastModified.Equal(fi.ModTime()) || force || !exists
-	if modified {
-		fileModTimes[orbitFile] = fi.ModTime()
-	}
-
-	// Save the updated mod times to the cache dir.
-	if !force && ucd != "" {
-		var data []byte
-		data, err = yaml.Marshal(fileModTimes)
-		if err != nil {
-			return
-		}
-
-		err = ioutil.WriteFile(filepath.Join(ucd, cacheDir, modTimesFile), data, filePerm)
-		if err != nil {
-			return
-		}
-	}
-
 	return
 }
 
