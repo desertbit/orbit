@@ -31,11 +31,13 @@ import (
 	"errors"
 	"io"
 
+	"github.com/desertbit/orbit/internal/codegen"
 	"github.com/desertbit/orbit/internal/codegen/ast"
 	"github.com/desertbit/orbit/internal/codegen/token"
 )
 
 const (
+	tkVersion = "version"
 	tkErrors  = "errors"
 	tkService = "service"
 	tkType    = "type"
@@ -67,10 +69,11 @@ type parser struct {
 	ct       *token.Token
 	prevLine int
 
-	srvc  *ast.Service
-	types []*ast.Type
-	errs  []*ast.Error
-	enums []*ast.Enum
+	version int
+	srvc    *ast.Service
+	types   []*ast.Type
+	errs    []*ast.Error
+	enums   []*ast.Enum
 }
 
 func NewParser() Parser {
@@ -90,6 +93,7 @@ func (p *parser) reset(tr token.Reader) (err error) {
 	}
 
 	// Reset.
+	p.version = 0
 	p.srvc = nil
 	p.types = make([]*ast.Type, 0)
 	p.errs = make([]*ast.Error, 0)
@@ -105,9 +109,29 @@ func (p *parser) Parse(tr token.Reader) (tree *ast.Tree, err error) {
 		return
 	}
 
+	var versionFound bool
+
 	for {
 		if p.empty() {
 			break
+		} else if p.checkSymbol(tkVersion) {
+			// Check for duplicate.
+			if versionFound {
+				err = ast.NewErr(p.line(), "duplicate version")
+				return
+			}
+
+			// Parse the version. Must be positive.
+			p.version, err = p.expectInt()
+			if err != nil {
+				return
+			} else if p.version <= 0 {
+				err = ast.NewErr(p.prevLine, "version must be positive")
+				return
+			}
+
+			// Remember that we found the version declaration.
+			versionFound = true
 		} else if p.checkSymbol(tkService) {
 			// Check for duplicate.
 			if p.srvc != nil {
@@ -144,11 +168,17 @@ func (p *parser) Parse(tr token.Reader) (tree *ast.Tree, err error) {
 		}
 	}
 
+	if p.version != codegen.OrbitFileVersion {
+		err = ast.NewErr(0, "incompatible orbit file version, expected '%d' but got '%d'", codegen.OrbitFileVersion, p.version)
+		return
+	}
+
 	tree = &ast.Tree{
-		Srvc:  p.srvc,
-		Types: p.types,
-		Errs:  p.errs,
-		Enums: p.enums,
+		Version: p.version,
+		Srvc:    p.srvc,
+		Types:   p.types,
+		Errs:    p.errs,
+		Enums:   p.enums,
 	}
 	return
 }

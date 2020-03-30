@@ -39,6 +39,8 @@ import (
 )
 
 const orbit = `
+version 1
+
 service {
     call c1 {
         arg: int
@@ -128,6 +130,7 @@ errors {
 `
 
 var (
+	version            = 1
 	c2Timeout          = 500 * time.Millisecond
 	c2MaxArgSize int64 = 154 * 1024
 	c2MaxRetSize int64 = 5 * 1024 * 1024
@@ -308,6 +311,9 @@ func TestParser_Parse(t *testing.T) {
 	p := parse.NewParser()
 	tree, err := p.Parse(token.NewReader(strings.NewReader(orbit)))
 	require.NoError(t, err)
+
+	// Version.
+	require.Exactly(t, version, tree.Version)
 
 	// Services.
 	require.NotNil(t, tree.Srvc)

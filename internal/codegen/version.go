@@ -25,88 +25,20 @@
  * SOFTWARE.
  */
 
-package ast
+package codegen
 
-import (
-	"time"
+const (
+	// The version of the .orbit syntax this codegen supports.
+	// Hint: Increasing this to the next version renders the previous
+	// version unusable with this codegen. Should only be done, if the
+	// syntax changes in a way that is not backwards compatible.
+	OrbitFileVersion = 1
 
-	"github.com/desertbit/orbit/internal/utils"
+	// The internal version of the codegen used to cache which
+	// .orbit files must be generated.
+	// Hint: Increasing this to the next version indicates that the
+	// codegen has been improved, but no backwards incompatible changes
+	// have been introduced. May be used to invalidate the build cache
+	// of the codegen, so that a project definitely uses its new features.
+	CacheVersion = 1
 )
-
-type Tree struct {
-	Version int
-	Srvc    *Service
-	Types   []*Type
-	Errs    []*Error
-	Enums   []*Enum
-}
-
-type Enum struct {
-	Name   string
-	Values []*EnumValue
-	Line   int
-}
-
-type EnumValue struct {
-	Name  string
-	Value int
-	Line  int
-}
-
-type Error struct {
-	Name string
-	ID   int
-	Line int
-}
-
-type Type struct {
-	Name   string
-	Fields []*TypeField
-	Line   int
-}
-
-type TypeField struct {
-	Name     string
-	DataType DataType
-	ValTag   string
-	Line     int
-}
-
-type Service struct {
-	Url     string
-	Calls   []*Call
-	Streams []*Stream
-	Line    int
-}
-
-type Call struct {
-	Name       string
-	Arg        DataType
-	ArgValTag  string
-	Ret        DataType
-	RetValTag  string
-	Async      bool
-	Timeout    *time.Duration
-	MaxArgSize *int64
-	MaxRetSize *int64
-	Line       int
-}
-
-func (c *Call) NamePrv() string {
-	return utils.NoTitle(c.Name)
-}
-
-type Stream struct {
-	Name       string
-	Arg        DataType
-	ArgValTag  string
-	Ret        DataType
-	RetValTag  string
-	MaxArgSize *int64
-	MaxRetSize *int64
-	Line       int
-}
-
-func (s *Stream) NamePrv() string {
-	return utils.NoTitle(s.Name)
-}
