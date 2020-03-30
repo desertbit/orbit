@@ -3,8 +3,8 @@
  *
  * The MIT License (MIT)
  *
- * Copyright (c) 2018 Roland Singer <roland.singer[at]desertbit.com>
- * Copyright (c) 2018 Sebastian Borchers <sebastian[at]desertbit.com>
+ * Copyright (c) 2020 Roland Singer <roland.singer[at]desertbit.com>
+ * Copyright (c) 2020 Sebastian Borchers <sebastian[at]desertbit.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -41,7 +41,7 @@ const (
 	// randStrChars defines the possible characters for the RandomString() function.
 	// RandomString() expects only ASCII characters, therefore, no char spanning
 	// more than 1 byte in UTF-8 encoding must be used.
-	randStrChars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz!?$#:;=&.,"
+	randStrChars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 	// randStrCharsLen stores the length of randStrChars for performance reasons.
 	randStrCharsLen = byte(len(randStrChars))
 )

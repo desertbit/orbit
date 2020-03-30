@@ -60,22 +60,32 @@ service {
         arg: {
             name string 'required,min=1'
         }
+        maxArgSize: 50KB
         ret: someType
+        maxRetSize: 10MiB
     }
 }
 ```
 - **async** (default: false)  
 Each async call gets executed on a separate stream, thus, it does not block other calls.  
 Usage: `async`
-- **timeout** (default: CallTimeout from client options)  
-The maximum time a call may take to finish.  
-Usage: `timeout: <duration>`, where _\<duration\>_ is a [go time duration formatted string](https://golang.org/pkg/time/#ParseDuration)
 - **arg** (default: none)  
 The argument data sent to the service. Can either be an inline or reference type.  
 Usage: `arg: { ... }` or `arg: refType`
+- **maxArgSize** (default: MaxArgSize from options)  
+The maximum allowed size of the arg data. Must only be used in conjunction with `async`  
+Usage: `maxArgSize: <size>`, where _\<size\>_ is a [bytefmt string](https://github.com/cloudfoundry/bytefmt)  
+Special value: `-1` -> no limit
 - **ret** (default: none)  
 The return data sent from the service. Can either be an inline or reference type.  
 Usage: `ret: { ... }` or `ret: refType`
+- **maxRetSize** (default: MaxRetSize from options)  
+The maximum allowed size of the ret data. Must only be used in conjunction with `async`  
+Usage: `maxRetSize: <size>`, where _\<size\>_ is a [bytefmt string](https://github.com/cloudfoundry/bytefmt)  
+Special value: `-1` -> no limit
+- **timeout** (default: CallTimeout from options)  
+The maximum time a call may take to finish.  
+Usage: `timeout: <duration>`, where _\<duration\>_ is a [go time duration formatted string](https://golang.org/pkg/time/#ParseDuration)
 
 #### Stream
 Per service, you can declare as many streams as you want.
@@ -90,15 +100,20 @@ service {
     }
 }
 ```
-- **timeout** (default: StreamInitTimeout from client options)  
-The maximum time a stream may take to be established. The timeout is only used during the stream setup, not afterwards when messages are exchanged.  
-Usage: `timeout: <duration>`, where _\<duration\>_ is a [go time duration formatted string](https://golang.org/pkg/time/#ParseDuration)
 - **arg** (default: none)  
 The argument data streamed to the service. Can either be an inline or reference type.  
 Usage: `arg: { ... }` or `arg: refType`
+- **maxArgSize** (default: MaxArgSize from options)  
+The maximum allowed size of the arg data.  
+Usage: `maxRetSize: <size>`, where _\<size\>_ is a [bytefmt string](https://github.com/cloudfoundry/bytefmt)  
+Special value: `-1` -> no limit
 - **ret** (default: none)  
 The return data streamed from the service. Can either be an inline or reference type.  
 Usage: `ret: { ... }` or `ret: refType`
+- **maxRetSize** (default: MaxRetSize from options)  
+The maximum allowed size of the ret data.  
+Usage: `maxRetSize: <size>`, where _\<size\>_ is a [bytefmt string](https://github.com/cloudfoundry/bytefmt)  
+Special value: `-1` -> no limit
 
 ### Type
 Per `.orbit` file, you can declare as many types as you want.

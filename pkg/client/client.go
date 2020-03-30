@@ -37,11 +37,24 @@ import (
 	"github.com/rs/zerolog"
 )
 
+const (
+	NoMaxSizeLimit = -1
+	DefaultMaxSize = -2
+)
+
 type Client interface {
 	closer.Closer
 
+	// Call performs a call on the shared main stream.
 	Call(ctx context.Context, id string, arg, ret interface{}) error
-	AsyncCall(ctx context.Context, id string, arg, ret interface{}) error
+
+	// AsyncCall performs a call on a new stream.
+	// If maxArgSize & maxRetSize are set to 0, then the payload must be empty.
+	// If maxArgSize & maxRetSize are set to NoMaxSizeLimit, then no limit is set.
+	// If maxArgSize & maxRetSize are set to DefaultMaxSize, then the default size is used from the options.
+	AsyncCall(ctx context.Context, id string, arg, ret interface{}, maxArgSize, maxRetSize int) error
+
+	// Stream opens a new data stream.
 	Stream(ctx context.Context, id string) (transport.Stream, error)
 }
 
@@ -90,7 +103,7 @@ func (c *client) Call(ctx context.Context, id string, arg, ret interface{}) erro
 	return s.Call(ctx, id, arg, ret)
 }
 
-func (c *client) AsyncCall(ctx context.Context, id string, arg, ret interface{}) error {
+func (c *client) AsyncCall(ctx context.Context, id string, arg, ret interface{}, maxArgSize, maxRetSize int) error {
 	if c.IsClosing() {
 		return ErrClosed
 	}
@@ -101,7 +114,7 @@ func (c *client) AsyncCall(ctx context.Context, id string, arg, ret interface{})
 		return fmt.Errorf("failed to get connected session: %w", err)
 	}
 
-	return s.AsyncCall(ctx, id, arg, ret)
+	return s.AsyncCall(ctx, id, arg, ret, maxArgSize, maxRetSize)
 }
 
 func (c *client) Stream(ctx context.Context, id string) (transport.Stream, error) {

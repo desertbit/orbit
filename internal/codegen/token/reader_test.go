@@ -45,12 +45,12 @@ func testReaderNextOk(t *testing.T) {
 	t.Parallel()
 
 	const data = ` this 
-is some ex123ample{ text
+is some e-x123ample{ text
 
 
 [ to test ]{: =: } the
     tokenizer   汉字 }haha
-'[hello==:{}[]  ' hee
+'[hello==:{}-[]  ' hee
 '' yaa`
 
 	cases := []struct {
@@ -61,29 +61,31 @@ is some ex123ample{ text
 		{val: "this", line: 1, err: nil}, // 0
 		{val: "is", line: 2, err: nil},
 		{val: "some", line: 2, err: nil},
-		{val: "ex123ample", line: 2, err: nil},
+		{val: "e", line: 2, err: nil},
+		{val: token.Hyphen, line: 2, err: nil},
+		{val: "x123ample", line: 2, err: nil}, // 5
 		{val: token.BraceL, line: 2, err: nil},
-		{val: "text", line: 2, err: nil}, // 5
+		{val: "text", line: 2, err: nil},
 		{val: token.BracketL, line: 5, err: nil},
 		{val: "to", line: 5, err: nil},
-		{val: "test", line: 5, err: nil},
+		{val: "test", line: 5, err: nil}, // 10
 		{val: token.BracketR, line: 5, err: nil},
-		{val: token.BraceL, line: 5, err: nil}, // 10
+		{val: token.BraceL, line: 5, err: nil},
 		{val: token.Colon, line: 5, err: nil},
 		{val: token.Equal, line: 5, err: nil},
-		{val: token.Colon, line: 5, err: nil},
+		{val: token.Colon, line: 5, err: nil}, // 15
 		{val: token.BraceR, line: 5, err: nil},
-		{val: "the", line: 5, err: nil}, // 15
+		{val: "the", line: 5, err: nil},
 		{val: "tokenizer", line: 6, err: nil},
 		{val: "汉字", line: 6, err: nil},
-		{val: token.BraceR, line: 6, err: nil},
+		{val: token.BraceR, line: 6, err: nil}, // 20
 		{val: "haha", line: 6, err: nil},
-		{val: token.SingQuote, line: 7, err: nil}, // 20
-		{val: "[hello==:{}[]  ", line: 7, err: nil},
 		{val: token.SingQuote, line: 7, err: nil},
-		{val: "hee", line: 7, err: nil},
+		{val: "[hello==:{}-[]  ", line: 7, err: nil},
+		{val: token.SingQuote, line: 7, err: nil},
+		{val: "hee", line: 7, err: nil}, // 25
 		{val: token.SingQuote, line: 8, err: nil},
-		{val: token.SingQuote, line: 8, err: nil}, // 25
+		{val: token.SingQuote, line: 8, err: nil},
 		{val: "yaa", line: 8, err: nil},
 		{err: io.EOF},
 	}

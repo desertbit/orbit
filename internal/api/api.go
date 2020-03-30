@@ -31,7 +31,7 @@ package api
 import "github.com/desertbit/orbit/pkg/codec/msgpack"
 
 const (
-	// The version of the application.
+	// The version of the orbit protocol.
 	Version = 3
 )
 
@@ -63,7 +63,7 @@ type HandshakeRet struct {
 //### Stream ###//
 //##############//
 
-type StreamType int
+type StreamType byte
 
 const (
 	StreamTypeRaw         = 0
@@ -71,10 +71,13 @@ const (
 	StreamTypeCancelCalls = 2
 )
 
-type InitStream struct {
+type StreamRaw struct {
 	ID   string
-	Type StreamType
 	Data map[string][]byte
+}
+
+type StreamAsync struct {
+	ID string
 }
 
 //###########//

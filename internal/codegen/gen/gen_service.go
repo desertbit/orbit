@@ -36,11 +36,11 @@ func (g *generator) genService(srvc *ast.Service, errs []*ast.Error) {
 	g.writeLn("// CallIDs")
 	g.writeLn("const (")
 	for _, c := range srvc.Calls {
-		g.writeLn("%s = \"%s\"", c.Name, c.Name)
+		g.writefLn("%s = \"%s\"", c.Name, c.Name)
 	}
 	g.writeLn("// StreamIDs")
 	for _, s := range srvc.Streams {
-		g.writeLn("%s = \"%s\"", s.Name, s.Name)
+		g.writefLn("%s = \"%s\"", s.Name, s.Name)
 	}
 	g.writeLn(")")
 	g.writeLn("")
@@ -118,6 +118,8 @@ func (g *generator) genServiceClientStruct(calls []*ast.Call, streams []*ast.Str
 	g.writeLn("codec codec.Codec")
 	g.writeLn("callTimeout time.Duration")
 	g.writeLn("streamInitTimeout time.Duration")
+	g.writeLn("maxArgSize int")
+	g.writeLn("maxRetSize int")
 	g.writeLn("}")
 	g.writeLn("")
 
@@ -125,7 +127,8 @@ func (g *generator) genServiceClientStruct(calls []*ast.Call, streams []*ast.Str
 	g.writeLn("func NewClient(opts *oclient.Options) (c Client, err error) {")
 	g.writeLn("oc, err := oclient.New(opts)")
 	g.errIfNil()
-	g.writeLn("c = &client{Client: oc, codec: opts.Codec, callTimeout: opts.CallTimeout, streamInitTimeout: opts.StreamInitTimeout}")
+	g.writeLn("c = &client{Client: oc, codec: opts.Codec, callTimeout: opts.CallTimeout, streamInitTimeout: opts.StreamInitTimeout, " +
+		"maxArgSize: opts.MaxArgSize, maxRetSize:opts.MaxRetSize}")
 	g.writeLn("return")
 	g.writeLn("}")
 	g.writeLn("")
@@ -147,6 +150,8 @@ func (g *generator) genServiceStruct(calls []*ast.Call, streams []*ast.Stream, e
 	g.writeLn("oservice.Service")
 	g.writeLn("h ServiceHandler")
 	g.writeLn("codec codec.Codec")
+	g.writeLn("maxArgSize int")
+	g.writeLn("maxRetSize int")
 	g.writeLn("}")
 	g.writeLn("")
 
@@ -154,12 +159,22 @@ func (g *generator) genServiceStruct(calls []*ast.Call, streams []*ast.Stream, e
 	g.writeLn("func NewService(h ServiceHandler, opts *oservice.Options) (s Service, err error) {")
 	g.writeLn("os, err := oservice.New(opts)")
 	g.errIfNil()
-	g.writeLn("srvc := &service{Service: os, h: h, codec: opts.Codec}")
+	g.writeLn("srvc := &service{Service: os, h: h, codec: opts.Codec, maxArgSize: opts.MaxArgSize, maxRetSize:opts.MaxRetSize}")
 	for _, c := range calls {
-		g.writeLn("os.RegisterCall(%s, srvc.%s)", c.Name, c.NamePrv())
+		if c.Async {
+			g.writef("os.RegisterAsyncCall(%s, srvc.%s,", c.Name, c.NamePrv())
+			g.writeTimeoutParam(c.Timeout)
+			g.writeCallMaxSizeParam(c.MaxArgSize, true)
+			g.writeCallMaxSizeParam(c.MaxRetSize, true)
+			g.writeLn(")")
+		} else {
+			g.writef("os.RegisterCall(%s, srvc.%s,", c.Name, c.NamePrv())
+			g.writeTimeoutParam(c.Timeout)
+			g.writeLn(")")
+		}
 	}
 	for _, s := range streams {
-		g.writeLn("os.RegisterStream(%s, srvc.%s)", s.Name, s.NamePrv())
+		g.writefLn("os.RegisterStream(%s, srvc.%s)", s.Name, s.NamePrv())
 	}
 	g.writeLn("s = os")
 	g.writeLn("return")

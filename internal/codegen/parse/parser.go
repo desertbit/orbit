@@ -45,10 +45,12 @@ const (
 	tkSrvcStream = "stream"
 	tkSrvcUrl    = "url"
 
-	tkEntryAsync   = "async"
-	tkEntryArg     = "arg"
-	tkEntryRet     = "ret"
-	tkEntryTimeout = "timeout"
+	tkEntryAsync      = "async"
+	tkEntryArg        = "arg"
+	tkEntryRet        = "ret"
+	tkEntryTimeout    = "timeout"
+	tkEntryMaxArgSize = "maxArgSize"
+	tkEntryMaxRetSize = "maxRetSize"
 
 	tkMap = "map"
 )

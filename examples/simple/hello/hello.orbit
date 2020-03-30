@@ -16,6 +16,7 @@ service {
             name string 'required,min=1'
         }
         timeout: 500ms
+        maxRetSize: 10K
     }
 
     stream lul {}
