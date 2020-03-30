@@ -76,7 +76,8 @@ func checkIfModified(orbitFile string, force bool) (modified bool, err error) {
 			// Parse it to our struct using yaml.
 			err = yaml.Unmarshal(data, &genCache)
 			if err != nil {
-				return
+				log.Warn().Msg("found invalid old cache, generating all files and overwriting cache")
+				err = nil
 			}
 		}
 	}
