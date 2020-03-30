@@ -170,7 +170,15 @@ func (s *session) handleCall(
 	}
 
 	// Create a context for cancelation and add the timeout.
-	ctx, cancel := context.WithTimeout(context.Background(), c.timeout)
+	var (
+		ctx    context.Context
+		cancel context.CancelFunc
+	)
+	if c.timeout == NoTimeout {
+		ctx, cancel = context.WithCancel(context.Background())
+	} else {
+		ctx, cancel = context.WithTimeout(context.Background(), c.timeout)
+	}
 	defer cancel()
 
 	// Call the hooks and function in a nested function.
