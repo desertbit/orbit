@@ -53,11 +53,10 @@ func (g *generator) genErrors(errs []*ast.Error) {
 		}
 		g.writeLn(")")
 
-		// Write standard error variables along with the service Error ones.
+		// Write standard error variables.
 		g.writeLn("var (")
 		for _, e := range errs {
 			g.writefLn("Err%s = errors.New(\"%s\")", e.Name, strExplode(e.Name))
-			g.writefLn("serviceErr%s = oservice.Err(Err%s, Err%s.Error(), ErrCode%s)", e.Name, e.Name, e.Name, e.Name)
 		}
 		g.writeLn(")")
 		g.writeLn("")
@@ -103,7 +102,7 @@ func (g *generator) genServiceErrorCheckFunc(errs []*ast.Error) {
 
 	for i, e := range errs {
 		g.writefLn("if errors.Is(err, Err%s) {", e.Name)
-		g.writefLn("return serviceErr%s", e.Name)
+		g.writefLn("return oservice.Err(err, Err%s.Error(), ErrCode%s)", e.Name, e.Name)
 		if i < len(errs)-1 {
 			g.write("} else ")
 		} else {

@@ -50,10 +50,8 @@ const (
 )
 
 var (
-	ErrIAmAnError         = errors.New("i am an error")
-	serviceErrIAmAnError  = oservice.Err(ErrIAmAnError, ErrIAmAnError.Error(), ErrCodeIAmAnError)
-	ErrThisIsATest        = errors.New("this is a test")
-	serviceErrThisIsATest = oservice.Err(ErrThisIsATest, ErrThisIsATest.Error(), ErrCodeThisIsATest)
+	ErrIAmAnError  = errors.New("i am an error")
+	ErrThisIsATest = errors.New("this is a test")
 )
 
 func _clientErrorCheck(err error) error {
@@ -71,9 +69,9 @@ func _clientErrorCheck(err error) error {
 
 func _serviceErrorCheck(err error) error {
 	if errors.Is(err, ErrIAmAnError) {
-		return serviceErrIAmAnError
+		return oservice.Err(err, ErrIAmAnError.Error(), ErrCodeIAmAnError)
 	} else if errors.Is(err, ErrThisIsATest) {
-		return serviceErrThisIsATest
+		return oservice.Err(err, ErrThisIsATest.Error(), ErrCodeThisIsATest)
 	}
 	return err
 }
