@@ -28,15 +28,23 @@
 package main
 
 import (
+	"fmt"
+
 	"github.com/desertbit/grumble"
+	"github.com/desertbit/orbit/internal/codegen"
 )
 
-// Create the grumble app.
-var App = grumble.New(&grumble.Config{
-	Name:        "orbit",
-	Description: "orbit's helper application",
-})
+var cmdVersion = &grumble.Command{
+	Name: "version",
+	Help: "print the version and exit",
+	Run:  runVersion,
+}
 
-func main() {
-	grumble.Main(App)
+func init() {
+	App.AddCommand(cmdVersion)
+}
+
+func runVersion(ctx *grumble.Context) (err error) {
+	fmt.Printf("version: %d.%d\n", codegen.OrbitFileVersion, codegen.CacheVersion)
+	return
 }
