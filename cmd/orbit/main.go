@@ -28,7 +28,15 @@
 package main
 
 import (
+	"errors"
+	"fmt"
+
 	"github.com/desertbit/grumble"
+	"github.com/desertbit/orbit/internal/codegen"
+)
+
+const (
+	flagVersion = "version"
 )
 
 // Create the grumble app.
@@ -36,9 +44,18 @@ var App = grumble.New(&grumble.Config{
 	Name:        "orbit",
 	Description: "orbit's helper application",
 
-	Flags: func(f *grumble.Flags) {},
+	Flags: func(f *grumble.Flags) {
+		f.Bool("v", flagVersion, false, "print the version and exit")
+	},
 })
 
 func main() {
+	App.OnInit(func(a *grumble.App, flags grumble.FlagMap) error {
+		if flags.Bool(flagVersion) {
+			fmt.Printf("version: %d.%d\n", codegen.OrbitFileVersion, codegen.CacheVersion)
+		}
+
+		return errors.New("done")
+	})
 	grumble.Main(App)
 }
