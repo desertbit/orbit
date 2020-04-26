@@ -114,14 +114,15 @@ func Generate(orbitFile string, force bool) (err error) {
 		return
 	}
 
-	// Generate msgp code for it.
-	mfp := strings.TrimSuffix(orbitFile, orbitSuffix) + genMsgpSuffix
-	err = execCmd("msgp", "-file", ofp, "-o", mfp)
-	if err != nil {
-		if errors.Is(err, exec.ErrNotFound) {
-			err = errors.New("msgp required to generate MessagePack code")
+	// Generate msgp code for it, if at least one type has been defined.
+	if len(tree.Types) > 0 {
+		err = execCmd("msgp", "-file", ofp, "-o", strings.TrimSuffix(orbitFile, orbitSuffix)+genMsgpSuffix)
+		if err != nil {
+			if errors.Is(err, exec.ErrNotFound) {
+				err = errors.New("msgp required to generate MessagePack code")
+			}
+			return
 		}
-		return
 	}
 	return
 }
