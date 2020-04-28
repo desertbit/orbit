@@ -202,7 +202,19 @@ service {
 ```
 
 ### Error
-TODO
+Per `.orbit` file, you can declare as many errors as you want.
+```
+errors {
+    myFirstError = 1
+    anotherOne = 2
+}
+```
+Each field of an errors block must have the following syntax: `<name> = <number>`
+- **name** (mandatory)  
+The name of the error, must be unique across all error blocks.  
+The go error text will contain the name of the error split up by CamelCase, e.g. error "myFirstError" is constructed as `errors.New("my first error")`
+- **number** (mandatory)  
+The status code used to transmit the error over the network, must be unique across all error blocks.
 
 ## Similar projects
 - [gRPC](https://github.com/grpc/grpc-go)
