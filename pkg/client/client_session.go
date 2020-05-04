@@ -112,8 +112,8 @@ Loop:
 			// Try to connect to session.
 			s, err := connectSession(c, c.opts)
 			if err != nil {
-				// Notify.
-				r <- nil
+				c.log.Error().Err(err).Msg("failed to connect client session")
+				r <- nil // Notify.
 				continue Loop
 			}
 
