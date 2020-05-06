@@ -80,7 +80,7 @@ func _valErrCheck(err error) error {
 	if vErrs, ok := err.(validator.ValidationErrors); ok {
 		var errMsg strings.Builder
 		for _, err := range vErrs {
-			errMsg.WriteString(fmt.Sprintf("-> name: '%s', value: '%s', tag: '%s'", err.StructNamespace(), err.Value(), err.Tag()))
+			errMsg.WriteString(fmt.Sprintf("[name: '%s', value: '%s', tag: '%s']", err.StructNamespace(), err.Value(), err.Tag()))
 		}
 		return errors.New(errMsg.String())
 	}
@@ -94,23 +94,23 @@ var validate = validator.New()
 //#############//
 
 type ClockTimeRet struct {
-	Ts time.Time `validation:"required`
+	Ts time.Time `validate:"required"`
 }
 
 type Info struct {
-	Name    string `validation:"required,min=1`
-	Age     int    `validation:"required,min=1,max=155`
-	Locale  string `validation:"required,len=5`
-	Address string `validation:"omitempty`
+	Name    string `validate:"required,min=1"`
+	Age     int    `validate:"required,min=1,max=155"`
+	Locale  string `validate:"required,len=5"`
+	Address string `validate:"omitempty"`
 }
 
 type SayHiArg struct {
-	Name string `validation:"required,min=1"`
+	Name string `validate:"required,min=1"`
 	Ts   time.Time
 }
 
 type SayHiRet struct {
-	Res []int `validation:"required,min=1"`
+	Res []int `validate:"required,min=1"`
 }
 
 type TestArg struct {
@@ -118,7 +118,7 @@ type TestArg struct {
 }
 
 type TestRet struct {
-	Name string `validation:"required,min=1`
+	Name string `validate:"required,min=1"`
 	Ts   time.Time
 }
 

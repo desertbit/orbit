@@ -119,7 +119,7 @@ func (g *generator) genValErrCheckFunc() {
 	g.writeLn("if vErrs, ok := err.(validator.ValidationErrors); ok {")
 	g.writeLn("var errMsg strings.Builder")
 	g.writeLn("for _, err := range vErrs {")
-	g.writeLn("errMsg.WriteString(fmt.Sprintf(\"-> name: '%s', value: '%s', tag: '%s'\", err.StructNamespace(), err.Value(), err.Tag()))")
+	g.writeLn("errMsg.WriteString(fmt.Sprintf(\"[name: '%s', value: '%s', tag: '%s']\", err.StructNamespace(), err.Value(), err.Tag()))")
 	g.writeLn("}")
 	g.writeLn("return errors.New(errMsg.String())")
 	g.writeLn("}")
