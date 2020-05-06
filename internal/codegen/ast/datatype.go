@@ -57,6 +57,8 @@ const (
 type DataType interface {
 	// Returns go variable declaration.
 	Decl() string
+	// Returns go variable zero value.
+	ZeroValue() string
 	// Returns simple name.
 	Name() string
 }
@@ -71,6 +73,22 @@ func (b *BaseType) Decl() string {
 		return "time.Time"
 	}
 	return b.DataType
+}
+
+func (b *BaseType) ZeroValue() string {
+	switch b.DataType {
+	case TypeByte, TypeUInt, TypeUInt8, TypeUInt16, TypeUInt32, TypeUInt64,
+		TypeInt, TypeInt8, TypeInt16, TypeInt32, TypeInt64, TypeFloat32, TypeFloat64:
+		return "0"
+	case TypeString:
+		return `""`
+	case TypeBool:
+		return "false"
+	case TypeTime:
+		return "time.Time{}"
+	default:
+		return "unknown base type zero value"
+	}
 }
 
 func (b *BaseType) Name() string {
@@ -90,6 +108,10 @@ func (m *MapType) Decl() string {
 	return "map[" + m.Key.Decl() + "]" + m.Value.Decl()
 }
 
+func (m *MapType) ZeroValue() string {
+	return "make(" + m.Decl() + ", 0)"
+}
+
 func (m *MapType) Name() string {
 	return "Map" + strings.Title(m.Key.Name()) + strings.Title(m.Value.Name())
 }
@@ -103,6 +125,10 @@ func (a *ArrType) Decl() string {
 	return "[]" + a.Elem.Decl()
 }
 
+func (a *ArrType) ZeroValue() string {
+	return "make(" + a.Decl() + ", 0)"
+}
+
 func (a *ArrType) Name() string {
 	return "Arr" + strings.Title(a.Elem.Name())
 }
@@ -113,7 +139,11 @@ type StructType struct {
 }
 
 func (s *StructType) Decl() string {
-	return "*" + s.NamePrv
+	return s.NamePrv
+}
+
+func (s *StructType) ZeroValue() string {
+	return s.Decl() + "{}"
 }
 
 func (s *StructType) Name() string {
@@ -129,6 +159,10 @@ func (e *EnumType) Decl() string {
 	return e.NamePrv
 }
 
+func (e *EnumType) ZeroValue() string {
+	return "0"
+}
+
 func (e *EnumType) Name() string {
 	return e.NamePrv
 }
@@ -139,6 +173,10 @@ type AnyType struct {
 }
 
 func (a *AnyType) Decl() string {
+	return "unresolved any type"
+}
+
+func (a *AnyType) ZeroValue() string {
 	return "unresolved any type"
 }
 

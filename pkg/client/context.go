@@ -62,6 +62,7 @@ func newContext(ctx context.Context, s Session) *clientContext {
 	return &clientContext{
 		Context: ctx,
 		s:       s,
+		header:  make(map[string][]byte),
 	}
 }
 
@@ -74,9 +75,6 @@ func (c *clientContext) Session() Session {
 }
 
 func (c *clientContext) SetHeader(key string, data []byte) {
-	if c.header == nil {
-		c.header = make(map[string][]byte)
-	}
 	c.header[key] = data
 }
 

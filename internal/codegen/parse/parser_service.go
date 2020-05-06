@@ -154,7 +154,7 @@ func (p *parser) expectServiceCall() (c *ast.Call, err error) {
 			}
 
 			// Parse args.
-			c.Arg, c.ArgValTag, err = p.expectServiceEntryType(c.Name + "Arg")
+			c.Arg, err = p.expectServiceEntryType(c.Name + "Arg")
 			if err != nil {
 				return
 			}
@@ -172,7 +172,7 @@ func (p *parser) expectServiceCall() (c *ast.Call, err error) {
 			}
 
 			// Parse ret.
-			c.Ret, c.RetValTag, err = p.expectServiceEntryType(c.Name + "Ret")
+			c.Ret, err = p.expectServiceEntryType(c.Name + "Ret")
 			if err != nil {
 				return
 			}
@@ -270,7 +270,7 @@ func (p *parser) expectServiceStream() (s *ast.Stream, err error) {
 			}
 
 			// Parse args.
-			s.Arg, s.ArgValTag, err = p.expectServiceEntryType(s.Name + "Arg")
+			s.Arg, err = p.expectServiceEntryType(s.Name + "Arg")
 			if err != nil {
 				return
 			}
@@ -288,7 +288,7 @@ func (p *parser) expectServiceStream() (s *ast.Stream, err error) {
 			}
 
 			// Parse ret.
-			s.Ret, s.RetValTag, err = p.expectServiceEntryType(s.Name + "Ret")
+			s.Ret, err = p.expectServiceEntryType(s.Name + "Ret")
 			if err != nil {
 				return
 			}
@@ -324,7 +324,7 @@ func (p *parser) expectServiceStream() (s *ast.Stream, err error) {
 }
 
 // Returns ast.Err.
-func (p *parser) expectServiceEntryType(name string) (dt ast.DataType, valTag string, err error) {
+func (p *parser) expectServiceEntryType(name string) (dt ast.DataType, err error) {
 	// Check for an inline type definition.
 	if p.peekSymbol(token.BraceL) {
 		// The struct type is a reference to the inline type.
@@ -340,18 +340,10 @@ func (p *parser) expectServiceEntryType(name string) (dt ast.DataType, valTag st
 		return
 	}
 
-	// The entry has a normal data type.
-	dt, err = p.expectDataType()
+	// The entry has an any type.
+	dt, err = p.expectAnyType()
 	if err != nil {
 		return
-	}
-
-	// Check for a validation tag definition.
-	if p.checkSymbol(token.SingQuote) {
-		valTag, err = p.expectValTag()
-		if err != nil {
-			return
-		}
 	}
 
 	return

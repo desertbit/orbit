@@ -30,8 +30,10 @@ package main
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"log"
 	"sync"
+	"time"
 
 	"github.com/desertbit/orbit/examples/simple/hello"
 	"github.com/desertbit/orbit/pkg/client"
@@ -66,15 +68,32 @@ func main() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		_, err := c.Test(context.Background())
+		ret, err := c.Test(context.Background(), hello.TestArg{S: "testarg"})
 		if err != nil {
 			log.Fatalln(err)
 		}
+
+		fmt.Printf("Test: %s, %s\n", ret.Name, ret.Ts.String())
 	}()
 
-	err = c.SayHi(context.Background(), &hello.SayHiArg{Name: "Wastl"})
+	ret, err := c.SayHi(context.Background(), hello.SayHiArg{Name: "Wastl", Ts: time.Now()})
 	if err != nil {
 		log.Fatalln(err)
+	}
+	fmt.Printf("SayHi: %+v\n", ret.Res)
+
+	stream, err := c.ClockTime(context.Background())
+	if err != nil {
+		log.Fatalln(err)
+	}
+	for i := 0; i < 3; i++ {
+		var arg hello.ClockTimeRet
+		arg, err = stream.Read()
+		if err != nil {
+			log.Fatalln(err)
+		}
+
+		fmt.Printf("ClockTime: %s\n", arg.Ts.String())
 	}
 
 	wg.Wait()

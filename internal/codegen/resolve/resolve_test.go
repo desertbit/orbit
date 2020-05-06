@@ -43,7 +43,9 @@ version 1
 
 service {
     call c1 {
-        ret: []map[string]Ret
+        ret: {
+			ret []map[string]Ret
+		}
     }
 
     call rc1 {
@@ -54,9 +56,7 @@ service {
         }
     }
 
-    stream s1 {
-        ret: En1
-    }
+    stream s1 {}
 
     stream rs1 {
         arg: Args
@@ -84,12 +84,7 @@ var (
 	version = 1
 	c1      = &ast.Call{
 		Name: "C1",
-		Ret: &ast.ArrType{
-			Elem: &ast.MapType{
-				Key:   &ast.BaseType{DataType: ast.TypeString},
-				Value: &ast.StructType{NamePrv: "Ret"},
-			},
-		},
+		Ret:  &ast.StructType{NamePrv: "C1Ret"},
 	}
 	rc1 = &ast.Call{
 		Name: "Rc1",
@@ -98,7 +93,6 @@ var (
 	}
 	st1 = &ast.Stream{
 		Name: "S1",
-		Ret:  &ast.EnumType{NamePrv: "En1"},
 	}
 	rst1 = &ast.Stream{
 		Name: "Rs1",
@@ -111,6 +105,20 @@ var (
 	}
 
 	expTypes = []*ast.Type{
+		{
+			Name: "C1Ret",
+			Fields: []*ast.TypeField{
+				{
+					Name: "Ret",
+					DataType: &ast.ArrType{
+						Elem: &ast.MapType{
+							Key:   &ast.BaseType{DataType: ast.TypeString},
+							Value: &ast.StructType{NamePrv: "Ret"},
+						},
+					},
+				},
+			},
+		},
 		{
 			Name: "Rc1Ret",
 			Fields: []*ast.TypeField{
@@ -218,6 +226,7 @@ func requireEqualType(t *testing.T, exp, act *ast.Type) {
 	require.Len(t, exp.Fields, len(act.Fields))
 	for i, exptf := range exp.Fields {
 		require.Exactly(t, exptf.Name, act.Fields[i].Name)
+		require.Exactly(t, exptf.StructTag, act.Fields[i].StructTag)
 		requireEqualDataType(t, exptf.DataType, act.Fields[i].DataType)
 	}
 }

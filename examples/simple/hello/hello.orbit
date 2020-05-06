@@ -8,14 +8,22 @@ errors {
 service {
     call sayHi {
         arg: {
-            name string 'required,min=1'
+            name string `validate:"required,min=1"`
+            ts time
+        }
+        ret: {
+            res []int `validate:"required,min=1"`
         }
     }
 
     call test {
         async
+        arg: {
+            s string
+        }
         ret: {
-            name string 'required,min=1'
+            name string `validate:"required,min=1"`
+            ts time
         }
         timeout: 500ms
         maxRetSize: 10K
@@ -28,15 +36,17 @@ service {
     }
 
     stream clockTime {
-        ret: time 'required'
+        ret: {
+            ts time `validate:"required"`
+        }
     }
 }
 
 type info {
-    name    string 'required,min=1'
-    age     int    'required,min=1,max=155'
-    locale  string 'required,len=5'
-    address string 'omitempty'
+    name    string `validate:"required,min=1"`
+    age     int    `validate:"required,min=1,max=155"`
+    locale  string `validate:"required,len=5"`
+    address string `validate:"omitempty"`
 }
 
 enum vehicle {

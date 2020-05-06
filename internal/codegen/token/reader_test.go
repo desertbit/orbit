@@ -50,8 +50,8 @@ is some e-x123ample{ text
 
 [ to test ]{: =: } the
     tokenizer   汉字 }haha
-'[hello==:{}-[]  ' hee
-'' yaa`
+` + "`[hello==:{}-[]  `" + ` hee
+` + "``" + ` yaa`
 
 	cases := []struct {
 		val  string
@@ -80,12 +80,12 @@ is some e-x123ample{ text
 		{val: "汉字", line: 6, err: nil},
 		{val: token.BraceR, line: 6, err: nil}, // 20
 		{val: "haha", line: 6, err: nil},
-		{val: token.SingQuote, line: 7, err: nil},
+		{val: token.Backtick, line: 7, err: nil},
 		{val: "[hello==:{}-[]  ", line: 7, err: nil},
-		{val: token.SingQuote, line: 7, err: nil},
+		{val: token.Backtick, line: 7, err: nil},
 		{val: "hee", line: 7, err: nil}, // 25
-		{val: token.SingQuote, line: 8, err: nil},
-		{val: token.SingQuote, line: 8, err: nil},
+		{val: token.Backtick, line: 8, err: nil},
+		{val: token.Backtick, line: 8, err: nil},
 		{val: "yaa", line: 8, err: nil},
 		{err: io.EOF},
 	}
@@ -107,16 +107,16 @@ is some e-x123ample{ text
 func testReaderNextFail(t *testing.T) {
 	t.Parallel()
 
-	const data = `'
-test'`
+	const data = "`" + `
+test` + "`"
 
 	cases := []struct {
 		val  string
 		line int
 		err  error
 	}{
-		{val: token.SingQuote, line: 1, err: nil}, // 0
-		{val: "", line: 1, err: token.ErrNewlineInSingQuoteString},
+		{val: token.Backtick, line: 1, err: nil}, // 0
+		{val: "", line: 1, err: token.ErrNewlineInBacktickString},
 	}
 	tr := token.NewReader(strings.NewReader(data))
 

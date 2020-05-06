@@ -49,8 +49,8 @@ const (
 	hyphen = '-'
 	Hyphen = string(hyphen)
 
-	singQuote = '\''
-	SingQuote = string(singQuote)
+	backtick = '`'
+	Backtick = string(backtick)
 
 	newLine = '\n'
 )
