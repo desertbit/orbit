@@ -6,6 +6,9 @@
 
 Orbit provides a powerful, MIT-licensed networking backend to interlink services. It offers **RPC** like features and is primarily stateless. It aims to be light-weight and customizable.
 
+## Current Status
+This project is under heavy development. The API may change at any time. 
+
 ## Table of Contents
 1. [Features](#features)
 2. [Orbit File Syntax](#orbit-file-syntax)  
