@@ -43,13 +43,21 @@ version 1
 
 service {
     call c1 {
-        arg: int
-        ret: float32
+        arg: {
+			id int ` + "`json:\"ID\" yaml:\"id\"`" + `
+		}
+        ret: {
+			ret float32
+		}
     }
     call c2 {
         async
-        arg: time
-        ret: []map[string][]Ret
+		arg: {
+			ts time
+		}
+        ret: {
+			ret []map[string][]Ret
+		}
 		timeout: 500ms
 		maxArgSize: 154KB
 		maxRetSize: 5MiB
@@ -61,7 +69,7 @@ service {
         ret: {
             s string
             i int
-            m map[string]int 'required'
+            m map[string]int
             sl []time
             st Ret
             crazy map[string][][]map[string]En1
@@ -70,11 +78,11 @@ service {
     call rc2 {
         async
         arg: {
-            f float64 'required'
+            f float64
             b byte
             u8 uint8
             u16 uint16
-            u32 uint32 'required'
+            u32 uint32
             u64 uint64
         }
     }
@@ -82,7 +90,9 @@ service {
 
     stream s1 {}
     stream s2 {
-        arg: string 'required'
+        arg: {
+			id string ` + "`validator:\"required\"`" + `
+		}
     }
     stream s3 {
         ret: En1
@@ -92,14 +102,11 @@ service {
         arg: Arg
         ret: Ret
     }
-    stream rs2 {
-        arg: map[string]int 'required'
-    }
-    stream rs3 {}
+    stream rs2 {}
 }
 
 type Arg {
-    s string
+    s string ` + "`json:\"STRING\"`" + `
     i int
     m map[string]int
     sl []time
@@ -139,19 +146,14 @@ var (
 var (
 	c1 = &ast.Call{
 		Name: "C1",
-		Arg:  &ast.BaseType{DataType: ast.TypeInt},
-		Ret:  &ast.BaseType{DataType: ast.TypeFloat32},
+		Arg:  &ast.StructType{NamePrv: "C1Arg"},
+		Ret:  &ast.StructType{NamePrv: "C1Ret"},
 	}
 	c2 = &ast.Call{
-		Name:  "C2",
-		Async: true,
-		Arg:   &ast.BaseType{DataType: ast.TypeTime},
-		Ret: &ast.ArrType{
-			Elem: &ast.MapType{
-				Key:   &ast.BaseType{DataType: ast.TypeString},
-				Value: &ast.ArrType{Elem: &ast.AnyType{NamePrv: "Ret"}},
-			},
-		},
+		Name:       "C2",
+		Async:      true,
+		Arg:        &ast.StructType{NamePrv: "C2Arg"},
+		Ret:        &ast.StructType{NamePrv: "C2Ret"},
 		Timeout:    &c2Timeout,
 		MaxArgSize: &c2MaxArgSize,
 		MaxRetSize: &c2MaxRetSize,
@@ -172,9 +174,8 @@ var (
 	}
 	st1 = &ast.Stream{Name: "S1"}
 	st2 = &ast.Stream{
-		Name:      "S2",
-		Arg:       &ast.BaseType{DataType: ast.TypeString},
-		ArgValTag: "required",
+		Name: "S2",
+		Arg:  &ast.StructType{NamePrv: "S2Arg"},
 	}
 	st3 = &ast.Stream{
 		Name: "S3",
@@ -187,21 +188,46 @@ var (
 	}
 	rst2 = &ast.Stream{
 		Name: "Rs2",
-		Arg: &ast.MapType{
-			Key:   &ast.BaseType{DataType: ast.TypeString},
-			Value: &ast.BaseType{DataType: ast.TypeInt},
-		},
-		ArgValTag: "required",
-	}
-	rst3 = &ast.Stream{
-		Name: "Rs3",
 	}
 	expSrvc = &ast.Service{
 		Calls:   []*ast.Call{c1, c2, c3, rc1, rc2, rc3},
-		Streams: []*ast.Stream{st1, st2, st3, rst1, rst2, rst3},
+		Streams: []*ast.Stream{st1, st2, st3, rst1, rst2},
 	}
 
 	expTypes = []*ast.Type{
+		{
+			Name: "C1Arg",
+			Fields: []*ast.TypeField{
+				{Name: "Id", DataType: &ast.BaseType{DataType: ast.TypeInt}, StructTag: "json:\"ID\" yaml:\"id\""},
+			},
+		},
+		{
+			Name: "C1Ret",
+			Fields: []*ast.TypeField{
+				{Name: "Ret", DataType: &ast.BaseType{DataType: ast.TypeFloat32}},
+			},
+		},
+		{
+			Name: "C2Arg",
+			Fields: []*ast.TypeField{
+				{Name: "Ts", DataType: &ast.BaseType{DataType: ast.TypeTime}},
+			},
+		},
+		{
+			Name: "C2Ret",
+			Fields: []*ast.TypeField{
+				{
+					Name: "Ret",
+					// []map[string][]Ret
+					DataType: &ast.ArrType{
+						Elem: &ast.MapType{
+							Key:   &ast.BaseType{DataType: ast.TypeString},
+							Value: &ast.ArrType{Elem: &ast.AnyType{NamePrv: "Ret"}},
+						},
+					},
+				},
+			},
+		},
 		{
 			Name: "Rc1Ret",
 			Fields: []*ast.TypeField{
@@ -213,7 +239,6 @@ var (
 						Key:   &ast.BaseType{DataType: ast.TypeString},
 						Value: &ast.BaseType{DataType: ast.TypeInt},
 					},
-					ValTag: "required",
 				},
 				{Name: "Sl", DataType: &ast.ArrType{Elem: &ast.BaseType{DataType: ast.TypeTime}}},
 				{Name: "St", DataType: &ast.AnyType{NamePrv: "Ret"}},
@@ -236,18 +261,24 @@ var (
 		{
 			Name: "Rc2Arg",
 			Fields: []*ast.TypeField{
-				{Name: "F", DataType: &ast.BaseType{DataType: ast.TypeFloat64}, ValTag: "required"},
+				{Name: "F", DataType: &ast.BaseType{DataType: ast.TypeFloat64}},
 				{Name: "B", DataType: &ast.BaseType{DataType: ast.TypeByte}},
 				{Name: "U8", DataType: &ast.BaseType{DataType: ast.TypeUInt8}},
 				{Name: "U16", DataType: &ast.BaseType{DataType: ast.TypeUInt16}},
-				{Name: "U32", DataType: &ast.BaseType{DataType: ast.TypeUInt32}, ValTag: "required"},
+				{Name: "U32", DataType: &ast.BaseType{DataType: ast.TypeUInt32}},
 				{Name: "U64", DataType: &ast.BaseType{DataType: ast.TypeUInt64}},
+			},
+		},
+		{
+			Name: "S2Arg",
+			Fields: []*ast.TypeField{
+				{Name: "Id", DataType: &ast.BaseType{DataType: ast.TypeString}, StructTag: "validator:\"required\""},
 			},
 		},
 		{
 			Name: "Arg",
 			Fields: []*ast.TypeField{
-				{Name: "S", DataType: &ast.BaseType{DataType: ast.TypeString}},
+				{Name: "S", DataType: &ast.BaseType{DataType: ast.TypeString}, StructTag: "json:\"STRING\""},
 				{Name: "I", DataType: &ast.BaseType{DataType: ast.TypeInt}},
 				{
 					Name: "M",
@@ -359,8 +390,6 @@ func requireEqualCall(t *testing.T, exp, act *ast.Call) {
 	require.Exactly(t, exp.Timeout, act.Timeout)
 	require.Exactly(t, exp.MaxArgSize, act.MaxArgSize)
 	require.Exactly(t, exp.MaxRetSize, act.MaxRetSize)
-	require.Exactly(t, exp.ArgValTag, act.ArgValTag)
-	require.Exactly(t, exp.RetValTag, act.RetValTag)
 	requireEqualDataType(t, exp.Arg, act.Arg)
 	requireEqualDataType(t, exp.Ret, act.Ret)
 }
@@ -378,6 +407,7 @@ func requireEqualType(t *testing.T, exp, act *ast.Type) {
 	require.Len(t, exp.Fields, len(act.Fields))
 	for i, exptf := range exp.Fields {
 		require.Exactly(t, exptf.Name, act.Fields[i].Name)
+		require.Exactly(t, exptf.StructTag, act.Fields[i].StructTag)
 		requireEqualDataType(t, exptf.DataType, act.Fields[i].DataType)
 	}
 }

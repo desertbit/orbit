@@ -66,10 +66,10 @@ type Type struct {
 }
 
 type TypeField struct {
-	Name     string
-	DataType DataType
-	ValTag   string
-	Line     int
+	Name      string
+	DataType  DataType
+	StructTag string
+	Line      int
 }
 
 type Service struct {
@@ -82,9 +82,7 @@ type Service struct {
 type Call struct {
 	Name       string
 	Arg        DataType
-	ArgValTag  string
 	Ret        DataType
-	RetValTag  string
 	Async      bool
 	Timeout    *time.Duration
 	MaxArgSize *int64
@@ -99,9 +97,7 @@ func (c *Call) NamePrv() string {
 type Stream struct {
 	Name       string
 	Arg        DataType
-	ArgValTag  string
 	Ret        DataType
-	RetValTag  string
 	MaxArgSize *int64
 	MaxRetSize *int64
 	Line       int

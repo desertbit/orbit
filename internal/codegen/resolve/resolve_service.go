@@ -76,12 +76,12 @@ func resolveCall(c *ast.Call, types []*ast.Type, enums []*ast.Enum) (err error) 
 		return
 	}
 
-	// Check, that no StructType has a validation tag.
-	if st, ok := c.Arg.(*ast.StructType); ok && c.ArgValTag != "" {
-		return ast.NewErr(st.Line, "validation tags not allowed on type references")
+	// For arg and ret, only Struct types are allowed.
+	if _, ok := c.Arg.(*ast.StructType); !ok && c.Arg != nil {
+		return ast.NewErr(c.Line, "arg must be an inline or reference type")
 	}
-	if st, ok := c.Ret.(*ast.StructType); ok && c.RetValTag != "" {
-		return ast.NewErr(st.Line, "validation tags not allowed on type references")
+	if _, ok := c.Ret.(*ast.StructType); !ok && c.Ret != nil {
+		return ast.NewErr(c.Line, "ret must be an inline or reference type")
 	}
 
 	// Check async calls and their special properties.
@@ -119,12 +119,12 @@ func resolveStream(s *ast.Stream, types []*ast.Type, enums []*ast.Enum) (err err
 		return
 	}
 
-	// Check, that no StructType has a validation tag.
-	if st, ok := s.Arg.(*ast.StructType); ok && s.ArgValTag != "" {
-		return ast.NewErr(st.Line, "validation tags not allowed on type references")
+	// For arg and ret, only Struct types are allowed.
+	if _, ok := s.Arg.(*ast.StructType); !ok && s.Arg != nil {
+		return ast.NewErr(s.Line, "arg must be an inline or reference type")
 	}
-	if st, ok := s.Ret.(*ast.StructType); ok && s.RetValTag != "" {
-		return ast.NewErr(st.Line, "validation tags not allowed on type references")
+	if _, ok := s.Ret.(*ast.StructType); !ok && s.Ret != nil {
+		return ast.NewErr(s.Line, "ret must be an inline or reference type")
 	}
 
 	// Check, that max sizes are only set, if the respective stream data is defined.

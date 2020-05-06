@@ -76,9 +76,9 @@ func (p *parser) expectInlineType(name string, line int) (err error) {
 			return
 		}
 
-		// Check for a validation tag definition.
-		if p.checkSymbol(token.SingQuote) {
-			tf.ValTag, err = p.expectValTag()
+		// Check for a struct tag.
+		if p.checkSymbol(token.Backtick) {
+			tf.StructTag, err = p.expectStructTag()
 			if err != nil {
 				return
 			}
@@ -94,10 +94,10 @@ func (p *parser) expectInlineType(name string, line int) (err error) {
 }
 
 // Returns Err.
-func (p *parser) expectValTag() (valTag string, err error) {
+func (p *parser) expectStructTag() (valTag string, err error) {
 	// Expect the tag.
 	if p.empty() {
-		err = ast.NewErr(p.prevLine, "expected validation tag, but is missing")
+		err = ast.NewErr(p.prevLine, "expected struct tag, but is missing")
 		return
 	}
 	valTag = p.ct.Value
@@ -108,8 +108,8 @@ func (p *parser) expectValTag() (valTag string, err error) {
 		return
 	}
 
-	// Check for ending single quote.
-	err = p.expectSymbol(token.SingQuote)
+	// Check for ending backtick.
+	err = p.expectSymbol(token.Backtick)
 	if err != nil {
 		return
 	}

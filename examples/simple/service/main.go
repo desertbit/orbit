@@ -36,6 +36,7 @@ import (
 	"fmt"
 	"log"
 	"math/big"
+	"time"
 
 	"github.com/desertbit/orbit/examples/simple/hello"
 	olog "github.com/desertbit/orbit/pkg/hook/log"
@@ -98,17 +99,26 @@ func generateTLSConfig() *tls.Config {
 
 type ServiceHandler struct{}
 
-func (s *ServiceHandler) SayHi(ctx service.Context, arg *hello.SayHiArg) (err error) {
-	fmt.Println("hi")
+func (s *ServiceHandler) SayHi(ctx service.Context, arg hello.SayHiArg) (ret hello.SayHiRet, err error) {
+	fmt.Printf("handler: SayHi, %s, %s\n", arg.Name, arg.Ts.String())
+	ret = hello.SayHiRet{Res: []int{1, 2, 3}}
 	return
 }
 
-func (s *ServiceHandler) Test(ctx service.Context) (ret *hello.TestRet, err error) {
-	fmt.Println("test")
-	ret = &hello.TestRet{
-		Name: "horst",
-	}
+func (s *ServiceHandler) Test(ctx service.Context, arg hello.TestArg) (ret hello.TestRet, err error) {
+	fmt.Printf("handler: Test, %s\n", arg.S)
+	ret = hello.TestRet{Name: "horst", Ts: time.Now()}
 	return
+}
+
+func (s *ServiceHandler) ClockTime(ctx service.Context, ret *hello.ClockTimeRetWriteStream) {
+	for i := 0; i < 3; i++ {
+		err := ret.Write(hello.ClockTimeRet{Ts: time.Now()})
+		if err != nil {
+			fmt.Printf("ERROR handler.ClockTime: %v\n", err)
+			return
+		}
+	}
 }
 
 func (s *ServiceHandler) Lul(ctx service.Context, stream transport.Stream) {
@@ -116,9 +126,5 @@ func (s *ServiceHandler) Lul(ctx service.Context, stream transport.Stream) {
 }
 
 func (s *ServiceHandler) TimeStream(ctx service.Context, arg *hello.InfoReadStream) {
-	panic("implement me")
-}
-
-func (s *ServiceHandler) ClockTime(ctx service.Context, ret *hello.TimeWriteStream) {
 	panic("implement me")
 }

@@ -93,19 +93,33 @@ var validate = validator.New()
 //### Types ###//
 //#############//
 
+type ClockTimeRet struct {
+	Ts time.Time `validation:"required`
+}
+
 type Info struct {
-	Name    string `validate:"required,min=1"`
-	Age     int    `validate:"required,min=1,max=155"`
-	Locale  string `validate:"required,len=5"`
-	Address string `validate:"omitempty"`
+	Name    string `validation:"required,min=1`
+	Age     int    `validation:"required,min=1,max=155`
+	Locale  string `validation:"required,len=5`
+	Address string `validation:"omitempty`
 }
 
 type SayHiArg struct {
-	Name string `validate:"required,min=1"`
+	Name string `validation:"required,min=1"`
+	Ts   time.Time
+}
+
+type SayHiRet struct {
+	Res []int `validation:"required,min=1"`
+}
+
+type TestArg struct {
+	S string
 }
 
 type TestRet struct {
-	Name string `validate:"required,min=1"`
+	Name string `validation:"required,min=1`
+	Ts   time.Time
 }
 
 //msgp:ignore InfoReadStream
@@ -120,11 +134,12 @@ func newInfoReadStream(cl closer.Closer, s transport.Stream, cc codec.Codec, ms 
 	return &InfoReadStream{Closer: cl, stream: s, codec: cc, maxSize: ms}
 }
 
-func (v1 *InfoReadStream) Read() (arg *Info, err error) {
+func (v1 *InfoReadStream) Read() (arg Info, err error) {
 	if v1.IsClosing() {
 		err = ErrClosed
 		return
 	}
+	arg = Info{}
 	err = packet.ReadDecode(v1.stream, &arg, v1.codec, v1.maxSize)
 	if err != nil {
 		if errors.Is(err, packet.ErrZeroData) || errors.Is(err, io.EOF) || v1.stream.IsClosed() {
@@ -154,7 +169,7 @@ func newInfoWriteStream(cl closer.Closer, s transport.Stream, cc codec.Codec, ms
 	return &InfoWriteStream{Closer: cl, stream: s, codec: cc, maxSize: ms}
 }
 
-func (v1 *InfoWriteStream) Write(ret *Info) (err error) {
+func (v1 *InfoWriteStream) Write(ret Info) (err error) {
 	if v1.IsClosing() {
 		err = ErrClosed
 		return
@@ -169,23 +184,24 @@ func (v1 *InfoWriteStream) Write(ret *Info) (err error) {
 	return
 }
 
-//msgp:ignore TimeReadStream
-type TimeReadStream struct {
+//msgp:ignore ClockTimeRetReadStream
+type ClockTimeRetReadStream struct {
 	closer.Closer
 	stream  transport.Stream
 	codec   codec.Codec
 	maxSize int
 }
 
-func newTimeReadStream(cl closer.Closer, s transport.Stream, cc codec.Codec, ms int) *TimeReadStream {
-	return &TimeReadStream{Closer: cl, stream: s, codec: cc, maxSize: ms}
+func newClockTimeRetReadStream(cl closer.Closer, s transport.Stream, cc codec.Codec, ms int) *ClockTimeRetReadStream {
+	return &ClockTimeRetReadStream{Closer: cl, stream: s, codec: cc, maxSize: ms}
 }
 
-func (v1 *TimeReadStream) Read() (arg time.Time, err error) {
+func (v1 *ClockTimeRetReadStream) Read() (arg ClockTimeRet, err error) {
 	if v1.IsClosing() {
 		err = ErrClosed
 		return
 	}
+	arg = ClockTimeRet{}
 	err = packet.ReadDecode(v1.stream, &arg, v1.codec, v1.maxSize)
 	if err != nil {
 		if errors.Is(err, packet.ErrZeroData) || errors.Is(err, io.EOF) || v1.stream.IsClosed() {
@@ -194,7 +210,7 @@ func (v1 *TimeReadStream) Read() (arg time.Time, err error) {
 		v1.Close_()
 		return
 	}
-	err = validate.Var(arg, "required")
+	err = validate.Struct(arg)
 	if err != nil {
 		err = _valErrCheck(err)
 		return
@@ -202,20 +218,20 @@ func (v1 *TimeReadStream) Read() (arg time.Time, err error) {
 	return
 }
 
-//msgp:ignore TimeWriteStream
-type TimeWriteStream struct {
+//msgp:ignore ClockTimeRetWriteStream
+type ClockTimeRetWriteStream struct {
 	closer.Closer
 	stream  transport.Stream
 	codec   codec.Codec
 	maxSize int
 }
 
-func newTimeWriteStream(cl closer.Closer, s transport.Stream, cc codec.Codec, ms int) *TimeWriteStream {
+func newClockTimeRetWriteStream(cl closer.Closer, s transport.Stream, cc codec.Codec, ms int) *ClockTimeRetWriteStream {
 	cl.OnClosing(func() error { return packet.Write(s, nil, 0) })
-	return &TimeWriteStream{Closer: cl, stream: s, codec: cc, maxSize: ms}
+	return &ClockTimeRetWriteStream{Closer: cl, stream: s, codec: cc, maxSize: ms}
 }
 
-func (v1 *TimeWriteStream) Write(ret time.Time) (err error) {
+func (v1 *ClockTimeRetWriteStream) Write(ret ClockTimeRet) (err error) {
 	if v1.IsClosing() {
 		err = ErrClosed
 		return
@@ -258,12 +274,12 @@ const (
 type Client interface {
 	closer.Closer
 	// Calls
-	SayHi(ctx context.Context, arg *SayHiArg) (err error)
-	Test(ctx context.Context) (ret *TestRet, err error)
+	SayHi(ctx context.Context, arg SayHiArg) (ret SayHiRet, err error)
+	Test(ctx context.Context, arg TestArg) (ret TestRet, err error)
 	// Streams
 	Lul(ctx context.Context) (stream transport.Stream, err error)
 	TimeStream(ctx context.Context) (arg *InfoWriteStream, err error)
-	ClockTime(ctx context.Context) (ret *TimeReadStream, err error)
+	ClockTime(ctx context.Context) (ret *ClockTimeRetReadStream, err error)
 }
 
 type Service interface {
@@ -273,12 +289,12 @@ type Service interface {
 
 type ServiceHandler interface {
 	// Calls
-	SayHi(ctx oservice.Context, arg *SayHiArg) (err error)
-	Test(ctx oservice.Context) (ret *TestRet, err error)
+	SayHi(ctx oservice.Context, arg SayHiArg) (ret SayHiRet, err error)
+	Test(ctx oservice.Context, arg TestArg) (ret TestRet, err error)
 	// Streams
 	Lul(ctx oservice.Context, stream transport.Stream)
 	TimeStream(ctx oservice.Context, arg *InfoReadStream)
-	ClockTime(ctx oservice.Context, ret *TimeWriteStream)
+	ClockTime(ctx oservice.Context, ret *ClockTimeRetWriteStream)
 }
 
 type client struct {
@@ -299,24 +315,31 @@ func NewClient(opts *oclient.Options) (c Client, err error) {
 	return
 }
 
-func (v1 *client) SayHi(ctx context.Context, arg *SayHiArg) (err error) {
+func (v1 *client) SayHi(ctx context.Context, arg SayHiArg) (ret SayHiRet, err error) {
 	if v1.callTimeout > 0 {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, v1.callTimeout)
 		defer cancel()
 	}
-	err = v1.Call(ctx, SayHi, arg, nil)
+	ret = SayHiRet{}
+	err = v1.Call(ctx, SayHi, arg, &ret)
 	if err != nil {
 		err = _clientErrorCheck(err)
+		return
+	}
+	err = validate.Struct(ret)
+	if err != nil {
+		err = _valErrCheck(err)
 		return
 	}
 	return
 }
 
-func (v1 *client) Test(ctx context.Context) (ret *TestRet, err error) {
+func (v1 *client) Test(ctx context.Context, arg TestArg) (ret TestRet, err error) {
 	ctx, cancel := context.WithTimeout(ctx, 500000000*time.Nanosecond)
 	defer cancel()
-	err = v1.AsyncCall(ctx, Test, nil, &ret, 0, 10240)
+	ret = TestRet{}
+	err = v1.AsyncCall(ctx, Test, arg, &ret, oclient.DefaultMaxSize, 10240)
 	if err != nil {
 		err = _clientErrorCheck(err)
 		return
@@ -357,7 +380,7 @@ func (v1 *client) TimeStream(ctx context.Context) (arg *InfoWriteStream, err err
 	return
 }
 
-func (v1 *client) ClockTime(ctx context.Context) (ret *TimeReadStream, err error) {
+func (v1 *client) ClockTime(ctx context.Context) (ret *ClockTimeRetReadStream, err error) {
 	if v1.streamInitTimeout > 0 {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, v1.streamInitTimeout)
@@ -367,7 +390,7 @@ func (v1 *client) ClockTime(ctx context.Context) (ret *TimeReadStream, err error
 	if err != nil {
 		return
 	}
-	ret = newTimeReadStream(v1.CloserOneWay(), stream, v1.codec, v1.maxRetSize)
+	ret = newClockTimeRetReadStream(v1.CloserOneWay(), stream, v1.codec, v1.maxRetSize)
 	ret.OnClosing(stream.Close)
 	return
 }
@@ -396,7 +419,7 @@ func NewService(h ServiceHandler, opts *oservice.Options) (s Service, err error)
 }
 
 func (v1 *service) sayHi(ctx oservice.Context, argData []byte) (retData interface{}, err error) {
-	var arg *SayHiArg
+	var arg SayHiArg
 	err = v1.codec.Decode(argData, &arg)
 	if err != nil {
 		return
@@ -406,22 +429,29 @@ func (v1 *service) sayHi(ctx oservice.Context, argData []byte) (retData interfac
 		err = _valErrCheck(err)
 		return
 	}
-	err = v1.h.SayHi(ctx, arg)
+	ret, err := v1.h.SayHi(ctx, arg)
 	if err != nil {
 		err = _serviceErrorCheck(err)
 		return
 	}
+	retData = ret
 	return
 }
 
 func (v1 *service) test(ctx oservice.Context, argData []byte) (retData interface{}, err error) {
-	ret, err := v1.h.Test(ctx)
+	var arg TestArg
+	err = v1.codec.Decode(argData, &arg)
 	if err != nil {
-		err = _serviceErrorCheck(err)
 		return
 	}
-	if ret == nil {
-		err = errors.New("return value is a nil pointer")
+	err = validate.Struct(arg)
+	if err != nil {
+		err = _valErrCheck(err)
+		return
+	}
+	ret, err := v1.h.Test(ctx, arg)
+	if err != nil {
+		err = _serviceErrorCheck(err)
 		return
 	}
 	retData = ret
@@ -438,7 +468,7 @@ func (v1 *service) timeStream(ctx oservice.Context, stream transport.Stream) {
 }
 
 func (v1 *service) clockTime(ctx oservice.Context, stream transport.Stream) {
-	ret := newTimeWriteStream(v1.CloserOneWay(), stream, v1.codec, v1.maxRetSize)
+	ret := newClockTimeRetWriteStream(v1.CloserOneWay(), stream, v1.codec, v1.maxRetSize)
 	ret.OnClosing(stream.Close)
 	v1.h.ClockTime(ctx, ret)
 }

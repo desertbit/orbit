@@ -66,6 +66,12 @@ func (g *generator) genServiceClientCall(c *ast.Call, errs []*ast.Error) {
 		g.writeLn("}")
 	}
 
+	// For a return value, make sure that it is initialized, before the data
+	// is decoded into the value.
+	if c.Ret != nil {
+		g.writefLn("ret = %s", c.Ret.ZeroValue())
+	}
+
 	g.writef("err = %s.", recv)
 	if c.Async {
 		g.write("Async")
@@ -113,17 +119,8 @@ func (g *generator) genServiceClientCall(c *ast.Call, errs []*ast.Error) {
 
 	// If return arguments were expected, validate them.
 	if c.Ret != nil {
-		if c.RetValTag != "" {
-			// Validate a single value.
-			g.writefLn("err = validate.Var(ret, \"%s\")", c.RetValTag)
-		} else {
-			// Validate a struct.
-			g.writeLn("err = validate.Struct(ret)")
-		}
-		g.errIfNilFunc(func() {
-			g.writefLn("err = %s(err)", valErrorCheck)
-			g.writeLn("return")
-		})
+		// Validate, if needed.
+		g.writeValErrCheck(c.Ret, "ret")
 	}
 
 	// Return.
@@ -145,7 +142,7 @@ func (g *generator) genServiceHandlerCallSignature(c *ast.Call) {
 	g.write("err error)")
 }
 
-func (g *generator) genServiceHandlerCall(c *ast.Call, errs []*ast.Error) {
+func (g *generator) genServiceHandlerCall(c *ast.Call) {
 	// Method declaration.
 	g.writefLn(
 		"func (%s *service) %s(ctx oservice.Context, argData []byte) (retData interface{}, err error) {",
@@ -163,18 +160,8 @@ func (g *generator) genServiceHandlerCall(c *ast.Call, errs []*ast.Error) {
 		g.writefLn("err = %s.codec.Decode(argData, &arg)", recv)
 		g.errIfNil()
 
-		// Validate.
-		if c.ArgValTag != "" {
-			// Validate a single value.
-			g.writefLn("err = validate.Var(arg, \"%s\")", c.ArgValTag)
-		} else {
-			// Validate a struct.
-			g.writeLn("err = validate.Struct(arg)")
-		}
-		g.errIfNilFunc(func() {
-			g.writefLn("err = %s(err)", valErrorCheck)
-			g.writeLn("return")
-		})
+		// Validate, if needed.
+		g.writeValErrCheck(c.Arg, "arg")
 	}
 
 	// Call the handler.
@@ -190,17 +177,9 @@ func (g *generator) genServiceHandlerCall(c *ast.Call, errs []*ast.Error) {
 		g.writeLn("return")
 	})
 
+	// Assign return value.
 	if c.Ret != nil {
-		// Check for nil return value.
-		g.writeLn("if ret == nil {")
-		g.writeLn("err = errors.New(\"return value is a nil pointer\")")
-		g.writeLn("return")
-		g.writeLn("}")
-
-		// Assign return value.
-		if c.Ret != nil {
-			g.writeLn("retData = ret")
-		}
+		g.writeLn("retData = ret")
 	}
 
 	// Return.

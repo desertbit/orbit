@@ -183,7 +183,7 @@ func (g *generator) genServiceStruct(calls []*ast.Call, streams []*ast.Stream, e
 
 	// Generate the calls.
 	for _, c := range calls {
-		g.genServiceHandlerCall(c, errs)
+		g.genServiceHandlerCall(c)
 	}
 
 	// Generate the streams.

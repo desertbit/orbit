@@ -34,7 +34,7 @@ import (
 )
 
 var (
-	ErrNewlineInSingQuoteString = errors.New("newline in single quote string")
+	ErrNewlineInBacktickString = errors.New("newline in backtick string")
 )
 
 type Reader interface {
@@ -53,7 +53,7 @@ type reader struct {
 
 	nextValue      []rune
 	nextTokenReady bool
-	singQuote      bool
+	structTag      bool
 	lines          int
 }
 
@@ -88,10 +88,10 @@ func (r *reader) Next() (t *Token, err error) {
 			return
 		}
 
-		if r.singQuote && nr != singQuote {
+		if r.structTag && nr != backtick {
 			// Newlines in single quotes are not allowed!
 			if nr == newLine {
-				err = ErrNewlineInSingQuoteString
+				err = ErrNewlineInBacktickString
 				return
 			}
 
@@ -115,9 +115,9 @@ func (r *reader) Next() (t *Token, err error) {
 			nr == colon ||
 			nr == equal ||
 			nr == hyphen ||
-			nr == singQuote {
-			if nr == singQuote {
-				r.singQuote = !r.singQuote
+			nr == backtick {
+			if nr == backtick {
+				r.structTag = !r.structTag
 			}
 
 			// Return next token first.
@@ -142,7 +142,7 @@ func (r *reader) Reset(rr io.RuneReader) {
 	r.rr = rr
 	r.nextValue = r.nextValue[:0]
 	r.nextTokenReady = false
-	r.singQuote = false
+	r.structTag = false
 	r.lines = 1
 }
 

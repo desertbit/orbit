@@ -243,6 +243,23 @@ func (g *generator) writeTimeoutParam(timeout *time.Duration) {
 	g.write(",")
 }
 
+// writeValErrCheck is a helper that writes a validate error check to the generator.
+// It only does so, if the type is either a single value with a validation tag, or
+// a struct.
+func (g *generator) writeValErrCheck(dt ast.DataType, varName string) {
+	// Only call validate, if it is a struct.
+	if _, ok := dt.(*ast.StructType); !ok {
+		return
+	}
+
+	// Validate a struct.
+	g.writefLn("err = validate.Struct(%s)", varName)
+	g.errIfNilFunc(func() {
+		g.writefLn("err = %s(err)", valErrorCheck)
+		g.writeLn("return")
+	})
+}
+
 func (g *generator) errIfNil() {
 	g.writeLn("if err != nil { return }")
 }

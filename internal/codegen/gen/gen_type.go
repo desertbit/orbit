@@ -43,8 +43,8 @@ func (g *generator) genTypes(ts []*ast.Type, srvc *ast.Service) {
 		g.writefLn("type %s struct {", t.Name)
 		for _, f := range t.Fields {
 			g.writef("%s %s", f.Name, f.DataType.Decl())
-			if f.ValTag != "" {
-				g.writef(" `validate:\"%s\"`", f.ValTag)
+			if f.StructTag != "" {
+				g.writef(" `%s`", f.StructTag)
 			}
 			g.writeLn("")
 		}
@@ -59,21 +59,21 @@ func (g *generator) genTypes(ts []*ast.Type, srvc *ast.Service) {
 			if _, ok := genStreams[s.Arg.Name()]; !ok {
 				genStreams[s.Arg.Name()] = struct{}{}
 				// Check, if the data type is a validation
-				g.genReadStreamType(s.Arg, s.ArgValTag, s.MaxArgSize)
-				g.genWriteStreamType(s.Arg, s.MaxArgSize)
+				g.genReadStreamType(s.Arg)
+				g.genWriteStreamType(s.Arg)
 			}
 		}
 		if s.Ret != nil {
 			if _, ok := genStreams[s.Ret.Name()]; !ok {
 				genStreams[s.Ret.Name()] = struct{}{}
-				g.genReadStreamType(s.Ret, s.RetValTag, s.MaxRetSize)
-				g.genWriteStreamType(s.Ret, s.MaxRetSize)
+				g.genReadStreamType(s.Ret)
+				g.genWriteStreamType(s.Ret)
 			}
 		}
 	}
 }
 
-func (g *generator) genReadStreamType(dt ast.DataType, valTag string, maxSize *int64) {
+func (g *generator) genReadStreamType(dt ast.DataType) {
 	// Type definition.
 	g.writefLn("//msgp:ignore %sReadStream", dt.Name())
 	g.writefLn("type %sReadStream struct {", dt.Name())
@@ -96,7 +96,7 @@ func (g *generator) genReadStreamType(dt ast.DataType, valTag string, maxSize *i
 	g.writeLn("err = ErrClosed")
 	g.writeLn("return")
 	g.writeLn("}")
-	// Parse.
+	g.writefLn("arg = %s", dt.ZeroValue())
 	g.writefLn("err = packet.ReadDecode(%s.stream, &arg, %s.codec, %s.maxSize)", recv, recv, recv)
 	g.writeLn("if err != nil {")
 	g.writefLn("if errors.Is(err, packet.ErrZeroData) || errors.Is(err, io.EOF) || %s.stream.IsClosed() {", recv)
@@ -105,24 +105,16 @@ func (g *generator) genReadStreamType(dt ast.DataType, valTag string, maxSize *i
 	g.writefLn("%s.Close_()", recv)
 	g.writeLn("return")
 	g.writeLn("}")
-	// Validate.
-	if valTag != "" {
-		// Validate a single value.
-		g.writefLn("err = validate.Var(arg, \"%s\")", valTag)
-	} else {
-		// Validate a struct.
-		g.writeLn("err = validate.Struct(arg)")
-	}
-	g.errIfNilFunc(func() {
-		g.writefLn("err = %s(err)", valErrorCheck)
-		g.writeLn("return")
-	})
+
+	// Validate, if needed.
+	g.writeValErrCheck(dt, "arg")
+
 	g.writeLn("return")
 	g.writeLn("}")
 	g.writeLn("")
 }
 
-func (g *generator) genWriteStreamType(dt ast.DataType, maxSize *int64) {
+func (g *generator) genWriteStreamType(dt ast.DataType) {
 	// Type definition.
 	g.writefLn("//msgp:ignore %sWriteStream", dt.Name())
 	g.writefLn("type %sWriteStream struct {", dt.Name())
