@@ -57,8 +57,6 @@ const (
 type DataType interface {
 	// Returns go variable declaration.
 	Decl() string
-	// Returns go variable zero value.
-	ZeroValue() string
 	// Returns simple name.
 	Name() string
 }
@@ -108,10 +106,6 @@ func (m *MapType) Decl() string {
 	return "map[" + m.Key.Decl() + "]" + m.Value.Decl()
 }
 
-func (m *MapType) ZeroValue() string {
-	return "make(" + m.Decl() + ", 0)"
-}
-
 func (m *MapType) Name() string {
 	return "Map" + strings.Title(m.Key.Name()) + strings.Title(m.Value.Name())
 }
@@ -123,10 +117,6 @@ type ArrType struct {
 
 func (a *ArrType) Decl() string {
 	return "[]" + a.Elem.Decl()
-}
-
-func (a *ArrType) ZeroValue() string {
-	return "make(" + a.Decl() + ", 0)"
 }
 
 func (a *ArrType) Name() string {
@@ -142,10 +132,6 @@ func (s *StructType) Decl() string {
 	return s.NamePrv
 }
 
-func (s *StructType) ZeroValue() string {
-	return s.Decl() + "{}"
-}
-
 func (s *StructType) Name() string {
 	return s.NamePrv
 }
@@ -159,10 +145,6 @@ func (e *EnumType) Decl() string {
 	return e.NamePrv
 }
 
-func (e *EnumType) ZeroValue() string {
-	return "0"
-}
-
 func (e *EnumType) Name() string {
 	return e.NamePrv
 }
@@ -173,10 +155,6 @@ type AnyType struct {
 }
 
 func (a *AnyType) Decl() string {
-	return "unresolved any type"
-}
-
-func (a *AnyType) ZeroValue() string {
 	return "unresolved any type"
 }
 

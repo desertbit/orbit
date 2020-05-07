@@ -66,12 +66,6 @@ func (g *generator) genServiceClientCall(c *ast.Call, errs []*ast.Error) {
 		g.writeLn("}")
 	}
 
-	// For a return value, make sure that it is initialized, before the data
-	// is decoded into the value.
-	if c.Ret != nil {
-		g.writefLn("ret = %s", c.Ret.ZeroValue())
-	}
-
 	g.writef("err = %s.", recv)
 	if c.Async {
 		g.write("Async")
@@ -179,7 +173,7 @@ func (g *generator) genServiceHandlerCall(c *ast.Call) {
 
 	// Assign return value.
 	if c.Ret != nil {
-		g.writeLn("retData = ret")
+		g.writeLn("retData = &ret")
 	}
 
 	// Return.

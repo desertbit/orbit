@@ -139,7 +139,6 @@ func (v1 *InfoReadStream) Read() (arg Info, err error) {
 		err = ErrClosed
 		return
 	}
-	arg = Info{}
 	err = packet.ReadDecode(v1.stream, &arg, v1.codec, v1.maxSize)
 	if err != nil {
 		if errors.Is(err, packet.ErrZeroData) || errors.Is(err, io.EOF) || v1.stream.IsClosed() {
@@ -174,7 +173,7 @@ func (v1 *InfoWriteStream) Write(ret Info) (err error) {
 		err = ErrClosed
 		return
 	}
-	err = packet.WriteEncode(v1.stream, ret, v1.codec, v1.maxSize)
+	err = packet.WriteEncode(v1.stream, &ret, v1.codec, v1.maxSize)
 	if err != nil {
 		if errors.Is(err, io.EOF) || v1.stream.IsClosed() {
 			v1.Close_()
@@ -201,7 +200,6 @@ func (v1 *ClockTimeRetReadStream) Read() (arg ClockTimeRet, err error) {
 		err = ErrClosed
 		return
 	}
-	arg = ClockTimeRet{}
 	err = packet.ReadDecode(v1.stream, &arg, v1.codec, v1.maxSize)
 	if err != nil {
 		if errors.Is(err, packet.ErrZeroData) || errors.Is(err, io.EOF) || v1.stream.IsClosed() {
@@ -236,7 +234,7 @@ func (v1 *ClockTimeRetWriteStream) Write(ret ClockTimeRet) (err error) {
 		err = ErrClosed
 		return
 	}
-	err = packet.WriteEncode(v1.stream, ret, v1.codec, v1.maxSize)
+	err = packet.WriteEncode(v1.stream, &ret, v1.codec, v1.maxSize)
 	if err != nil {
 		if errors.Is(err, io.EOF) || v1.stream.IsClosed() {
 			v1.Close_()
@@ -321,7 +319,6 @@ func (v1 *client) SayHi(ctx context.Context, arg SayHiArg) (ret SayHiRet, err er
 		ctx, cancel = context.WithTimeout(ctx, v1.callTimeout)
 		defer cancel()
 	}
-	ret = SayHiRet{}
 	err = v1.Call(ctx, SayHi, arg, &ret)
 	if err != nil {
 		err = _clientErrorCheck(err)
@@ -338,7 +335,6 @@ func (v1 *client) SayHi(ctx context.Context, arg SayHiArg) (ret SayHiRet, err er
 func (v1 *client) Test(ctx context.Context, arg TestArg) (ret TestRet, err error) {
 	ctx, cancel := context.WithTimeout(ctx, 500000000*time.Nanosecond)
 	defer cancel()
-	ret = TestRet{}
 	err = v1.AsyncCall(ctx, Test, arg, &ret, oclient.DefaultMaxSize, 10240)
 	if err != nil {
 		err = _clientErrorCheck(err)
@@ -434,7 +430,7 @@ func (v1 *service) sayHi(ctx oservice.Context, argData []byte) (retData interfac
 		err = _serviceErrorCheck(err)
 		return
 	}
-	retData = ret
+	retData = &ret
 	return
 }
 
@@ -454,7 +450,7 @@ func (v1 *service) test(ctx oservice.Context, argData []byte) (retData interface
 		err = _serviceErrorCheck(err)
 		return
 	}
-	retData = ret
+	retData = &ret
 	return
 }
 
