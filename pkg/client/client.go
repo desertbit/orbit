@@ -46,15 +46,18 @@ type Client interface {
 	closer.Closer
 
 	// Call performs a call on the shared main stream.
+	// Returns ErrConnect if a session connection attempt failed.
 	Call(ctx context.Context, id string, arg, ret interface{}) error
 
 	// AsyncCall performs a call on a new stream.
 	// If maxArgSize & maxRetSize are set to 0, then the payload must be empty.
 	// If maxArgSize & maxRetSize are set to NoMaxSizeLimit, then no limit is set.
 	// If maxArgSize & maxRetSize are set to DefaultMaxSize, then the default size is used from the options.
+	// Returns ErrConnect if a session connection attempt failed.
 	AsyncCall(ctx context.Context, id string, arg, ret interface{}, maxArgSize, maxRetSize int) error
 
 	// Stream opens a new data stream.
+	// Returns ErrConnect if a session connection attempt failed.
 	Stream(ctx context.Context, id string) (transport.Stream, error)
 }
 
@@ -67,7 +70,7 @@ type client struct {
 
 	sessionMx          sync.Mutex
 	session            *session
-	connectSessionChan chan chan *session
+	connectSessionChan chan chan interface{}
 }
 
 func New(opts *Options) (Client, error) {
@@ -82,7 +85,7 @@ func New(opts *Options) (Client, error) {
 		opts:               opts,
 		log:                opts.Log,
 		hooks:              opts.Hooks,
-		connectSessionChan: make(chan chan *session),
+		connectSessionChan: make(chan chan interface{}),
 	}
 	c.OnClose(c.hookClose)
 	c.startSessionRoutine()

@@ -29,6 +29,7 @@ package client
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/desertbit/orbit/internal/throttler"
@@ -58,7 +59,7 @@ func (c *client) connectedSession(ctx context.Context) (s *session, err error) {
 
 	var (
 		closingChan = c.ClosingChan()
-		retChan     = make(chan *session, 1)
+		retChan     = make(chan interface{}, 1)
 		ctxDone     = ctx.Done()
 	)
 
@@ -79,9 +80,14 @@ func (c *client) connectedSession(ctx context.Context) (s *session, err error) {
 	case <-ctxDone:
 		err = ctx.Err()
 		return
-	case s = <-retChan:
-		if s == nil {
-			err = ErrNoSession
+	case r := <-retChan:
+		switch v := r.(type) {
+		case *session:
+			s = v
+		case error:
+			err = v
+		default:
+			err = fmt.Errorf("invalid connected session return value")
 		}
 		return
 	}
@@ -112,8 +118,7 @@ Loop:
 			// Try to connect to session.
 			s, err := connectSession(c, c.opts)
 			if err != nil {
-				c.log.Error().Err(err).Msg("failed to connect client session")
-				r <- nil // Notify.
+				r <- fmt.Errorf("%w: %v", ErrConnect, err) // Notify.
 				continue Loop
 			}
 
