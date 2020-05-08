@@ -118,7 +118,7 @@ Loop:
 			// Try to connect to session.
 			s, err := connectSession(c, c.opts)
 			if err != nil {
-				r <- fmt.Errorf("connection attempt failed: %w", err) // Notify.
+				r <- fmt.Errorf("%w: %v", ErrConnect, err) // Notify.
 				continue Loop
 			}
 
