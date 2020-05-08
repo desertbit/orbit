@@ -67,7 +67,7 @@ type client struct {
 
 	sessionMx          sync.Mutex
 	session            *session
-	connectSessionChan chan chan *session
+	connectSessionChan chan chan interface{}
 }
 
 func New(opts *Options) (Client, error) {
@@ -82,7 +82,7 @@ func New(opts *Options) (Client, error) {
 		opts:               opts,
 		log:                opts.Log,
 		hooks:              opts.Hooks,
-		connectSessionChan: make(chan chan *session),
+		connectSessionChan: make(chan chan interface{}),
 	}
 	c.OnClose(c.hookClose)
 	c.startSessionRoutine()

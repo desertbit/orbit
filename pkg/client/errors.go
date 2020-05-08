@@ -32,7 +32,6 @@ import "errors"
 var (
 	ErrClosed         = errors.New("closed")
 	ErrNoData         = errors.New("no data available")
-	ErrNoSession      = errors.New("no session connected")
 	ErrInvalidVersion = errors.New("invalid version")
 	ErrCatchedPanic   = errors.New("catched panic")
 )
