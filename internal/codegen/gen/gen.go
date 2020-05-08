@@ -136,7 +136,7 @@ func Generate(orbitFile string, force bool) (err error) {
 				return
 			}
 		}
-		err = os.RemoveAll(filePathNoSuffix + genMsgpTestSuffix)
+		err = os.Remove(filePathNoSuffix + genMsgpTestSuffix)
 		if err != nil {
 			if os.IsNotExist(err) {
 				err = nil
