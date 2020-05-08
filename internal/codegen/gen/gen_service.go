@@ -160,6 +160,10 @@ func (g *generator) genServiceStruct(calls []*ast.Call, streams []*ast.Stream, e
 	g.writeLn("os, err := oservice.New(opts)")
 	g.errIfNil()
 	g.writeLn("srvc := &service{Service: os, h: h, codec: opts.Codec, maxArgSize: opts.MaxArgSize, maxRetSize:opts.MaxRetSize}")
+	// Ensure usage of service.
+	// See https://github.com/desertbit/orbit/issues/34
+	g.writeLn("// Ensure usage.")
+	g.writeLn("_ = srvc")
 	for _, c := range calls {
 		if c.Async {
 			g.writef("os.RegisterAsyncCall(%s, srvc.%s,", c.Name, c.NamePrv())
