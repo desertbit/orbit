@@ -110,6 +110,7 @@ type Arg {
     i int
     m map[string]int
     sl []time
+	dur duration
     st Ret
     crazy map[string][][]map[string]En1
 }
@@ -288,6 +289,7 @@ var (
 					},
 				},
 				{Name: "Sl", DataType: &ast.ArrType{Elem: &ast.BaseType{DataType: ast.TypeTime}}},
+				{Name: "Dur", DataType: &ast.BaseType{DataType: ast.TypeDuration}},
 				{Name: "St", DataType: &ast.AnyType{NamePrv: "Ret"}},
 				{
 					Name: "Crazy",
