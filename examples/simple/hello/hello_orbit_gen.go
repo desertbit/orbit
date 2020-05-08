@@ -405,6 +405,8 @@ func NewService(h ServiceHandler, opts *oservice.Options) (s Service, err error)
 		return
 	}
 	srvc := &service{Service: os, h: h, codec: opts.Codec, maxArgSize: opts.MaxArgSize, maxRetSize: opts.MaxRetSize}
+	// Ensure usage.
+	_ = srvc
 	os.RegisterCall(SayHi, srvc.sayHi, oservice.DefaultTimeout)
 	os.RegisterAsyncCall(Test, srvc.test, 500000000*time.Nanosecond, oservice.DefaultMaxSize, 10240)
 	os.RegisterStream(Lul, srvc.lul)

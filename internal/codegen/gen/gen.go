@@ -48,11 +48,12 @@ const (
 	dirPerm  = 0755
 	filePerm = 0666
 
-	cacheDir       = "orbit"
-	modTimesFile   = "mod_times"
-	orbitSuffix    = ".orbit"
-	genOrbitSuffix = "_orbit_gen.go"
-	genMsgpSuffix  = "_msgp_gen.go"
+	cacheDir          = "orbit"
+	modTimesFile      = "mod_times"
+	orbitSuffix       = ".orbit"
+	genOrbitSuffix    = "_orbit_gen.go"
+	genMsgpSuffix     = "_msgp_gen.go"
+	genMsgpTestSuffix = "_msgp_gen_test.go"
 
 	recv = "v1"
 )
@@ -99,7 +100,8 @@ func Generate(orbitFile string, force bool) (err error) {
 
 	// The name of the generated file is the same as the orbit file,
 	// buf with a different file ending.
-	ofp := strings.TrimSuffix(orbitFile, orbitSuffix) + genOrbitSuffix
+	filePathNoSuffix := strings.TrimSuffix(orbitFile, orbitSuffix)
+	ofp := filePathNoSuffix + genOrbitSuffix
 
 	// Generate the code into a single file.
 	pkgName := filepath.Base(filepath.Dir(orbitFile))
@@ -115,13 +117,32 @@ func Generate(orbitFile string, force bool) (err error) {
 	}
 
 	// Generate msgp code for it, if at least one type has been defined.
+	mfp := filePathNoSuffix + genMsgpSuffix
 	if len(tree.Types) > 0 {
-		err = execCmd("msgp", "-file", ofp, "-o", strings.TrimSuffix(orbitFile, orbitSuffix)+genMsgpSuffix)
+		err = execCmd("msgp", "-file", ofp, "-o", mfp)
 		if err != nil {
 			if errors.Is(err, exec.ErrNotFound) {
 				err = errors.New("msgp required to generate MessagePack code")
 			}
 			return
+		}
+	} else {
+		// Otherwise, ensure our old msgp files (including test) are deleted.
+		err = os.Remove(mfp)
+		if err != nil {
+			if os.IsNotExist(err) {
+				err = nil
+			} else {
+				return
+			}
+		}
+		err = os.RemoveAll(filePathNoSuffix + genMsgpTestSuffix)
+		if err != nil {
+			if os.IsNotExist(err) {
+				err = nil
+			} else {
+				return
+			}
 		}
 	}
 	return
