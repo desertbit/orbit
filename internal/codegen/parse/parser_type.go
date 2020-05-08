@@ -148,7 +148,7 @@ func (p *parser) expectDataType() (t ast.DataType, err error) {
 func (p *parser) checkBaseType() (b *ast.BaseType, ok bool) {
 	val := p.value()
 	switch val {
-	case ast.TypeByte, ast.TypeString, ast.TypeTime,
+	case ast.TypeByte, ast.TypeString, ast.TypeTime, ast.TypeDuration,
 		ast.TypeBool,
 		ast.TypeInt, ast.TypeInt8, ast.TypeInt16, ast.TypeInt32, ast.TypeInt64,
 		ast.TypeUInt, ast.TypeUInt8, ast.TypeUInt16, ast.TypeUInt32, ast.TypeUInt64,

@@ -32,9 +32,10 @@ import (
 )
 
 const (
-	TypeByte   = "byte"
-	TypeString = "string"
-	TypeTime   = "time"
+	TypeByte     = "byte"
+	TypeString   = "string"
+	TypeTime     = "time"
+	TypeDuration = "duration"
 
 	TypeBool = "bool"
 
@@ -70,23 +71,10 @@ func (b *BaseType) Decl() string {
 	if b.DataType == TypeTime {
 		return "time.Time"
 	}
-	return b.DataType
-}
-
-func (b *BaseType) ZeroValue() string {
-	switch b.DataType {
-	case TypeByte, TypeUInt, TypeUInt8, TypeUInt16, TypeUInt32, TypeUInt64,
-		TypeInt, TypeInt8, TypeInt16, TypeInt32, TypeInt64, TypeFloat32, TypeFloat64:
-		return "0"
-	case TypeString:
-		return `""`
-	case TypeBool:
-		return "false"
-	case TypeTime:
-		return "time.Time{}"
-	default:
-		return "unknown base type zero value"
+	if b.DataType == TypeDuration {
+		return "time.Duration"
 	}
+	return b.DataType
 }
 
 func (b *BaseType) Name() string {
