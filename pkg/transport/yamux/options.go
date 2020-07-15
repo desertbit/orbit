@@ -32,7 +32,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/hashicorp/yamux"
+	"github.com/desertbit/yamux"
 	"github.com/rs/zerolog"
 )
 

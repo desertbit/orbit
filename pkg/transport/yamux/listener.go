@@ -32,7 +32,7 @@ import (
 
 	"github.com/desertbit/closer/v3"
 	"github.com/desertbit/orbit/pkg/transport"
-	"github.com/hashicorp/yamux"
+	"github.com/desertbit/yamux"
 )
 
 var _ transport.Listener = &listener{}
