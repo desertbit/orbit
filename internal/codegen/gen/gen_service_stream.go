@@ -66,7 +66,7 @@ func (g *generator) genServiceClientStream(s *ast.Stream, errs []*ast.Error) {
 	} else {
 		g.write(" := ")
 	}
-	g.writefLn("%s.Stream(ctx, %s)", recv, s.Name)
+	g.writefLn("%s.Stream(ctx, StreamID%s)", recv, s.Name)
 	g.errIfNil()
 
 	if s.Arg != nil {

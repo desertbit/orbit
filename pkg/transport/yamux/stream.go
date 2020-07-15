@@ -28,9 +28,10 @@
 package yamux
 
 import (
+	"io"
+
 	"github.com/desertbit/orbit/pkg/transport"
-	"github.com/hashicorp/yamux"
-	"github.com/rs/zerolog/log"
+	"github.com/desertbit/yamux"
 )
 
 var _ transport.Stream = &stream{}
@@ -44,8 +45,14 @@ func newStream(s *yamux.Stream) *stream {
 }
 
 // Implements the transport.Stream interface.
-func (s *stream) IsClosed() bool {
-	// TODO: Fork the yamux package and implement it.
-	log.Warn().Msg("IsClosed() not implemented for yamux streams")
-	return false
+func (s *stream) Write(p []byte) (n int, err error) {
+	// Check for the close error code from a CancelRead peer call.
+	n, err = s.Stream.Write(p)
+	if err != nil {
+		if err == yamux.ErrStreamClosed || err == yamux.ErrConnectionReset {
+			err = io.EOF
+		}
+		return
+	}
+	return
 }

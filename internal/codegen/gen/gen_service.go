@@ -36,11 +36,11 @@ func (g *generator) genService(srvc *ast.Service, errs []*ast.Error) {
 	g.writeLn("// CallIDs")
 	g.writeLn("const (")
 	for _, c := range srvc.Calls {
-		g.writefLn("%s = \"%s\"", c.Name, c.Name)
+		g.writefLn("CallID%s = \"%s\"", c.Name, c.Name)
 	}
 	g.writeLn("// StreamIDs")
 	for _, s := range srvc.Streams {
-		g.writefLn("%s = \"%s\"", s.Name, s.Name)
+		g.writefLn("StreamID%s = \"%s\"", s.Name, s.Name)
 	}
 	g.writeLn(")")
 	g.writeLn("")
@@ -166,19 +166,19 @@ func (g *generator) genServiceStruct(calls []*ast.Call, streams []*ast.Stream, e
 	g.writeLn("_ = srvc")
 	for _, c := range calls {
 		if c.Async {
-			g.writef("os.RegisterAsyncCall(%s, srvc.%s,", c.Name, c.NamePrv())
+			g.writef("os.RegisterAsyncCall(CallID%s, srvc.%s,", c.Name, c.NamePrv())
 			g.writeTimeoutParam(c.Timeout)
 			g.writeCallMaxSizeParam(c.MaxArgSize, true)
 			g.writeCallMaxSizeParam(c.MaxRetSize, true)
 			g.writeLn(")")
 		} else {
-			g.writef("os.RegisterCall(%s, srvc.%s,", c.Name, c.NamePrv())
+			g.writef("os.RegisterCall(CallID%s, srvc.%s,", c.Name, c.NamePrv())
 			g.writeTimeoutParam(c.Timeout)
 			g.writeLn(")")
 		}
 	}
 	for _, s := range streams {
-		g.writefLn("os.RegisterStream(%s, srvc.%s)", s.Name, s.NamePrv())
+		g.writefLn("os.RegisterStream(StreamID%s, srvc.%s)", s.Name, s.NamePrv())
 	}
 	g.writeLn("s = os")
 	g.writeLn("return")
