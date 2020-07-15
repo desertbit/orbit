@@ -100,7 +100,7 @@ func main() {
 	if err != nil {
 		log.Fatalln(err)
 	}
-	for i := 0; i < 4; i++ {
+	for i := 0; i < 3; i++ {
 		err = barg.Write(hello.BidirectionalArg{Question: "What is the purpose of life?"})
 		if err != nil {
 			log.Fatalln(err)
@@ -116,6 +116,5 @@ func main() {
 	barg.Close_()
 	bret.Close_()
 
-	time.Sleep(time.Minute)
 	wg.Wait()
 }
