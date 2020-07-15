@@ -46,8 +46,14 @@ const (
 )
 
 type (
-	CallFunc func(ctx Context, arg []byte) (ret interface{}, err error)
+	CallFunc          func(ctx Context, arg []byte) (ret interface{}, err error)
+	StreamFunc        func(ctx Context, stream transport.Stream)
+	TypedRStreamFunc  func(ctx Context, stream TypedRStream) error
+	TypedWStreamFunc  func(ctx Context, stream TypedWStream) error
+	TypedRWStreamFunc func(ctx Context, stream TypedRWStream) error
+)
 
+type (
 	call struct {
 		f       CallFunc
 		timeout time.Duration
@@ -57,15 +63,8 @@ type (
 		maxArgSize int
 		maxRetSize int
 	}
-)
 
-type (
-	StreamFunc        func(ctx Context, stream transport.Stream)
-	TypedRStreamFunc  func(ctx Context)
-	TypedWStreamFunc  func(ctx Context)
-	TypedRWStreamFunc func(ctx Context)
-
-	streamType int
+	streamType uint8
 
 	stream struct {
 		typ        streamType
@@ -76,10 +75,10 @@ type (
 )
 
 const (
-	rawStream streamType = iota
-	typedRStream
-	typedWStream
-	typedRWStream
+	streamTypeRaw streamType = iota
+	streamTypeTR
+	streamTypeTW
+	streamTypeTRW
 )
 
 type Service interface {
@@ -224,7 +223,7 @@ func (s *service) RegisterAsyncCall(id string, f CallFunc, timeout time.Duration
 }
 
 func (s *service) RegisterStream(id string, f StreamFunc) {
-	s.streams[id] = stream{typ: rawStream, f: f}
+	s.streams[id] = stream{typ: streamTypeRaw, f: f}
 }
 
 func (s *service) RegisterTypedRStream(id string, f TypedRStreamFunc, maxRetSize int) {
@@ -233,7 +232,7 @@ func (s *service) RegisterTypedRStream(id string, f TypedRStreamFunc, maxRetSize
 		maxRetSize = s.opts.MaxRetSize
 	}
 
-	s.streams[id] = stream{typ: typedRStream, f: f, maxRetSize: maxRetSize}
+	s.streams[id] = stream{typ: streamTypeTR, f: f, maxRetSize: maxRetSize}
 }
 
 func (s *service) RegisterTypedWStream(id string, f TypedWStreamFunc, maxArgSize int) {
@@ -242,7 +241,7 @@ func (s *service) RegisterTypedWStream(id string, f TypedWStreamFunc, maxArgSize
 		maxArgSize = s.opts.MaxArgSize
 	}
 
-	s.streams[id] = stream{typ: typedWStream, f: f, maxArgSize: maxArgSize}
+	s.streams[id] = stream{typ: streamTypeTW, f: f, maxArgSize: maxArgSize}
 }
 
 func (s *service) RegisterTypedRWStream(id string, f TypedRWStreamFunc, maxArgSize, maxRetSize int) {
@@ -254,5 +253,5 @@ func (s *service) RegisterTypedRWStream(id string, f TypedRWStreamFunc, maxArgSi
 		maxRetSize = s.opts.MaxRetSize
 	}
 
-	s.streams[id] = stream{typ: typedRWStream, f: f, maxArgSize: maxArgSize, maxRetSize: maxRetSize}
+	s.streams[id] = stream{typ: streamTypeTRW, f: f, maxArgSize: maxArgSize, maxRetSize: maxRetSize}
 }

@@ -36,20 +36,34 @@ import (
 	"github.com/desertbit/orbit/pkg/transport"
 )
 
-type typedBiStream struct {
-	stream  transport.Stream
-	codec   codec.Codec
-	maxSize int
+type TypedRStream interface {
+	Read(data interface{}) error
 }
 
-func newBidirectionalStream(s transport.Stream, cc codec.Codec, ms int) *typedBiStream {
-	return &typedBiStream{stream: s, codec: cc, maxSize: ms}
+type TypedWStream interface {
+	Write(data interface{}) error
 }
 
-func (v1 *typedBiStream) Read(data interface{}) (err error) {
-	err = packet.ReadDecode(v1.stream, &data, v1.codec, v1.maxSize)
+type TypedRWStream interface {
+	TypedRStream
+	TypedWStream
+}
+
+type typedRWStream struct {
+	stream     transport.Stream
+	codec      codec.Codec
+	maxArgSize int
+	maxRetSize int
+}
+
+func newTypedRWStream(s transport.Stream, cc codec.Codec, mas, mrs int) *typedRWStream {
+	return &typedRWStream{stream: s, codec: cc, maxArgSize: mas, maxRetSize: mrs}
+}
+
+func (s *typedRWStream) Read(data interface{}) (err error) {
+	err = packet.ReadDecode(s.stream, &data, s.codec, s.maxRetSize)
 	if err != nil {
-		if errors.Is(err, packet.ErrZeroData) || errors.Is(err, io.EOF) || v1.stream.IsClosed() {
+		if errors.Is(err, packet.ErrZeroData) || errors.Is(err, io.EOF) || s.stream.IsClosed() {
 			err = ErrClosed
 		}
 		return
@@ -57,10 +71,10 @@ func (v1 *typedBiStream) Read(data interface{}) (err error) {
 	return
 }
 
-func (v1 *typedBiStream) Write(data interface{}) (err error) {
-	err = packet.WriteEncode(v1.stream, data, v1.codec, v1.maxSize)
+func (s *typedRWStream) Write(data interface{}) (err error) {
+	err = packet.WriteEncode(s.stream, data, s.codec, s.maxArgSize)
 	if err != nil {
-		if errors.Is(err, io.EOF) || v1.stream.IsClosed() {
+		if errors.Is(err, io.EOF) || s.stream.IsClosed() {
 			return ErrClosed
 		}
 	}
