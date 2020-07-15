@@ -1,33 +1,36 @@
 module github.com/desertbit/orbit
 
-go 1.13
+go 1.14
 
 require (
+	code.cloudfoundry.org/bytefmt v0.0.0-20200131002437-cf55d5288a48 // indirect
 	github.com/cloudfoundry/bytefmt v0.0.0-20200131002437-cf55d5288a48
-	github.com/davecgh/go-spew v1.1.1
-	github.com/desertbit/closer v2.0.1+incompatible
 	github.com/desertbit/closer/v3 v3.1.2
-	github.com/desertbit/grumble v1.0.4
+	github.com/desertbit/grumble v1.0.6
+	github.com/desertbit/yamux v1.0.0
 	github.com/fatih/color v1.9.0 // indirect
-	github.com/go-log/log v0.2.0 // indirect
-	github.com/go-playground/validator/v10 v10.2.0
-	github.com/golang/protobuf v1.3.5 // indirect
-	github.com/hashicorp/yamux v0.0.0-20190923154419-df201c70410d
-	github.com/lucas-clemente/quic-go v0.15.2
-	github.com/mattn/go-isatty v0.0.12 // indirect
-	github.com/micro/go-micro v1.18.0
-	github.com/miekg/dns v1.1.29 // indirect
+	github.com/go-playground/validator/v10 v10.3.0
+	github.com/golang/mock v1.4.3 // indirect
+	github.com/hashicorp/go-multierror v1.1.0 // indirect
+	github.com/hashicorp/yamux v0.0.0-20200609203250-aecfd211c9ce
+	github.com/kr/text v0.2.0 // indirect
+	github.com/lucas-clemente/quic-go v0.17.3
+	github.com/marten-seemann/qtls v0.10.0 // indirect
+	github.com/mattn/go-colorable v0.1.7 // indirect
+	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect
+	github.com/onsi/ginkgo v1.14.0 // indirect
 	github.com/philhofer/fwd v1.0.0 // indirect
-	github.com/pkg/errors v0.9.1 // indirect
-	github.com/rs/zerolog v1.18.0
-	github.com/spf13/viper v1.6.2
-	github.com/stretchr/testify v1.5.1
+	github.com/rs/zerolog v1.19.0
+	github.com/stretchr/testify v1.6.1
 	github.com/tinylib/msgp v1.1.2
 	github.com/vmihailenco/msgpack v4.0.4+incompatible // indirect
-	golang.org/x/crypto v0.0.0-20200323165209-0ec3e9974c59
-	golang.org/x/net v0.0.0-20200324143707-d3edc9973b7e // indirect
-	google.golang.org/appengine v1.6.5 // indirect
+	golang.org/x/crypto v0.0.0-20200709230013-948cd5f35899 // indirect
+	golang.org/x/net v0.0.0-20200707034311-ab3426394381 // indirect
+	golang.org/x/sys v0.0.0-20200625212154-ddb9806d33ae // indirect
+	golang.org/x/text v0.3.3 // indirect
+	google.golang.org/appengine v1.6.6 // indirect
+	google.golang.org/protobuf v1.25.0 // indirect
+	gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f // indirect
 	gopkg.in/vmihailenco/msgpack.v3 v3.3.3
-	gopkg.in/yaml.v2 v2.2.8 // indirect
-	gopkg.in/yaml.v3 v3.0.0-20200121175148-a6ecf24a6d71
+	gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776
 )

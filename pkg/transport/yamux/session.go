@@ -35,7 +35,7 @@ import (
 
 	"github.com/desertbit/closer/v3"
 	"github.com/desertbit/orbit/pkg/transport"
-	"github.com/hashicorp/yamux"
+	"github.com/desertbit/yamux"
 )
 
 var _ transport.Conn = &session{}
@@ -76,7 +76,7 @@ func newSession(cl closer.Closer, conn net.Conn, isServer bool, conf *yamux.Conf
 	go func() {
 		select {
 		case <-s.ClosingChan():
-		case <-s.ys.CloseChan():
+		case <-s.ys.ClosedChan():
 		}
 		s.Close_()
 	}()
