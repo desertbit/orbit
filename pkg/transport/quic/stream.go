@@ -109,3 +109,8 @@ func (s *stream) IsClosed() bool {
 		return false
 	}
 }
+
+// Implements the transport.Stream interface.
+func (s *stream) ClosedChan() <-chan struct{} {
+	return s.Context().Done()
+}
