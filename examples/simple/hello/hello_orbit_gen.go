@@ -577,6 +577,8 @@ func (v1 *service) timeStream(ctx oservice.Context, stream transport.Stream) {
 func (v1 *service) clockTime(ctx oservice.Context, stream transport.Stream) {
 	defer stream.Close()
 	ret := newClockTimeRetWriteStream(stream, v1.codec, v1.maxRetSize)
+	// Service has a write stream, therefore, ensure to send the zero packet
+	// once the handler is done to inform the remote reader side of the writer-close.
 	defer func() { _ = packet.Write(stream, nil, 0) }()
 	v1.h.ClockTime(ctx, ret)
 }
@@ -585,6 +587,8 @@ func (v1 *service) bidirectional(ctx oservice.Context, stream transport.Stream) 
 	defer stream.Close()
 	arg := newBidirectionalArgReadStream(stream, v1.codec, v1.maxArgSize)
 	ret := newBidirectionalRetWriteStream(stream, v1.codec, v1.maxRetSize)
+	// Service has a write stream, therefore, ensure to send the zero packet
+	// once the handler is done to inform the remote reader side of the writer-close.
 	defer func() { _ = packet.Write(stream, nil, 0) }()
 	v1.h.Bidirectional(ctx, arg, ret)
 }
