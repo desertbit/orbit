@@ -33,6 +33,10 @@ import (
 	"github.com/desertbit/orbit/internal/codegen/ast"
 )
 
+const (
+	streamErrCode = "_streamErrCode"
+)
+
 func (g *generator) genTypes(ts []*ast.Type, srvc *ast.Service) {
 	// Sort the types in alphabetical order.
 	sort.Slice(ts, func(i, j int) bool {
@@ -52,9 +56,23 @@ func (g *generator) genTypes(ts []*ast.Type, srvc *ast.Service) {
 		g.writeLn("")
 	}
 
+	// We want to send our orbit Errors over the wire with orbit-managed streams.
+	// Therefore, we must build a struct containing both the error and the code.
+	// But, only generate this struct if we have at least one such stream.
+	var generatedErrStruct bool
+
 	// Generate a stream type for every stream arg or ret, but only once!
 	genStreams := make(map[string]struct{})
 	for _, s := range srvc.Streams {
+		if s.Arg == nil && s.Ret == nil {
+			continue
+		}
+
+		if !generatedErrStruct {
+			generatedErrStruct = true
+			g.genStreamErrStruct()
+		}
+
 		if s.Arg != nil {
 			if _, ok := genStreams[s.Arg.Name()]; !ok {
 				genStreams[s.Arg.Name()] = struct{}{}
@@ -71,6 +89,14 @@ func (g *generator) genTypes(ts []*ast.Type, srvc *ast.Service) {
 			}
 		}
 	}
+}
+
+func (g *generator) genStreamErrStruct() {
+	// Generate a struct representing an orbit error.
+	g.writefLn("type %s struct {", streamErrCode)
+	g.writeLn("Err string")
+	g.writeLn("Code int")
+	g.writeLn("}")
 }
 
 func (g *generator) genReadStreamType(dt ast.DataType) {
