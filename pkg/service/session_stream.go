@@ -28,6 +28,8 @@
 package service
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -127,8 +129,7 @@ func (s *session) handleNewStream(stream transport.Stream) (err error) {
 			return
 		}
 
-		// Call the handler function for the stream.
-		return s.handler.handleStream(s, header.ID, header.Data, stream)
+		return s.handleRawStream(header.ID, header.Data, stream)
 
 	case api.StreamTypeAsyncCall:
 		// Read the header from the stream.
@@ -157,5 +158,60 @@ func (s *session) handleNewStream(stream transport.Stream) (err error) {
 
 	default:
 		return fmt.Errorf("invalid stream type: %v", streamType)
+	}
+}
+
+func (s *session) handleRawStream(id string, data map[string][]byte, stream transport.Stream) (err error) {
+	// Get the stream.
+	str, err := s.handler.getStream(id)
+	if err != nil {
+		return
+	}
+
+	// Create the service context.
+	sctx := newContext(context.Background(), s, data)
+
+	// Call the OnStream hooks.
+	err = s.handler.hookOnStream(sctx, id)
+	if err != nil {
+		return fmt.Errorf("stream %s: %w", id, err)
+	}
+
+	if str.typ == streamTypeRaw {
+		go func() {
+			// Wait, until the stream is closed.
+			select {
+			case <-stream.ClosedChan():
+			case <-s.ClosingChan():
+			}
+
+			// Call OnStreamClosed hooks.
+			s.handler.hookOnStreamClosed(sctx, id, nil)
+		}()
+
+		s.handler.handleRawStream(sctx, str.f.(RawStreamFunc), stream)
+		return
+	}
+
+	err = s.handler.handleTypedStream(sctx, str, stream)
+	if err != nil {
+		// Check, if an orbit error was returned.
+		var oErr Error
+		if errors.As(err, &oErr) {
+			retHeader.ErrCode = oErr.Code()
+			retHeader.Err = oErr.Msg()
+		}
+
+		// Ensure an error message is always set.
+		if retHeader.Err == "" {
+			if s.sendInternalErrors {
+				retHeader.Err = err.Error()
+			} else {
+				retHeader.Err = fmt.Sprintf("%s call failed", h.ID)
+			}
+		}
+
+		// Reset the error, because we handled it already and the result should be send to the caller.
+		err = nil
 	}
 }
