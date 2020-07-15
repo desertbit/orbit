@@ -96,5 +96,26 @@ func main() {
 		fmt.Printf("ClockTime: %s\n", arg.Ts.String())
 	}
 
+	barg, bret, err := c.Bidirectional(context.Background())
+	if err != nil {
+		log.Fatalln(err)
+	}
+	for i := 0; i < 4; i++ {
+		err = barg.Write(hello.BidirectionalArg{Question: "What is the purpose of life?"})
+		if err != nil {
+			log.Fatalln(err)
+		}
+
+		answer, err := bret.Read()
+		if err != nil {
+			log.Fatalln(err)
+		}
+
+		fmt.Printf("Answer: %s\n", answer.Answer)
+	}
+	barg.Close_()
+	bret.Close_()
+
+	time.Sleep(time.Minute)
 	wg.Wait()
 }

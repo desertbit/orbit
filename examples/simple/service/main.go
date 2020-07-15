@@ -128,3 +128,21 @@ func (s *ServiceHandler) Lul(ctx service.Context, stream transport.Stream) {
 func (s *ServiceHandler) TimeStream(ctx service.Context, arg *hello.InfoReadStream) {
 	panic("implement me")
 }
+
+func (s *ServiceHandler) Bidirectional(ctx service.Context, arg *hello.BidirectionalArgReadStream, ret *hello.BidirectionalRetWriteStream) {
+	for i := 0; i < 3; i++ {
+		a, err := arg.Read()
+		if err != nil {
+			fmt.Printf("ERROR handler.Bidirectional read: %v\n", err)
+			return
+		}
+
+		fmt.Printf("Question: %s?\n", a.Question)
+
+		err = ret.Write(hello.BidirectionalRet{Answer: "42"})
+		if err != nil {
+			fmt.Printf("ERROR handler.Bidirectional write: %v\n", err)
+			return
+		}
+	}
+}
