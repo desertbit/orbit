@@ -47,7 +47,7 @@ const (
 
 type (
 	CallFunc          func(ctx Context, arg []byte) (ret interface{}, err error)
-	StreamFunc        func(ctx Context, stream transport.Stream)
+	RawStreamFunc     func(ctx Context, stream transport.Stream)
 	TypedRStreamFunc  func(ctx Context, stream TypedRStream) error
 	TypedWStreamFunc  func(ctx Context, stream TypedWStream) error
 	TypedRWStreamFunc func(ctx Context, stream TypedRWStream) error
@@ -101,7 +101,7 @@ type Service interface {
 
 	// RegisterStream registers the callback for the incoming stream specified by the id.
 	// Do not call after Run() was called.
-	RegisterStream(id string, f StreamFunc)
+	RegisterStream(id string, f RawStreamFunc)
 
 	// RegisterTypedRStream registers the callback for the incoming typed read stream
 	// specified by the id.
@@ -236,7 +236,7 @@ func (s *service) RegisterAsyncCall(id string, f CallFunc, timeout time.Duration
 	}
 }
 
-func (s *service) RegisterStream(id string, f StreamFunc) {
+func (s *service) RegisterStream(id string, f RawStreamFunc) {
 	s.streams[id] = stream{typ: streamTypeRaw, f: f}
 }
 
