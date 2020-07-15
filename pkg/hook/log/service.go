@@ -160,7 +160,7 @@ func (c *serviceHook) OnStreamClosed(ctx service.Context, id string, err error) 
 			Str("sessionID", s.ID()).
 			Str("localAddr", s.LocalAddr().String()).
 			Str("remoteAddr", s.RemoteAddr().String()).
-			Msg("stream done")
+			Msg("stream closed")
 		return
 	}
 

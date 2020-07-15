@@ -59,6 +59,21 @@ type Client interface {
 	// Stream opens a new data stream.
 	// Returns ErrConnect if a session connection attempt failed.
 	Stream(ctx context.Context, id string) (transport.Stream, error)
+
+	// TypedRStream opens a new typed read stream.
+	// Returns ErrConnect if a session connection attempt failed.
+	// See AsyncCall() for the usage of maxArgSize & maxRetSize.
+	TypedRStream(ctx context.Context, id string, maxRetSize int) (TypedRStream, error)
+
+	// TypedWStream opens a new typed write stream.
+	// Returns ErrConnect if a session connection attempt failed.
+	// See AsyncCall() for the usage of maxArgSize & maxRetSize.
+	TypedWStream(ctx context.Context, id string, maxArgSize int) (TypedWStream, error)
+
+	// TypedRWStream opens a new typed read-write stream.
+	// Returns ErrConnect if a session connection attempt failed.
+	// See AsyncCall() for the usage of maxArgSize & maxRetSize.
+	TypedRWStream(ctx context.Context, id string, maxArgSize, maxRetSize int) (TypedRWStream, error)
 }
 
 type client struct {
@@ -132,4 +147,35 @@ func (c *client) Stream(ctx context.Context, id string) (transport.Stream, error
 	}
 
 	return s.OpenStream(ctx, id)
+}
+
+func (c *client) TypedRStream(ctx context.Context, id string, maxRetSize int) (TypedRStream, error) {
+	return c.openTypedStream(ctx, id, 0, maxRetSize)
+}
+
+func (c *client) TypedWStream(ctx context.Context, id string, maxArgSize int) (TypedWStream, error) {
+	return c.openTypedStream(ctx, id, maxArgSize, 0)
+}
+
+func (c *client) TypedRWStream(ctx context.Context, id string, maxArgSize, maxRetSize int) (TypedRWStream, error) {
+	return c.openTypedStream(ctx, id, maxArgSize, maxRetSize)
+}
+
+func (c *client) openTypedStream(ctx context.Context, id string, maxArgSize, maxRetSize int) (TypedRWStream, error) {
+	if c.IsClosing() {
+		return nil, ErrClosed
+	}
+
+	// Get the connected session or trigger a connect attempt.
+	s, err := c.connectedSession(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get connected session: %w", err)
+	}
+
+	stream, err := s.OpenStream(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	return newTypedRWStream(stream, s.codec, maxArgSize, maxRetSize), nil
 }
