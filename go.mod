@@ -12,7 +12,6 @@ require (
 	github.com/go-playground/validator/v10 v10.3.0
 	github.com/golang/mock v1.4.3 // indirect
 	github.com/hashicorp/go-multierror v1.1.0 // indirect
-	github.com/hashicorp/yamux v0.0.0-20200609203250-aecfd211c9ce
 	github.com/kr/text v0.2.0 // indirect
 	github.com/lucas-clemente/quic-go v0.17.3
 	github.com/marten-seemann/qtls v0.10.0 // indirect
