@@ -72,7 +72,7 @@ func (g *generator) genServiceClientCall(c *ast.Call, errs []*ast.Error) {
 	}
 	g.write("Call")
 
-	g.writef("(ctx, %s, ", c.Name)
+	g.writef("(ctx, CallID%s, ", c.Name)
 	// Arg.
 	if c.Arg != nil {
 		g.write("arg,")

@@ -353,13 +353,13 @@ const (
 
 // CallIDs
 const (
-	SayHi = "SayHi"
-	Test  = "Test"
+	CallIDSayHi = "SayHi"
+	CallIDTest  = "Test"
 	// StreamIDs
-	Lul           = "Lul"
-	TimeStream    = "TimeStream"
-	ClockTime     = "ClockTime"
-	Bidirectional = "Bidirectional"
+	StreamIDLul           = "Lul"
+	StreamIDTimeStream    = "TimeStream"
+	StreamIDClockTime     = "ClockTime"
+	StreamIDBidirectional = "Bidirectional"
 )
 
 type Client interface {
@@ -414,7 +414,7 @@ func (v1 *client) SayHi(ctx context.Context, arg SayHiArg) (ret SayHiRet, err er
 		ctx, cancel = context.WithTimeout(ctx, v1.callTimeout)
 		defer cancel()
 	}
-	err = v1.Call(ctx, SayHi, arg, &ret)
+	err = v1.Call(ctx, CallIDSayHi, arg, &ret)
 	if err != nil {
 		err = _clientErrorCheck(err)
 		return
@@ -430,7 +430,7 @@ func (v1 *client) SayHi(ctx context.Context, arg SayHiArg) (ret SayHiRet, err er
 func (v1 *client) Test(ctx context.Context, arg TestArg) (ret TestRet, err error) {
 	ctx, cancel := context.WithTimeout(ctx, 500000000*time.Nanosecond)
 	defer cancel()
-	err = v1.AsyncCall(ctx, Test, arg, &ret, oclient.DefaultMaxSize, 10240)
+	err = v1.AsyncCall(ctx, CallIDTest, arg, &ret, oclient.DefaultMaxSize, 10240)
 	if err != nil {
 		err = _clientErrorCheck(err)
 		return
@@ -449,7 +449,7 @@ func (v1 *client) Lul(ctx context.Context) (stream transport.Stream, err error) 
 		ctx, cancel = context.WithTimeout(ctx, v1.streamInitTimeout)
 		defer cancel()
 	}
-	stream, err = v1.Stream(ctx, Lul)
+	stream, err = v1.Stream(ctx, StreamIDLul)
 	if err != nil {
 		return
 	}
@@ -462,7 +462,7 @@ func (v1 *client) TimeStream(ctx context.Context) (arg *InfoWriteStream, err err
 		ctx, cancel = context.WithTimeout(ctx, v1.streamInitTimeout)
 		defer cancel()
 	}
-	stream, err := v1.Stream(ctx, TimeStream)
+	stream, err := v1.Stream(ctx, StreamIDTimeStream)
 	if err != nil {
 		return
 	}
@@ -476,7 +476,7 @@ func (v1 *client) ClockTime(ctx context.Context) (ret *ClockTimeRetReadStream, e
 		ctx, cancel = context.WithTimeout(ctx, v1.streamInitTimeout)
 		defer cancel()
 	}
-	stream, err := v1.Stream(ctx, ClockTime)
+	stream, err := v1.Stream(ctx, StreamIDClockTime)
 	if err != nil {
 		return
 	}
@@ -490,7 +490,7 @@ func (v1 *client) Bidirectional(ctx context.Context) (arg *BidirectionalArgWrite
 		ctx, cancel = context.WithTimeout(ctx, v1.streamInitTimeout)
 		defer cancel()
 	}
-	stream, err := v1.Stream(ctx, Bidirectional)
+	stream, err := v1.Stream(ctx, StreamIDBidirectional)
 	if err != nil {
 		return
 	}
@@ -515,12 +515,12 @@ func NewService(h ServiceHandler, opts *oservice.Options) (s Service, err error)
 	srvc := &service{Service: os, h: h, codec: opts.Codec, maxArgSize: opts.MaxArgSize, maxRetSize: opts.MaxRetSize}
 	// Ensure usage.
 	_ = srvc
-	os.RegisterCall(SayHi, srvc.sayHi, oservice.DefaultTimeout)
-	os.RegisterAsyncCall(Test, srvc.test, 500000000*time.Nanosecond, oservice.DefaultMaxSize, 10240)
-	os.RegisterStream(Lul, srvc.lul)
-	os.RegisterStream(TimeStream, srvc.timeStream)
-	os.RegisterStream(ClockTime, srvc.clockTime)
-	os.RegisterStream(Bidirectional, srvc.bidirectional)
+	os.RegisterCall(CallIDSayHi, srvc.sayHi, oservice.DefaultTimeout)
+	os.RegisterAsyncCall(CallIDTest, srvc.test, 500000000*time.Nanosecond, oservice.DefaultMaxSize, 10240)
+	os.RegisterStream(StreamIDLul, srvc.lul)
+	os.RegisterStream(StreamIDTimeStream, srvc.timeStream)
+	os.RegisterStream(StreamIDClockTime, srvc.clockTime)
+	os.RegisterStream(StreamIDBidirectional, srvc.bidirectional)
 	s = os
 	return
 }
