@@ -46,8 +46,7 @@ const (
 )
 
 type (
-	CallFunc   func(ctx Context, arg []byte) (ret interface{}, err error)
-	StreamFunc func(ctx Context, stream transport.Stream)
+	CallFunc func(ctx Context, arg []byte) (ret interface{}, err error)
 
 	call struct {
 		f       CallFunc
@@ -60,6 +59,29 @@ type (
 	}
 )
 
+type (
+	StreamFunc        func(ctx Context, stream transport.Stream)
+	TypedRStreamFunc  func(ctx Context)
+	TypedWStreamFunc  func(ctx Context)
+	TypedRWStreamFunc func(ctx Context)
+
+	streamType int
+
+	stream struct {
+		typ        streamType
+		f          interface{} // One of the above stream funcs.
+		maxArgSize int
+		maxRetSize int
+	}
+)
+
+const (
+	rawStream streamType = iota
+	typedRStream
+	typedWStream
+	typedRWStream
+)
+
 type Service interface {
 	closer.Closer
 
@@ -69,7 +91,7 @@ type Service interface {
 	// Set timeout to NoTimeout for not timeout.
 	RegisterCall(id string, f CallFunc, timeout time.Duration)
 
-	// RegisterAsyncCall registers an asynchonous call using its own stream.
+	// RegisterAsyncCall registers an asynchronous call using its own stream.
 	// Do not call after Run() was called.
 	// Set timeout to DefaultTimeout for the default timeout.
 	// Set timeout to NoTimeout for not timeout.
@@ -82,7 +104,11 @@ type Service interface {
 	// Do not call after Run() was called.
 	RegisterStream(id string, f StreamFunc)
 
-	// Run the service and start acceping requests.
+	RegisterTypedRStream(id string, f TypedRStreamFunc, maxRetSize int)
+	RegisterTypedWStream(id string, f TypedWStreamFunc, maxArgSize int)
+	RegisterTypedRWStream(id string, f TypedRWStreamFunc, maxArgSize, maxRetSize int)
+
+	// Run the service and start accepting requests.
 	Run() error
 }
 
@@ -99,7 +125,7 @@ type service struct {
 	sessionsMx sync.RWMutex
 	sessions   map[string]*session
 
-	streamFuncs   map[string]StreamFunc       // Key: streamID
+	streams       map[string]stream           // Key: streamID
 	calls         map[string]call             // Key: callID
 	asyncCallOpts map[string]asyncCallOptions // Key: callID
 }
@@ -119,7 +145,7 @@ func New(opts *Options) (Service, error) {
 		hooks:         opts.Hooks,
 		newConnChan:   make(chan transport.Conn, opts.AcceptConnWorkers),
 		sessions:      make(map[string]*session),
-		streamFuncs:   make(map[string]StreamFunc),
+		streams:       make(map[string]stream),
 		calls:         make(map[string]call),
 		asyncCallOpts: make(map[string]asyncCallOptions),
 	}
@@ -198,5 +224,35 @@ func (s *service) RegisterAsyncCall(id string, f CallFunc, timeout time.Duration
 }
 
 func (s *service) RegisterStream(id string, f StreamFunc) {
-	s.streamFuncs[id] = f
+	s.streams[id] = stream{typ: rawStream, f: f}
+}
+
+func (s *service) RegisterTypedRStream(id string, f TypedRStreamFunc, maxRetSize int) {
+	// Use default options if required.
+	if maxRetSize == DefaultMaxSize {
+		maxRetSize = s.opts.MaxRetSize
+	}
+
+	s.streams[id] = stream{typ: typedRStream, f: f, maxRetSize: maxRetSize}
+}
+
+func (s *service) RegisterTypedWStream(id string, f TypedWStreamFunc, maxArgSize int) {
+	// Use default options if required.
+	if maxArgSize == DefaultMaxSize {
+		maxArgSize = s.opts.MaxArgSize
+	}
+
+	s.streams[id] = stream{typ: typedWStream, f: f, maxArgSize: maxArgSize}
+}
+
+func (s *service) RegisterTypedRWStream(id string, f TypedRWStreamFunc, maxArgSize, maxRetSize int) {
+	// Use default options if required.
+	if maxArgSize == DefaultMaxSize {
+		maxArgSize = s.opts.MaxArgSize
+	}
+	if maxRetSize == DefaultMaxSize {
+		maxRetSize = s.opts.MaxRetSize
+	}
+
+	s.streams[id] = stream{typ: typedRWStream, f: f, maxArgSize: maxArgSize, maxRetSize: maxRetSize}
 }

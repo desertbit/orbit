@@ -84,7 +84,7 @@ func (s *service) handleStream(session Session, id string, data map[string][]byt
 	}()
 
 	// Obtain the stream handler function.
-	f, ok := s.streamFuncs[id]
+	f, ok := s.streams[id]
 	if !ok {
 		return fmt.Errorf("stream handler '%s' does not exist", id)
 	}

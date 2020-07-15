@@ -36,17 +36,17 @@ import (
 	"github.com/desertbit/orbit/pkg/transport"
 )
 
-type bidirectionalStream struct {
+type typedBiStream struct {
 	stream  transport.Stream
 	codec   codec.Codec
 	maxSize int
 }
 
-func newBidirectionalStream(s transport.Stream, cc codec.Codec, ms int) *bidirectionalStream {
-	return &bidirectionalStream{stream: s, codec: cc, maxSize: ms}
+func newBidirectionalStream(s transport.Stream, cc codec.Codec, ms int) *typedBiStream {
+	return &typedBiStream{stream: s, codec: cc, maxSize: ms}
 }
 
-func (v1 *bidirectionalStream) Read(data interface{}) (err error) {
+func (v1 *typedBiStream) Read(data interface{}) (err error) {
 	err = packet.ReadDecode(v1.stream, &data, v1.codec, v1.maxSize)
 	if err != nil {
 		if errors.Is(err, packet.ErrZeroData) || errors.Is(err, io.EOF) || v1.stream.IsClosed() {
@@ -57,7 +57,7 @@ func (v1 *bidirectionalStream) Read(data interface{}) (err error) {
 	return
 }
 
-func (v1 *bidirectionalStream) Write(data interface{}) (err error) {
+func (v1 *typedBiStream) Write(data interface{}) (err error) {
 	err = packet.WriteEncode(v1.stream, data, v1.codec, v1.maxSize)
 	if err != nil {
 		if errors.Is(err, io.EOF) || v1.stream.IsClosed() {
