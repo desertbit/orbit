@@ -56,6 +56,16 @@ func newStream(qs quic.Stream, la, ra net.Addr) *stream {
 }
 
 // Implements the transport.Stream interface.
+func (s *stream) LocalAddr() net.Addr {
+	return s.la
+}
+
+// Implements the transport.Stream interface.
+func (s *stream) RemoteAddr() net.Addr {
+	return s.ra
+}
+
+// Implements the transport.Stream interface.
 func (s *stream) Read(b []byte) (n int, err error) {
 	// We want the quic.Stream to behave like a net.Conn.
 	// Since the quic.Stream implements the io.Reader interface, it may return
@@ -71,13 +81,23 @@ func (s *stream) Read(b []byte) (n int, err error) {
 }
 
 // Implements the transport.Stream interface.
-func (s *stream) LocalAddr() net.Addr {
-	return s.la
+func (s *stream) Write(p []byte) (n int, err error) {
+	// Check for the close error code from a CancelRead peer call.
+	n, err = s.Stream.Write(p)
+	if err != nil {
+		if sErr, ok := err.(quic.StreamError); ok && sErr.ErrorCode() == errorCodeClose {
+			err = io.EOF
+		}
+		return
+	}
+	return
 }
 
 // Implements the transport.Stream interface.
-func (s *stream) RemoteAddr() net.Addr {
-	return s.ra
+func (s *stream) Close() error {
+	// Close the peer's writer, because Stream.Close does only a one way close.
+	s.Stream.CancelRead(errorCodeClose)
+	return s.Stream.Close()
 }
 
 // Implements the transport.Stream interface.
@@ -88,4 +108,9 @@ func (s *stream) IsClosed() bool {
 	default:
 		return false
 	}
+}
+
+// Implements the transport.Stream interface.
+func (s *stream) ClosedChan() <-chan struct{} {
+	return s.Context().Done()
 }

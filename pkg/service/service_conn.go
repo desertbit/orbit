@@ -92,12 +92,6 @@ func (s *service) handleNewConn(conn transport.Conn) (err error) {
 		return fmt.Errorf("closed new session with duplicate session ID: %s", id)
 	}
 
-	// TODO: use a hooker wrapper.
-	// Call the hooks.
-	/*for _, h := range s.hooks {
-		h.OnNewSession(sn)
-	}*/
-
 	// Remove the session from the session map, once it closes.
 	sn.OnClosing(func() error {
 		// Speed up the closing process if the server closes.
