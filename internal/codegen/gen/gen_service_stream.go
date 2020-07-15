@@ -126,6 +126,8 @@ func (g *generator) genServiceHandlerStream(s *ast.Stream, errs []*ast.Error) {
 		g.writePacketMaxSizeParam(s.MaxRetSize, fmt.Sprintf("%s.maxRetSize", recv))
 		g.writeLn(")")
 		// Ensure, the zero package is sent to the other side.
+		g.writeLn("// Service has a write stream, therefore, ensure to send the zero packet")
+		g.writeLn("// once the handler is done to inform the remote reader side of the writer-close.")
 		g.writeLn("defer func() { _ = packet.Write(stream, nil, 0) }()")
 	}
 
