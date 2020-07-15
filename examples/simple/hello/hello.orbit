@@ -40,6 +40,15 @@ service {
             ts time `validate:"required"`
         }
     }
+
+    stream bidirectional {
+        arg: {
+            question string
+        }
+        ret: {
+            answer string
+        }
+    }
 }
 
 type info {

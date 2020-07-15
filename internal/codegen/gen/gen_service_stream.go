@@ -73,31 +73,12 @@ func (g *generator) genServiceClientStream(s *ast.Stream, errs []*ast.Error) {
 		g.writef("arg = new%sWriteStream(%s.CloserOneWay(), stream, %s.codec,", s.Arg.Name(), recv, recv)
 		g.writePacketMaxSizeParam(s.MaxArgSize, fmt.Sprintf("%s.maxArgSize", recv))
 		g.writeLn(")")
-
-		// Close unidirectional stream immediately.
-		if s.Ret == nil {
-			g.writeLn("arg.OnClosing(stream.Close)")
-		}
 	}
 
 	if s.Ret != nil {
 		g.writef("ret = new%sReadStream(%s.CloserOneWay(), stream, %s.codec,", s.Ret.Name(), recv, recv)
 		g.writePacketMaxSizeParam(s.MaxRetSize, fmt.Sprintf("%s.maxRetSize", recv))
 		g.writeLn(")")
-
-		// Close unidirectional stream immediately.
-		if s.Arg == nil {
-			g.writeLn("ret.OnClosing(stream.Close)")
-		}
-	}
-
-	// For a bidirectional stream, we need a new goroutine.
-	if s.Arg != nil && s.Ret != nil {
-		g.writeLn("go func() {")
-		g.writeLn("<-arg.ClosedChan()")
-		g.writeLn("<-ret.ClosedChan()")
-		g.writeLn("_ = stream.Close()")
-		g.writeLn("}()")
 	}
 
 	g.writeLn("return")
@@ -128,37 +109,26 @@ func (g *generator) genServiceHandlerStream(s *ast.Stream, errs []*ast.Error) {
 		return
 	}
 
+	// We have an orbit-managed stream now.
+	// Close the stream, as soon as the handler is done.
+	g.writeLn("defer stream.Close()")
+
 	handlerArgs := "ctx,"
 	if s.Arg != nil {
 		handlerArgs += "arg,"
-		g.writef("arg := new%sReadStream(%s.CloserOneWay(), stream, %s.codec,", s.Arg.Name(), recv, recv)
+		g.writef("arg := new%sReadStream(stream, %s.codec,", s.Arg.Name(), recv)
 		g.writePacketMaxSizeParam(s.MaxArgSize, fmt.Sprintf("%s.maxArgSize", recv))
 		g.writeLn(")")
-
-		// Close unidirectional stream immediately.
-		if s.Ret == nil {
-			g.writeLn("arg.OnClosing(stream.Close)")
-		}
 	}
 	if s.Ret != nil {
 		handlerArgs += "ret,"
-		g.writef("ret := new%sWriteStream(%s.CloserOneWay(), stream, %s.codec,", s.Ret.Name(), recv, recv)
+		g.writef("ret := new%sWriteStream(stream, %s.codec,", s.Ret.Name(), recv)
 		g.writePacketMaxSizeParam(s.MaxRetSize, fmt.Sprintf("%s.maxRetSize", recv))
 		g.writeLn(")")
-
-		// Close unidirectional stream immediately.
-		if s.Arg == nil {
-			g.writeLn("ret.OnClosing(stream.Close)")
-		}
-	}
-
-	// For a bidirectional stream, we need a new goroutine.
-	if s.Arg != nil && s.Ret != nil {
-		g.writeLn("go func() {")
-		g.writeLn("<-arg.ClosedChan()")
-		g.writeLn("<-ret.ClosedChan()")
-		g.writeLn("_ = stream.Close()")
-		g.writeLn("}()")
+		// Ensure, the zero package is sent to the other side.
+		g.writeLn("// Service has a write stream, therefore, ensure to send the zero packet")
+		g.writeLn("// once the handler is done to inform the remote reader side of the writer-close.")
+		g.writeLn("defer func() { _ = packet.Write(stream, nil, 0) }()")
 	}
 
 	g.writefLn("%s.h.%s(%s)", recv, s.Name, handlerArgs)
