@@ -223,3 +223,6 @@ The status code used to transmit the error over the network, must be unique acro
 
 ## Similar projects
 - [gRPC](https://github.com/grpc/grpc-go)
+
+## Thanks to
+- `gopherize.me` for our great logo
