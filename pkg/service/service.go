@@ -103,8 +103,22 @@ type Service interface {
 	// Do not call after Run() was called.
 	RegisterStream(id string, f StreamFunc)
 
+	// RegisterTypedRStream registers the callback for the incoming typed read stream
+	// specified by the id.
+	// Do not call after Run() was called.
+	// See RegisterAsyncCall() for the usage of maxRetSize.
 	RegisterTypedRStream(id string, f TypedRStreamFunc, maxRetSize int)
+
+	// RegisterTypedWStream registers the callback for the incoming typed write stream
+	// specified by the id.
+	// Do not call after Run() was called.
+	// See RegisterAsyncCall() for the usage of maxArgSize.
 	RegisterTypedWStream(id string, f TypedWStreamFunc, maxArgSize int)
+
+	// RegisterTypedRWStream registers the callback for the incoming typed read write stream
+	// specified by the id.
+	// Do not call after Run() was called.
+	// See RegisterAsyncCall() for the usage of maxArgSize & maxRetSize.
 	RegisterTypedRWStream(id string, f TypedRWStreamFunc, maxArgSize, maxRetSize int)
 
 	// Run the service and start accepting requests.

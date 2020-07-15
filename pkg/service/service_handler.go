@@ -83,8 +83,8 @@ func (s *service) handleStream(session Session, id string, data map[string][]byt
 		}
 	}()
 
-	// Obtain the stream handler function.
-	f, ok := s.streams[id]
+	// Obtain the stream.
+	str, ok := s.streams[id]
 	if !ok {
 		return fmt.Errorf("stream handler '%s' does not exist", id)
 	}
@@ -103,7 +103,44 @@ func (s *service) handleStream(session Session, id string, data map[string][]byt
 
 	// Pass the new stream.
 	// The stream must be closed by the handler!
-	f(sctx, stream)
+	if str.typ == streamTypeRaw {
+		go func() {
+			// Wait, until the stream is closed.
+			select {
+			case <-stream.ClosedChan():
+			case <-session.ClosingChan():
+			}
+
+			// Call the OnStreamClosed hooks.
+			for _, h := range s.hooks {
+				h.OnStreamClosed(sctx, id, nil)
+			}
+		}()
+
+		str.f.(StreamFunc)(sctx, stream)
+		return
+	}
+
+	ts := newTypedRWStream(stream, s.codec, str.maxArgSize, str.maxRetSize)
+	switch str.typ {
+	case streamTypeTR:
+		err = str.f.(TypedRStreamFunc)(sctx, ts)
+	case streamTypeTW:
+		err = str.f.(TypedWStreamFunc)(sctx, ts)
+	case streamTypeTRW:
+		err = str.f.(TypedRWStreamFunc)(sctx, ts)
+	default:
+		return fmt.Errorf("stream type '%v' does not exist", str.typ)
+	}
+
+	// Call the OnStreamClosed hooks.
+	for _, h := range s.hooks {
+		h.OnStreamClosed(sctx, id, err)
+	}
+
+	if err != nil {
+		// TODO: 2020/07/15 skaldesh: send error back to client
+	}
 
 	return
 }

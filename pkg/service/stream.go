@@ -36,11 +36,17 @@ import (
 	"github.com/desertbit/orbit/pkg/transport"
 )
 
+type TypedStreamCloser interface {
+	Close() error
+}
+
 type TypedRStream interface {
+	TypedStreamCloser
 	Read(data interface{}) error
 }
 
 type TypedWStream interface {
+	TypedStreamCloser
 	Write(data interface{}) error
 }
 
@@ -58,6 +64,10 @@ type typedRWStream struct {
 
 func newTypedRWStream(s transport.Stream, cc codec.Codec, mas, mrs int) *typedRWStream {
 	return &typedRWStream{stream: s, codec: cc, maxArgSize: mas, maxRetSize: mrs}
+}
+
+func (s *typedRWStream) Close() error {
+	return s.stream.Close()
 }
 
 func (s *typedRWStream) Read(data interface{}) (err error) {
