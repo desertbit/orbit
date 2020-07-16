@@ -36,21 +36,48 @@ import (
 	"github.com/desertbit/orbit/pkg/transport"
 )
 
-func (s *session) OpenStream(ctx context.Context, id string) (transport.Stream, error) {
+func (s *session) OpenTypedStream(ctx context.Context, id string, maxArgSize, maxRetSize int) (ts TypedRWStream, err error) {
+	// Create our typed stream.
+	ts := newTypedRWStream(stream, s.codec, maxArgSize, maxRetSize)
+
+	return ts, nil
+}
+
+func (s *session) OpenStream(ctx context.Context, id string) (stream transport.Stream, err error) {
 	// Create a new client context.
 	cctx := newContext(ctx, s)
 
 	// Call the OnStream hooks.
-	err := s.handler.hookOnStream(cctx, id)
+	err = s.handler.hookOnStream(cctx, id)
 	if err != nil {
-		return nil, err
+		return
 	}
 
+	// Call the closed hook if an error occurs.
+	defer func() {
+		if err != nil {
+			s.handler.hookOnStreamClosed(cctx, id, err)
+		}
+	}()
+
 	// Open the stream.
-	return s.openStream(ctx, api.StreamTypeRaw, &api.StreamRaw{
+	stream, err = s.openStream(ctx, api.StreamTypeRaw, &api.StreamRaw{
 		ID:   id,
 		Data: cctx.header,
 	}, s.maxHeaderSize)
+	if err != nil {
+		return
+	}
+
+	// Call the closed hook once closed.
+	go func() {
+		select {
+		case <-stream.ClosedChan():
+		case <-s.ClosingChan():
+		}
+		s.handler.hookOnStreamClosed(cctx, id, nil)
+	}()
+	return
 }
 
 func (s *session) openStream(

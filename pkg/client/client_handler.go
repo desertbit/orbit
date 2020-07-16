@@ -42,7 +42,9 @@ type clientHandler interface {
 	hookOnCall(ctx Context, id string, callKey uint32) error
 	hookOnCallDone(ctx Context, id string, callKey uint32, err error)
 	hookOnCallCanceled(ctx Context, id string, callKey uint32)
+
 	hookOnStream(ctx Context, id string) error
+	hookOnStreamClosed(ctx Context, id string, err error)
 }
 
 func (c *client) hookClose() (err error) {
@@ -193,4 +195,22 @@ func (c *client) hookOnStream(ctx Context, id string) (err error) {
 		}
 	}
 	return
+}
+
+func (c *client) hookOnStreamClosed(ctx Context, id string, err error) {
+	// Catch panics.
+	defer func() {
+		if e := recover(); e != nil {
+			if s.opts.PrintPanicStackTraces {
+				s.log.Error().Msgf("catched panic: hookOnStreamClosed: %v\n%s", e, string(debug.Stack()))
+			} else {
+				s.log.Error().Msgf("catched panic: hookOnStreamClosed: %v", e)
+			}
+		}
+	}()
+
+	// Call the OnStreamClosed hooks.
+	for _, h := range c.hooks {
+		h.OnStreamClosed(ctx, id, err)
+	}
 }

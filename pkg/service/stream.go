@@ -60,6 +60,14 @@ func newTypedRWStream(s transport.Stream, cc codec.Codec, mas, mrs int) *typedRW
 	return &typedRWStream{stream: s, codec: cc, maxArgSize: mas, maxRetSize: mrs}
 }
 
+func (s *typedRWStream) IsClosed() bool {
+	return s.stream.IsClosed()
+}
+
+func (s *typedRWStream) ClosedChan() <-chan struct{} {
+	return s.stream.ClosedChan()
+}
+
 func (s *typedRWStream) Read(data interface{}) (err error) {
 	err = packet.ReadDecode(s.stream, &data, s.codec, s.maxRetSize)
 	if err != nil {

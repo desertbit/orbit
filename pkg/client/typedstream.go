@@ -70,6 +70,14 @@ func (s *typedRWStream) Close() error {
 	return s.stream.Close()
 }
 
+func (s *typedRWStream) IsClosed() bool {
+	return s.stream.IsClosed()
+}
+
+func (s *typedRWStream) ClosedChan() <-chan struct{} {
+	return s.stream.ClosedChan()
+}
+
 func (s *typedRWStream) Read(data interface{}) (err error) {
 	err = packet.ReadDecode(s.stream, &data, s.codec, s.maxRetSize)
 	if err != nil {

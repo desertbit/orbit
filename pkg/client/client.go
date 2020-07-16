@@ -108,10 +108,6 @@ func New(opts *Options) (Client, error) {
 }
 
 func (c *client) Call(ctx context.Context, id string, arg, ret interface{}) error {
-	if c.IsClosing() {
-		return ErrClosed
-	}
-
 	// Get the connected session or trigger a connect attempt.
 	s, err := c.connectedSession(ctx)
 	if err != nil {
@@ -122,10 +118,6 @@ func (c *client) Call(ctx context.Context, id string, arg, ret interface{}) erro
 }
 
 func (c *client) AsyncCall(ctx context.Context, id string, arg, ret interface{}, maxArgSize, maxRetSize int) error {
-	if c.IsClosing() {
-		return ErrClosed
-	}
-
 	// Get the connected session or trigger a connect attempt.
 	s, err := c.connectedSession(ctx)
 	if err != nil {
@@ -136,10 +128,6 @@ func (c *client) AsyncCall(ctx context.Context, id string, arg, ret interface{},
 }
 
 func (c *client) Stream(ctx context.Context, id string) (transport.Stream, error) {
-	if c.IsClosing() {
-		return nil, ErrClosed
-	}
-
 	// Get the connected session or trigger a connect attempt.
 	s, err := c.connectedSession(ctx)
 	if err != nil {
@@ -150,32 +138,31 @@ func (c *client) Stream(ctx context.Context, id string) (transport.Stream, error
 }
 
 func (c *client) TypedRStream(ctx context.Context, id string, maxRetSize int) (TypedRStream, error) {
-	return c.openTypedStream(ctx, id, 0, maxRetSize)
-}
-
-func (c *client) TypedWStream(ctx context.Context, id string, maxArgSize int) (TypedWStream, error) {
-	return c.openTypedStream(ctx, id, maxArgSize, 0)
-}
-
-func (c *client) TypedRWStream(ctx context.Context, id string, maxArgSize, maxRetSize int) (TypedRWStream, error) {
-	return c.openTypedStream(ctx, id, maxArgSize, maxRetSize)
-}
-
-func (c *client) openTypedStream(ctx context.Context, id string, maxArgSize, maxRetSize int) (TypedRWStream, error) {
-	if c.IsClosing() {
-		return nil, ErrClosed
-	}
-
 	// Get the connected session or trigger a connect attempt.
 	s, err := c.connectedSession(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get connected session: %w", err)
 	}
 
-	stream, err := s.OpenStream(ctx, id)
+	return s.OpenTypedStream(ctx, id, 0, maxRetSize)
+}
+
+func (c *client) TypedWStream(ctx context.Context, id string, maxArgSize int) (TypedWStream, error) {
+	// Get the connected session or trigger a connect attempt.
+	s, err := c.connectedSession(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get connected session: %w", err)
 	}
 
-	return newTypedRWStream(stream, s.codec, maxArgSize, maxRetSize), nil
+	return s.OpenTypedStream(ctx, id, maxArgSize, 0)
+}
+
+func (c *client) TypedRWStream(ctx context.Context, id string, maxArgSize, maxRetSize int) (TypedRWStream, error) {
+	// Get the connected session or trigger a connect attempt.
+	s, err := c.connectedSession(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get connected session: %w", err)
+	}
+
+	return s.OpenTypedStream(ctx, id, maxArgSize, maxRetSize)
 }
