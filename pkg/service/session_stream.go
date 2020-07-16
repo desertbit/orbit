@@ -194,7 +194,7 @@ func (s *session) handleRawStream(id string, data map[string][]byte, stream tran
 	}
 
 	// Create the typed stream.
-	ts := newTypedRWStream(stream, s.codec, s.maxArgSize, s.maxRetSize)
+	ts := newTypedRWStream(stream, s.codec, s.maxArgSize, s.maxRetSize, str.typ == streamTypeTW)
 
 	// Call the hooks and function in a nested function.
 	// We must pass the error from the function call to the done hook.

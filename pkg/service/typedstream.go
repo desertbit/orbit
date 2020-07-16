@@ -114,14 +114,14 @@ func (s *typedRWStream) Write(data interface{}) (err error) {
 	_, err = s.stream.Write([]byte{byte(api.TypedStreamTypeData)})
 	if err != nil {
 		// If the stream is closed, check for an error sent by the client.
-		return s.checkWriteErr(err)
+		return s.checkErr(s.checkWriteErr(err))
 	}
 
 	// Now write the data packet.
 	err = packet.WriteEncode(s.stream, data, s.codec, s.maxArgSize)
 	if err != nil {
 		// If the stream is closed, check for an error sent by the client.
-		return s.checkWriteErr(err)
+		return s.checkErr(s.checkWriteErr(err))
 	}
 	return
 }
