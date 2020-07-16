@@ -130,20 +130,43 @@ type TestRet struct {
 	Ts   time.Time
 }
 
-//msgp:ignore InfoReadStream
-type InfoReadStream struct {
+//msgp:ignore TimeStreamClientStream
+type TimeStreamClientStream struct {
+	oclient.TypedStreamCloser
+	stream oclient.TypedWStream
+}
+
+func newTimeStreamClientStream(s oclient.TypedWStream) *TimeStreamClientStream {
+	return &TimeStreamClientStream{TypedStreamCloser: s, stream: s}
+}
+
+func (v1 *TimeStreamClientStream) Write(arg Info) (err error) {
+	err = v1.stream.Write(arg)
+	if err != nil {
+		err = _clientErrorCheck(err)
+		if errors.Is(err, oclient.ErrClosed) {
+			err = ErrClosed
+		}
+		return
+	}
+	return
+}
+
+//msgp:ignore TimeStreamServiceStream
+type TimeStreamServiceStream struct {
+	oservice.TypedStreamCloser
 	stream oservice.TypedRStream
 }
 
-func newInfoReadStream(s oservice.TypedRStream) *InfoReadStream {
-	return &InfoReadStream{stream: s}
+func newTimeStreamServiceStream(s oservice.TypedRStream) *TimeStreamServiceStream {
+	return &TimeStreamServiceStream{TypedStreamCloser: s, stream: s}
 }
 
-func (v1 *InfoReadStream) Read() (arg Info, err error) {
+func (v1 *TimeStreamServiceStream) Read() (arg Info, err error) {
 	err = v1.stream.Read(&arg)
 	if err != nil {
 		err = _serviceErrorCheck(err)
-		if errors.Is(err, oservice.ErrClosed) {
+		if errors.Is(err, oclient.ErrClosed) {
 			err = ErrClosed
 		}
 		return
@@ -156,37 +179,17 @@ func (v1 *InfoReadStream) Read() (arg Info, err error) {
 	return
 }
 
-//msgp:ignore InfoWriteStream
-type InfoWriteStream struct {
-	stream oclient.TypedWStream
-}
-
-func newInfoWriteStream(s oclient.TypedWStream) *InfoWriteStream {
-	return &InfoWriteStream{stream: s}
-}
-
-func (v1 *InfoWriteStream) Write(arg Info) (err error) {
-	err = v1.stream.Write(arg)
-	if err != nil {
-		err = _clientErrorCheck(err)
-		if errors.Is(err, oclient.ErrClosed) {
-			err = ErrClosed
-		}
-		return
-	}
-	return
-}
-
-//msgp:ignore ClockTimeRetReadStream
-type ClockTimeRetReadStream struct {
+//msgp:ignore ClockTimeClientStream
+type ClockTimeClientStream struct {
+	oclient.TypedStreamCloser
 	stream oclient.TypedRStream
 }
 
-func newClockTimeRetReadStream(s oclient.TypedRStream) *ClockTimeRetReadStream {
-	return &ClockTimeRetReadStream{stream: s}
+func newClockTimeClientStream(s oclient.TypedRStream) *ClockTimeClientStream {
+	return &ClockTimeClientStream{TypedStreamCloser: s, stream: s}
 }
 
-func (v1 *ClockTimeRetReadStream) Read() (ret ClockTimeRet, err error) {
+func (v1 *ClockTimeClientStream) Read() (ret ClockTimeRet, err error) {
 	err = v1.stream.Read(&ret)
 	if err != nil {
 		err = _clientErrorCheck(err)
@@ -203,20 +206,21 @@ func (v1 *ClockTimeRetReadStream) Read() (ret ClockTimeRet, err error) {
 	return
 }
 
-//msgp:ignore ClockTimeRetWriteStream
-type ClockTimeRetWriteStream struct {
+//msgp:ignore ClockTimeServiceStream
+type ClockTimeServiceStream struct {
+	oservice.TypedStreamCloser
 	stream oservice.TypedWStream
 }
 
-func newClockTimeRetWriteStream(s oservice.TypedWStream) *ClockTimeRetWriteStream {
-	return &ClockTimeRetWriteStream{stream: s}
+func newClockTimeServiceStream(s oservice.TypedWStream) *ClockTimeServiceStream {
+	return &ClockTimeServiceStream{TypedStreamCloser: s, stream: s}
 }
 
-func (v1 *ClockTimeRetWriteStream) Write(ret ClockTimeRet) (err error) {
+func (v1 *ClockTimeServiceStream) Write(ret ClockTimeRet) (err error) {
 	err = v1.stream.Write(ret)
 	if err != nil {
 		err = _serviceErrorCheck(err)
-		if errors.Is(err, oservice.ErrClosed) {
+		if errors.Is(err, oclient.ErrClosed) {
 			err = ErrClosed
 		}
 		return
@@ -226,11 +230,12 @@ func (v1 *ClockTimeRetWriteStream) Write(ret ClockTimeRet) (err error) {
 
 //msgp:ignore BidirectionalClientStream
 type BidirectionalClientStream struct {
+	oclient.TypedStreamCloser
 	stream oclient.TypedRWStream
 }
 
 func newBidirectionalClientStream(s oclient.TypedRWStream) *BidirectionalClientStream {
-	return &BidirectionalClientStream{stream: s}
+	return &BidirectionalClientStream{TypedStreamCloser: s, stream: s}
 }
 
 func (v1 *BidirectionalClientStream) Read() (ret BidirectionalRet, err error) {
@@ -264,18 +269,19 @@ func (v1 *BidirectionalClientStream) Write(arg BidirectionalArg) (err error) {
 
 //msgp:ignore BidirectionalServiceStream
 type BidirectionalServiceStream struct {
+	oservice.TypedStreamCloser
 	stream oservice.TypedRWStream
 }
 
 func newBidirectionalServiceStream(s oservice.TypedRWStream) *BidirectionalServiceStream {
-	return &BidirectionalServiceStream{stream: s}
+	return &BidirectionalServiceStream{TypedStreamCloser: s, stream: s}
 }
 
 func (v1 *BidirectionalServiceStream) Read() (arg BidirectionalArg, err error) {
 	err = v1.stream.Read(&arg)
 	if err != nil {
 		err = _serviceErrorCheck(err)
-		if errors.Is(err, oservice.ErrClosed) {
+		if errors.Is(err, oclient.ErrClosed) {
 			err = ErrClosed
 		}
 		return
@@ -292,7 +298,7 @@ func (v1 *BidirectionalServiceStream) Write(ret BidirectionalRet) (err error) {
 	err = v1.stream.Write(ret)
 	if err != nil {
 		err = _serviceErrorCheck(err)
-		if errors.Is(err, oservice.ErrClosed) {
+		if errors.Is(err, oclient.ErrClosed) {
 			err = ErrClosed
 		}
 		return
@@ -333,8 +339,8 @@ type Client interface {
 	Test(ctx context.Context, arg TestArg) (ret TestRet, err error)
 	// Streams
 	Lul(ctx context.Context) (stream transport.Stream, err error)
-	TimeStream(ctx context.Context) (stream *InfoWriteStream, err error)
-	ClockTime(ctx context.Context) (stream *ClockTimeRetReadStream, err error)
+	TimeStream(ctx context.Context) (stream *TimeStreamClientStream, err error)
+	ClockTime(ctx context.Context) (stream *ClockTimeClientStream, err error)
 	Bidirectional(ctx context.Context) (stream *BidirectionalClientStream, err error)
 }
 
@@ -349,8 +355,8 @@ type ServiceHandler interface {
 	Test(ctx oservice.Context, arg TestArg) (ret TestRet, err error)
 	// Streams
 	Lul(ctx oservice.Context, stream transport.Stream)
-	TimeStream(ctx oservice.Context, stream *InfoReadStream) error
-	ClockTime(ctx oservice.Context, stream *ClockTimeRetWriteStream) error
+	TimeStream(ctx oservice.Context, stream *TimeStreamServiceStream) error
+	ClockTime(ctx oservice.Context, stream *ClockTimeServiceStream) error
 	Bidirectional(ctx oservice.Context, stream *BidirectionalServiceStream) error
 }
 
@@ -420,33 +426,31 @@ func (v1 *client) Lul(ctx context.Context) (stream transport.Stream, err error) 
 	return
 }
 
-func (v1 *client) TimeStream(ctx context.Context) (stream *InfoWriteStream, err error) {
+func (v1 *client) TimeStream(ctx context.Context) (stream *TimeStreamClientStream, err error) {
 	if v1.streamInitTimeout > 0 {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, v1.streamInitTimeout)
 		defer cancel()
 	}
-	str, err := v1.TypedWStream(ctx, StreamIDTimeStream,
-		oclient.DefaultMaxSize)
+	str, err := v1.TypedWStream(ctx, StreamIDTimeStream, oclient.DefaultMaxSize)
 	if err != nil {
 		return
 	}
-	stream = newInfoWriteStream(str)
+	stream = newTimeStreamClientStream(str)
 	return
 }
 
-func (v1 *client) ClockTime(ctx context.Context) (stream *ClockTimeRetReadStream, err error) {
+func (v1 *client) ClockTime(ctx context.Context) (stream *ClockTimeClientStream, err error) {
 	if v1.streamInitTimeout > 0 {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, v1.streamInitTimeout)
 		defer cancel()
 	}
-	str, err := v1.TypedRStream(ctx, StreamIDClockTime,
-		oclient.DefaultMaxSize)
+	str, err := v1.TypedRStream(ctx, StreamIDClockTime, oclient.DefaultMaxSize)
 	if err != nil {
 		return
 	}
-	stream = newClockTimeRetReadStream(str)
+	stream = newClockTimeClientStream(str)
 	return
 }
 
@@ -456,8 +460,7 @@ func (v1 *client) Bidirectional(ctx context.Context) (stream *BidirectionalClien
 		ctx, cancel = context.WithTimeout(ctx, v1.streamInitTimeout)
 		defer cancel()
 	}
-	str, err := v1.TypedRWStream(ctx, StreamIDBidirectional,
-		oclient.DefaultMaxSize, oclient.DefaultMaxSize)
+	str, err := v1.TypedRWStream(ctx, StreamIDBidirectional, 102400, oclient.DefaultMaxSize)
 	if err != nil {
 		return
 	}
@@ -486,7 +489,7 @@ func NewService(h ServiceHandler, opts *oservice.Options) (s Service, err error)
 	os.RegisterStream(StreamIDLul, srvc.lul)
 	os.RegisterTypedRStream(StreamIDTimeStream, srvc.timeStream, oservice.DefaultMaxSize)
 	os.RegisterTypedWStream(StreamIDClockTime, srvc.clockTime, oservice.DefaultMaxSize)
-	os.RegisterTypedRWStream(StreamIDBidirectional, srvc.bidirectional, oservice.DefaultMaxSize, oservice.DefaultMaxSize)
+	os.RegisterTypedRWStream(StreamIDBidirectional, srvc.bidirectional, 102400, oservice.DefaultMaxSize)
 	s = os
 	return
 }
@@ -536,11 +539,11 @@ func (v1 *service) lul(ctx oservice.Context, stream transport.Stream) {
 }
 
 func (v1 *service) timeStream(ctx oservice.Context, stream oservice.TypedRStream) error {
-	return v1.h.TimeStream(ctx, newInfoReadStream(stream))
+	return v1.h.TimeStream(ctx, newTimeStreamServiceStream(stream))
 }
 
 func (v1 *service) clockTime(ctx oservice.Context, stream oservice.TypedWStream) error {
-	return v1.h.ClockTime(ctx, newClockTimeRetWriteStream(stream))
+	return v1.h.ClockTime(ctx, newClockTimeServiceStream(stream))
 }
 
 func (v1 *service) bidirectional(ctx oservice.Context, stream oservice.TypedRWStream) error {

@@ -182,7 +182,7 @@ func generate(pkgName string, tree *ast.Tree) string {
 
 	g.writeLn("import (")
 	for _, imp := range imports {
-		g.writeLn(imp[0] + " \"" + imp[1] + "\"")
+		g.writefLn(`%s "%s"`, imp[0], imp[1])
 	}
 	g.writeLn(")")
 	g.writeLn("")
@@ -214,7 +214,7 @@ func generate(pkgName string, tree *ast.Tree) string {
 	g.writeLn("//##############//")
 	g.writeLn("")
 
-	g.writeLn("var ErrClosed = errors.New(\"closed\")")
+	g.writeLn(`var ErrClosed = errors.New("closed")`)
 	g.genErrors(tree.Errs)
 
 	// Generate the type definitions.

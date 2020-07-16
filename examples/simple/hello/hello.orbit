@@ -42,6 +42,7 @@ service {
     }
 
     stream bidirectional {
+        maxArgSize: 100K
         arg: {
             question string
         }

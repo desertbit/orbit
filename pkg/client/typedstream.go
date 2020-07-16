@@ -44,6 +44,9 @@ const (
 
 type TypedStreamCloser interface {
 	Close() error
+	CloseWithErr(error) error
+	ClosedChan() <-chan struct{}
+	IsClosed() bool
 }
 
 type TypedRStream interface {

@@ -42,11 +42,18 @@ const (
 	maxTypedStreamErrorSize = 4096 // 4 KB
 )
 
+type TypedStreamCloser interface {
+	ClosedChan() <-chan struct{}
+	IsClosed() bool
+}
+
 type TypedRStream interface {
+	TypedStreamCloser
 	Read(data interface{}) error
 }
 
 type TypedWStream interface {
+	TypedStreamCloser
 	Write(data interface{}) error
 }
 

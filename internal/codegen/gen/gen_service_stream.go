@@ -35,26 +35,20 @@ import (
 //### Client ###//
 //##############//
 
-func (g *generator) genServiceClientStreamSignature(s *ast.Stream) {
+func (g *generator) genClientStreamSignature(s *ast.Stream) {
 	if s.Arg == nil && s.Ret == nil {
 		// Raw.
 		g.writef("%s(ctx context.Context) (stream transport.Stream, err error)", s.Name)
-	} else if s.Arg != nil && s.Ret != nil {
-		// ReadWrite.
-		g.writef("%s(ctx context.Context) (stream *%sClientStream, err error)", s.Name, s.Name)
-	} else if s.Arg != nil {
-		// Write.
-		g.writef("%s(ctx context.Context) (stream *%sWriteStream, err error)", s.Name, s.Arg.Name())
 	} else {
-		// Read.
-		g.writef("%s(ctx context.Context) (stream *%sReadStream, err error)", s.Name, s.Ret.Name())
+		// Typed.
+		g.writef("%s(ctx context.Context) (stream *%sClientStream, err error)", s.Name, s.Name)
 	}
 }
 
-func (g *generator) genServiceClientStream(s *ast.Stream, errs []*ast.Error) {
+func (g *generator) genClientStream(s *ast.Stream, errs []*ast.Error) {
 	// Method declaration.
 	g.writef("func (%s *client) ", recv)
-	g.genServiceClientStreamSignature(s)
+	g.genClientStreamSignature(s)
 	g.writeLn(" {")
 
 	// Ensure Timeout on context.
@@ -69,28 +63,18 @@ func (g *generator) genServiceClientStream(s *ast.Stream, errs []*ast.Error) {
 		// Raw.
 		g.writefLn("stream, err = %s.Stream(ctx, StreamID%s)", recv, s.Name)
 		g.errIfNil()
-	} else if s.Arg != nil && s.Ret != nil {
-		// ReadWrite.
-		g.writefLn("str, err := %s.TypedRWStream(ctx, StreamID%s,", recv, s.Name)
-		g.writeOrbitMaxSizeParam(s.MaxArgSize, false)
-		g.writeOrbitMaxSizeParam(s.MaxRetSize, false)
+	} else {
+		// Typed.
+		g.writef("str, err := %s.%s(ctx, StreamID%s,", recv, typedStream(s, false), s.Name)
+		if s.Arg != nil {
+			g.writeOrbitMaxSizeParam(s.MaxArgSize, false)
+		}
+		if s.Ret != nil {
+			g.writeOrbitMaxSizeParam(s.MaxRetSize, false)
+		}
 		g.writeLn(")")
 		g.errIfNil()
 		g.writefLn("stream = new%sClientStream(str)", s.Name)
-	} else if s.Arg != nil {
-		// Write.
-		g.writefLn("str, err := %s.TypedWStream(ctx, StreamID%s,", recv, s.Name)
-		g.writeOrbitMaxSizeParam(s.MaxArgSize, false)
-		g.writeLn(")")
-		g.errIfNil()
-		g.writefLn("stream = new%sWriteStream(str)", s.Arg.Name())
-	} else {
-		// Read.
-		g.writefLn("str, err := %s.TypedRStream(ctx, StreamID%s,", recv, s.Name)
-		g.writeOrbitMaxSizeParam(s.MaxRetSize, false)
-		g.writeLn(")")
-		g.errIfNil()
-		g.writefLn("stream = new%sReadStream(str)", s.Ret.Name())
 	}
 
 	// End of method.
@@ -103,25 +87,19 @@ func (g *generator) genServiceClientStream(s *ast.Stream, errs []*ast.Error) {
 //### Service ###//
 //###############//
 
-func (g *generator) genServiceHandlerStreamRegister(s *ast.Stream) {
+func (g *generator) genServiceStreamRegister(s *ast.Stream) {
 	if s.Arg == nil && s.Ret == nil {
 		// Raw.
 		g.writefLn("os.RegisterStream(StreamID%s, srvc.%s)", s.Name, s.NamePrv())
-	} else if s.Arg != nil && s.Ret != nil {
-		// ReadWrite.
-		g.writef("os.RegisterTypedRWStream(StreamID%s, srvc.%s,", s.Name, s.NamePrv())
-		g.writeOrbitMaxSizeParam(s.MaxArgSize, true)
-		g.writeOrbitMaxSizeParam(s.MaxRetSize, true)
-		g.writeLn(")")
-	} else if s.Arg != nil {
-		// Read.
-		g.writef("os.RegisterTypedRStream(StreamID%s, srvc.%s,", s.Name, s.NamePrv())
-		g.writeOrbitMaxSizeParam(s.MaxArgSize, true)
-		g.writeLn(")")
 	} else {
-		// Write.
-		g.writef("os.RegisterTypedWStream(StreamID%s, srvc.%s,", s.Name, s.NamePrv())
-		g.writeOrbitMaxSizeParam(s.MaxRetSize, true)
+		// Typed.
+		g.writef("os.Register%s(StreamID%s, srvc.%s,", typedStream(s, true), s.Name, s.NamePrv())
+		if s.Arg != nil {
+			g.writeOrbitMaxSizeParam(s.MaxArgSize, true)
+		}
+		if s.Ret != nil {
+			g.writeOrbitMaxSizeParam(s.MaxRetSize, true)
+		}
 		g.writeLn(")")
 	}
 }
@@ -132,39 +110,42 @@ func (g *generator) genServiceHandlerStreamSignature(s *ast.Stream) {
 	if s.Arg == nil && s.Ret == nil {
 		// Raw.
 		g.writeLn("stream transport.Stream)")
-	} else if s.Arg != nil && s.Ret != nil {
-		// ReadWrite.
-		g.writefLn("stream *%sServiceStream) error", s.Name)
-	} else if s.Arg != nil {
-		// Read.
-		g.writefLn("stream *%sReadStream) error", s.Arg.Name())
 	} else {
-		// Write.
-		g.writefLn("stream *%sWriteStream) error", s.Ret.Name())
+		// Typed.
+		g.writefLn("stream *%sServiceStream) error", s.Name)
 	}
 }
 
-func (g *generator) genServiceHandlerStream(s *ast.Stream) {
+func (g *generator) genServiceStream(s *ast.Stream) {
 	g.writef("func (%s *service) %s(ctx oservice.Context, ", recv, s.NamePrv())
 
 	if s.Arg == nil && s.Ret == nil {
 		// Raw.
 		g.writeLn("stream transport.Stream) {")
 		g.writefLn("%s.h.%s(ctx, stream)", recv, s.Name)
-	} else if s.Arg != nil && s.Ret != nil {
-		// ReadWrite.
-		g.writeLn("stream oservice.TypedRWStream) error {")
-		g.writefLn("return %s.h.%s(ctx, new%sServiceStream(stream))", recv, s.Name, s.Name)
-	} else if s.Arg != nil {
-		// Read.
-		g.writeLn("stream oservice.TypedRStream) error {")
-		g.writefLn("return %s.h.%s(ctx, new%sReadStream(stream))", recv, s.Name, s.Arg.Name())
 	} else {
-		// Write.
-		g.writeLn("stream oservice.TypedWStream) error {")
-		g.writefLn("return %s.h.%s(ctx, new%sWriteStream(stream))", recv, s.Name, s.Ret.Name())
+		// Typed.
+		g.writefLn("stream oservice.%s) error {", typedStream(s, true))
+		g.writefLn("return %s.h.%s(ctx, new%sServiceStream(stream))", recv, s.Name, s.Name)
 	}
 
 	g.writeLn("}")
 	g.writeLn("")
+}
+
+//###############//
+//### Private ###//
+//###############//
+
+func typedStream(s *ast.Stream, service bool) (dataType string) {
+	if s.Arg != nil && s.Ret != nil {
+		// ReadWrite.
+		return "TypedRWStream"
+	} else if (!service && s.Ret != nil) || (service && s.Arg != nil) {
+		// Read.
+		return "TypedRStream"
+	} else {
+		// Write.
+		return "TypedWStream"
+	}
 }

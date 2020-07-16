@@ -33,10 +33,6 @@ import (
 	"github.com/desertbit/orbit/internal/codegen/ast"
 )
 
-const (
-	streamErrCode = "_streamErrCode"
-)
-
 func (g *generator) genTypes(ts []*ast.Type, srvc *ast.Service) {
 	// Sort the types in alphabetical order.
 	sort.Slice(ts, func(i, j int) bool {
@@ -58,250 +54,125 @@ func (g *generator) genTypes(ts []*ast.Type, srvc *ast.Service) {
 
 	// Generate a stream type for every stream arg or ret or bidirectional stream func,
 	// but only once!
-	genStreams := make(map[string]struct{})
 	for _, s := range srvc.Streams {
-		if s.Arg == nil && s.Ret == nil {
-			continue
-		}
-
-		if s.Arg != nil && s.Ret != nil {
-			// Bidirectional stream.
-			if _, ok := genStreams[s.Name]; !ok {
-				genStreams[s.Name] = struct{}{}
-				g.genClientStreamType(s.Name, s.Arg, s.Ret)
-				g.genServiceStreamType(s.Name, s.Arg, s.Ret)
-			}
-		} else {
-			if s.Arg != nil {
-				if _, ok := genStreams[s.Arg.Name()]; !ok {
-					genStreams[s.Arg.Name()] = struct{}{}
-					g.genServiceReadStreamType(s.Arg)
-					g.genClientWriteStreamType(s.Arg)
-				}
-			}
-			if s.Ret != nil {
-				if _, ok := genStreams[s.Ret.Name()]; !ok {
-					genStreams[s.Ret.Name()] = struct{}{}
-					g.genClientReadStreamType(s.Ret)
-					g.genServiceWriteStreamType(s.Ret)
-				}
-			}
-		}
+		g.genClientStreamType(s)
+		g.genServiceStreamType(s)
 	}
 }
 
-// genClientReadStreamType generates the client read side of a stream.
-func (g *generator) genClientReadStreamType(dt ast.DataType) {
+// genClientStreamType generates the client read side of a stream.
+func (g *generator) genClientStreamType(s *ast.Stream) {
+	if s.Arg == nil && s.Ret == nil {
+		// Raw streams do not need a stream type.
+		return
+	}
+
+	name := s.Name + "ClientStream"
+	typedStream := "oclient." + typedStream(s, false)
+
 	// Type definition.
-	g.writefLn("//msgp:ignore %sReadStream", dt.Name())
-	g.writefLn("type %sReadStream struct {", dt.Name())
-	g.writeLn("stream oclient.TypedRStream")
+	g.writefLn("//msgp:ignore %s", name)
+	g.writefLn("type %s struct {", name)
+	g.writefLn("oclient.TypedStreamCloser")
+	g.writefLn("stream %s", typedStream)
 	g.writeLn("}")
 	g.writeLn("")
 
 	// Constructor.
-	g.writefLn("func new%sReadStream(s oclient.TypedRStream) *%sReadStream {", dt.Name(), dt.Name())
-	g.writefLn("return &%sReadStream{stream: s}", dt.Name())
+	g.writefLn("func new%s(s %s) *%s {", name, typedStream, name)
+	g.writefLn("return &%s{TypedStreamCloser: s, stream: s}", name)
 	g.writeLn("}")
 	g.writeLn("")
 
 	// Read method.
-	g.writefLn("func (%s *%sReadStream) Read() (ret %s, err error) {", recv, dt.Name(), dt.Decl())
-	g.writefLn("err = %s.stream.Read(&ret)", recv)
-	g.errIfNilFunc(func() {
-		g.writefLn("err = %s(err)", clientErrorCheck)
-		g.writeLn("if errors.Is(err, oclient.ErrClosed) {")
-		g.writeLn("err = ErrClosed")
-		g.writeLn("}")
+	if s.Ret != nil {
+		g.writefLn("func (%s *%s) Read() (ret %s, err error) {", recv, name, s.Ret.Decl())
+		g.writefLn("err = %s.stream.Read(&ret)", recv)
+		g.errIfNilFunc(func() {
+			g.writefLn("err = %s(err)", clientErrorCheck)
+			g.writeLn("if errors.Is(err, oclient.ErrClosed) {")
+			g.writeLn("err = ErrClosed")
+			g.writeLn("}")
+			g.writeLn("return")
+		})
+		// Validate, if needed.
+		g.writeValErrCheck(s.Ret, "ret")
 		g.writeLn("return")
-	})
-	// Validate, if needed.
-	g.writeValErrCheck(dt, "ret")
-	g.writeLn("return")
-	g.writeLn("}")
-	g.writeLn("")
-}
-
-// genClientWriteStreamType generates the client write side of a stream.
-func (g *generator) genClientWriteStreamType(dt ast.DataType) {
-	// Type definition.
-	g.writefLn("//msgp:ignore %sWriteStream", dt.Name())
-	g.writefLn("type %sWriteStream struct {", dt.Name())
-	g.writeLn("stream oclient.TypedWStream")
-	g.writeLn("}")
-	g.writeLn("")
-
-	// Constructor.
-	g.writefLn("func new%sWriteStream(s oclient.TypedWStream) *%sWriteStream {", dt.Name(), dt.Name())
-	g.writefLn("return &%sWriteStream{stream: s}", dt.Name())
-	g.writeLn("}")
-	g.writeLn("")
+		g.writeLn("}")
+		g.writeLn("")
+	}
 
 	// Write method.
-	g.writefLn("func (%s *%sWriteStream) Write(arg %s) (err error) {", recv, dt.Name(), dt.Decl())
-	g.writefLn("err = %s.stream.Write(arg)", recv)
-	g.errIfNilFunc(func() {
-		g.writefLn("err = %s(err)", clientErrorCheck)
-		g.writeLn("if errors.Is(err, oclient.ErrClosed) {")
-		g.writeLn("err = ErrClosed")
-		g.writeLn("}")
+	if s.Arg != nil {
+		g.writefLn("func (%s *%s) Write(arg %s) (err error) {", recv, name, s.Arg.Decl())
+		g.writefLn("err = %s.stream.Write(arg)", recv)
+		g.errIfNilFunc(func() {
+			g.writefLn("err = %s(err)", clientErrorCheck)
+			g.writeLn("if errors.Is(err, oclient.ErrClosed) {")
+			g.writeLn("err = ErrClosed")
+			g.writeLn("}")
+			g.writeLn("return")
+		})
 		g.writeLn("return")
-	})
-	g.writeLn("return")
-	g.writeLn("}")
-	g.writeLn("")
+		g.writeLn("}")
+		g.writeLn("")
+	}
 }
 
-// genClientStreamType generates the client side of a bidirectional stream.
-func (g *generator) genClientStreamType(name string, arg, ret ast.DataType) {
+func (g *generator) genServiceStreamType(s *ast.Stream) {
+	if s.Arg == nil && s.Ret == nil {
+		// Raw streams do not need a stream type.
+		return
+	}
+
+	name := s.Name + "ServiceStream"
+	typedStream := "oservice." + typedStream(s, true)
+
 	// Type definition.
-	g.writefLn("//msgp:ignore %sClientStream", name)
-	g.writefLn("type %sClientStream struct {", name)
-	g.writeLn("stream oclient.TypedRWStream")
+	g.writefLn("//msgp:ignore %s", name)
+	g.writefLn("type %s struct {", name)
+	g.writefLn("oservice.TypedStreamCloser")
+	g.writefLn("stream %s", typedStream)
 	g.writeLn("}")
 	g.writeLn("")
 
 	// Constructor.
-	g.writefLn("func new%sClientStream(s oclient.TypedRWStream) *%sClientStream {", name, name)
-	g.writefLn("return &%sClientStream{stream: s}", name)
+	g.writefLn("func new%s(s %s) *%s {", name, typedStream, name)
+	g.writefLn("return &%s{TypedStreamCloser: s, stream: s}", name)
 	g.writeLn("}")
 	g.writeLn("")
 
 	// Read method.
-	g.writefLn("func (%s *%sClientStream) Read() (ret %s, err error) {", recv, name, ret.Decl())
-	g.writefLn("err = %s.stream.Read(&ret)", recv)
-	g.errIfNilFunc(func() {
-		g.writefLn("err = %s(err)", clientErrorCheck)
-		g.writeLn("if errors.Is(err, oclient.ErrClosed) {")
-		g.writeLn("err = ErrClosed")
-		g.writeLn("}")
+	if s.Arg != nil {
+		g.writefLn("func (%s *%s) Read() (arg %s, err error) {", recv, name, s.Arg.Decl())
+		g.writefLn("err = %s.stream.Read(&arg)", recv)
+		g.errIfNilFunc(func() {
+			g.writefLn("err = %s(err)", serviceErrorCheck)
+			g.writeLn("if errors.Is(err, oclient.ErrClosed) {")
+			g.writeLn("err = ErrClosed")
+			g.writeLn("}")
+			g.writeLn("return")
+		})
+		// Validate, if needed.
+		g.writeValErrCheck(s.Arg, "arg")
 		g.writeLn("return")
-	})
-	// Validate, if needed.
-	g.writeValErrCheck(ret, "ret")
-	g.writeLn("return")
-	g.writeLn("}")
-	g.writeLn("")
+		g.writeLn("}")
+		g.writeLn("")
+	}
 
 	// Write method.
-	g.writefLn("func (%s *%sClientStream) Write(arg %s) (err error) {", recv, name, arg.Decl())
-	g.writefLn("err = %s.stream.Write(arg)", recv)
-	g.errIfNilFunc(func() {
-		g.writefLn("err = %s(err)", clientErrorCheck)
-		g.writeLn("if errors.Is(err, oclient.ErrClosed) {")
-		g.writeLn("err = ErrClosed")
-		g.writeLn("}")
+	if s.Ret != nil {
+		g.writefLn("func (%s *%s) Write(ret %s) (err error) {", recv, name, s.Ret.Decl())
+		g.writefLn("err = %s.stream.Write(ret)", recv)
+		g.errIfNilFunc(func() {
+			g.writefLn("err = %s(err)", serviceErrorCheck)
+			g.writeLn("if errors.Is(err, oclient.ErrClosed) {")
+			g.writeLn("err = ErrClosed")
+			g.writeLn("}")
+			g.writeLn("return")
+		})
 		g.writeLn("return")
-	})
-	g.writeLn("return")
-	g.writeLn("}")
-	g.writeLn("")
-}
-
-// genServiceReadStreamType generates the service read side of a stream.
-func (g *generator) genServiceReadStreamType(dt ast.DataType) {
-	// Type definition.
-	g.writefLn("//msgp:ignore %sReadStream", dt.Name())
-	g.writefLn("type %sReadStream struct {", dt.Name())
-	g.writeLn("stream oservice.TypedRStream")
-	g.writeLn("}")
-	g.writeLn("")
-
-	// Constructor.
-	g.writefLn("func new%sReadStream(s oservice.TypedRStream) *%sReadStream {", dt.Name(), dt.Name())
-	g.writefLn("return &%sReadStream{stream: s}", dt.Name())
-	g.writeLn("}")
-	g.writeLn("")
-
-	// Read method.
-	g.writefLn("func (%s *%sReadStream) Read() (arg %s, err error) {", recv, dt.Name(), dt.Decl())
-	g.writefLn("err = %s.stream.Read(&arg)", recv)
-	g.errIfNilFunc(func() {
-		g.writefLn("err = %s(err)", serviceErrorCheck)
-		g.writeLn("if errors.Is(err, oservice.ErrClosed) {")
-		g.writeLn("err = ErrClosed")
 		g.writeLn("}")
-		g.writeLn("return")
-	})
-	// Validate, if needed.
-	g.writeValErrCheck(dt, "arg")
-	g.writeLn("return")
-	g.writeLn("}")
-	g.writeLn("")
-}
-
-// genServiceWriteStreamType generates the service write side of a stream.
-func (g *generator) genServiceWriteStreamType(dt ast.DataType) {
-	// Type definition.
-	g.writefLn("//msgp:ignore %sWriteStream", dt.Name())
-	g.writefLn("type %sWriteStream struct {", dt.Name())
-	g.writeLn("stream oservice.TypedWStream")
-	g.writeLn("}")
-	g.writeLn("")
-
-	// Constructor.
-	g.writefLn("func new%sWriteStream(s oservice.TypedWStream) *%sWriteStream {", dt.Name(), dt.Name())
-	g.writefLn("return &%sWriteStream{stream: s}", dt.Name())
-	g.writeLn("}")
-	g.writeLn("")
-
-	// Write method.
-	g.writefLn("func (%s *%sWriteStream) Write(ret %s) (err error) {", recv, dt.Name(), dt.Decl())
-	g.writefLn("err = %s.stream.Write(ret)", recv)
-	g.errIfNilFunc(func() {
-		g.writefLn("err = %s(err)", serviceErrorCheck)
-		g.writeLn("if errors.Is(err, oservice.ErrClosed) {")
-		g.writeLn("err = ErrClosed")
-		g.writeLn("}")
-		g.writeLn("return")
-	})
-	g.writeLn("return")
-	g.writeLn("}")
-	g.writeLn("")
-}
-
-// genServiceStreamType generates the service side of a bidirectional stream.
-func (g *generator) genServiceStreamType(name string, arg, ret ast.DataType) {
-	// Type definition.
-	g.writefLn("//msgp:ignore %sServiceStream", name)
-	g.writefLn("type %sServiceStream struct {", name)
-	g.writeLn("stream oservice.TypedRWStream")
-	g.writeLn("}")
-	g.writeLn("")
-
-	// Constructor.
-	g.writefLn("func new%sServiceStream(s oservice.TypedRWStream) *%sServiceStream {", name, name)
-	g.writefLn("return &%sServiceStream{stream: s}", name)
-	g.writeLn("}")
-	g.writeLn("")
-
-	// Read method.
-	g.writefLn("func (%s *%sServiceStream) Read() (arg %s, err error) {", recv, name, arg.Decl())
-	g.writefLn("err = %s.stream.Read(&arg)", recv)
-	g.errIfNilFunc(func() {
-		g.writefLn("err = %s(err)", serviceErrorCheck)
-		g.writeLn("if errors.Is(err, oservice.ErrClosed) {")
-		g.writeLn("err = ErrClosed")
-		g.writeLn("}")
-		g.writeLn("return")
-	})
-	// Validate, if needed.
-	g.writeValErrCheck(arg, "arg")
-	g.writeLn("return")
-	g.writeLn("}")
-	g.writeLn("")
-
-	// Write method.
-	g.writefLn("func (%s *%sServiceStream) Write(ret %s) (err error) {", recv, name, ret.Decl())
-	g.writefLn("err = %s.stream.Write(ret)", recv)
-	g.errIfNilFunc(func() {
-		g.writefLn("err = %s(err)", serviceErrorCheck)
-		g.writeLn("if errors.Is(err, oservice.ErrClosed) {")
-		g.writeLn("err = ErrClosed")
-		g.writeLn("}")
-		g.writeLn("return")
-	})
-	g.writeLn("return")
-	g.writeLn("}")
-	g.writeLn("")
+		g.writeLn("")
+	}
 }

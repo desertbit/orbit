@@ -35,7 +35,7 @@ import (
 //### Client ###//
 //##############//
 
-func (g *generator) genServiceClientCallSignature(c *ast.Call) {
+func (g *generator) genClientCallSignature(c *ast.Call) {
 	g.writef("%s(ctx context.Context", c.Name)
 	if c.Arg != nil {
 		g.writef(", arg %s", c.Arg.Decl())
@@ -47,10 +47,10 @@ func (g *generator) genServiceClientCallSignature(c *ast.Call) {
 	g.write("err error)")
 }
 
-func (g *generator) genServiceClientCall(c *ast.Call, errs []*ast.Error) {
+func (g *generator) genClientCall(c *ast.Call, errs []*ast.Error) {
 	// Method declaration.
 	g.writef("func (%s *client) ", recv)
-	g.genServiceClientCallSignature(c)
+	g.genClientCallSignature(c)
 	g.writeLn(" {")
 
 	// Method body.
@@ -130,7 +130,7 @@ func (g *generator) genServiceClientCall(c *ast.Call, errs []*ast.Error) {
 //### Service ###//
 //###############//
 
-func (g *generator) genServiceHandlerCallRegister(c *ast.Call) {
+func (g *generator) genServiceCallRegister(c *ast.Call) {
 	if c.Async {
 		g.writef("os.RegisterAsyncCall(CallID%s, srvc.%s,", c.Name, c.NamePrv())
 		g.writeTimeoutParam(c.Timeout)
@@ -155,7 +155,7 @@ func (g *generator) genServiceHandlerCallSignature(c *ast.Call) {
 	g.writeLn("err error)")
 }
 
-func (g *generator) genServiceHandlerCall(c *ast.Call) {
+func (g *generator) genServiceCall(c *ast.Call) {
 	// Method declaration.
 	g.writefLn(
 		"func (%s *service) %s(ctx oservice.Context, argData []byte) (retData interface{}, err error) {",

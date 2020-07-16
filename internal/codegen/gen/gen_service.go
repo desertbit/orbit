@@ -46,23 +46,23 @@ func (g *generator) genService(srvc *ast.Service, errs []*ast.Error) {
 	g.writeLn("")
 
 	// Create the interfaces.
-	g.genServiceClientInterface(srvc.Calls, srvc.Streams)
+	g.genClientInterface(srvc.Calls, srvc.Streams)
 	g.genServiceInterface()
 	g.genServiceHandlerInterface(srvc.Calls, srvc.Streams)
 
 	// Create the private structs implementing the interfaces.
-	g.genServiceClientStruct(srvc.Calls, srvc.Streams, errs)
+	g.genClientStruct(srvc.Calls, srvc.Streams, errs)
 	g.genServiceStruct(srvc.Calls, srvc.Streams, errs)
 }
 
-func (g *generator) genServiceClientInterface(calls []*ast.Call, streams []*ast.Stream) {
+func (g *generator) genClientInterface(calls []*ast.Call, streams []*ast.Stream) {
 	g.writeLn("type Client interface {")
 	g.writeLn("closer.Closer")
 
 	if len(calls) > 0 {
 		g.writeLn("// Calls")
 		for _, c := range calls {
-			g.genServiceClientCallSignature(c)
+			g.genClientCallSignature(c)
 			g.writeLn("")
 		}
 	}
@@ -70,7 +70,7 @@ func (g *generator) genServiceClientInterface(calls []*ast.Call, streams []*ast.
 	if len(streams) > 0 {
 		g.writeLn("// Streams")
 		for _, s := range streams {
-			g.genServiceClientStreamSignature(s)
+			g.genClientStreamSignature(s)
 			g.writeLn("")
 		}
 	}
@@ -109,7 +109,7 @@ func (g *generator) genServiceHandlerInterface(calls []*ast.Call, streams []*ast
 	g.writeLn("")
 }
 
-func (g *generator) genServiceClientStruct(calls []*ast.Call, streams []*ast.Stream, errs []*ast.Error) {
+func (g *generator) genClientStruct(calls []*ast.Call, streams []*ast.Stream, errs []*ast.Error) {
 	// Generate the struct definition.
 	g.writeLn("type client struct {")
 	g.writeLn("oclient.Client")
@@ -133,12 +133,12 @@ func (g *generator) genServiceClientStruct(calls []*ast.Call, streams []*ast.Str
 
 	// Generate the calls.
 	for _, c := range calls {
-		g.genServiceClientCall(c, errs)
+		g.genClientCall(c, errs)
 	}
 
 	// Generate the streams.
 	for _, s := range streams {
-		g.genServiceClientStream(s, errs)
+		g.genClientStream(s, errs)
 	}
 }
 
@@ -163,10 +163,10 @@ func (g *generator) genServiceStruct(calls []*ast.Call, streams []*ast.Stream, e
 	g.writeLn("// Ensure usage.")
 	g.writeLn("_ = srvc")
 	for _, c := range calls {
-		g.genServiceHandlerCallRegister(c)
+		g.genServiceCallRegister(c)
 	}
 	for _, s := range streams {
-		g.genServiceHandlerStreamRegister(s)
+		g.genServiceStreamRegister(s)
 	}
 	g.writeLn("s = os")
 	g.writeLn("return")
@@ -175,11 +175,11 @@ func (g *generator) genServiceStruct(calls []*ast.Call, streams []*ast.Stream, e
 
 	// Generate the calls.
 	for _, c := range calls {
-		g.genServiceHandlerCall(c)
+		g.genServiceCall(c)
 	}
 
 	// Generate the streams.
 	for _, s := range streams {
-		g.genServiceHandlerStream(s)
+		g.genServiceStream(s)
 	}
 }
