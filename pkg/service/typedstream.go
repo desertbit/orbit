@@ -29,11 +29,17 @@ package service
 
 import (
 	"errors"
+	"fmt"
 	"io"
 
+	"github.com/desertbit/orbit/internal/api"
 	"github.com/desertbit/orbit/pkg/codec"
 	"github.com/desertbit/orbit/pkg/packet"
 	"github.com/desertbit/orbit/pkg/transport"
+)
+
+const (
+	maxTypedStreamErrorSize = 4096 // 4 KB
 )
 
 type TypedRStream interface {
@@ -61,22 +67,83 @@ func newTypedRWStream(s transport.Stream, cc codec.Codec, mas, mrs int) *typedRW
 }
 
 func (s *typedRWStream) Read(data interface{}) (err error) {
-	err = packet.ReadDecode(s.stream, &data, s.codec, s.maxRetSize)
-	if err != nil {
-		if errors.Is(err, io.EOF) || s.stream.IsClosed() {
-			err = ErrClosed
+	// Read first the type off of the wire.
+	t := make([]byte, 1)
+	for {
+		n, err := s.stream.Read(t)
+		if err != nil {
+			return s.checkClosedErr(err)
+		} else if n == 1 {
+			break
 		}
-		return
 	}
+
+	switch t[0] {
+	case byte(api.TypedStreamTypeData):
+		// Read the data packet.
+		err = packet.ReadDecode(s.stream, &data, s.codec, s.maxRetSize)
+		if err != nil {
+			return s.checkClosedErr(err)
+		}
+	case byte(api.TypedStreamTypeError):
+		// Read the error packet.
+		var tErr api.TypedStreamError
+		err = packet.ReadDecode(s.stream, &tErr, s.codec, maxTypedStreamErrorSize)
+		if err != nil {
+			return s.checkClosedErr(err)
+		}
+
+		// Build our error.
+		err = Err(errors.New(tErr.Err), tErr.Err, tErr.Code)
+		// Close the stream.
+		_ = s.stream.Close()
+	default:
+		return fmt.Errorf("unknown typed stream type: %v", t[0])
+	}
+
 	return
 }
 
 func (s *typedRWStream) Write(data interface{}) (err error) {
+	// Write first the type on the wire.
+	n, err := s.stream.Write([]byte{byte(api.TypedStreamTypeData)})
+	if err != nil {
+		return s.checkClosedErr(err)
+	} else if n != 1 {
+		return io.ErrShortWrite
+	}
+
+	// Now write the data packet.
 	err = packet.WriteEncode(s.stream, data, s.codec, s.maxArgSize)
 	if err != nil {
-		if errors.Is(err, io.EOF) || s.stream.IsClosed() {
-			return ErrClosed
-		}
+		return s.checkClosedErr(err)
 	}
 	return
+}
+
+func (s *typedRWStream) closeWithErr(rErr Error) (err error) {
+	if rErr == nil {
+		return
+	}
+
+	// Write first the type on the wire.
+	n, err := s.stream.Write([]byte{byte(api.TypedStreamTypeError)})
+	if err != nil {
+		return s.checkClosedErr(err)
+	} else if n != 1 {
+		return io.ErrShortWrite
+	}
+
+	// Now write the error packet.
+	err = packet.WriteEncode(s.stream, api.TypedStreamError{Err: rErr.Msg(), Code: rErr.Code()}, s.codec, s.maxArgSize)
+	if err != nil {
+		return s.checkClosedErr(err)
+	}
+}
+
+func (s *typedRWStream) checkClosedErr(err error) error {
+	if errors.Is(err, io.EOF) || s.stream.IsClosed() {
+		return ErrClosed
+	}
+	return err
 }

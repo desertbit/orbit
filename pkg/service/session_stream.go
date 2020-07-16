@@ -193,7 +193,22 @@ func (s *session) handleRawStream(id string, data map[string][]byte, stream tran
 		return
 	}
 
-	err = s.handler.handleTypedStream(sctx, str, stream)
+	// Create the typed stream.
+	ts := newTypedRWStream(stream, s.codec, s.maxArgSize, s.maxRetSize)
+
+	// Call the hooks and function in a nested function.
+	// We must pass the error from the function call to the done hook.
+	err = func() (err error) {
+		// Call OnStreamClosed hooks.
+		defer func() {
+			s.handler.hookOnStreamClosed(sctx, id, err)
+		}()
+
+		// Call the handler.
+		err = s.handler.handleTypedStream(sctx, ts, str.typ, str.f)
+	}()
+
+
 	if err != nil {
 		// Check, if an orbit error was returned.
 		var oErr Error
@@ -210,6 +225,10 @@ func (s *session) handleRawStream(id string, data map[string][]byte, stream tran
 				retHeader.Err = fmt.Sprintf("%s call failed", h.ID)
 			}
 		}
+
+		ts.closeWithErr()
+
+
 
 		// Reset the error, because we handled it already and the result should be send to the caller.
 		err = nil
