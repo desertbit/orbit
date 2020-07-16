@@ -37,12 +37,46 @@ import (
 )
 
 func (s *session) OpenTypedStream(ctx context.Context, id string, maxArgSize, maxRetSize int) (ts TypedRWStream, err error) {
-	// Create our typed stream.
-	ts := newTypedRWStream(stream, s.codec, maxArgSize, maxRetSize)
+	// Create a new client context.
+	cctx := newContext(ctx, s)
 
-	return ts, nil
+	// Call the OnStream hooks.
+	err = s.handler.hookOnStream(cctx, id)
+	if err != nil {
+		return
+	}
+
+	// Call the closed hook if an error occurs.
+	defer func() {
+		if err != nil {
+			s.handler.hookOnStreamClosed(cctx, id, err)
+		}
+	}()
+
+	// Open the stream.
+	stream, err := s.openStream(ctx, api.StreamTypeRaw, &api.StreamRaw{
+		ID:   id,
+		Data: cctx.header,
+	}, s.maxHeaderSize)
+	if err != nil {
+		return
+	}
+
+	// Call the closed hook once closed.
+	go func() {
+		select {
+		case <-stream.ClosedChan():
+		case <-s.ClosingChan():
+		}
+		s.handler.hookOnStreamClosed(cctx, id, nil)
+	}()
+
+	// Create our typed stream.
+	ts = newTypedRWStream(stream, s.codec, maxArgSize, maxRetSize)
+	return
 }
 
+// TODO: 2020/07/16 skaldesh: OpenRawStream?
 func (s *session) OpenStream(ctx context.Context, id string) (stream transport.Stream, err error) {
 	// Create a new client context.
 	cctx := newContext(ctx, s)
