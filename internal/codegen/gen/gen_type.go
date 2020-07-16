@@ -56,22 +56,12 @@ func (g *generator) genTypes(ts []*ast.Type, srvc *ast.Service) {
 		g.writeLn("")
 	}
 
-	// We want to send our orbit Errors over the wire with orbit-managed streams.
-	// Therefore, we must build a struct containing both the error and the code.
-	// But, only generate this struct if we have at least one such stream.
-	var generatedErrStruct bool
-
 	// Generate a stream type for every stream arg or ret or bidirectional stream func,
 	// but only once!
 	genStreams := make(map[string]struct{})
 	for _, s := range srvc.Streams {
 		if s.Arg == nil && s.Ret == nil {
 			continue
-		}
-
-		if !generatedErrStruct {
-			generatedErrStruct = true
-			g.genStreamErrStruct()
 		}
 
 		if s.Arg != nil && s.Ret != nil {
@@ -100,43 +90,31 @@ func (g *generator) genTypes(ts []*ast.Type, srvc *ast.Service) {
 	}
 }
 
-func (g *generator) genStreamErrStruct() {
-	// Generate a struct representing an orbit error.
-	g.writefLn("type %s struct {", streamErrCode)
-	g.writeLn("Err string")
-	g.writeLn("Code int")
-	g.writeLn("}")
-}
-
 // genClientReadStreamType generates the client read side of a stream.
 func (g *generator) genClientReadStreamType(dt ast.DataType) {
 	// Type definition.
 	g.writefLn("//msgp:ignore %sReadStream", dt.Name())
 	g.writefLn("type %sReadStream struct {", dt.Name())
-	g.writeLn("closer.Closer")
-	g.writeLn("stream transport.Stream")
-	g.writeLn("codec codec.Codec")
-	g.writeLn("maxSize int")
+	g.writeLn("stream oclient.TypedRStream")
 	g.writeLn("}")
 	g.writeLn("")
 
 	// Constructor.
-	g.writefLn("func new%sReadStream(cl closer.Closer, s transport.Stream, cc codec.Codec, ms int) *%sReadStream {", dt.Name(), dt.Name())
-	g.writeLn("cl.OnClosing(s.Close)")
-	g.writefLn("return &%sReadStream{Closer: cl, stream: s, codec: cc, maxSize: ms}", dt.Name())
+	g.writefLn("func new%sReadStream(s oclient.TypedRStream) *%sReadStream {", dt.Name(), dt.Name())
+	g.writefLn("return &%sReadStream{stream: s}", dt.Name())
 	g.writeLn("}")
 	g.writeLn("")
 
 	// Read method.
 	g.writefLn("func (%s *%sReadStream) Read() (ret %s, err error) {", recv, dt.Name(), dt.Decl())
-	g.writefLn("err = packet.ReadDecode(%s.stream, &ret, %s.codec, %s.maxSize)", recv, recv, recv)
-	g.writeLn("if err != nil {")
-	g.writefLn("if errors.Is(err, packet.ErrZeroData) || errors.Is(err, io.EOF) || %s.IsClosing() || %s.stream.IsClosed() {", recv, recv)
-	g.writeLn("err = ErrClosed")
-	g.writeLn("}")
-	g.writefLn("%s.Close_()", recv)
-	g.writeLn("return")
-	g.writeLn("}")
+	g.writefLn("err = %s.stream.Read(&ret)", recv)
+	g.errIfNilFunc(func() {
+		g.writefLn("err = %s(err)", clientErrorCheck)
+		g.writeLn("if errors.Is(err, oclient.ErrClosed) {")
+		g.writeLn("err = ErrClosed")
+		g.writeLn("}")
+		g.writeLn("return")
+	})
 	// Validate, if needed.
 	g.writeValErrCheck(dt, "ret")
 	g.writeLn("return")
@@ -149,30 +127,26 @@ func (g *generator) genClientWriteStreamType(dt ast.DataType) {
 	// Type definition.
 	g.writefLn("//msgp:ignore %sWriteStream", dt.Name())
 	g.writefLn("type %sWriteStream struct {", dt.Name())
-	g.writeLn("closer.Closer")
-	g.writeLn("stream transport.Stream")
-	g.writeLn("codec codec.Codec")
-	g.writeLn("maxSize int")
+	g.writeLn("stream oclient.TypedWStream")
 	g.writeLn("}")
 	g.writeLn("")
 
 	// Constructor.
-	g.writefLn("func new%sWriteStream(cl closer.Closer, s transport.Stream, cc codec.Codec, ms int) *%sWriteStream {", dt.Name(), dt.Name())
-	g.writeLn("cl.OnClosing(s.Close)")
-	g.writeLn("cl.OnClosing(func() error { return packet.Write(s, nil, 0) })")
-	g.writefLn("return &%sWriteStream{Closer: cl, stream: s, codec: cc, maxSize: ms}", dt.Name())
+	g.writefLn("func new%sWriteStream(s oclient.TypedWStream) *%sWriteStream {", dt.Name(), dt.Name())
+	g.writefLn("return &%sWriteStream{stream: s}", dt.Name())
 	g.writeLn("}")
 	g.writeLn("")
 
 	// Write method.
 	g.writefLn("func (%s *%sWriteStream) Write(arg %s) (err error) {", recv, dt.Name(), dt.Decl())
-	g.writefLn("err = packet.WriteEncode(%s.stream, &arg, %s.codec, %s.maxSize)", recv, recv, recv)
-	g.writeLn("if err != nil {")
-	g.writefLn("if errors.Is(err, io.EOF) || %s.IsClosing() || %s.stream.IsClosed() {", recv, recv)
-	g.writefLn("%s.Close_()", recv)
-	g.writeLn("return ErrClosed")
-	g.writeLn("}")
-	g.writeLn("}")
+	g.writefLn("err = %s.stream.Write(arg)", recv)
+	g.errIfNilFunc(func() {
+		g.writefLn("err = %s(err)", clientErrorCheck)
+		g.writeLn("if errors.Is(err, oclient.ErrClosed) {")
+		g.writeLn("err = ErrClosed")
+		g.writeLn("}")
+		g.writeLn("return")
+	})
 	g.writeLn("return")
 	g.writeLn("}")
 	g.writeLn("")
@@ -183,32 +157,26 @@ func (g *generator) genClientStreamType(name string, arg, ret ast.DataType) {
 	// Type definition.
 	g.writefLn("//msgp:ignore %sClientStream", name)
 	g.writefLn("type %sClientStream struct {", name)
-	g.writeLn("closer.Closer")
-	g.writeLn("stream transport.Stream")
-	g.writeLn("codec codec.Codec")
-	g.writeLn("maxSize int")
+	g.writeLn("stream oclient.TypedRWStream")
 	g.writeLn("}")
 	g.writeLn("")
 
 	// Constructor.
-	g.writefLn("func new%sClientStream(cl closer.Closer, s transport.Stream, cc codec.Codec, ms int) *%sClientStream {", name, name)
-	g.writeLn("cl.OnClosing(s.Close)")
-	g.writeLn("// Since we have a writing side, ensure to send the zero packet once we close.")
-	g.writeLn("cl.OnClosing(func() error { return packet.Write(s, nil, 0) })")
-	g.writefLn("return &%sClientStream{Closer: cl, stream: s, codec: cc, maxSize: ms}", name)
+	g.writefLn("func new%sClientStream(s oclient.TypedRWStream) *%sClientStream {", name, name)
+	g.writefLn("return &%sClientStream{stream: s}", name)
 	g.writeLn("}")
 	g.writeLn("")
 
 	// Read method.
-	g.writefLn("func (%s *%sClientStream) Read() (ret %s, err error) {", recv, name, ret.Name())
-	g.writefLn("err = packet.ReadDecode(%s.stream, &ret, %s.codec, %s.maxSize)", recv, recv, recv)
-	g.writeLn("if err != nil {")
-	g.writefLn("if errors.Is(err, packet.ErrZeroData) || errors.Is(err, io.EOF) || %s.IsClosing() || %s.stream.IsClosed() {", recv, recv)
-	g.writeLn("err = ErrClosed")
-	g.writeLn("}")
-	g.writefLn("%s.Close_()", recv)
-	g.writeLn("return")
-	g.writeLn("}")
+	g.writefLn("func (%s *%sClientStream) Read() (ret %s, err error) {", recv, name, ret.Decl())
+	g.writefLn("err = %s.stream.Read(&ret)", recv)
+	g.errIfNilFunc(func() {
+		g.writefLn("err = %s(err)", clientErrorCheck)
+		g.writeLn("if errors.Is(err, oclient.ErrClosed) {")
+		g.writeLn("err = ErrClosed")
+		g.writeLn("}")
+		g.writeLn("return")
+	})
 	// Validate, if needed.
 	g.writeValErrCheck(ret, "ret")
 	g.writeLn("return")
@@ -216,14 +184,15 @@ func (g *generator) genClientStreamType(name string, arg, ret ast.DataType) {
 	g.writeLn("")
 
 	// Write method.
-	g.writefLn("func (%s *%sClientStream) Write(arg %s) (err error) {", recv, name, arg.Name())
-	g.writefLn("err = packet.WriteEncode(%s.stream, &arg, %s.codec, %s.maxSize)", recv, recv, recv)
-	g.writeLn("if err != nil {")
-	g.writefLn("if errors.Is(err, io.EOF) || %s.IsClosing() || %s.stream.IsClosed() {", recv, recv)
-	g.writefLn("%s.Close_()", recv)
-	g.writeLn("return ErrClosed")
-	g.writeLn("}")
-	g.writeLn("}")
+	g.writefLn("func (%s *%sClientStream) Write(arg %s) (err error) {", recv, name, arg.Decl())
+	g.writefLn("err = %s.stream.Write(arg)", recv)
+	g.errIfNilFunc(func() {
+		g.writefLn("err = %s(err)", clientErrorCheck)
+		g.writeLn("if errors.Is(err, oclient.ErrClosed) {")
+		g.writeLn("err = ErrClosed")
+		g.writeLn("}")
+		g.writeLn("return")
+	})
 	g.writeLn("return")
 	g.writeLn("}")
 	g.writeLn("")
@@ -234,27 +203,26 @@ func (g *generator) genServiceReadStreamType(dt ast.DataType) {
 	// Type definition.
 	g.writefLn("//msgp:ignore %sReadStream", dt.Name())
 	g.writefLn("type %sReadStream struct {", dt.Name())
-	g.writeLn("stream transport.Stream")
-	g.writeLn("codec codec.Codec")
-	g.writeLn("maxSize int")
+	g.writeLn("stream oservice.TypedRStream")
 	g.writeLn("}")
 	g.writeLn("")
 
 	// Constructor.
-	g.writefLn("func new%sReadStream(s transport.Stream, cc codec.Codec, ms int) *%sReadStream {", dt.Name(), dt.Name())
-	g.writefLn("return &%sReadStream{stream: s, codec: cc, maxSize: ms}", dt.Name())
+	g.writefLn("func new%sReadStream(s oservice.TypedRStream) *%sReadStream {", dt.Name(), dt.Name())
+	g.writefLn("return &%sReadStream{stream: s}", dt.Name())
 	g.writeLn("}")
 	g.writeLn("")
 
 	// Read method.
 	g.writefLn("func (%s *%sReadStream) Read() (arg %s, err error) {", recv, dt.Name(), dt.Decl())
-	g.writefLn("err = packet.ReadDecode(%s.stream, &arg, %s.codec, %s.maxSize)", recv, recv, recv)
-	g.writeLn("if err != nil {")
-	g.writefLn("if errors.Is(err, packet.ErrZeroData) || errors.Is(err, io.EOF) || %s.stream.IsClosed() {", recv)
-	g.writeLn("err = ErrClosed")
-	g.writeLn("}")
-	g.writeLn("return")
-	g.writeLn("}")
+	g.writefLn("err = %s.stream.Read(&arg)", recv)
+	g.errIfNilFunc(func() {
+		g.writefLn("err = %s(err)", serviceErrorCheck)
+		g.writeLn("if errors.Is(err, oservice.ErrClosed) {")
+		g.writeLn("err = ErrClosed")
+		g.writeLn("}")
+		g.writeLn("return")
+	})
 	// Validate, if needed.
 	g.writeValErrCheck(dt, "arg")
 	g.writeLn("return")
@@ -267,26 +235,26 @@ func (g *generator) genServiceWriteStreamType(dt ast.DataType) {
 	// Type definition.
 	g.writefLn("//msgp:ignore %sWriteStream", dt.Name())
 	g.writefLn("type %sWriteStream struct {", dt.Name())
-	g.writeLn("stream transport.Stream")
-	g.writeLn("codec codec.Codec")
-	g.writeLn("maxSize int")
+	g.writeLn("stream oservice.TypedWStream")
 	g.writeLn("}")
 	g.writeLn("")
 
 	// Constructor.
-	g.writefLn("func new%sWriteStream(s transport.Stream, cc codec.Codec, ms int) *%sWriteStream {", dt.Name(), dt.Name())
-	g.writefLn("return &%sWriteStream{stream: s, codec: cc, maxSize: ms}", dt.Name())
+	g.writefLn("func new%sWriteStream(s oservice.TypedWStream) *%sWriteStream {", dt.Name(), dt.Name())
+	g.writefLn("return &%sWriteStream{stream: s}", dt.Name())
 	g.writeLn("}")
 	g.writeLn("")
 
 	// Write method.
 	g.writefLn("func (%s *%sWriteStream) Write(ret %s) (err error) {", recv, dt.Name(), dt.Decl())
-	g.writefLn("err = packet.WriteEncode(%s.stream, &ret, %s.codec, %s.maxSize)", recv, recv, recv)
-	g.writeLn("if err != nil {")
-	g.writefLn("if errors.Is(err, io.EOF) || %s.stream.IsClosed() {", recv)
-	g.writeLn("return ErrClosed")
-	g.writeLn("}")
-	g.writeLn("}")
+	g.writefLn("err = %s.stream.Write(ret)", recv)
+	g.errIfNilFunc(func() {
+		g.writefLn("err = %s(err)", serviceErrorCheck)
+		g.writeLn("if errors.Is(err, oservice.ErrClosed) {")
+		g.writeLn("err = ErrClosed")
+		g.writeLn("}")
+		g.writeLn("return")
+	})
 	g.writeLn("return")
 	g.writeLn("}")
 	g.writeLn("")
@@ -297,27 +265,26 @@ func (g *generator) genServiceStreamType(name string, arg, ret ast.DataType) {
 	// Type definition.
 	g.writefLn("//msgp:ignore %sServiceStream", name)
 	g.writefLn("type %sServiceStream struct {", name)
-	g.writeLn("stream transport.Stream")
-	g.writeLn("codec codec.Codec")
-	g.writeLn("maxSize int")
+	g.writeLn("stream oservice.TypedRWStream")
 	g.writeLn("}")
 	g.writeLn("")
 
 	// Constructor.
-	g.writefLn("func new%sServiceStream(s transport.Stream, cc codec.Codec, ms int) *%sServiceStream {", name, name)
-	g.writefLn("return &%sServiceStream{stream: s, codec: cc, maxSize: ms}", name)
+	g.writefLn("func new%sServiceStream(s oservice.TypedRWStream) *%sServiceStream {", name, name)
+	g.writefLn("return &%sServiceStream{stream: s}", name)
 	g.writeLn("}")
 	g.writeLn("")
 
 	// Read method.
 	g.writefLn("func (%s *%sServiceStream) Read() (arg %s, err error) {", recv, name, arg.Decl())
-	g.writefLn("err = packet.ReadDecode(%s.stream, &arg, %s.codec, %s.maxSize)", recv, recv, recv)
-	g.writeLn("if err != nil {")
-	g.writefLn("if errors.Is(err, packet.ErrZeroData) || errors.Is(err, io.EOF) || %s.stream.IsClosed() {", recv)
-	g.writeLn("err = ErrClosed")
-	g.writeLn("}")
-	g.writeLn("return")
-	g.writeLn("}")
+	g.writefLn("err = %s.stream.Read(&arg)", recv)
+	g.errIfNilFunc(func() {
+		g.writefLn("err = %s(err)", serviceErrorCheck)
+		g.writeLn("if errors.Is(err, oservice.ErrClosed) {")
+		g.writeLn("err = ErrClosed")
+		g.writeLn("}")
+		g.writeLn("return")
+	})
 	// Validate, if needed.
 	g.writeValErrCheck(arg, "arg")
 	g.writeLn("return")
@@ -326,12 +293,14 @@ func (g *generator) genServiceStreamType(name string, arg, ret ast.DataType) {
 
 	// Write method.
 	g.writefLn("func (%s *%sServiceStream) Write(ret %s) (err error) {", recv, name, ret.Decl())
-	g.writefLn("err = packet.WriteEncode(%s.stream, &ret, %s.codec, %s.maxSize)", recv, recv, recv)
-	g.writeLn("if err != nil {")
-	g.writefLn("if errors.Is(err, io.EOF) || %s.stream.IsClosed() {", recv)
-	g.writeLn("return ErrClosed")
-	g.writeLn("}")
-	g.writeLn("}")
+	g.writefLn("err = %s.stream.Write(ret)", recv)
+	g.errIfNilFunc(func() {
+		g.writefLn("err = %s(err)", serviceErrorCheck)
+		g.writeLn("if errors.Is(err, oservice.ErrClosed) {")
+		g.writeLn("err = ErrClosed")
+		g.writeLn("}")
+		g.writeLn("return")
+	})
 	g.writeLn("return")
 	g.writeLn("}")
 	g.writeLn("")

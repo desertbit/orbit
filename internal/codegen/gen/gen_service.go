@@ -95,7 +95,6 @@ func (g *generator) genServiceHandlerInterface(calls []*ast.Call, streams []*ast
 		g.writeLn("// Calls")
 		for _, rc := range calls {
 			g.genServiceHandlerCallSignature(rc)
-			g.writeLn("")
 		}
 	}
 
@@ -103,7 +102,6 @@ func (g *generator) genServiceHandlerInterface(calls []*ast.Call, streams []*ast
 		g.writeLn("// Streams")
 		for _, rs := range streams {
 			g.genServiceHandlerStreamSignature(rs)
-			g.writeLn("")
 		}
 	}
 
@@ -165,20 +163,10 @@ func (g *generator) genServiceStruct(calls []*ast.Call, streams []*ast.Stream, e
 	g.writeLn("// Ensure usage.")
 	g.writeLn("_ = srvc")
 	for _, c := range calls {
-		if c.Async {
-			g.writef("os.RegisterAsyncCall(CallID%s, srvc.%s,", c.Name, c.NamePrv())
-			g.writeTimeoutParam(c.Timeout)
-			g.writeCallMaxSizeParam(c.MaxArgSize, true)
-			g.writeCallMaxSizeParam(c.MaxRetSize, true)
-			g.writeLn(")")
-		} else {
-			g.writef("os.RegisterCall(CallID%s, srvc.%s,", c.Name, c.NamePrv())
-			g.writeTimeoutParam(c.Timeout)
-			g.writeLn(")")
-		}
+		g.genServiceHandlerCallRegister(c)
 	}
 	for _, s := range streams {
-		g.writefLn("os.RegisterStream(StreamID%s, srvc.%s)", s.Name, s.NamePrv())
+		g.genServiceHandlerStreamRegister(s)
 	}
 	g.writeLn("s = os")
 	g.writeLn("return")
@@ -192,6 +180,6 @@ func (g *generator) genServiceStruct(calls []*ast.Call, streams []*ast.Stream, e
 
 	// Generate the streams.
 	for _, s := range streams {
-		g.genServiceHandlerStream(s, errs)
+		g.genServiceHandlerStream(s)
 	}
 }
