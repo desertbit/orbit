@@ -177,6 +177,7 @@ func (s *session) handleRawStream(id string, data map[string][]byte, stream tran
 		return fmt.Errorf("stream %s: %w", id, err)
 	}
 
+	// Handle raw streams individually.
 	if str.typ == streamTypeRaw {
 		go func() {
 			// Wait, until the stream is closed.
