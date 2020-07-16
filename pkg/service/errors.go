@@ -63,9 +63,9 @@ type Error interface {
 	Code() int
 }
 
-// NewErr constructs and returns a type that satisfies the Error interface
+// NewError constructs and returns a type that satisfies the Error interface
 // from the given parameters.
-func NewErr(err error, msg string, code int) Error {
+func NewError(err error, msg string, code int) Error {
 	return errImpl{
 		err:  err,
 		msg:  msg,

@@ -90,6 +90,9 @@ func (s *typedRWStream) Read(data interface{}) (err error) {
 			return s.checkErr(err)
 		}
 	case api.TypedStreamTypeError:
+		// Close the stream in any case now.
+		defer s.stream.Close()
+
 		// Read the error packet.
 		var tErr api.TypedStreamError
 		err = packet.ReadDecode(s.stream, &tErr, api.Codec, maxTypedStreamErrorSize)
@@ -98,11 +101,9 @@ func (s *typedRWStream) Read(data interface{}) (err error) {
 		}
 
 		// Build our error.
-		err = NewErr(errors.New(tErr.Err), tErr.Err, tErr.Code)
-		// Close the stream.
-		_ = s.stream.Close()
+		err = NewError(errors.New(tErr.Err), tErr.Err, tErr.Code)
 	default:
-		return fmt.Errorf("unknown typed stream type: %v", t[0])
+		return fmt.Errorf("unknown typed stream type: %v", ts)
 	}
 
 	return
@@ -113,20 +114,14 @@ func (s *typedRWStream) Write(data interface{}) (err error) {
 	_, err = s.stream.Write([]byte{byte(api.TypedStreamTypeData)})
 	if err != nil {
 		// If the stream is closed, check for an error sent by the client.
-		if s.wOnly && s.isClosedErr(err) {
-			err = s.readErr()
-		}
-		return s.checkErr(err)
+		return s.checkWriteErr(err)
 	}
 
 	// Now write the data packet.
 	err = packet.WriteEncode(s.stream, data, s.codec, s.maxArgSize)
 	if err != nil {
 		// If the stream is closed, check for an error sent by the client.
-		if s.wOnly && s.isClosedErr(err) {
-			err = s.readErr()
-		}
-		return s.checkErr(err)
+		return s.checkWriteErr(err)
 	}
 	return
 }
@@ -153,23 +148,6 @@ func (s *typedRWStream) readTypedStreamType() (ts api.TypedStreamType, err error
 	return
 }
 
-func (s *typedRWStream) readErr() (err error) {
-	ts, err := s.readTypedStreamType()
-	if err != nil || ts != api.TypedStreamTypeError {
-		return
-	}
-
-	// Read the error packet.
-	var tErr api.TypedStreamError
-	err = packet.ReadDecode(s.stream, &tErr, api.Codec, maxTypedStreamErrorSize)
-	if err != nil {
-		return
-	}
-
-	// Build our error.
-	return NewErr(errors.New(tErr.Err), tErr.Err, tErr.Code)
-}
-
 func (s *typedRWStream) closeWithErr(rErr Error) (err error) {
 	defer s.stream.Close()
 
@@ -194,6 +172,38 @@ func (s *typedRWStream) closeWithErr(rErr Error) (err error) {
 		return s.checkErr(err)
 	}
 	return
+}
+
+func (s *typedRWStream) checkWriteErr(err error) error {
+	// Only check for write errors in write-only mode and only for closed errors.
+	if !s.wOnly || !s.isClosedErr(err) {
+		return err
+	}
+
+	// Try to read the typed stream type off of the wire.
+	var rErr error
+	ts, rErr := s.readTypedStreamType()
+	if rErr != nil || ts != api.TypedStreamTypeError {
+		// Only return this error, if we have no original error.
+		if err == nil {
+			err = rErr
+		}
+		return err
+	}
+
+	// Read the error packet.
+	var tErr api.TypedStreamError
+	rErr = packet.ReadDecode(s.stream, &tErr, api.Codec, maxTypedStreamErrorSize)
+	if rErr != nil {
+		// Only return this error, if we have no original error.
+		if err == nil {
+			err = rErr
+		}
+		return err
+	}
+
+	// Always prefer to return our custom error.
+	return NewError(errors.New(tErr.Err), tErr.Err, tErr.Code)
 }
 
 func (s *typedRWStream) checkErr(err error) error {

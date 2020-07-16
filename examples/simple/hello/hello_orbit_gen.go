@@ -70,9 +70,9 @@ func _clientErrorCheck(err error) error {
 
 func _serviceErrorCheck(err error) error {
 	if errors.Is(err, ErrIAmAnError) {
-		return oservice.NewErr(err, ErrIAmAnError.Error(), ErrCodeIAmAnError)
+		return oservice.NewError(err, ErrIAmAnError.Error(), ErrCodeIAmAnError)
 	} else if errors.Is(err, ErrThisIsATest) {
-		return oservice.NewErr(err, ErrThisIsATest.Error(), ErrCodeThisIsATest)
+		return oservice.NewError(err, ErrThisIsATest.Error(), ErrCodeThisIsATest)
 	}
 	return err
 }
