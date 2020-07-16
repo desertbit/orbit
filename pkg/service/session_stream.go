@@ -205,9 +205,8 @@ func (s *session) handleRawStream(id string, data map[string][]byte, stream tran
 		}()
 
 		// Call the handler.
-		err = s.handler.handleTypedStream(sctx, ts, str.typ, str.f)
+		return s.handler.handleTypedStream(sctx, ts, str.typ, str.f)
 	}()
-
 
 	if err != nil {
 		// Check, if an orbit error was returned.
