@@ -150,37 +150,12 @@ func (c *clientHook) OnStream(ctx client.Context, id string) error {
 	return nil
 }
 
-func (c *clientHook) OnStreamClosed(ctx client.Context, id string, err error) {
+func (c *clientHook) OnStreamClosed(ctx client.Context, id string) {
 	s := ctx.Session()
-
-	if err == nil {
-		c.log.Info().
-			Str("streamID", id).
-			Str("sessionID", s.ID()).
-			Str("localAddr", s.LocalAddr().String()).
-			Str("remoteAddr", s.RemoteAddr().String()).
-			Msg("stream closed")
-		return
-	}
-
-	// Check, if an orbit client error was returned.
-	var oErr client.Error
-	if errors.As(err, &oErr) {
-		c.log.Error().
-			Err(err).
-			Int("errCode", oErr.Code()).
-			Str("streamID", id).
-			Str("sessionID", s.ID()).
-			Str("localAddr", s.LocalAddr().String()).
-			Str("remoteAddr", s.RemoteAddr().String()).
-			Msg("stream failed")
-	} else {
-		c.log.Error().
-			Err(err).
-			Str("callID", id).
-			Str("streamID", s.ID()).
-			Str("localAddr", s.LocalAddr().String()).
-			Str("remoteAddr", s.RemoteAddr().String()).
-			Msg("stream failed")
-	}
+	c.log.Info().
+		Str("streamID", id).
+		Str("sessionID", s.ID()).
+		Str("localAddr", s.LocalAddr().String()).
+		Str("remoteAddr", s.RemoteAddr().String()).
+		Msg("stream closed")
 }

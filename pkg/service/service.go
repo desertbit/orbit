@@ -246,7 +246,11 @@ func (s *service) RegisterTypedRStream(id string, f TypedRStreamFunc, maxRetSize
 		maxRetSize = s.opts.MaxRetSize
 	}
 
-	s.streams[id] = stream{typ: streamTypeTR, f: f, maxRetSize: maxRetSize}
+	s.streams[id] = stream{
+		typ:        streamTypeTR,
+		f:          f,
+		maxRetSize: maxRetSize,
+	}
 }
 
 func (s *service) RegisterTypedWStream(id string, f TypedWStreamFunc, maxArgSize int) {
@@ -255,7 +259,11 @@ func (s *service) RegisterTypedWStream(id string, f TypedWStreamFunc, maxArgSize
 		maxArgSize = s.opts.MaxArgSize
 	}
 
-	s.streams[id] = stream{typ: streamTypeTW, f: f, maxArgSize: maxArgSize}
+	s.streams[id] = stream{
+		typ:        streamTypeTW,
+		f:          f,
+		maxArgSize: maxArgSize,
+	}
 }
 
 func (s *service) RegisterTypedRWStream(id string, f TypedRWStreamFunc, maxArgSize, maxRetSize int) {
@@ -267,5 +275,10 @@ func (s *service) RegisterTypedRWStream(id string, f TypedRWStreamFunc, maxArgSi
 		maxRetSize = s.opts.MaxRetSize
 	}
 
-	s.streams[id] = stream{typ: streamTypeTRW, f: f, maxArgSize: maxArgSize, maxRetSize: maxRetSize}
+	s.streams[id] = stream{
+		typ:        streamTypeTRW,
+		f:          f,
+		maxArgSize: maxArgSize,
+		maxRetSize: maxRetSize,
+	}
 }

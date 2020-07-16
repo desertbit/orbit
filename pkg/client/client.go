@@ -134,7 +134,7 @@ func (c *client) Stream(ctx context.Context, id string) (transport.Stream, error
 		return nil, fmt.Errorf("failed to get connected session: %w", err)
 	}
 
-	return s.OpenStream(ctx, id)
+	return s.OpenRawStream(ctx, id)
 }
 
 func (c *client) TypedRStream(ctx context.Context, id string, maxRetSize int) (TypedRStream, error) {
@@ -144,7 +144,7 @@ func (c *client) TypedRStream(ctx context.Context, id string, maxRetSize int) (T
 		return nil, fmt.Errorf("failed to get connected session: %w", err)
 	}
 
-	return s.OpenTypedStream(ctx, id, 0, maxRetSize)
+	return s.OpenTypedStream(ctx, id, 0, maxRetSize, false)
 }
 
 func (c *client) TypedWStream(ctx context.Context, id string, maxArgSize int) (TypedWStream, error) {
@@ -154,7 +154,7 @@ func (c *client) TypedWStream(ctx context.Context, id string, maxArgSize int) (T
 		return nil, fmt.Errorf("failed to get connected session: %w", err)
 	}
 
-	return s.OpenTypedStream(ctx, id, maxArgSize, 0)
+	return s.OpenTypedStream(ctx, id, maxArgSize, 0, true)
 }
 
 func (c *client) TypedRWStream(ctx context.Context, id string, maxArgSize, maxRetSize int) (TypedRWStream, error) {
@@ -164,5 +164,5 @@ func (c *client) TypedRWStream(ctx context.Context, id string, maxArgSize, maxRe
 		return nil, fmt.Errorf("failed to get connected session: %w", err)
 	}
 
-	return s.OpenTypedStream(ctx, id, maxArgSize, maxRetSize)
+	return s.OpenTypedStream(ctx, id, maxArgSize, maxRetSize, false)
 }

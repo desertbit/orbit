@@ -67,6 +67,5 @@ type Hook interface {
 
 	// OnStreamClosed is called after a stream closes.
 	// The context is the same as from the OnStream hook.
-	// If err == nil, then the stream completed successfully.
-	OnStreamClosed(ctx Context, id string, err error)
+	OnStreamClosed(ctx Context, id string)
 }

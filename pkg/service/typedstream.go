@@ -64,7 +64,13 @@ type typedRWStream struct {
 }
 
 func newTypedRWStream(s transport.Stream, cc codec.Codec, mas, mrs int, wOnly bool) *typedRWStream {
-	return &typedRWStream{stream: s, codec: cc, maxArgSize: mas, maxRetSize: mrs, wOnly: wOnly}
+	return &typedRWStream{
+		stream:     s,
+		codec:      cc,
+		maxArgSize: mas,
+		maxRetSize: mrs,
+		wOnly:      wOnly,
+	}
 }
 
 func (s *typedRWStream) IsClosed() bool {
@@ -177,10 +183,6 @@ func (s *typedRWStream) checkWriteErr(err error) error {
 	var rErr error
 	ts, rErr := s.readTypedStreamType()
 	if rErr != nil || ts != api.TypedStreamTypeError {
-		// Only return this error, if we have no original error.
-		if err == nil {
-			err = rErr
-		}
 		return err
 	}
 
@@ -188,10 +190,6 @@ func (s *typedRWStream) checkWriteErr(err error) error {
 	var tErr api.TypedStreamError
 	rErr = packet.ReadDecode(s.stream, &tErr, api.Codec, maxTypedStreamErrorSize)
 	if rErr != nil {
-		// Only return this error, if we have no original error.
-		if err == nil {
-			err = rErr
-		}
 		return err
 	}
 
