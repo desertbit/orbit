@@ -148,12 +148,8 @@ func (s *typedRWStream) readTypedStreamType() (ts api.TypedStreamType, err error
 	return
 }
 
-func (s *typedRWStream) closeWithErr(rErr Error) (err error) {
+func (s *typedRWStream) closeWithErr(sErr api.TypedStreamError) (err error) {
 	defer s.stream.Close()
-
-	if rErr == nil {
-		return
-	}
 
 	// Write first the type on the wire.
 	_, err = s.stream.Write([]byte{byte(api.TypedStreamTypeError)})
@@ -162,12 +158,7 @@ func (s *typedRWStream) closeWithErr(rErr Error) (err error) {
 	}
 
 	// Now write the error packet.
-	err = packet.WriteEncode(
-		s.stream,
-		api.TypedStreamError{Err: rErr.Msg(), Code: rErr.Code()},
-		api.Codec,
-		s.maxArgSize,
-	)
+	err = packet.WriteEncode(s.stream, sErr, api.Codec, s.maxArgSize)
 	if err != nil {
 		return s.checkErr(err)
 	}

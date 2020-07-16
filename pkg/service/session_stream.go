@@ -196,40 +196,36 @@ func (s *session) handleRawStream(id string, data map[string][]byte, stream tran
 	// Create the typed stream.
 	ts := newTypedRWStream(stream, s.codec, s.maxArgSize, s.maxRetSize, str.typ == streamTypeTW)
 
-	// Call the hooks and function in a nested function.
-	// We must pass the error from the function call to the done hook.
-	err = func() (err error) {
-		// Call OnStreamClosed hooks.
-		defer func() {
-			s.handler.hookOnStreamClosed(sctx, id, err)
-		}()
-
-		// Call the handler.
-		return s.handler.handleTypedStream(sctx, ts, str.typ, str.f)
-	}()
-
+	// Call the handler.
+	err = s.handler.handleTypedStream(sctx, ts, str.typ, str.f)
 	if err != nil {
+		// Construct an error we send back on the stream.
+		var sErr api.TypedStreamError
+
 		// Check, if an orbit error was returned.
 		var oErr Error
 		if errors.As(err, &oErr) {
-			retHeader.ErrCode = oErr.Code()
-			retHeader.Err = oErr.Msg()
+			sErr.Code = oErr.Code()
+			sErr.Err = oErr.Msg()
 		}
 
 		// Ensure an error message is always set.
-		if retHeader.Err == "" {
+		if sErr.Err == "" {
 			if s.sendInternalErrors {
-				retHeader.Err = err.Error()
+				sErr.Err = err.Error()
 			} else {
-				retHeader.Err = fmt.Sprintf("%s call failed", h.ID)
+				sErr.Err = fmt.Sprintf("%s stream failed", id)
 			}
 		}
 
-		ts.closeWithErr()
-
-
-
-		// Reset the error, because we handled it already and the result should be send to the caller.
-		err = nil
+		// Close the stream with an error.
+		// Ignore, whether this succeeds or not.
+		_ = ts.closeWithErr(sErr)
 	}
+
+	// Call the OnStreamClosed hooks.
+	s.handler.hookOnStreamClosed(sctx, id, err)
+
+	// Reset the error, because at this point, we handled it already.
+	return nil
 }
