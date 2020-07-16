@@ -50,6 +50,14 @@ type Error interface {
 	Code() int
 }
 
+// NewError returns a new error with the given message and code.
+func NewError(code int, msg string) Error {
+	return errImpl{
+		msg:  msg,
+		code: code,
+	}
+}
+
 // Implements the Error interface.
 type errImpl struct {
 	msg  string

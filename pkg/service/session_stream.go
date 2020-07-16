@@ -227,5 +227,6 @@ func (s *session) handleRawStream(id string, data map[string][]byte, stream tran
 	s.handler.hookOnStreamClosed(sctx, id, err)
 
 	// Reset the error, because at this point, we handled it already.
-	return nil
+	err = nil
+	return
 }
