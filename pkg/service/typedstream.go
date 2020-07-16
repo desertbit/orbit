@@ -76,7 +76,7 @@ func (s *typedRWStream) ClosedChan() <-chan struct{} {
 }
 
 func (s *typedRWStream) Read(data interface{}) (err error) {
-	// Read first the type off of the wire.
+	// Read first the type of the wire.
 	ts, err := s.readTypedStreamType()
 	if err != nil {
 		return s.checkErr(err)
@@ -171,7 +171,7 @@ func (s *typedRWStream) checkWriteErr(err error) error {
 		return err
 	}
 
-	// Try to read the typed stream type off of the wire.
+	// Try to read the typed stream type of the wire.
 	var rErr error
 	ts, rErr := s.readTypedStreamType()
 	if rErr != nil || ts != api.TypedStreamTypeError {
