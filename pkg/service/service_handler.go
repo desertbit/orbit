@@ -41,7 +41,7 @@ type serviceHandler interface {
 
 	handleCall(ctx Context, f CallFunc, payload []byte) (ret interface{}, err error)
 	handleRawStream(ctx Context, f RawStreamFunc, stream transport.Stream)
-	handleTypedStream(ctx Context, str stream, stream transport.Stream) error
+	handleTypedStream(ctx Context, ts *typedRWStream, typ streamType, f interface{}) error
 
 	hookClose() error
 	hookOnSession(session Session, stream transport.Stream) error
@@ -98,7 +98,7 @@ func (s *service) handleRawStream(ctx Context, f RawStreamFunc, stream transport
 	f(ctx, stream)
 }
 
-func (s *service) handleTypedStream(ctx Context, str stream, stream transport.Stream) (err error) {
+func (s *service) handleTypedStream(ctx Context, ts *typedRWStream, typ streamType, f interface{}) (err error) {
 	// Catch panics.
 	defer func() {
 		if e := recover(); e != nil {
@@ -111,16 +111,15 @@ func (s *service) handleTypedStream(ctx Context, str stream, stream transport.St
 		}
 	}()
 
-	ts := newTypedRWStream(stream, s.codec, str.maxArgSize, str.maxRetSize)
-	switch str.typ {
+	switch typ {
 	case streamTypeTR:
-		err = str.f.(TypedRStreamFunc)(ctx, ts)
+		err = f.(TypedRStreamFunc)(ctx, ts)
 	case streamTypeTW:
-		err = str.f.(TypedWStreamFunc)(ctx, ts)
+		err = f.(TypedWStreamFunc)(ctx, ts)
 	case streamTypeTRW:
-		err = str.f.(TypedRWStreamFunc)(ctx, ts)
+		err = f.(TypedRWStreamFunc)(ctx, ts)
 	default:
-		return fmt.Errorf("stream type '%v' does not exist", str.typ)
+		return fmt.Errorf("stream type '%v' does not exist", typ)
 	}
 	return
 }

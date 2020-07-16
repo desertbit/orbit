@@ -80,6 +80,22 @@ type StreamAsync struct {
 	ID string
 }
 
+//####################//
+//### Typed Stream ###//
+//####################//
+
+type TypedStreamType byte
+
+const (
+	TypedStreamTypeData  TypedStreamType = 0
+	TypedStreamTypeError TypedStreamType = 1
+)
+
+type TypedStreamError struct {
+	Err  string
+	Code int
+}
+
 //###########//
 //### RPC ###//
 //###########//
