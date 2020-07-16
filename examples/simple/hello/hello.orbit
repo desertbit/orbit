@@ -5,6 +5,10 @@ errors {
     iAmAnError = 2
 }
 
+call {
+    
+}
+
 service {
     call sayHi {
         arg: {

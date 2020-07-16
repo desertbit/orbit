@@ -36,48 +36,18 @@ import (
 	"github.com/desertbit/orbit/pkg/transport"
 )
 
-func (s *session) OpenTypedStream(ctx context.Context, id string, maxArgSize, maxRetSize int) (ts TypedRWStream, err error) {
-	// Create a new client context.
-	cctx := newContext(ctx, s)
-
-	// Call the OnStream hooks.
-	err = s.handler.hookOnStream(cctx, id)
+func (s *session) OpenTypedStream(ctx context.Context, id string, maxArgSize, maxRetSize int, wOnly bool) (ts TypedRWStream, err error) {
+	stream, err := s.OpenRawStream(ctx, id)
 	if err != nil {
 		return
 	}
-
-	// Call the closed hook if an error occurs.
-	defer func() {
-		if err != nil {
-			s.handler.hookOnStreamClosed(cctx, id, err)
-		}
-	}()
-
-	// Open the stream.
-	stream, err := s.openStream(ctx, api.StreamTypeRaw, &api.StreamRaw{
-		ID:   id,
-		Data: cctx.header,
-	}, s.maxHeaderSize)
-	if err != nil {
-		return
-	}
-
-	// Call the closed hook once closed.
-	go func() {
-		select {
-		case <-stream.ClosedChan():
-		case <-s.ClosingChan():
-		}
-		s.handler.hookOnStreamClosed(cctx, id, nil)
-	}()
 
 	// Create our typed stream.
-	ts = newTypedRWStream(stream, s.codec, maxArgSize, maxRetSize)
+	ts = newTypedRWStream(stream, s.codec, maxArgSize, maxRetSize, wOnly)
 	return
 }
 
-// TODO: 2020/07/16 skaldesh: OpenRawStream?
-func (s *session) OpenStream(ctx context.Context, id string) (stream transport.Stream, err error) {
+func (s *session) OpenRawStream(ctx context.Context, id string) (stream transport.Stream, err error) {
 	// Create a new client context.
 	cctx := newContext(ctx, s)
 
@@ -90,7 +60,7 @@ func (s *session) OpenStream(ctx context.Context, id string) (stream transport.S
 	// Call the closed hook if an error occurs.
 	defer func() {
 		if err != nil {
-			s.handler.hookOnStreamClosed(cctx, id, err)
+			s.handler.hookOnStreamClosed(cctx, id)
 		}
 	}()
 
@@ -109,7 +79,7 @@ func (s *session) OpenStream(ctx context.Context, id string) (stream transport.S
 		case <-stream.ClosedChan():
 		case <-s.ClosingChan():
 		}
-		s.handler.hookOnStreamClosed(cctx, id, nil)
+		s.handler.hookOnStreamClosed(cctx, id)
 	}()
 	return
 }
