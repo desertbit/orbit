@@ -37,6 +37,15 @@ import (
 )
 
 func (s *session) OpenTypedStream(ctx context.Context, id string, maxArgSize, maxRetSize int, wOnly bool) (ts TypedRWStream, err error) {
+	// Use default options if required.
+	if maxArgSize == DefaultMaxSize {
+		maxArgSize = s.maxArgSize
+	}
+	if maxRetSize == DefaultMaxSize {
+		maxRetSize = s.maxRetSize
+	}
+
+	// Open the raw stream.
 	stream, err := s.OpenRawStream(ctx, id)
 	if err != nil {
 		return
