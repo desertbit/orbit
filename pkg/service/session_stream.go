@@ -28,6 +28,8 @@
 package service
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -127,8 +129,7 @@ func (s *session) handleNewStream(stream transport.Stream) (err error) {
 			return
 		}
 
-		// Call the handler function for the stream.
-		return s.handler.handleStream(s, header.ID, header.Data, stream)
+		return s.handleRawStream(header.ID, header.Data, stream)
 
 	case api.StreamTypeAsyncCall:
 		// Read the header from the stream.
@@ -158,4 +159,75 @@ func (s *session) handleNewStream(stream transport.Stream) (err error) {
 	default:
 		return fmt.Errorf("invalid stream type: %v", streamType)
 	}
+}
+
+func (s *session) handleRawStream(id string, data map[string][]byte, stream transport.Stream) (err error) {
+	// Get the stream.
+	str, err := s.handler.getStream(id)
+	if err != nil {
+		return
+	}
+
+	// Create the service context.
+	sctx := newContext(context.Background(), s, data)
+
+	// Call the OnStream hooks.
+	err = s.handler.hookOnStream(sctx, id)
+	if err != nil {
+		return fmt.Errorf("stream %s: %w", id, err)
+	}
+
+	// Handle raw streams individually.
+	if str.typ == streamTypeRaw {
+		go func() {
+			// Wait, until the stream is closed.
+			select {
+			case <-stream.ClosedChan():
+			case <-s.ClosingChan():
+			}
+
+			// Call OnStreamClosed hooks.
+			s.handler.hookOnStreamClosed(sctx, id, nil)
+		}()
+
+		s.handler.handleRawStream(sctx, str.f.(RawStreamFunc), stream)
+		return
+	}
+
+	// Create the typed stream.
+	ts := newTypedRWStream(stream, s.codec, s.maxArgSize, s.maxRetSize, str.typ == streamTypeTW)
+
+	// Call the handler.
+	err = s.handler.handleTypedStream(sctx, ts, str.typ, str.f)
+	if err != nil {
+		// Construct an error we send back on the stream.
+		var sErr api.TypedStreamError
+
+		// Check, if an orbit error was returned.
+		var oErr Error
+		if errors.As(err, &oErr) {
+			sErr.Code = oErr.Code()
+			sErr.Err = oErr.Msg()
+		}
+
+		// Ensure an error message is always set.
+		if sErr.Err == "" {
+			if s.sendInternalErrors {
+				sErr.Err = err.Error()
+			} else {
+				sErr.Err = fmt.Sprintf("%s stream failed", id)
+			}
+		}
+
+		// Close the stream with an error.
+		// Ignore, whether this succeeds or not.
+		_ = ts.closeWithErr(sErr)
+	}
+
+	// Call the OnStreamClosed hooks.
+	s.handler.hookOnStreamClosed(sctx, id, err)
+
+	// Reset the error, because at this point, we handled it already.
+	err = nil
+	return
 }

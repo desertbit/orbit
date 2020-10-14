@@ -102,7 +102,7 @@ func (g *generator) genServiceErrorCheckFunc(errs []*ast.Error) {
 
 	for i, e := range errs {
 		g.writefLn("if errors.Is(err, Err%s) {", e.Name)
-		g.writefLn("return oservice.Err(err, Err%s.Error(), ErrCode%s)", e.Name, e.Name)
+		g.writefLn("return oservice.NewError(err, Err%s.Error(), ErrCode%s)", e.Name, e.Name)
 		if i < len(errs)-1 {
 			g.write("} else ")
 		} else {

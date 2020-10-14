@@ -28,12 +28,14 @@
 package gen
 
 import (
-	"strconv"
-
 	"github.com/desertbit/orbit/internal/codegen/ast"
 )
 
-func (g *generator) genServiceClientCallSignature(c *ast.Call) {
+//##############//
+//### Client ###//
+//##############//
+
+func (g *generator) genClientCallSignature(c *ast.Call) {
 	g.writef("%s(ctx context.Context", c.Name)
 	if c.Arg != nil {
 		g.writef(", arg %s", c.Arg.Decl())
@@ -45,10 +47,10 @@ func (g *generator) genServiceClientCallSignature(c *ast.Call) {
 	g.write("err error)")
 }
 
-func (g *generator) genServiceClientCall(c *ast.Call, errs []*ast.Error) {
+func (g *generator) genClientCall(c *ast.Call, errs []*ast.Error) {
 	// Method declaration.
 	g.writef("func (%s *client) ", recv)
-	g.genServiceClientCallSignature(c)
+	g.genClientCallSignature(c)
 	g.writeLn(" {")
 
 	// Method body.
@@ -92,14 +94,14 @@ func (g *generator) genServiceClientCall(c *ast.Call, errs []*ast.Error) {
 		if c.Arg == nil {
 			g.write("0,")
 		} else {
-			g.writeCallMaxSizeParam(c.MaxArgSize, false)
+			g.writeOrbitMaxSizeParam(c.MaxArgSize, false)
 		}
 
 		// MaxRetSize for async.
 		if c.Ret == nil {
 			g.write("0,")
 		} else {
-			g.writeCallMaxSizeParam(c.MaxRetSize, false)
+			g.writeOrbitMaxSizeParam(c.MaxRetSize, false)
 		}
 	}
 
@@ -124,6 +126,23 @@ func (g *generator) genServiceClientCall(c *ast.Call, errs []*ast.Error) {
 	g.writeLn("")
 }
 
+//###############//
+//### Service ###//
+//###############//
+
+func (g *generator) genServiceCallRegister(c *ast.Call) {
+	if c.Async {
+		g.writef("os.RegisterAsyncCall(CallID%s, srvc.%s,", c.Name, c.NamePrv())
+		g.writeTimeoutParam(c.Timeout)
+		g.writeOrbitMaxSizeParam(c.MaxArgSize, true)
+		g.writeOrbitMaxSizeParam(c.MaxRetSize, true)
+	} else {
+		g.writef("os.RegisterCall(CallID%s, srvc.%s,", c.Name, c.NamePrv())
+		g.writeTimeoutParam(c.Timeout)
+	}
+	g.writeLn(")")
+}
+
 func (g *generator) genServiceHandlerCallSignature(c *ast.Call) {
 	g.writef("%s(ctx oservice.Context", c.Name)
 	if c.Arg != nil {
@@ -133,10 +152,10 @@ func (g *generator) genServiceHandlerCallSignature(c *ast.Call) {
 	if c.Ret != nil {
 		g.writef("ret %s, ", c.Ret.Decl())
 	}
-	g.write("err error)")
+	g.writeLn("err error)")
 }
 
-func (g *generator) genServiceHandlerCall(c *ast.Call) {
+func (g *generator) genServiceCall(c *ast.Call) {
 	// Method declaration.
 	g.writefLn(
 		"func (%s *service) %s(ctx oservice.Context, argData []byte) (retData interface{}, err error) {",
@@ -181,29 +200,4 @@ func (g *generator) genServiceHandlerCall(c *ast.Call) {
 
 	g.writeLn("}")
 	g.writeLn("")
-}
-
-// writeCallMaxSize is a helper to determine which max size param must be written
-// based on the given params. It automatically handles the special cases
-// like no max size or default max size.
-// This method must only be used where Call max size syntax is required.
-func (g *generator) writeCallMaxSizeParam(maxSize *int64, service bool) {
-	if maxSize != nil {
-		if *maxSize == -1 {
-			if service {
-				g.write("oservice.NoMaxSizeLimit")
-			} else {
-				g.write("oclient.NoMaxSizeLimit")
-			}
-		} else {
-			g.write(strconv.FormatInt(*maxSize, 10))
-		}
-	} else {
-		if service {
-			g.write("oservice.DefaultMaxSize")
-		} else {
-			g.write("oclient.DefaultMaxSize")
-		}
-	}
-	g.write(",")
 }

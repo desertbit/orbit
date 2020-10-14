@@ -28,7 +28,6 @@
 package service
 
 import (
-	"context"
 	"fmt"
 	"runtime/debug"
 
@@ -38,9 +37,11 @@ import (
 type serviceHandler interface {
 	getCall(id string) (c call, err error)
 	getAsyncCallOptions(id string) (opts asyncCallOptions, err error)
+	getStream(id string) (str stream, err error)
 
-	handleStream(session Session, id string, data map[string][]byte, stream transport.Stream) error
-	handleCall(sctx Context, f CallFunc, payload []byte) (ret interface{}, err error)
+	handleCall(ctx Context, f CallFunc, payload []byte) (ret interface{}, err error)
+	handleRawStream(ctx Context, f RawStreamFunc, stream transport.Stream)
+	handleTypedStream(ctx Context, ts *typedRWStream, typ streamType, f interface{}) error
 
 	hookClose() error
 	hookOnSession(session Session, stream transport.Stream) error
@@ -49,6 +50,9 @@ type serviceHandler interface {
 	hookOnCall(ctx Context, id string, callKey uint32) error
 	hookOnCallDone(ctx Context, id string, callKey uint32, err error)
 	hookOnCallCanceled(ctx Context, id string, callKey uint32)
+
+	hookOnStream(ctx Context, id string) error
+	hookOnStreamClosed(ctx Context, id string, err error)
 }
 
 func (s *service) getCall(id string) (c call, err error) {
@@ -70,45 +74,57 @@ func (s *service) getAsyncCallOptions(id string) (opts asyncCallOptions, err err
 	return
 }
 
-func (s *service) handleStream(session Session, id string, data map[string][]byte, stream transport.Stream) (err error) {
+func (s *service) getStream(id string) (str stream, err error) {
+	var ok bool
+	str, ok = s.streams[id]
+	if !ok {
+		err = fmt.Errorf("stream handler '%s' does not exist", id)
+	}
+	return
+}
+
+func (s *service) handleRawStream(ctx Context, f RawStreamFunc, stream transport.Stream) {
+	// Catch panics.
+	defer func() {
+		if e := recover(); e != nil {
+			if s.opts.PrintPanicStackTraces {
+				s.log.Error().Msgf("catched panic: handleRawStream: %v\n%s", e, string(debug.Stack()))
+			} else {
+				s.log.Error().Msgf("catched panic: handleRawStream: %v", e)
+			}
+		}
+	}()
+
+	f(ctx, stream)
+}
+
+func (s *service) handleTypedStream(ctx Context, ts *typedRWStream, typ streamType, f interface{}) (err error) {
 	// Catch panics.
 	defer func() {
 		if e := recover(); e != nil {
 			err = ErrCatchedPanic
 			if s.opts.PrintPanicStackTraces {
-				s.log.Error().Msgf("catched panic: handleStream: %v\n%s", e, string(debug.Stack()))
+				s.log.Error().Msgf("catched panic: handleTypedStream: %v\n%s", e, string(debug.Stack()))
 			} else {
-				s.log.Error().Msgf("catched panic: handleStream: %v", e)
+				s.log.Error().Msgf("catched panic: handleTypedStream: %v", e)
 			}
 		}
 	}()
 
-	// Obtain the stream handler function.
-	f, ok := s.streamFuncs[id]
-	if !ok {
-		return fmt.Errorf("stream handler '%s' does not exist", id)
+	switch typ {
+	case streamTypeTR:
+		err = f.(TypedRStreamFunc)(ctx, ts)
+	case streamTypeTW:
+		err = f.(TypedWStreamFunc)(ctx, ts)
+	case streamTypeTRW:
+		err = f.(TypedRWStreamFunc)(ctx, ts)
+	default:
+		return fmt.Errorf("stream type '%v' does not exist", typ)
 	}
-
-	// Create the service context.
-	sctx := newContext(context.Background(), session, data)
-
-	// Call the OnStream hooks.
-	for _, h := range s.hooks {
-		err = h.OnStream(sctx, id)
-		if err != nil {
-			err = fmt.Errorf("on new stream hook: %w", err)
-			return
-		}
-	}
-
-	// Pass the new stream.
-	// The stream must be closed by the handler!
-	f(sctx, stream)
-
 	return
 }
 
-func (s *service) handleCall(sctx Context, f CallFunc, payload []byte) (ret interface{}, err error) {
+func (s *service) handleCall(ctx Context, f CallFunc, payload []byte) (ret interface{}, err error) {
 	// Catch panics.
 	defer func() {
 		if e := recover(); e != nil {
@@ -122,7 +138,7 @@ func (s *service) handleCall(sctx Context, f CallFunc, payload []byte) (ret inte
 	}()
 
 	// Execute the handler function.
-	return f(sctx, payload)
+	return f(ctx, payload)
 }
 
 func (s *service) hookClose() (err error) {
@@ -142,8 +158,7 @@ func (s *service) hookClose() (err error) {
 	for _, h := range s.hooks {
 		err = h.Close()
 		if err != nil {
-			err = fmt.Errorf("close hook: %w", err)
-			return
+			return fmt.Errorf("close hook: %w", err)
 		}
 	}
 	return
@@ -166,8 +181,7 @@ func (s *service) hookOnSession(session Session, stream transport.Stream) (err e
 	for _, h := range s.hooks {
 		err = h.OnSession(session, stream)
 		if err != nil {
-			err = fmt.Errorf("on new session hook: %w", err)
-			return
+			return fmt.Errorf("on new session hook: %w", err)
 		}
 	}
 	return
@@ -208,8 +222,7 @@ func (s *service) hookOnCall(ctx Context, id string, callKey uint32) (err error)
 	for _, h := range s.hooks {
 		err = h.OnCall(ctx, id, callKey)
 		if err != nil {
-			err = fmt.Errorf("on call hook: %w", err)
-			return
+			return fmt.Errorf("on call hook: %w", err)
 		}
 	}
 	return
@@ -233,7 +246,7 @@ func (s *service) hookOnCallDone(ctx Context, id string, callKey uint32, err err
 	}
 }
 
-func (s *service) hookOnCallCanceled(sctx Context, id string, callKey uint32) {
+func (s *service) hookOnCallCanceled(ctx Context, id string, callKey uint32) {
 	// Catch panics.
 	defer func() {
 		if e := recover(); e != nil {
@@ -247,6 +260,47 @@ func (s *service) hookOnCallCanceled(sctx Context, id string, callKey uint32) {
 
 	// Call the OnCallCanceled hooks.
 	for _, h := range s.hooks {
-		h.OnCallCanceled(sctx, id, callKey)
+		h.OnCallCanceled(ctx, id, callKey)
+	}
+}
+
+func (s *service) hookOnStream(ctx Context, id string) (err error) {
+	// Catch panics.
+	defer func() {
+		if e := recover(); e != nil {
+			err = ErrCatchedPanic
+			if s.opts.PrintPanicStackTraces {
+				s.log.Error().Msgf("catched panic: hookOnStream: %v\n%s", e, string(debug.Stack()))
+			} else {
+				s.log.Error().Msgf("catched panic: hookOnStream: %v", e)
+			}
+		}
+	}()
+
+	// Call the OnStream hooks.
+	for _, h := range s.hooks {
+		err = h.OnStream(ctx, id)
+		if err != nil {
+			return fmt.Errorf("on stream hook: %w", err)
+		}
+	}
+	return
+}
+
+func (s *service) hookOnStreamClosed(ctx Context, id string, err error) {
+	// Catch panics.
+	defer func() {
+		if e := recover(); e != nil {
+			if s.opts.PrintPanicStackTraces {
+				s.log.Error().Msgf("catched panic: hookOnStreamClosed: %v\n%s", e, string(debug.Stack()))
+			} else {
+				s.log.Error().Msgf("catched panic: hookOnStreamClosed: %v", e)
+			}
+		}
+	}()
+
+	// Call the OnStreamClosed hooks.
+	for _, h := range s.hooks {
+		h.OnStreamClosed(ctx, id, err)
 	}
 }

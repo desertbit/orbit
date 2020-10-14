@@ -35,6 +35,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -181,7 +182,7 @@ func generate(pkgName string, tree *ast.Tree) string {
 
 	g.writeLn("import (")
 	for _, imp := range imports {
-		g.writeLn(imp[0] + " \"" + imp[1] + "\"")
+		g.writefLn(`%s "%s"`, imp[0], imp[1])
 	}
 	g.writeLn(")")
 	g.writeLn("")
@@ -213,7 +214,7 @@ func generate(pkgName string, tree *ast.Tree) string {
 	g.writeLn("//##############//")
 	g.writeLn("")
 
-	g.writeLn("var ErrClosed = errors.New(\"closed\")")
+	g.writeLn(`var ErrClosed = errors.New("closed")`)
 	g.genErrors(tree.Errs)
 
 	// Generate the type definitions.
@@ -264,9 +265,29 @@ func (g *generator) writeTimeoutParam(timeout *time.Duration) {
 	g.write(",")
 }
 
+// writeOrbitMaxSize is a helper to determine which max size param must be written
+// based on the given params. It automatically handles the special cases
+// like no max size or default max size.
+func (g *generator) writeOrbitMaxSizeParam(maxSize *int64, service bool) {
+	imp := "oclient"
+	if service {
+		imp = "oservice"
+	}
+
+	if maxSize != nil {
+		if *maxSize == -1 {
+			g.writef("%s.NoMaxSizeLimit", imp)
+		} else {
+			g.write(strconv.FormatInt(*maxSize, 10))
+		}
+	} else {
+		g.writef("%s.DefaultMaxSize", imp)
+	}
+	g.write(",")
+}
+
 // writeValErrCheck is a helper that writes a validate error check to the generator.
-// It only does so, if the type is either a single value with a validation tag, or
-// a struct.
+// It only does so, if the type is a struct.
 func (g *generator) writeValErrCheck(dt ast.DataType, varName string) {
 	// Only call validate, if it is a struct.
 	if _, ok := dt.(*ast.StructType); !ok {

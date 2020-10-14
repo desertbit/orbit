@@ -111,38 +111,41 @@ func (s *ServiceHandler) Test(ctx service.Context, arg hello.TestArg) (ret hello
 	return
 }
 
-func (s *ServiceHandler) ClockTime(ctx service.Context, ret *hello.ClockTimeRetWriteStream) {
+func (s *ServiceHandler) ClockTime(ctx service.Context, ret *hello.ClockTimeServiceStream) error {
 	for i := 0; i < 3; i++ {
 		err := ret.Write(hello.ClockTimeRet{Ts: time.Now()})
 		if err != nil {
 			fmt.Printf("ERROR handler.ClockTime: %v\n", err)
-			return
+			return err
 		}
 	}
+
+	return nil
 }
 
 func (s *ServiceHandler) Lul(ctx service.Context, stream transport.Stream) {
 	panic("implement me")
 }
 
-func (s *ServiceHandler) TimeStream(ctx service.Context, arg *hello.InfoReadStream) {
+func (s *ServiceHandler) TimeStream(ctx service.Context, arg *hello.TimeStreamServiceStream) error {
 	panic("implement me")
 }
 
-func (s *ServiceHandler) Bidirectional(ctx service.Context, arg *hello.BidirectionalArgReadStream, ret *hello.BidirectionalRetWriteStream) {
+func (s *ServiceHandler) Bidirectional(ctx service.Context, stream *hello.BidirectionalServiceStream) error {
 	for i := 0; i < 3; i++ {
-		a, err := arg.Read()
+		a, err := stream.Read()
 		if err != nil {
 			fmt.Printf("ERROR handler.Bidirectional read: %v\n", err)
-			return
+			return err
 		}
 
 		fmt.Printf("Question: %s?\n", a.Question)
 
-		err = ret.Write(hello.BidirectionalRet{Answer: "42"})
+		err = stream.Write(hello.BidirectionalRet{Answer: "42"})
 		if err != nil {
 			fmt.Printf("ERROR handler.Bidirectional write: %v\n", err)
-			return
+			return err
 		}
 	}
+	return nil
 }

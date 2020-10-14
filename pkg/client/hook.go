@@ -64,4 +64,8 @@ type Hook interface {
 	// OnStream is called during a new stream setup.
 	// Return an error to abort the stream setup.
 	OnStream(ctx Context, id string) error
+
+	// OnStreamClosed is called after a stream closes.
+	// The context is the same as from the OnStream hook.
+	OnStreamClosed(ctx Context, id string)
 }

@@ -69,9 +69,9 @@ func _clientErrorCheck(err error) error {
 
 func _serviceErrorCheck(err error) error {
 	if errors.Is(err, ErrIAmAnError) {
-		return oservice.Err(err, ErrIAmAnError.Error(), ErrCodeIAmAnError)
+		return oservice.NewError(err, ErrIAmAnError.Error(), ErrCodeIAmAnError)
 	} else if errors.Is(err, ErrThisIsATest) {
-		return oservice.Err(err, ErrThisIsATest.Error(), ErrCodeThisIsATest)
+		return oservice.NewError(err, ErrThisIsATest.Error(), ErrCodeThisIsATest)
 	}
 	return err
 }
@@ -130,21 +130,43 @@ type TestRet struct {
 	Ts   time.Time
 }
 
-//msgp:ignore InfoReadStream
-type InfoReadStream struct {
-	stream  transport.Stream
-	codec   codec.Codec
-	maxSize int
+//msgp:ignore TimeStreamClientStream
+type TimeStreamClientStream struct {
+	oclient.TypedStreamCloser
+	stream oclient.TypedWStream
 }
 
-func newInfoReadStream(s transport.Stream, cc codec.Codec, ms int) *InfoReadStream {
-	return &InfoReadStream{stream: s, codec: cc, maxSize: ms}
+func newTimeStreamClientStream(s oclient.TypedWStream) *TimeStreamClientStream {
+	return &TimeStreamClientStream{TypedStreamCloser: s, stream: s}
 }
 
-func (v1 *InfoReadStream) Read() (arg Info, err error) {
-	err = packet.ReadDecode(v1.stream, &arg, v1.codec, v1.maxSize)
+func (v1 *TimeStreamClientStream) Write(arg Info) (err error) {
+	err = v1.stream.Write(arg)
 	if err != nil {
-		if errors.Is(err, packet.ErrZeroData) || errors.Is(err, io.EOF) || v1.stream.IsClosed() {
+		err = _clientErrorCheck(err)
+		if errors.Is(err, oclient.ErrClosed) {
+			err = ErrClosed
+		}
+		return
+	}
+	return
+}
+
+//msgp:ignore TimeStreamServiceStream
+type TimeStreamServiceStream struct {
+	oservice.TypedStreamCloser
+	stream oservice.TypedRStream
+}
+
+func newTimeStreamServiceStream(s oservice.TypedRStream) *TimeStreamServiceStream {
+	return &TimeStreamServiceStream{TypedStreamCloser: s, stream: s}
+}
+
+func (v1 *TimeStreamServiceStream) Read() (arg Info, err error) {
+	err = v1.stream.Read(&arg)
+	if err != nil {
+		err = _serviceErrorCheck(err)
+		if errors.Is(err, oclient.ErrClosed) {
 			err = ErrClosed
 		}
 		return
@@ -157,51 +179,111 @@ func (v1 *InfoReadStream) Read() (arg Info, err error) {
 	return
 }
 
-//msgp:ignore InfoWriteStream
-type InfoWriteStream struct {
-	closer.Closer
-	stream  transport.Stream
-	codec   codec.Codec
-	maxSize int
+//msgp:ignore ClockTimeClientStream
+type ClockTimeClientStream struct {
+	oclient.TypedStreamCloser
+	stream oclient.TypedRStream
 }
 
-func newInfoWriteStream(cl closer.Closer, s transport.Stream, cc codec.Codec, ms int) *InfoWriteStream {
-	cl.OnClosing(s.Close)
-	cl.OnClosing(func() error { return packet.Write(s, nil, 0) })
-	return &InfoWriteStream{Closer: cl, stream: s, codec: cc, maxSize: ms}
+func newClockTimeClientStream(s oclient.TypedRStream) *ClockTimeClientStream {
+	return &ClockTimeClientStream{TypedStreamCloser: s, stream: s}
 }
 
-func (v1 *InfoWriteStream) Write(ret Info) (err error) {
-	err = packet.WriteEncode(v1.stream, &ret, v1.codec, v1.maxSize)
+func (v1 *ClockTimeClientStream) Read() (ret ClockTimeRet, err error) {
+	err = v1.stream.Read(&ret)
 	if err != nil {
-		if errors.Is(err, io.EOF) || v1.IsClosing() || v1.stream.IsClosed() {
-			v1.Close_()
-			return ErrClosed
+		err = _clientErrorCheck(err)
+		if errors.Is(err, oclient.ErrClosed) {
+			err = ErrClosed
 		}
+		return
+	}
+	err = validate.Struct(ret)
+	if err != nil {
+		err = _valErrCheck(err)
+		return
 	}
 	return
 }
 
-//msgp:ignore ClockTimeRetReadStream
-type ClockTimeRetReadStream struct {
-	closer.Closer
-	stream  transport.Stream
-	codec   codec.Codec
-	maxSize int
+//msgp:ignore ClockTimeServiceStream
+type ClockTimeServiceStream struct {
+	oservice.TypedStreamCloser
+	stream oservice.TypedWStream
 }
 
-func newClockTimeRetReadStream(cl closer.Closer, s transport.Stream, cc codec.Codec, ms int) *ClockTimeRetReadStream {
-	cl.OnClosing(s.Close)
-	return &ClockTimeRetReadStream{Closer: cl, stream: s, codec: cc, maxSize: ms}
+func newClockTimeServiceStream(s oservice.TypedWStream) *ClockTimeServiceStream {
+	return &ClockTimeServiceStream{TypedStreamCloser: s, stream: s}
 }
 
-func (v1 *ClockTimeRetReadStream) Read() (arg ClockTimeRet, err error) {
-	err = packet.ReadDecode(v1.stream, &arg, v1.codec, v1.maxSize)
+func (v1 *ClockTimeServiceStream) Write(ret ClockTimeRet) (err error) {
+	err = v1.stream.Write(ret)
 	if err != nil {
-		if errors.Is(err, packet.ErrZeroData) || errors.Is(err, io.EOF) || v1.IsClosing() || v1.stream.IsClosed() {
+		err = _serviceErrorCheck(err)
+		if errors.Is(err, oclient.ErrClosed) {
 			err = ErrClosed
 		}
-		v1.Close_()
+		return
+	}
+	return
+}
+
+//msgp:ignore BidirectionalClientStream
+type BidirectionalClientStream struct {
+	oclient.TypedStreamCloser
+	stream oclient.TypedRWStream
+}
+
+func newBidirectionalClientStream(s oclient.TypedRWStream) *BidirectionalClientStream {
+	return &BidirectionalClientStream{TypedStreamCloser: s, stream: s}
+}
+
+func (v1 *BidirectionalClientStream) Read() (ret BidirectionalRet, err error) {
+	err = v1.stream.Read(&ret)
+	if err != nil {
+		err = _clientErrorCheck(err)
+		if errors.Is(err, oclient.ErrClosed) {
+			err = ErrClosed
+		}
+		return
+	}
+	err = validate.Struct(ret)
+	if err != nil {
+		err = _valErrCheck(err)
+		return
+	}
+	return
+}
+
+func (v1 *BidirectionalClientStream) Write(arg BidirectionalArg) (err error) {
+	err = v1.stream.Write(arg)
+	if err != nil {
+		err = _clientErrorCheck(err)
+		if errors.Is(err, oclient.ErrClosed) {
+			err = ErrClosed
+		}
+		return
+	}
+	return
+}
+
+//msgp:ignore BidirectionalServiceStream
+type BidirectionalServiceStream struct {
+	oservice.TypedStreamCloser
+	stream oservice.TypedRWStream
+}
+
+func newBidirectionalServiceStream(s oservice.TypedRWStream) *BidirectionalServiceStream {
+	return &BidirectionalServiceStream{TypedStreamCloser: s, stream: s}
+}
+
+func (v1 *BidirectionalServiceStream) Read() (arg BidirectionalArg, err error) {
+	err = v1.stream.Read(&arg)
+	if err != nil {
+		err = _serviceErrorCheck(err)
+		if errors.Is(err, oclient.ErrClosed) {
+			err = ErrClosed
+		}
 		return
 	}
 	err = validate.Struct(arg)
@@ -212,126 +294,14 @@ func (v1 *ClockTimeRetReadStream) Read() (arg ClockTimeRet, err error) {
 	return
 }
 
-//msgp:ignore ClockTimeRetWriteStream
-type ClockTimeRetWriteStream struct {
-	stream  transport.Stream
-	codec   codec.Codec
-	maxSize int
-}
-
-func newClockTimeRetWriteStream(s transport.Stream, cc codec.Codec, ms int) *ClockTimeRetWriteStream {
-	return &ClockTimeRetWriteStream{stream: s, codec: cc, maxSize: ms}
-}
-
-func (v1 *ClockTimeRetWriteStream) Write(ret ClockTimeRet) (err error) {
-	err = packet.WriteEncode(v1.stream, &ret, v1.codec, v1.maxSize)
+func (v1 *BidirectionalServiceStream) Write(ret BidirectionalRet) (err error) {
+	err = v1.stream.Write(ret)
 	if err != nil {
-		if errors.Is(err, io.EOF) || v1.stream.IsClosed() {
-			return ErrClosed
-		}
-	}
-	return
-}
-
-//msgp:ignore BidirectionalArgReadStream
-type BidirectionalArgReadStream struct {
-	stream  transport.Stream
-	codec   codec.Codec
-	maxSize int
-}
-
-func newBidirectionalArgReadStream(s transport.Stream, cc codec.Codec, ms int) *BidirectionalArgReadStream {
-	return &BidirectionalArgReadStream{stream: s, codec: cc, maxSize: ms}
-}
-
-func (v1 *BidirectionalArgReadStream) Read() (arg BidirectionalArg, err error) {
-	err = packet.ReadDecode(v1.stream, &arg, v1.codec, v1.maxSize)
-	if err != nil {
-		if errors.Is(err, packet.ErrZeroData) || errors.Is(err, io.EOF) || v1.stream.IsClosed() {
+		err = _serviceErrorCheck(err)
+		if errors.Is(err, oclient.ErrClosed) {
 			err = ErrClosed
 		}
 		return
-	}
-	err = validate.Struct(arg)
-	if err != nil {
-		err = _valErrCheck(err)
-		return
-	}
-	return
-}
-
-//msgp:ignore BidirectionalArgWriteStream
-type BidirectionalArgWriteStream struct {
-	closer.Closer
-	stream  transport.Stream
-	codec   codec.Codec
-	maxSize int
-}
-
-func newBidirectionalArgWriteStream(cl closer.Closer, s transport.Stream, cc codec.Codec, ms int) *BidirectionalArgWriteStream {
-	cl.OnClosing(s.Close)
-	cl.OnClosing(func() error { return packet.Write(s, nil, 0) })
-	return &BidirectionalArgWriteStream{Closer: cl, stream: s, codec: cc, maxSize: ms}
-}
-
-func (v1 *BidirectionalArgWriteStream) Write(ret BidirectionalArg) (err error) {
-	err = packet.WriteEncode(v1.stream, &ret, v1.codec, v1.maxSize)
-	if err != nil {
-		if errors.Is(err, io.EOF) || v1.IsClosing() || v1.stream.IsClosed() {
-			v1.Close_()
-			return ErrClosed
-		}
-	}
-	return
-}
-
-//msgp:ignore BidirectionalRetReadStream
-type BidirectionalRetReadStream struct {
-	closer.Closer
-	stream  transport.Stream
-	codec   codec.Codec
-	maxSize int
-}
-
-func newBidirectionalRetReadStream(cl closer.Closer, s transport.Stream, cc codec.Codec, ms int) *BidirectionalRetReadStream {
-	cl.OnClosing(s.Close)
-	return &BidirectionalRetReadStream{Closer: cl, stream: s, codec: cc, maxSize: ms}
-}
-
-func (v1 *BidirectionalRetReadStream) Read() (arg BidirectionalRet, err error) {
-	err = packet.ReadDecode(v1.stream, &arg, v1.codec, v1.maxSize)
-	if err != nil {
-		if errors.Is(err, packet.ErrZeroData) || errors.Is(err, io.EOF) || v1.IsClosing() || v1.stream.IsClosed() {
-			err = ErrClosed
-		}
-		v1.Close_()
-		return
-	}
-	err = validate.Struct(arg)
-	if err != nil {
-		err = _valErrCheck(err)
-		return
-	}
-	return
-}
-
-//msgp:ignore BidirectionalRetWriteStream
-type BidirectionalRetWriteStream struct {
-	stream  transport.Stream
-	codec   codec.Codec
-	maxSize int
-}
-
-func newBidirectionalRetWriteStream(s transport.Stream, cc codec.Codec, ms int) *BidirectionalRetWriteStream {
-	return &BidirectionalRetWriteStream{stream: s, codec: cc, maxSize: ms}
-}
-
-func (v1 *BidirectionalRetWriteStream) Write(ret BidirectionalRet) (err error) {
-	err = packet.WriteEncode(v1.stream, &ret, v1.codec, v1.maxSize)
-	if err != nil {
-		if errors.Is(err, io.EOF) || v1.stream.IsClosed() {
-			return ErrClosed
-		}
 	}
 	return
 }
@@ -369,9 +339,9 @@ type Client interface {
 	Test(ctx context.Context, arg TestArg) (ret TestRet, err error)
 	// Streams
 	Lul(ctx context.Context) (stream transport.Stream, err error)
-	TimeStream(ctx context.Context) (arg *InfoWriteStream, err error)
-	ClockTime(ctx context.Context) (ret *ClockTimeRetReadStream, err error)
-	Bidirectional(ctx context.Context) (arg *BidirectionalArgWriteStream, ret *BidirectionalRetReadStream, err error)
+	TimeStream(ctx context.Context) (stream *TimeStreamClientStream, err error)
+	ClockTime(ctx context.Context) (stream *ClockTimeClientStream, err error)
+	Bidirectional(ctx context.Context) (stream *BidirectionalClientStream, err error)
 }
 
 type Service interface {
@@ -385,9 +355,9 @@ type ServiceHandler interface {
 	Test(ctx oservice.Context, arg TestArg) (ret TestRet, err error)
 	// Streams
 	Lul(ctx oservice.Context, stream transport.Stream)
-	TimeStream(ctx oservice.Context, arg *InfoReadStream)
-	ClockTime(ctx oservice.Context, ret *ClockTimeRetWriteStream)
-	Bidirectional(ctx oservice.Context, arg *BidirectionalArgReadStream, ret *BidirectionalRetWriteStream)
+	TimeStream(ctx oservice.Context, stream *TimeStreamServiceStream) error
+	ClockTime(ctx oservice.Context, stream *ClockTimeServiceStream) error
+	Bidirectional(ctx oservice.Context, stream *BidirectionalServiceStream) error
 }
 
 type client struct {
@@ -456,46 +426,45 @@ func (v1 *client) Lul(ctx context.Context) (stream transport.Stream, err error) 
 	return
 }
 
-func (v1 *client) TimeStream(ctx context.Context) (arg *InfoWriteStream, err error) {
+func (v1 *client) TimeStream(ctx context.Context) (stream *TimeStreamClientStream, err error) {
 	if v1.streamInitTimeout > 0 {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, v1.streamInitTimeout)
 		defer cancel()
 	}
-	stream, err := v1.Stream(ctx, StreamIDTimeStream)
+	str, err := v1.TypedWStream(ctx, StreamIDTimeStream, oclient.DefaultMaxSize)
 	if err != nil {
 		return
 	}
-	arg = newInfoWriteStream(v1.CloserOneWay(), stream, v1.codec, v1.maxArgSize)
+	stream = newTimeStreamClientStream(str)
 	return
 }
 
-func (v1 *client) ClockTime(ctx context.Context) (ret *ClockTimeRetReadStream, err error) {
+func (v1 *client) ClockTime(ctx context.Context) (stream *ClockTimeClientStream, err error) {
 	if v1.streamInitTimeout > 0 {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, v1.streamInitTimeout)
 		defer cancel()
 	}
-	stream, err := v1.Stream(ctx, StreamIDClockTime)
+	str, err := v1.TypedRStream(ctx, StreamIDClockTime, oclient.DefaultMaxSize)
 	if err != nil {
 		return
 	}
-	ret = newClockTimeRetReadStream(v1.CloserOneWay(), stream, v1.codec, v1.maxRetSize)
+	stream = newClockTimeClientStream(str)
 	return
 }
 
-func (v1 *client) Bidirectional(ctx context.Context) (arg *BidirectionalArgWriteStream, ret *BidirectionalRetReadStream, err error) {
+func (v1 *client) Bidirectional(ctx context.Context) (stream *BidirectionalClientStream, err error) {
 	if v1.streamInitTimeout > 0 {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, v1.streamInitTimeout)
 		defer cancel()
 	}
-	stream, err := v1.Stream(ctx, StreamIDBidirectional)
+	str, err := v1.TypedRWStream(ctx, StreamIDBidirectional, 102400, oclient.DefaultMaxSize)
 	if err != nil {
 		return
 	}
-	arg = newBidirectionalArgWriteStream(v1.CloserOneWay(), stream, v1.codec, v1.maxArgSize)
-	ret = newBidirectionalRetReadStream(v1.CloserOneWay(), stream, v1.codec, v1.maxRetSize)
+	stream = newBidirectionalClientStream(str)
 	return
 }
 
@@ -518,9 +487,9 @@ func NewService(h ServiceHandler, opts *oservice.Options) (s Service, err error)
 	os.RegisterCall(CallIDSayHi, srvc.sayHi, oservice.DefaultTimeout)
 	os.RegisterAsyncCall(CallIDTest, srvc.test, 500000000*time.Nanosecond, oservice.DefaultMaxSize, 10240)
 	os.RegisterStream(StreamIDLul, srvc.lul)
-	os.RegisterStream(StreamIDTimeStream, srvc.timeStream)
-	os.RegisterStream(StreamIDClockTime, srvc.clockTime)
-	os.RegisterStream(StreamIDBidirectional, srvc.bidirectional)
+	os.RegisterTypedRStream(StreamIDTimeStream, srvc.timeStream, oservice.DefaultMaxSize)
+	os.RegisterTypedWStream(StreamIDClockTime, srvc.clockTime, oservice.DefaultMaxSize)
+	os.RegisterTypedRWStream(StreamIDBidirectional, srvc.bidirectional, 102400, oservice.DefaultMaxSize)
 	s = os
 	return
 }
@@ -568,27 +537,15 @@ func (v1 *service) test(ctx oservice.Context, argData []byte) (retData interface
 func (v1 *service) lul(ctx oservice.Context, stream transport.Stream) {
 	v1.h.Lul(ctx, stream)
 }
-func (v1 *service) timeStream(ctx oservice.Context, stream transport.Stream) {
-	defer stream.Close()
-	arg := newInfoReadStream(stream, v1.codec, v1.maxArgSize)
-	v1.h.TimeStream(ctx, arg)
+
+func (v1 *service) timeStream(ctx oservice.Context, stream oservice.TypedRStream) error {
+	return v1.h.TimeStream(ctx, newTimeStreamServiceStream(stream))
 }
 
-func (v1 *service) clockTime(ctx oservice.Context, stream transport.Stream) {
-	defer stream.Close()
-	ret := newClockTimeRetWriteStream(stream, v1.codec, v1.maxRetSize)
-	// Service has a write stream, therefore, ensure to send the zero packet
-	// once the handler is done to inform the remote reader side of the writer-close.
-	defer func() { _ = packet.Write(stream, nil, 0) }()
-	v1.h.ClockTime(ctx, ret)
+func (v1 *service) clockTime(ctx oservice.Context, stream oservice.TypedWStream) error {
+	return v1.h.ClockTime(ctx, newClockTimeServiceStream(stream))
 }
 
-func (v1 *service) bidirectional(ctx oservice.Context, stream transport.Stream) {
-	defer stream.Close()
-	arg := newBidirectionalArgReadStream(stream, v1.codec, v1.maxArgSize)
-	ret := newBidirectionalRetWriteStream(stream, v1.codec, v1.maxRetSize)
-	// Service has a write stream, therefore, ensure to send the zero packet
-	// once the handler is done to inform the remote reader side of the writer-close.
-	defer func() { _ = packet.Write(stream, nil, 0) }()
-	v1.h.Bidirectional(ctx, arg, ret)
+func (v1 *service) bidirectional(ctx oservice.Context, stream oservice.TypedRWStream) error {
+	return v1.h.Bidirectional(ctx, newBidirectionalServiceStream(stream))
 }

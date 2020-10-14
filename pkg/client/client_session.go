@@ -52,6 +52,11 @@ func (c *client) setSession(s *session) {
 // Fails if no connection could be established.
 // Always returns a connected session if err is nil.
 func (c *client) connectedSession(ctx context.Context) (s *session, err error) {
+	if c.IsClosing() {
+		err = ErrClosed
+		return
+	}
+
 	s = c.getSession()
 	if s != nil {
 		return

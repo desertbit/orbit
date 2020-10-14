@@ -28,127 +28,124 @@
 package gen
 
 import (
-	"fmt"
-	"strconv"
-
 	"github.com/desertbit/orbit/internal/codegen/ast"
 )
 
-func (g *generator) genServiceClientStreamSignature(s *ast.Stream) {
-	g.writef("%s(ctx context.Context) (", s.Name)
-	if s.Arg != nil {
-		g.writef("arg *%sWriteStream, ", s.Arg.Name())
+//##############//
+//### Client ###//
+//##############//
+
+func (g *generator) genClientStreamSignature(s *ast.Stream) {
+	if s.Arg == nil && s.Ret == nil {
+		// Raw.
+		g.writef("%s(ctx context.Context) (stream transport.Stream, err error)", s.Name)
+	} else {
+		// Typed.
+		g.writef("%s(ctx context.Context) (stream *%sClientStream, err error)", s.Name, s.Name)
 	}
-	if s.Ret != nil {
-		g.writef("ret *%sReadStream, ", s.Ret.Name())
-	} else if s.Arg == nil {
-		g.write("stream transport.Stream, ")
-	}
-	g.write("err error)")
 }
 
-func (g *generator) genServiceClientStream(s *ast.Stream, errs []*ast.Error) {
+func (g *generator) genClientStream(s *ast.Stream, errs []*ast.Error) {
 	// Method declaration.
 	g.writef("func (%s *client) ", recv)
-	g.genServiceClientStreamSignature(s)
+	g.genClientStreamSignature(s)
 	g.writeLn(" {")
 
-	// Method body.
+	// Ensure Timeout on context.
 	g.writefLn("if %s.streamInitTimeout > 0 {", recv)
 	g.writeLn("var cancel context.CancelFunc")
 	g.writefLn("ctx, cancel = context.WithTimeout(ctx, %s.streamInitTimeout)", recv)
 	g.writeLn("defer cancel()")
 	g.writeLn("}")
 
-	g.write("stream, err ")
+	// Implementation.
 	if s.Arg == nil && s.Ret == nil {
-		g.write(" = ")
+		// Raw.
+		g.writefLn("stream, err = %s.Stream(ctx, StreamID%s)", recv, s.Name)
+		g.errIfNil()
 	} else {
-		g.write(" := ")
-	}
-	g.writefLn("%s.Stream(ctx, StreamID%s)", recv, s.Name)
-	g.errIfNil()
-
-	if s.Arg != nil {
-		g.writef("arg = new%sWriteStream(%s.CloserOneWay(), stream, %s.codec,", s.Arg.Name(), recv, recv)
-		g.writePacketMaxSizeParam(s.MaxArgSize, fmt.Sprintf("%s.maxArgSize", recv))
+		// Typed.
+		g.writef("str, err := %s.%s(ctx, StreamID%s,", recv, typedStream(s, false), s.Name)
+		if s.Arg != nil {
+			g.writeOrbitMaxSizeParam(s.MaxArgSize, false)
+		}
+		if s.Ret != nil {
+			g.writeOrbitMaxSizeParam(s.MaxRetSize, false)
+		}
 		g.writeLn(")")
+		g.errIfNil()
+		g.writefLn("stream = new%sClientStream(str)", s.Name)
 	}
 
-	if s.Ret != nil {
-		g.writef("ret = new%sReadStream(%s.CloserOneWay(), stream, %s.codec,", s.Ret.Name(), recv, recv)
-		g.writePacketMaxSizeParam(s.MaxRetSize, fmt.Sprintf("%s.maxRetSize", recv))
-		g.writeLn(")")
-	}
-
+	// End of method.
 	g.writeLn("return")
 	g.writeLn("}")
 	g.writeLn("")
 }
 
-func (g *generator) genServiceHandlerStreamSignature(s *ast.Stream) {
-	g.writef("%s(ctx oservice.Context,", s.Name)
-	if s.Arg != nil {
-		g.writef("arg *%sReadStream,", s.Arg.Name())
+//###############//
+//### Service ###//
+//###############//
+
+func (g *generator) genServiceStreamRegister(s *ast.Stream) {
+	if s.Arg == nil && s.Ret == nil {
+		// Raw.
+		g.writefLn("os.RegisterStream(StreamID%s, srvc.%s)", s.Name, s.NamePrv())
+	} else {
+		// Typed.
+		g.writef("os.Register%s(StreamID%s, srvc.%s,", typedStream(s, true), s.Name, s.NamePrv())
+		if s.Arg != nil {
+			g.writeOrbitMaxSizeParam(s.MaxArgSize, true)
+		}
+		if s.Ret != nil {
+			g.writeOrbitMaxSizeParam(s.MaxRetSize, true)
+		}
+		g.writeLn(")")
 	}
-	if s.Ret != nil {
-		g.writef("ret *%sWriteStream,", s.Ret.Name())
-	} else if s.Arg == nil {
-		g.write("stream transport.Stream,")
-	}
-	g.write(")")
 }
 
-func (g *generator) genServiceHandlerStream(s *ast.Stream, errs []*ast.Error) {
-	// Method declaration.
-	g.writefLn("func (%s *service) %s(ctx oservice.Context, stream transport.Stream) {", recv, s.NamePrv())
+func (g *generator) genServiceHandlerStreamSignature(s *ast.Stream) {
+	g.writef("%s(ctx oservice.Context, ", s.Name)
 
 	if s.Arg == nil && s.Ret == nil {
+		// Raw.
+		g.writeLn("stream transport.Stream)")
+	} else {
+		// Typed.
+		g.writefLn("stream *%sServiceStream) error", s.Name)
+	}
+}
+
+func (g *generator) genServiceStream(s *ast.Stream) {
+	g.writef("func (%s *service) %s(ctx oservice.Context, ", recv, s.NamePrv())
+
+	if s.Arg == nil && s.Ret == nil {
+		// Raw.
+		g.writeLn("stream transport.Stream) {")
 		g.writefLn("%s.h.%s(ctx, stream)", recv, s.Name)
-		g.writeLn("}")
-		return
+	} else {
+		// Typed.
+		g.writefLn("stream oservice.%s) error {", typedStream(s, true))
+		g.writefLn("return %s.h.%s(ctx, new%sServiceStream(stream))", recv, s.Name, s.Name)
 	}
 
-	// We have an orbit-managed stream now.
-	// Close the stream, as soon as the handler is done.
-	g.writeLn("defer stream.Close()")
-
-	handlerArgs := "ctx,"
-	if s.Arg != nil {
-		handlerArgs += "arg,"
-		g.writef("arg := new%sReadStream(stream, %s.codec,", s.Arg.Name(), recv)
-		g.writePacketMaxSizeParam(s.MaxArgSize, fmt.Sprintf("%s.maxArgSize", recv))
-		g.writeLn(")")
-	}
-	if s.Ret != nil {
-		handlerArgs += "ret,"
-		g.writef("ret := new%sWriteStream(stream, %s.codec,", s.Ret.Name(), recv)
-		g.writePacketMaxSizeParam(s.MaxRetSize, fmt.Sprintf("%s.maxRetSize", recv))
-		g.writeLn(")")
-		// Ensure, the zero package is sent to the other side.
-		g.writeLn("// Service has a write stream, therefore, ensure to send the zero packet")
-		g.writeLn("// once the handler is done to inform the remote reader side of the writer-close.")
-		g.writeLn("defer func() { _ = packet.Write(stream, nil, 0) }()")
-	}
-
-	g.writefLn("%s.h.%s(%s)", recv, s.Name, handlerArgs)
 	g.writeLn("}")
 	g.writeLn("")
 }
 
-// writePacketMaxSizeParam is a helper to determine which max size param must be written
-// based on the given params. It automatically handles the special cases
-// like no max size or default max size.
-// This method must only be used where Packet max size syntax is required.
-func (g *generator) writePacketMaxSizeParam(maxSize *int64, defSize string) {
-	if maxSize != nil {
-		if *maxSize == -1 {
-			g.write("packet.NoPayloadSizeLimit")
-		} else {
-			g.write(strconv.FormatInt(*maxSize, 10))
-		}
+//###############//
+//### Private ###//
+//###############//
+
+func typedStream(s *ast.Stream, service bool) (dataType string) {
+	if s.Arg != nil && s.Ret != nil {
+		// ReadWrite.
+		return "TypedRWStream"
+	} else if (!service && s.Ret != nil) || (service && s.Arg != nil) {
+		// Read.
+		return "TypedRStream"
 	} else {
-		g.write(defSize)
+		// Write.
+		return "TypedWStream"
 	}
-	g.write(",")
 }

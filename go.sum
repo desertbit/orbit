@@ -49,6 +49,8 @@ github.com/desertbit/readline v0.0.0-20171208011716-f6d7a1f6fbf3 h1:PLbrJOpAtk8r
 github.com/desertbit/readline v0.0.0-20171208011716-f6d7a1f6fbf3/go.mod h1:AayRnEOr0ttSh4kgOlHBBtJufZMMW/1BVCdV5oFs8t0=
 github.com/desertbit/yamux v1.0.0 h1:FHOGf0R827EMvYu2+LQi1Js8iWRkXKhX0isXR095fD4=
 github.com/desertbit/yamux v1.0.0/go.mod h1:Q2KVuKXGwT6IuApVtaMA2y0OgnOFrNTQ1DTZ/WlMX7I=
+github.com/desertbit/yamux v1.0.1 h1:4NBBiBQjoBgd3P4IKVUPZ/wLm7gZvbmMH4ojjmYRZIs=
+github.com/desertbit/yamux v1.0.1/go.mod h1:Q2KVuKXGwT6IuApVtaMA2y0OgnOFrNTQ1DTZ/WlMX7I=
 github.com/dustin/go-humanize v1.0.0/go.mod h1:HtrtbFcZ19U5GC7JDqmcUSB87Iq5E25KnS6fMYU6eOk=
 github.com/envoyproxy/go-control-plane v0.9.1-0.20191026205805-5f8ba28d4473/go.mod h1:YTl/9mNaCwkRvm6d1a2C3ymFceY/DCBVvsKhRF0iEA4=
 github.com/envoyproxy/protoc-gen-validate v0.1.0/go.mod h1:iSmxcyjqTsJpI2R4NaDN7+kN2VEUnK/pcBlmesArF7c=

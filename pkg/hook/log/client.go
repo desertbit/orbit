@@ -149,3 +149,13 @@ func (c *clientHook) OnStream(ctx client.Context, id string) error {
 		Msg("stream")
 	return nil
 }
+
+func (c *clientHook) OnStreamClosed(ctx client.Context, id string) {
+	s := ctx.Session()
+	c.log.Info().
+		Str("streamID", id).
+		Str("sessionID", s.ID()).
+		Str("localAddr", s.LocalAddr().String()).
+		Str("remoteAddr", s.RemoteAddr().String()).
+		Msg("stream closed")
+}

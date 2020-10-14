@@ -161,7 +161,7 @@ func (s *session) handleCall(
 	// Get the call.
 	c, err := s.handler.getCall(h.ID)
 	if err != nil {
-		return fmt.Errorf("call %s: %w", h.ID, err)
+		return
 	}
 
 	// Prepare our return header.
@@ -169,7 +169,7 @@ func (s *session) handleCall(
 		Key: h.Key,
 	}
 
-	// Create a context for cancelation and add the timeout.
+	// Create a context for cancellation and add the timeout.
 	var (
 		ctx    context.Context
 		cancel context.CancelFunc

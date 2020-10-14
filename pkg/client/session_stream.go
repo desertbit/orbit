@@ -36,21 +36,61 @@ import (
 	"github.com/desertbit/orbit/pkg/transport"
 )
 
-func (s *session) OpenStream(ctx context.Context, id string) (transport.Stream, error) {
+func (s *session) OpenTypedStream(ctx context.Context, id string, maxArgSize, maxRetSize int, wOnly bool) (ts TypedRWStream, err error) {
+	// Use default options if required.
+	if maxArgSize == DefaultMaxSize {
+		maxArgSize = s.maxArgSize
+	}
+	if maxRetSize == DefaultMaxSize {
+		maxRetSize = s.maxRetSize
+	}
+
+	// Open the raw stream.
+	stream, err := s.OpenRawStream(ctx, id)
+	if err != nil {
+		return
+	}
+
+	// Create our typed stream.
+	ts = newTypedRWStream(stream, s.codec, maxArgSize, maxRetSize, wOnly)
+	return
+}
+
+func (s *session) OpenRawStream(ctx context.Context, id string) (stream transport.Stream, err error) {
 	// Create a new client context.
 	cctx := newContext(ctx, s)
 
 	// Call the OnStream hooks.
-	err := s.handler.hookOnStream(cctx, id)
+	err = s.handler.hookOnStream(cctx, id)
 	if err != nil {
-		return nil, err
+		return
 	}
 
+	// Call the closed hook if an error occurs.
+	defer func() {
+		if err != nil {
+			s.handler.hookOnStreamClosed(cctx, id)
+		}
+	}()
+
 	// Open the stream.
-	return s.openStream(ctx, api.StreamTypeRaw, &api.StreamRaw{
+	stream, err = s.openStream(ctx, api.StreamTypeRaw, &api.StreamRaw{
 		ID:   id,
 		Data: cctx.header,
 	}, s.maxHeaderSize)
+	if err != nil {
+		return
+	}
+
+	// Call the closed hook once closed.
+	go func() {
+		select {
+		case <-stream.ClosedChan():
+		case <-s.ClosingChan():
+		}
+		s.handler.hookOnStreamClosed(cctx, id)
+	}()
+	return
 }
 
 func (s *session) openStream(

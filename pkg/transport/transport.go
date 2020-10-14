@@ -65,6 +65,9 @@ type Stream interface {
 
 	// IsClosed returns true, if the stream has been closed locally or by the remote peer.
 	IsClosed() bool
+
+	// ClosedChan returns a closed channel as soon as the stream closes.
+	ClosedChan() <-chan struct{}
 }
 
 type Listener interface {
