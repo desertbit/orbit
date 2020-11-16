@@ -42,8 +42,8 @@ type Lexer interface {
 
 	// Next returns the next available Token from the lexer.
 	// If no more Tokens are available or the lexer was closed,
-	// false is returned.
-	Next() (Token, bool)
+	// the Token has type EOF.
+	Next() Token
 }
 
 // stateFn represents the state of the scanner
@@ -54,6 +54,8 @@ type stateFn func(*lexer) stateFn
 // Lexer interface.
 type lexer struct {
 	closer.Closer
+
+	closingChan <-chan struct{} // Cached for faster access.
 
 	input       string // the string being scanned.
 	start       int    // start position of this token.
@@ -73,13 +75,14 @@ type lexer struct {
 // and returns the associated Lexer instance.
 func Lex(cl closer.Closer, input string) Lexer {
 	l := &lexer{
-		Closer:    cl,
-		input:     input,
-		startLine: 1,
-		startCol:  1,
-		col:       1,
-		line:      1,
-		tokens:    make(chan Token, 2),
+		Closer:      cl,
+		closingChan: cl.ClosingChan(),
+		input:       input,
+		startLine:   1,
+		startCol:    1,
+		col:         1,
+		line:        1,
+		tokens:      make(chan Token, 2),
 	}
 
 	// Concurrently start lexing.
@@ -90,25 +93,30 @@ func Lex(cl closer.Closer, input string) Lexer {
 }
 
 // Implements the Lexer interface.
-func (l *lexer) Next() (t Token, ok bool) {
-	// Do not listen on the closing chan. This can
-	// cause tokens in the channel to not be consumed.
-	t, ok = <-l.tokens
+func (l *lexer) Next() (tk Token) {
+	select {
+	case <-l.closingChan:
+		// Drain the token channel.
+		select {
+		case tk = <-l.tokens:
+		default:
+			tk = Token{Type: EOF}
+		}
+	case tk = <-l.tokens:
+	}
+
 	return
 }
 
 // run lexes the input by executing state functions until
 // the state is nil.
-// Closes the l.tokens channel, once done.
+// Closes the lexer, if no more tokens are available.
 func (l *lexer) run() {
 	defer l.CloseAndDone_()
 
 	for state := lexTokenStart(l); state != nil && !l.IsClosing(); {
 		state = state(l)
 	}
-
-	// No more text left, all tokens emitted.
-	close(l.tokens)
 }
 
 // emit publishes a token to the client.

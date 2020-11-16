@@ -33,7 +33,6 @@ package utils
 
 import (
 	"crypto/rand"
-	"strings"
 	"unicode"
 )
 
@@ -61,15 +60,22 @@ func RandomString(n uint) (string, error) {
 	return string(bytes), nil
 }
 
-// NoTitle performs the opposite operation of the strings.Title() func.
-// It ensures the first char of the given string is lowercase.
-func NoTitle(s string) string {
-	done := false
-	return strings.Map(func(r rune) rune {
-		if !done {
-			done = true
-			return unicode.ToLower(r)
-		}
-		return r
-	}, s)
+// FirstUpper returns a copy of s, where the first rune is
+// guaranteed to be an uppercase letter, like unicode.ToUpper
+// suggests.
+func FirstUpper(s string) string {
+	for i, v := range s {
+		return string(unicode.ToUpper(v)) + s[i+1:]
+	}
+	return ""
+}
+
+// FirstLower returns a copy of s, where the first rune is
+// guaranteed to be an lowercase letter, like unicode.ToLower
+// suggests.
+func FirstLower(s string) string {
+	for i, v := range s {
+		return string(unicode.ToLower(v)) + s[i+1:]
+	}
+	return ""
 }

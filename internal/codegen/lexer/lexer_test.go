@@ -103,15 +103,15 @@ url
 		{val: "999", typ: lexer.INT, line: 10, col: 17}, // 35
 		{val: "0B", typ: lexer.BYTESIZE, line: 10, col: 21},
 		{val: "0ns", typ: lexer.DURATION, line: 10, col: 24},
-		{val: "url", typ: lexer.URL, line: 12, col: 1},
+		{val: "url", typ: lexer.IDENT, line: 12, col: 1},
 	}
 
 	l := lexer.Lex(closer.New(), input)
 	defer l.Close_()
 
 	for i, c := range cases {
-		tk, ok := l.Next()
-		if !ok {
+		tk := l.Next()
+		if tk.Type == lexer.EOF {
 			// Test for premature EOF.
 			require.True(t, i == len(cases)-1, "case %d", i)
 			return
@@ -141,7 +141,7 @@ func testLexerNextErr(t *testing.T) {
 
 	for i, c := range cases {
 		l := lexer.Lex(closer.New(), c.input)
-		tk, _ := l.Next()
+		tk := l.Next()
 		require.Exactly(t, lexer.ILLEGAL, tk.Type, "case %d", i)
 		require.Exactly(t, c.line, tk.Pos.Line, "case %d", i)
 		require.Exactly(t, c.col, tk.Pos.Column, "case %d", i)

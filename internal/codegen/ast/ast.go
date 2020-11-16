@@ -30,53 +30,60 @@ package ast
 import (
 	"time"
 
+	"github.com/desertbit/orbit/internal/codegen/lexer"
 	"github.com/desertbit/orbit/internal/utils"
 )
 
-type Tree struct {
-	Version int
+// TODO: Decide whether a single lexer.Pos is enough, or if start and end should be recorded.
+
+type File struct {
+	Version *Version
 	Srvc    *Service
 	Types   []*Type
 	Errs    []*Error
 	Enums   []*Enum
 }
 
+type Version struct {
+	Value int
+	lexer.Pos
+}
+
 type Enum struct {
 	Name   string
 	Values []*EnumValue
-	Line   int
+	lexer.Pos
 }
 
 type EnumValue struct {
 	Name  string
 	Value int
-	Line  int
+	lexer.Pos
 }
 
 type Error struct {
 	Name string
 	ID   int
-	Line int
+	lexer.Pos
 }
 
 type Type struct {
 	Name   string
 	Fields []*TypeField
-	Line   int
+	lexer.Pos
 }
 
 type TypeField struct {
 	Name      string
 	DataType  DataType
 	StructTag string
-	Line      int
+	lexer.Pos
 }
 
 type Service struct {
-	Url     string
 	Calls   []*Call
 	Streams []*Stream
-	Line    int
+	lexer.Pos
 }
 
 type Call struct {
@@ -87,11 +94,11 @@ type Call struct {
 	Timeout    *time.Duration
 	MaxArgSize *int64
 	MaxRetSize *int64
-	Line       int
+	lexer.Pos
 }
 
 func (c *Call) NamePrv() string {
-	return utils.NoTitle(c.Name)
+	return utils.FirstLower(c.Name)
 }
 
 type Stream struct {
@@ -100,9 +107,9 @@ type Stream struct {
 	Ret        DataType
 	MaxArgSize *int64
 	MaxRetSize *int64
-	Line       int
+	lexer.Pos
 }
 
 func (s *Stream) NamePrv() string {
-	return utils.NoTitle(s.Name)
+	return utils.FirstLower(s.Name)
 }

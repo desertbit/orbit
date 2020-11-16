@@ -28,7 +28,8 @@
 package ast
 
 import (
-	"strings"
+	"github.com/desertbit/orbit/internal/codegen/lexer"
+	"github.com/desertbit/orbit/internal/utils"
 )
 
 const (
@@ -64,7 +65,7 @@ type DataType interface {
 
 type BaseType struct {
 	DataType string
-	Line     int
+	lexer.Pos
 }
 
 func (b *BaseType) Decl() string {
@@ -81,13 +82,13 @@ func (b *BaseType) Name() string {
 	if b.DataType == TypeTime {
 		return "Time"
 	}
-	return strings.Title(b.DataType)
+	return utils.FirstUpper(b.DataType)
 }
 
 type MapType struct {
 	Key   DataType
 	Value DataType
-	Line  int
+	lexer.Pos
 }
 
 func (m *MapType) Decl() string {
@@ -95,12 +96,12 @@ func (m *MapType) Decl() string {
 }
 
 func (m *MapType) Name() string {
-	return "Map" + strings.Title(m.Key.Name()) + strings.Title(m.Value.Name())
+	return "Map" + utils.FirstUpper(m.Key.Name()) + utils.FirstUpper(m.Value.Name())
 }
 
 type ArrType struct {
 	Elem DataType
-	Line int
+	lexer.Pos
 }
 
 func (a *ArrType) Decl() string {
@@ -108,12 +109,12 @@ func (a *ArrType) Decl() string {
 }
 
 func (a *ArrType) Name() string {
-	return "Arr" + strings.Title(a.Elem.Name())
+	return "Arr" + utils.FirstUpper(a.Elem.Name())
 }
 
 type StructType struct {
 	NamePrv string
-	Line    int
+	lexer.Pos
 }
 
 func (s *StructType) Decl() string {
@@ -126,7 +127,7 @@ func (s *StructType) Name() string {
 
 type EnumType struct {
 	NamePrv string
-	Line    int
+	lexer.Pos
 }
 
 func (e *EnumType) Decl() string {
@@ -139,7 +140,7 @@ func (e *EnumType) Name() string {
 
 type AnyType struct {
 	NamePrv string
-	Line    int
+	lexer.Pos
 }
 
 func (a *AnyType) Decl() string {

@@ -54,7 +54,6 @@ const (
 	ENUM
 	TYPE
 	SERVICE
-	URL
 	CALL
 	STREAM
 	ASYNC
@@ -79,6 +78,41 @@ const (
 	EQUAL  // =
 	delimEnd
 )
+
+func (tt TokenType) String() string {
+	if tt == ILLEGAL {
+		return "illegal"
+	} else if tt == EOF {
+		return "eof"
+	} else if literalBegin < tt && tt < literalEnd {
+		switch tt {
+		case IDENT:
+			return "ident"
+		case INT:
+			return "int"
+		case RAWSTRING:
+			return "rawstring"
+		case BYTESIZE:
+			return "bytesize"
+		case DURATION:
+			return "duration"
+		}
+	} else if keywordBegin < tt && tt < keywordEnd {
+		for k, v := range keywordTokenTypes {
+			if v == tt {
+				return k
+			}
+		}
+	} else {
+		for k, v := range delimTokenTypes {
+			if v == tt {
+				return string(k)
+			}
+		}
+	}
+
+	return "__UNKNOWN__"
+}
 
 // Token is an item returned from the scanner.
 type Token struct {
@@ -127,14 +161,13 @@ var keywordTokenTypes = map[string]TokenType{
 	"enum":       ENUM,
 	"type":       TYPE,
 	"service":    SERVICE,
-	"url":        URL,
 	"call":       CALL,
 	"stream":     STREAM,
 	"async":      ASYNC,
 	"arg":        ARG,
 	"ret":        RET,
-	"maxargsize": MAXARGSIZE,
-	"maxretsize": MAXRETSIZE,
+	"maxArgSize": MAXARGSIZE,
+	"maxRetSize": MAXRETSIZE,
 	"timeout":    TIMEOUT,
 	"map":        MAP,
 }

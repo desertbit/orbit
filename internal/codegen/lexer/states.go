@@ -58,20 +58,20 @@ func lexTokenStart(l *lexer) stateFn {
 	// Number.
 	if r == hyphen || unicode.IsDigit(r) {
 		l.backup()
-		return lexNumber(l)
+		return lexNumber
 	}
 
 	// Delimiter.
 	t = toDelimTokenType(r)
 	if t != ILLEGAL {
 		l.emit(t)
-		return lexTokenStart(l)
+		return lexTokenStart
 	}
 
 	// Raw string.
 	if r == backtick {
 		l.ignore()
-		return lexRawString(l)
+		return lexRawString
 	}
 
 	// Comments.
@@ -79,15 +79,15 @@ func lexTokenStart(l *lexer) stateFn {
 		// May be a comment.
 		nr := l.next()
 		if nr == slash {
-			return lexLineComment(l)
+			return lexLineComment
 		} else if nr == asterisk {
-			return lexBlockComment(l)
+			return lexBlockComment
 		}
 		// No comment.
 		l.backup()
 	}
 
-	return lexTokenFindEnd(l)
+	return lexTokenFindEnd
 }
 
 func lexTokenFindEnd(l *lexer) stateFn {
@@ -113,7 +113,7 @@ func lexTokenFindEnd(l *lexer) stateFn {
 		l.emit(IDENT)
 	}
 
-	return lexTokenStart(l)
+	return lexTokenStart
 }
 
 func lexRawString(l *lexer) stateFn {
@@ -131,7 +131,7 @@ func lexRawString(l *lexer) stateFn {
 			// Ignore rquote.
 			l.next()
 			l.ignore()
-			return lexTokenStart(l)
+			return lexTokenStart
 		}
 	}
 
@@ -175,7 +175,7 @@ func lexNumber(l *lexer) stateFn {
 
 		// Publish int.
 		l.emit(INT)
-		return lexTokenStart(l)
+		return lexTokenStart
 	}
 
 	// If the number contains non-digits, try to convert it to a byte size / duration.
@@ -184,7 +184,7 @@ func lexNumber(l *lexer) stateFn {
 	if err == nil {
 		// Valid.
 		l.emit(BYTESIZE)
-		return lexTokenStart(l)
+		return lexTokenStart
 	}
 
 	// Try duration.
@@ -192,7 +192,7 @@ func lexNumber(l *lexer) stateFn {
 	if err == nil {
 		// Valid.
 		l.emit(DURATION)
-		return lexTokenStart(l)
+		return lexTokenStart
 	}
 
 	// Invalid.
@@ -204,7 +204,7 @@ func lexLineComment(l *lexer) stateFn {
 	for r := l.next(); r != eof && r != newline; r = l.next() {
 	}
 	l.ignore()
-	return lexTokenStart(l)
+	return lexTokenStart
 }
 
 func lexBlockComment(l *lexer) stateFn {
@@ -214,7 +214,7 @@ func lexBlockComment(l *lexer) stateFn {
 			r = l.next()
 			if r == slash {
 				l.ignore()
-				return lexTokenStart(l)
+				return lexTokenStart
 			}
 		}
 	}

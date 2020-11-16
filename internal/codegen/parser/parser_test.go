@@ -25,119 +25,18 @@
  * SOFTWARE.
  */
 
-package parse_test
+package parser_test
 
 import (
-	"strings"
+	"io/ioutil"
 	"testing"
 	"time"
 
+	"github.com/desertbit/closer/v3"
 	"github.com/desertbit/orbit/internal/codegen/ast"
-	"github.com/desertbit/orbit/internal/codegen/parse"
-	"github.com/desertbit/orbit/internal/codegen/token"
+	"github.com/desertbit/orbit/internal/codegen/parser"
 	"github.com/stretchr/testify/require"
 )
-
-const orbit = `
-version 1
-
-service {
-    call c1 {
-        arg: {
-			id int ` + "`json:\"ID\" yaml:\"id\"`" + `
-		}
-        ret: {
-			ret float32
-		}
-    }
-    call c2 {
-        async
-		arg: {
-			ts time
-		}
-        ret: {
-			ret []map[string][]Ret
-		}
-		timeout: 500ms
-		maxArgSize: 154KB
-		maxRetSize: 5MiB
-    }
-    call c3 {}
-
-    call rc1 {
-        arg: Arg
-        ret: {
-            s string
-            i int
-            m map[string]int
-            sl []time
-            st Ret
-            crazy map[string][][]map[string]En1
-        }
-    }
-    call rc2 {
-        async
-        arg: {
-            f float64
-            b byte
-            u8 uint8
-            u16 uint16
-            u32 uint32
-            u64 uint64
-        }
-    }
-    call rc3 {}
-
-    stream s1 {}
-    stream s2 {
-        arg: {
-			id string ` + "`validator:\"required\"`" + `
-		}
-    }
-    stream s3 {
-        ret: En1
-    }
-
-    stream rs1 {
-        arg: Arg
-        ret: Ret
-    }
-    stream rs2 {}
-}
-
-type Arg {
-    s string ` + "`json:\"STRING\"`" + `
-    i int
-    m map[string]int
-    sl []time
-	dur duration
-    st Ret
-    crazy map[string][][]map[string]En1
-}
-
-type Ret {
-    f float64
-    b byte
-    u8 uint8
-    u16 uint16
-    u32 uint32
-    u64 uint64
-}
-
-enum En1 {
-    Val1 = 1
-    Val2 = 2
-    Val3 = 3
-}
-
-errors {
-    theFirstError = 1
-    theSecondError = 2
-    theThirdError = 3
-}
-
-errors {}
-`
 
 var (
 	version            = 1
@@ -201,30 +100,30 @@ var (
 		{
 			Name: "C1Arg",
 			Fields: []*ast.TypeField{
-				{Name: "Id", DataType: &ast.BaseType{DataType: ast.TypeInt}, StructTag: "json:\"ID\" yaml:\"id\""},
+				{Name: "Id", DataType: &ast.AnyType{NamePrv: "int"}, StructTag: "json:\"ID\" yaml:\"id\""},
 			},
 		},
 		{
 			Name: "C1Ret",
 			Fields: []*ast.TypeField{
-				{Name: "Ret", DataType: &ast.BaseType{DataType: ast.TypeFloat32}},
+				{Name: "Sum", DataType: &ast.AnyType{NamePrv: "float32"}},
 			},
 		},
 		{
 			Name: "C2Arg",
 			Fields: []*ast.TypeField{
-				{Name: "Ts", DataType: &ast.BaseType{DataType: ast.TypeTime}},
+				{Name: "Ts", DataType: &ast.AnyType{NamePrv: "time"}},
 			},
 		},
 		{
 			Name: "C2Ret",
 			Fields: []*ast.TypeField{
 				{
-					Name: "Ret",
+					Name: "Data",
 					// []map[string][]Ret
 					DataType: &ast.ArrType{
 						Elem: &ast.MapType{
-							Key:   &ast.BaseType{DataType: ast.TypeString},
+							Key:   &ast.AnyType{NamePrv: "string"},
 							Value: &ast.ArrType{Elem: &ast.AnyType{NamePrv: "Ret"}},
 						},
 					},
@@ -234,25 +133,25 @@ var (
 		{
 			Name: "Rc1Ret",
 			Fields: []*ast.TypeField{
-				{Name: "S", DataType: &ast.BaseType{DataType: ast.TypeString}},
-				{Name: "I", DataType: &ast.BaseType{DataType: ast.TypeInt}},
+				{Name: "S", DataType: &ast.AnyType{NamePrv: "string"}},
+				{Name: "I", DataType: &ast.AnyType{NamePrv: "int"}},
 				{
 					Name: "M",
 					DataType: &ast.MapType{
-						Key:   &ast.BaseType{DataType: ast.TypeString},
-						Value: &ast.BaseType{DataType: ast.TypeInt},
+						Key:   &ast.AnyType{NamePrv: "string"},
+						Value: &ast.AnyType{NamePrv: "int"},
 					},
 				},
-				{Name: "Sl", DataType: &ast.ArrType{Elem: &ast.BaseType{DataType: ast.TypeTime}}},
+				{Name: "Sl", DataType: &ast.ArrType{Elem: &ast.AnyType{NamePrv: "time"}}},
 				{Name: "St", DataType: &ast.AnyType{NamePrv: "Ret"}},
 				{
 					Name: "Crazy",
 					DataType: &ast.MapType{
-						Key: &ast.BaseType{DataType: ast.TypeString},
+						Key: &ast.AnyType{NamePrv: "string"},
 						Value: &ast.ArrType{
 							Elem: &ast.ArrType{
 								Elem: &ast.MapType{
-									Key:   &ast.BaseType{DataType: ast.TypeString},
+									Key:   &ast.AnyType{NamePrv: "string"},
 									Value: &ast.AnyType{NamePrv: "En1"},
 								},
 							},
@@ -264,43 +163,43 @@ var (
 		{
 			Name: "Rc2Arg",
 			Fields: []*ast.TypeField{
-				{Name: "F", DataType: &ast.BaseType{DataType: ast.TypeFloat64}},
-				{Name: "B", DataType: &ast.BaseType{DataType: ast.TypeByte}},
-				{Name: "U8", DataType: &ast.BaseType{DataType: ast.TypeUInt8}},
-				{Name: "U16", DataType: &ast.BaseType{DataType: ast.TypeUInt16}},
-				{Name: "U32", DataType: &ast.BaseType{DataType: ast.TypeUInt32}},
-				{Name: "U64", DataType: &ast.BaseType{DataType: ast.TypeUInt64}},
+				{Name: "F", DataType: &ast.AnyType{NamePrv: "float64"}},
+				{Name: "B", DataType: &ast.AnyType{NamePrv: "byte"}},
+				{Name: "U8", DataType: &ast.AnyType{NamePrv: "uint8"}},
+				{Name: "U16", DataType: &ast.AnyType{NamePrv: "uint16"}},
+				{Name: "U32", DataType: &ast.AnyType{NamePrv: "uint32"}},
+				{Name: "U64", DataType: &ast.AnyType{NamePrv: "uint64"}},
 			},
 		},
 		{
 			Name: "S2Arg",
 			Fields: []*ast.TypeField{
-				{Name: "Id", DataType: &ast.BaseType{DataType: ast.TypeString}, StructTag: "validator:\"required\""},
+				{Name: "Id", DataType: &ast.AnyType{NamePrv: "string"}, StructTag: "validator:\"required\""},
 			},
 		},
 		{
 			Name: "Arg",
 			Fields: []*ast.TypeField{
-				{Name: "S", DataType: &ast.BaseType{DataType: ast.TypeString}, StructTag: "json:\"STRING\""},
-				{Name: "I", DataType: &ast.BaseType{DataType: ast.TypeInt}},
+				{Name: "S", DataType: &ast.AnyType{NamePrv: "string"}, StructTag: "json:\"STRING\""},
+				{Name: "I", DataType: &ast.AnyType{NamePrv: "int"}},
 				{
 					Name: "M",
 					DataType: &ast.MapType{
-						Key:   &ast.BaseType{DataType: ast.TypeString},
-						Value: &ast.BaseType{DataType: ast.TypeInt},
+						Key:   &ast.AnyType{NamePrv: "string"},
+						Value: &ast.AnyType{NamePrv: "int"},
 					},
 				},
-				{Name: "Sl", DataType: &ast.ArrType{Elem: &ast.BaseType{DataType: ast.TypeTime}}},
-				{Name: "Dur", DataType: &ast.BaseType{DataType: ast.TypeDuration}},
+				{Name: "Sl", DataType: &ast.ArrType{Elem: &ast.AnyType{NamePrv: "time"}}},
+				{Name: "Dur", DataType: &ast.AnyType{NamePrv: "duration"}},
 				{Name: "St", DataType: &ast.AnyType{NamePrv: "Ret"}},
 				{
 					Name: "Crazy",
 					DataType: &ast.MapType{
-						Key: &ast.BaseType{DataType: ast.TypeString},
+						Key: &ast.AnyType{NamePrv: "string"},
 						Value: &ast.ArrType{
 							Elem: &ast.ArrType{
 								Elem: &ast.MapType{
-									Key:   &ast.BaseType{DataType: ast.TypeString},
+									Key:   &ast.AnyType{NamePrv: "string"},
 									Value: &ast.AnyType{NamePrv: "En1"},
 								},
 							},
@@ -312,12 +211,12 @@ var (
 		{
 			Name: "Ret",
 			Fields: []*ast.TypeField{
-				{Name: "F", DataType: &ast.BaseType{DataType: ast.TypeFloat64}},
-				{Name: "B", DataType: &ast.BaseType{DataType: ast.TypeByte}},
-				{Name: "U8", DataType: &ast.BaseType{DataType: ast.TypeUInt8}},
-				{Name: "U16", DataType: &ast.BaseType{DataType: ast.TypeUInt16}},
-				{Name: "U32", DataType: &ast.BaseType{DataType: ast.TypeUInt32}},
-				{Name: "U64", DataType: &ast.BaseType{DataType: ast.TypeUInt64}},
+				{Name: "F", DataType: &ast.AnyType{NamePrv: "float64"}},
+				{Name: "B", DataType: &ast.AnyType{NamePrv: "byte"}},
+				{Name: "U8", DataType: &ast.AnyType{NamePrv: "uint8"}},
+				{Name: "U16", DataType: &ast.AnyType{NamePrv: "uint16"}},
+				{Name: "U32", DataType: &ast.AnyType{NamePrv: "uint32"}},
+				{Name: "U64", DataType: &ast.AnyType{NamePrv: "uint64"}},
 			},
 		},
 	}
@@ -341,35 +240,43 @@ var (
 )
 
 func TestParser_Parse(t *testing.T) {
+	t.Run("parseValid", testParseValid)
+}
+
+func testParseValid(t *testing.T) {
 	t.Parallel()
 
-	p := parse.NewParser()
-	tree, err := p.Parse(token.NewReader(strings.NewReader(orbit)))
+	// Read valid .orbit file from testdata.
+	input, err := ioutil.ReadFile("./testdata/valid.orbit")
+	require.NoError(t, err)
+
+	// Parse file.
+	f, err := parser.Parse(closer.New(), string(input))
 	require.NoError(t, err)
 
 	// Version.
-	require.Exactly(t, version, tree.Version)
+	require.Exactly(t, version, f.Version)
 
 	// Services.
-	require.NotNil(t, tree.Srvc)
-	requireEqualService(t, expSrvc, tree.Srvc)
+	require.NotNil(t, f.Srvc)
+	requireEqualService(t, expSrvc, f.Srvc)
 
 	// Types.
-	require.Len(t, tree.Types, len(expTypes))
+	require.Len(t, f.Types, len(expTypes))
 	for i, expType := range expTypes {
-		requireEqualType(t, expType, tree.Types[i])
+		requireEqualType(t, expType, f.Types[i])
 	}
 
 	// Enums.
-	require.Len(t, tree.Enums, len(expEnums))
+	require.Len(t, f.Enums, len(expEnums))
 	for i, expEn := range expEnums {
-		requireEqualEnum(t, expEn, tree.Enums[i])
+		requireEqualEnum(t, expEn, f.Enums[i])
 	}
 
 	// Errors.
-	require.Len(t, tree.Errs, len(expErrs))
+	require.Len(t, f.Errs, len(expErrs))
 	for i, expErr := range expErrs {
-		requireEqualError(t, expErr, tree.Errs[i])
+		requireEqualError(t, expErr, f.Errs[i])
 	}
 }
 
@@ -378,8 +285,8 @@ func TestParser_Parse(t *testing.T) {
 //###############//
 
 func requireEqualService(t *testing.T, exp, act *ast.Service) {
-	require.Len(t, exp.Calls, len(act.Calls))
-	require.Len(t, exp.Streams, len(act.Streams))
+	require.Len(t, act.Calls, len(exp.Calls))
+	require.Len(t, act.Streams, len(exp.Streams))
 	for i, expc := range exp.Calls {
 		requireEqualCall(t, expc, act.Calls[i])
 	}
@@ -437,7 +344,7 @@ func requireEqualDataType(t *testing.T, exp, act ast.DataType) {
 
 	require.IsType(t, exp, act)
 	switch v := exp.(type) {
-	case *ast.BaseType, *ast.StructType, *ast.EnumType, *ast.AnyType:
+	case *ast.StructType, *ast.EnumType, *ast.AnyType:
 		require.Exactly(t, exp.Decl(), act.Decl())
 	case *ast.ArrType:
 		requireEqualDataType(t, v.Elem, act.(*ast.ArrType).Elem)
@@ -445,6 +352,6 @@ func requireEqualDataType(t *testing.T, exp, act ast.DataType) {
 		requireEqualDataType(t, v.Key, act.(*ast.MapType).Key)
 		requireEqualDataType(t, v.Value, act.(*ast.MapType).Value)
 	default:
-		t.Fatalf("unknown data type %v", v)
+		t.Fatalf("unexpected data type %v", v)
 	}
 }
