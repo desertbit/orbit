@@ -144,7 +144,7 @@ func (s *typedRWStream) Read(data interface{}) (err error) {
 		}
 	case api.TypedStreamTypeError:
 		// Close the stream in any case now.
-		s.stream.Close()
+		defer s.stream.Close()
 
 		// Read the error packet.
 		var tErr api.TypedStreamError
