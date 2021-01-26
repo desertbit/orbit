@@ -25,64 +25,13 @@
  * SOFTWARE.
  */
 
-package yamux
+package mux
 
-import (
-	"crypto/tls"
-	"errors"
-	"os"
-	"time"
-
-	"github.com/desertbit/yamux"
-	"github.com/rs/zerolog"
-)
-
-type Options struct {
-	// TODO:
-	ListenAddr string
-
-	// TODO:
-	DialAddr string
-
-	// TODO:
-	Config *yamux.Config
-
-	// TODO:
-	// If nil, no encryption.
-	TLSConfig *tls.Config
+type value struct {
+	serviceID string
 }
 
-func DefaultOptions(listenAddr, dialAddr string, tlsc *tls.Config) Options {
-	return Options{
-		ListenAddr: listenAddr,
-		DialAddr:   dialAddr,
-		Config: &yamux.Config{
-			AcceptBacklog:          256,
-			EnableKeepAlive:        true,
-			KeepAliveInterval:      30 * time.Second,
-			ConnectionWriteTimeout: 10 * time.Second,
-			MaxStreamWindowSize:    256 * 1024,
-			LogOutput:              defaultLogger(),
-		},
-		TLSConfig: tlsc,
-	}
-}
-
-func (o Options) validate() (err error) {
-	if o.ListenAddr == "" && o.DialAddr == "" {
-		return errors.New("listen and dial address not set")
-	}
-	err = yamux.VerifyConfig(o.Config)
-	if err != nil {
-		return
-	}
-	return
-}
-
-func defaultLogger() *zerolog.Logger {
-	l := zerolog.New(zerolog.ConsoleWriter{
-		Out:        os.Stderr,
-		TimeFormat: time.RFC3339,
-	}).With().Timestamp().Str("component", "orbit.yamux").Logger()
-	return &l
+// Value constructs a value that must be passed to Dial() and Listen().
+func Value(serviceID string) *value {
+	return &value{serviceID: serviceID}
 }

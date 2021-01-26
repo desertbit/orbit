@@ -25,16 +25,11 @@
  * SOFTWARE.
  */
 
-package yamux
+package mux
 
 import (
-	"crypto/tls"
 	"errors"
-	"os"
 	"time"
-
-	"github.com/desertbit/yamux"
-	"github.com/rs/zerolog"
 )
 
 type Options struct {
@@ -45,44 +40,23 @@ type Options struct {
 	DialAddr string
 
 	// TODO:
-	Config *yamux.Config
-
+	ReadTimeout time.Duration
 	// TODO:
-	// If nil, no encryption.
-	TLSConfig *tls.Config
+	WriteTimeout time.Duration
 }
 
-func DefaultOptions(listenAddr, dialAddr string, tlsc *tls.Config) Options {
+func DefaultOptions(listenAddr, dialAddr string) Options {
 	return Options{
-		ListenAddr: listenAddr,
-		DialAddr:   dialAddr,
-		Config: &yamux.Config{
-			AcceptBacklog:          256,
-			EnableKeepAlive:        true,
-			KeepAliveInterval:      30 * time.Second,
-			ConnectionWriteTimeout: 10 * time.Second,
-			MaxStreamWindowSize:    256 * 1024,
-			LogOutput:              defaultLogger(),
-		},
-		TLSConfig: tlsc,
+		ListenAddr:   listenAddr,
+		DialAddr:     dialAddr,
+		ReadTimeout:  30 * time.Second,
+		WriteTimeout: 15 * time.Second,
 	}
 }
 
-func (o Options) validate() (err error) {
+func (o Options) validate() error {
 	if o.ListenAddr == "" && o.DialAddr == "" {
 		return errors.New("listen and dial address not set")
 	}
-	err = yamux.VerifyConfig(o.Config)
-	if err != nil {
-		return
-	}
-	return
-}
-
-func defaultLogger() *zerolog.Logger {
-	l := zerolog.New(zerolog.ConsoleWriter{
-		Out:        os.Stderr,
-		TimeFormat: time.RFC3339,
-	}).With().Timestamp().Str("component", "orbit.yamux").Logger()
-	return &l
+	return nil
 }

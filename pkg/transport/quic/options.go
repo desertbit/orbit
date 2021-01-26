@@ -65,11 +65,8 @@ func DefaultOptions(listenAddr, dialAddr string, tlsc *tls.Config) Options {
 }
 
 func (o Options) validate() (err error) {
-	if o.ListenAddr == "" {
-		return errors.New("listen address not set")
-	}
-	if o.DialAddr == "" {
-		return errors.New("dial address not set")
+	if o.ListenAddr == "" && o.DialAddr == "" {
+		return errors.New("listen and dial address not set")
 	}
 	if o.TLSConfig == nil {
 		return errors.New("tls config must not be nil")

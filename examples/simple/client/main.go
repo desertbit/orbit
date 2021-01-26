@@ -42,7 +42,8 @@ import (
 )
 
 func main() {
-	tr, err := quic.NewTransport(&quic.Options{
+	tr, err := quic.NewTransport(quic.Options{
+		DialAddr: "127.0.0.1:1122",
 		TLSConfig: &tls.Config{
 			InsecureSkipVerify: true,
 			NextProtos:         []string{"orbit-simple-example"},
@@ -52,8 +53,7 @@ func main() {
 		log.Fatalln(err)
 	}
 
-	c, err := hello.NewClient(&client.Options{
-		Host:      "127.0.0.1:1122",
+	c, err := hello.NewClient(client.Options{
 		Transport: tr,
 		Hooks: client.Hooks{
 			olog.ClientHook(),

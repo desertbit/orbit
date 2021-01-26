@@ -35,8 +35,8 @@ import (
 )
 
 type Transport interface {
-	Dial(cl closer.Closer, ctx context.Context, addr string) (Conn, error)
-	Listen(cl closer.Closer, addr string) (Listener, error)
+	Dial(cl closer.Closer, ctx context.Context, v interface{}) (Conn, error)
+	Listen(cl closer.Closer, v interface{}) (Listener, error)
 }
 
 type Conn interface {

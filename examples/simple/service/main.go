@@ -46,17 +46,19 @@ import (
 )
 
 func main() {
-	tr, err := quic.NewTransport(&quic.Options{
-		TLSConfig: generateTLSConfig(),
-	})
+	qo := quic.DefaultOptions(":1122", "", generateTLSConfig())
+	/*tr, err := quic.NewTransport(quic.Options{
+		ListenAddr: ":1122",
+		TLSConfig:  generateTLSConfig(),
+	})*/
+	tr, err := quic.NewTransport(qo)
 	if err != nil {
 		log.Fatalln(err)
 	}
 
 	s, err := hello.NewService(&ServiceHandler{},
-		&service.Options{
-			ListenAddr: ":1122",
-			Transport:  tr,
+		service.Options{
+			Transport: tr,
 			Hooks: service.Hooks{
 				olog.ServiceHook(),
 			},

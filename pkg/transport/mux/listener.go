@@ -25,64 +25,42 @@
  * SOFTWARE.
  */
 
-package yamux
+package mux
 
 import (
-	"crypto/tls"
 	"errors"
-	"os"
-	"time"
+	"net"
 
-	"github.com/desertbit/yamux"
-	"github.com/rs/zerolog"
+	"github.com/desertbit/closer/v3"
+	ot "github.com/desertbit/orbit/pkg/transport"
 )
 
-type Options struct {
-	// TODO:
-	ListenAddr string
+type listener struct {
+	closer.Closer
 
-	// TODO:
-	DialAddr string
+	connChan chan ot.Conn
 
-	// TODO:
-	Config *yamux.Config
-
-	// TODO:
-	// If nil, no encryption.
-	TLSConfig *tls.Config
+	addr net.Addr
 }
 
-func DefaultOptions(listenAddr, dialAddr string, tlsc *tls.Config) Options {
-	return Options{
-		ListenAddr: listenAddr,
-		DialAddr:   dialAddr,
-		Config: &yamux.Config{
-			AcceptBacklog:          256,
-			EnableKeepAlive:        true,
-			KeepAliveInterval:      30 * time.Second,
-			ConnectionWriteTimeout: 10 * time.Second,
-			MaxStreamWindowSize:    256 * 1024,
-			LogOutput:              defaultLogger(),
-		},
-		TLSConfig: tlsc,
+func newListener(cl closer.Closer, connChan chan ot.Conn, addr net.Addr) ot.Listener {
+	return &listener{
+		Closer:   cl,
+		connChan: connChan,
+		addr:     addr,
 	}
 }
 
-func (o Options) validate() (err error) {
-	if o.ListenAddr == "" && o.DialAddr == "" {
-		return errors.New("listen and dial address not set")
-	}
-	err = yamux.VerifyConfig(o.Config)
-	if err != nil {
-		return
+func (ln *listener) Accept() (conn ot.Conn, err error) {
+	select {
+	case <-ln.ClosingChan():
+		err = errors.New("closed")
+	case conn = <-ln.connChan:
 	}
 	return
 }
 
-func defaultLogger() *zerolog.Logger {
-	l := zerolog.New(zerolog.ConsoleWriter{
-		Out:        os.Stderr,
-		TimeFormat: time.RFC3339,
-	}).With().Timestamp().Str("component", "orbit.yamux").Logger()
-	return &l
+// Addr returns the listener's network address.
+func (ln *listener) Addr() net.Addr {
+	return ln.addr
 }
