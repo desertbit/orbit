@@ -7,6 +7,7 @@ require (
 	github.com/cloudfoundry/bytefmt v0.0.0-20200131002437-cf55d5288a48
 	github.com/desertbit/closer/v3 v3.1.2
 	github.com/desertbit/grumble v1.0.6
+	github.com/desertbit/options v0.0.3 // indirect
 	github.com/desertbit/yamux v1.0.1
 	github.com/fatih/color v1.9.0 // indirect
 	github.com/go-playground/validator/v10 v10.3.0

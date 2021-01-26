@@ -33,6 +33,7 @@ import (
 	"sync"
 
 	"github.com/desertbit/closer/v3"
+	"github.com/desertbit/options"
 	"github.com/desertbit/orbit/pkg/transport"
 	"github.com/rs/zerolog"
 )
@@ -79,7 +80,7 @@ type Client interface {
 type client struct {
 	closer.Closer
 
-	opts  *Options
+	opts  Options
 	log   *zerolog.Logger
 	hooks Hooks
 
@@ -88,9 +89,13 @@ type client struct {
 	connectSessionChan chan chan interface{}
 }
 
-func New(opts *Options) (Client, error) {
-	opts.setDefaults()
-	err := opts.validate()
+func New(opts Options) (Client, error) {
+	err := options.SetDefaults(&opts, DefaultOptions(nil))
+	if err != nil {
+		return nil, err
+	}
+
+	err = opts.validate()
 	if err != nil {
 		return nil, err
 	}

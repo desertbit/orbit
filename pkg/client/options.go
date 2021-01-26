@@ -39,27 +39,16 @@ import (
 	"github.com/rs/zerolog"
 )
 
-const (
-	defaultCallTimeout             = 30 * time.Second
-	defaultConnectTimeout          = 10 * time.Second
-	defaultConnectThrottleDuration = 2 * time.Second
-	defaultHandshakeTimeout        = 7 * time.Second
-	defaultStreamInitTimeout       = 10 * time.Second
-
-	defaultMaxArgSize    = 4 * 1024 * 1024 // 4 MB
-	defaultMaxRetSize    = 4 * 1024 * 1024 // 4 MB
-	defaultMaxHeaderSize = 500 * 1024      // 500 KB
-)
-
 type Options struct {
-	// Host specifies the destination host address. This value must be set.
-	Host string
-
 	// Transport specifies the communication backend. This value must be set.
 	Transport transport.Transport
 
 	// Optional values:
 	// ################
+
+	// TransportValue can be used to pass arbitrary arguments to the transport's Dial().
+	// If supported by the transport, it should provide a Value() method to construct a correct value.
+	TransportValue interface{}
 
 	// Closer defines the closer instance. A default closer will be created if unspecified.
 	Closer closer.Closer
@@ -102,50 +91,33 @@ type Options struct {
 	MaxHeaderSize int
 }
 
-func (o *Options) setDefaults() {
-	if o.Closer == nil {
-		o.Closer = closer.New()
-	}
-	if o.Codec == nil {
-		o.Codec = msgpack.Codec
-	}
-	if o.Log == nil {
-		l := zerolog.New(zerolog.ConsoleWriter{
-			Out:        os.Stderr,
-			TimeFormat: time.RFC3339,
-		}).With().Timestamp().Str("component", "orbit").Logger()
-		o.Log = &l
-	}
-	if o.CallTimeout == 0 {
-		o.CallTimeout = defaultCallTimeout
-	}
-	if o.ConnectTimeout == 0 {
-		o.ConnectTimeout = defaultConnectTimeout
-	}
-	if o.ConnectThrottleDuration == 0 {
-		o.ConnectThrottleDuration = defaultConnectThrottleDuration
-	}
-	if o.HandshakeTimeout == 0 {
-		o.HandshakeTimeout = defaultHandshakeTimeout
-	}
-	if o.StreamInitTimeout == 0 {
-		o.StreamInitTimeout = defaultStreamInitTimeout
-	}
-	if o.MaxArgSize == 0 {
-		o.MaxArgSize = defaultMaxArgSize
-	}
-	if o.MaxRetSize == 0 {
-		o.MaxRetSize = defaultMaxRetSize
-	}
-	if o.MaxHeaderSize == 0 {
-		o.MaxHeaderSize = defaultMaxHeaderSize
+func DefaultOptions(tr transport.Transport) Options {
+	return Options{
+		Transport:               tr,
+		Closer:                  closer.New(),
+		Codec:                   msgpack.Codec,
+		Log:                     defaultLogger(),
+		CallTimeout:             30 * time.Second,
+		ConnectTimeout:          10 * time.Second,
+		ConnectThrottleDuration: 2 * time.Second,
+		HandshakeTimeout:        7 * time.Second,
+		StreamInitTimeout:       10 * time.Second,
+		MaxArgSize:              4 * 1024 * 1024, // 4 MB
+		MaxRetSize:              4 * 1024 * 1024, // 4 MB
+		MaxHeaderSize:           500 * 1024,      // 500 KB
 	}
 }
 
+func defaultLogger() *zerolog.Logger {
+	l := zerolog.New(zerolog.ConsoleWriter{
+		Out:        os.Stderr,
+		TimeFormat: time.RFC3339,
+	}).With().Timestamp().Str("component", "orbit").Logger()
+	return &l
+}
+
 func (o *Options) validate() error {
-	if o.Host == "" {
-		return errors.New("empty host")
-	} else if o.Transport == nil {
+	if o.Transport == nil {
 		return errors.New("no transport set")
 	}
 	return nil

@@ -33,16 +33,20 @@ import (
 	"net"
 
 	"github.com/desertbit/closer/v3"
+	"github.com/desertbit/options"
 	"github.com/desertbit/orbit/pkg/transport"
 )
 
 type yTransport struct {
-	opts *Options
+	opts Options
 }
 
-func NewTransport(opts *Options) (t transport.Transport, err error) {
-	// Set the default options.
-	opts.setDefaults()
+func NewTransport(opts Options) (t transport.Transport, err error) {
+	// Set default values, where needed.
+	err = options.SetDefaults(&opts, DefaultOptions("", "", nil))
+	if err != nil {
+		return
+	}
 
 	// Validate the options.
 	err = opts.validate()
@@ -55,15 +59,14 @@ func NewTransport(opts *Options) (t transport.Transport, err error) {
 	return
 }
 
-func (t *yTransport) Dial(cl closer.Closer, ctx context.Context, addr string) (tc transport.Conn, err error) {
+// Implements the transport.Transport interface.
+func (t *yTransport) Dial(cl closer.Closer, ctx context.Context, v interface{}) (tc transport.Conn, err error) {
 	// Open the connection.
 	var conn net.Conn
 	if t.opts.TLSConfig != nil {
-		// TODO: Cancel is deprecated, remove once https://github.com/golang/go/issues/18482 is merged and replace with DialContext.
-		dl := &net.Dialer{Cancel: ctx.Done()}
-		conn, err = tls.DialWithDialer(dl, "tcp", addr, t.opts.TLSConfig)
+		conn, err = (&tls.Dialer{Config: t.opts.TLSConfig}).DialContext(ctx, "tcp", t.opts.DialAddr)
 	} else {
-		conn, err = (&net.Dialer{}).DialContext(ctx, "tcp", addr)
+		conn, err = (&net.Dialer{}).DialContext(ctx, "tcp", t.opts.DialAddr)
 	}
 	if err != nil {
 		return
@@ -72,13 +75,14 @@ func (t *yTransport) Dial(cl closer.Closer, ctx context.Context, addr string) (t
 	return newSession(cl, conn, false, t.opts.Config)
 }
 
-func (t *yTransport) Listen(cl closer.Closer, addr string) (tl transport.Listener, err error) {
+// Implements the transport.Transport interface.
+func (t *yTransport) Listen(cl closer.Closer, v interface{}) (tl transport.Listener, err error) {
 	// Create the listener.
 	var ln net.Listener
 	if t.opts.TLSConfig != nil {
-		ln, err = tls.Listen("tcp", addr, t.opts.TLSConfig)
+		ln, err = tls.Listen("tcp", t.opts.ListenAddr, t.opts.TLSConfig)
 	} else {
-		ln, err = net.Listen("tcp", addr)
+		ln, err = net.Listen("tcp", t.opts.ListenAddr)
 	}
 	if err != nil {
 		return

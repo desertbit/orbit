@@ -45,6 +45,8 @@ github.com/desertbit/go-shlex v0.1.0 h1:HapoSxMl/xT59s1Z+RR6ScBuH2H8vr4HcgERVjBT
 github.com/desertbit/go-shlex v0.1.0/go.mod h1:Qbb+mJNud5AypgHZ81EL8syOGaWlwvAOTqS7XmWI4pQ=
 github.com/desertbit/grumble v1.0.6 h1:m/abmUuIs7I5V3zahlwqPezy2AMI754mRGF8sOL+M2w=
 github.com/desertbit/grumble v1.0.6/go.mod h1:16pOXVF3OqcA4by1Cj44wr1eUe3t7rCxXllMc3N19n0=
+github.com/desertbit/options v0.0.3 h1:aS3P3E3A8r2MnzJW9+FckiBFFJ/A6LHb7+UDnk8YFN0=
+github.com/desertbit/options v0.0.3/go.mod h1:Sn7JORR/i0yUZjOow9c/QwbKoYLdHtj0WrxRpse8SG4=
 github.com/desertbit/readline v0.0.0-20171208011716-f6d7a1f6fbf3 h1:PLbrJOpAtk8ros5avAt8am0GJvPuD08FVLV+ffmG0Jo=
 github.com/desertbit/readline v0.0.0-20171208011716-f6d7a1f6fbf3/go.mod h1:AayRnEOr0ttSh4kgOlHBBtJufZMMW/1BVCdV5oFs8t0=
 github.com/desertbit/yamux v1.0.0 h1:FHOGf0R827EMvYu2+LQi1Js8iWRkXKhX0isXR095fD4=

@@ -29,6 +29,7 @@ package yamux
 
 import (
 	"crypto/tls"
+	"errors"
 	"os"
 	"time"
 
@@ -36,18 +37,13 @@ import (
 	"github.com/rs/zerolog"
 )
 
-var (
-	defaultConfig = &yamux.Config{
-		AcceptBacklog:          256,
-		EnableKeepAlive:        true,
-		KeepAliveInterval:      30 * time.Second,
-		ConnectionWriteTimeout: 10 * time.Second,
-		MaxStreamWindowSize:    256 * 1024,
-		LogOutput:              defaultLogger(),
-	}
-)
-
 type Options struct {
+	// TODO:
+	ListenAddr string
+
+	// TODO:
+	DialAddr string
+
 	// TODO:
 	Config *yamux.Config
 
@@ -56,13 +52,29 @@ type Options struct {
 	TLSConfig *tls.Config
 }
 
-func (o *Options) setDefaults() {
-	if o.Config == nil {
-		o.Config = defaultConfig
+func DefaultOptions(listenAddr, dialAddr string, tlsc *tls.Config) Options {
+	return Options{
+		ListenAddr: listenAddr,
+		DialAddr:   dialAddr,
+		Config: &yamux.Config{
+			AcceptBacklog:          256,
+			EnableKeepAlive:        true,
+			KeepAliveInterval:      30 * time.Second,
+			ConnectionWriteTimeout: 10 * time.Second,
+			MaxStreamWindowSize:    256 * 1024,
+			LogOutput:              defaultLogger(),
+		},
+		TLSConfig: tlsc,
 	}
 }
 
-func (o *Options) validate() (err error) {
+func (o Options) validate() (err error) {
+	if o.ListenAddr == "" {
+		return errors.New("listen address not set")
+	}
+	if o.DialAddr == "" {
+		return errors.New("dial address not set")
+	}
 	err = yamux.VerifyConfig(o.Config)
 	if err != nil {
 		return

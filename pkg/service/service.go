@@ -32,6 +32,7 @@ import (
 	"time"
 
 	"github.com/desertbit/closer/v3"
+	"github.com/desertbit/options"
 	"github.com/desertbit/orbit/pkg/codec"
 	"github.com/desertbit/orbit/pkg/transport"
 	"github.com/rs/zerolog"
@@ -128,7 +129,7 @@ type Service interface {
 type service struct {
 	closer.Closer
 
-	opts  *Options
+	opts  Options
 	codec codec.Codec
 	log   *zerolog.Logger
 	hooks Hooks
@@ -143,9 +144,14 @@ type service struct {
 	asyncCallOpts map[string]asyncCallOptions // Key: callID
 }
 
-func New(opts *Options) (Service, error) {
-	opts.setDefaults()
-	err := opts.validate()
+func New(opts Options) (Service, error) {
+	// Set default values.
+	err := options.SetDefaults(&opts, DefaultOptions(nil))
+	if err != nil {
+		return nil, err
+	}
+
+	err = opts.validate()
 	if err != nil {
 		return nil, err
 	}
@@ -173,12 +179,12 @@ func (s *service) Run() (err error) {
 	defer s.Close_()
 
 	// Open a listener with the transport.
-	ln, err := s.opts.Transport.Listen(s.CloserTwoWay(), s.opts.ListenAddr)
+	ln, err := s.opts.Transport.Listen(s.CloserTwoWay(), s.opts.TransportValue)
 	if err != nil {
 		return
 	}
 
-	s.log.Info().Str("listenAddr", s.opts.ListenAddr).Msg("service listening")
+	s.log.Info().Str("listenAddr", ln.Addr().String()).Msg("service listening")
 
 	var (
 		conn        transport.Conn
