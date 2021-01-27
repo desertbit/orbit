@@ -60,7 +60,7 @@ func NewTransport(opts Options) (t transport.Transport, err error) {
 }
 
 // Implements the transport.Transport interface.
-func (t *yTransport) Dial(cl closer.Closer, ctx context.Context, v interface{}) (tc transport.Conn, err error) {
+func (t *yTransport) Dial(cl closer.Closer, ctx context.Context) (tc transport.Conn, err error) {
 	// Open the connection.
 	var conn net.Conn
 	if t.opts.TLSConfig != nil {
@@ -76,7 +76,7 @@ func (t *yTransport) Dial(cl closer.Closer, ctx context.Context, v interface{}) 
 }
 
 // Implements the transport.Transport interface.
-func (t *yTransport) Listen(cl closer.Closer, v interface{}) (tl transport.Listener, err error) {
+func (t *yTransport) Listen(cl closer.Closer) (tl transport.Listener, err error) {
 	// Create the listener.
 	var ln net.Listener
 	if t.opts.TLSConfig != nil {
