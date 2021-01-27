@@ -58,10 +58,10 @@ type transport struct {
 	dialStreamID uint16
 	dialConn     ot.Conn
 	// Server
-	isListening   bool
-	listenAddr    net.Addr
-	listenerChans map[string]chan ot.Conn
-	connChans     map[uint16]chan ot.Stream
+	isListening bool
+	listenAddr  net.Addr
+	services    map[string]chan ot.Conn
+	streams     map[uint16]chan ot.Stream
 }
 
 func NewTransport(tr ot.Transport, opts Options) (t ot.Transport, err error) {
@@ -72,10 +72,10 @@ func NewTransport(tr ot.Transport, opts Options) (t ot.Transport, err error) {
 	}
 
 	t = &transport{
-		tr:            tr,
-		opts:          opts,
-		listenerChans: make(map[string]chan ot.Conn, 5),
-		connChans:     make(map[uint16]chan ot.Stream, 3),
+		tr:       tr,
+		opts:     opts,
+		services: make(map[string]chan ot.Conn, 5),
+		streams:  make(map[uint16]chan ot.Stream, 3),
 	}
 	return
 }
@@ -136,14 +136,14 @@ func (t *transport) Listen(cl closer.Closer, v interface{}) (ot.Listener, error)
 	}
 
 	// Check, if the service has been registered already.
-	if _, ok := t.listenerChans[vv.serviceID]; ok {
+	if _, ok := t.services[vv.serviceID]; ok {
 		return nil, fmt.Errorf("serviceID '%s' registered twice", vv.serviceID)
 	}
 
 	// Create a new service listener.
 	connChan := make(chan ot.Conn, 3)
 	ln := newListener(cl, connChan, t.listenAddr)
-	t.listenerChans[vv.serviceID] = connChan
+	t.services[vv.serviceID] = connChan
 
 	return ln, nil
 }
@@ -227,7 +227,7 @@ func (t *transport) handleStream(conn ot.Conn, stream ot.Stream, typeBuf, idBuf 
 			ok       bool
 		)
 		t.mx.Lock()
-		connChan, ok = t.listenerChans[header.ServiceID]
+		connChan, ok = t.services[header.ServiceID]
 		t.mx.Unlock()
 		if !ok {
 			return fmt.Errorf("service '%s' not registered", header.ServiceID)
@@ -237,7 +237,7 @@ func (t *transport) handleStream(conn ot.Conn, stream ot.Stream, typeBuf, idBuf 
 		streamChan := make(chan ot.Stream, 3)
 		mc := newConn(conn, header.StreamID, streamChan)
 		t.mx.Lock()
-		t.connChans[header.StreamID] = streamChan
+		t.streams[header.StreamID] = streamChan
 		t.mx.Unlock()
 
 		// Pass the mux conn to the listener that has been registered.
@@ -267,7 +267,7 @@ func (t *transport) handleStream(conn ot.Conn, stream ot.Stream, typeBuf, idBuf 
 			ok         bool
 		)
 		t.mx.Lock()
-		streamChan, ok = t.connChans[streamID]
+		streamChan, ok = t.streams[streamID]
 		t.mx.Unlock()
 		if !ok {
 			return fmt.Errorf("unknown stream id %d", streamID)
