@@ -37,6 +37,8 @@ import (
 	ot "github.com/desertbit/orbit/pkg/transport"
 )
 
+// conn is a transport.Conn that takes care of sending the serviceID first,
+// when opening a new stream.
 type conn struct {
 	ot.Conn
 
