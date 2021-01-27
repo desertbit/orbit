@@ -34,6 +34,9 @@ import (
 	ot "github.com/desertbit/orbit/pkg/transport"
 )
 
+// transport is a tiny transport.Transport, which simply combines the given
+// mux with the serviceID.
+// This is the actual transport being used.
 type transport struct {
 	mux       *Mux
 	serviceID string

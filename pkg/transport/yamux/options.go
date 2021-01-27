@@ -37,6 +37,7 @@ import (
 	"github.com/rs/zerolog"
 )
 
+// Options allows to configure the transport.
 type Options struct {
 	// TODO:
 	ListenAddr string
@@ -52,6 +53,7 @@ type Options struct {
 	TLSConfig *tls.Config
 }
 
+// DefaultOptions returns an Options struct with default values set.
 func DefaultOptions() Options {
 	return Options{
 		Config: &yamux.Config{

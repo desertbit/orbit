@@ -35,6 +35,7 @@ import (
 	quic "github.com/lucas-clemente/quic-go"
 )
 
+// Options allows to configure the transport.
 type Options struct {
 	// TODO:
 	ListenAddr string
@@ -49,6 +50,7 @@ type Options struct {
 	TLSConfig *tls.Config
 }
 
+// DefaultOptions returns an Options struct with default values set.
 func DefaultOptions() Options {
 	return Options{
 		Config: &quic.Config{
@@ -61,6 +63,7 @@ func DefaultOptions() Options {
 	}
 }
 
+// validate checks if o contains sane values.
 func (o Options) validate() (err error) {
 	if o.ListenAddr == "" && o.DialAddr == "" {
 		return errors.New("listen and dial address not set")

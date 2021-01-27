@@ -45,6 +45,10 @@ const (
 	maxServiceIDSize = 128
 )
 
+// Mux is a wrapper around a transport.Transport and offers custom
+// dial and listen methods, which allow to differentiate between
+// multiple services, effectively enabling multiplexing multiple services
+// over a single transport.
 type Mux struct {
 	tr ot.Transport
 
@@ -59,11 +63,15 @@ type Mux struct {
 	services    map[string]*service
 }
 
+// small helper struct representing a registered service.
 type service struct {
-	connChan   chan ot.Conn
-	streamChan chan ot.Stream
+	connChan   chan ot.Conn   // listener channel.
+	streamChan chan ot.Stream // conn channel.
 }
 
+// New creates a new multiplexer wrapping the given transport.
+// In order to use the Mux as a transport.Transport, call Mux.Transport
+// with a suitable serviceID.
 func New(tr ot.Transport, opts Options) (*Mux, error) {
 	// Set default values, where needed.
 	err := options.SetDefaults(&opts, DefaultOptions())
@@ -78,6 +86,7 @@ func New(tr ot.Transport, opts Options) (*Mux, error) {
 	}, nil
 }
 
+// Transport returns a small transport.Transport using m as its multiplexer.
 func (m *Mux) Transport(serviceID string) ot.Transport {
 	return newTransport(m, serviceID)
 }
@@ -139,6 +148,7 @@ func (m *Mux) listenRoutine(ln ot.Listener) {
 	ctx, cancel := ln.Context()
 	defer cancel()
 
+	// Wait for incoming connections and pass them to our routine.
 	for {
 		conn, err = ln.Accept()
 		if err != nil {
@@ -162,6 +172,7 @@ func (m *Mux) acceptStreamRoutine(ctx context.Context, conn ot.Conn) {
 		idBuf = make([]byte, maxServiceIDSize)
 	)
 
+	// Wait for incoming streams on the connection and handle them.
 	for {
 		stream, err = conn.AcceptStream(ctx)
 		if err != nil {
@@ -179,6 +190,10 @@ func (m *Mux) acceptStreamRoutine(ctx context.Context, conn ot.Conn) {
 	}
 }
 
+// handleStream reads the serviceID off of the given stream, before forwarding it to
+// the respective service.
+// If its the first stream of the given conn, a new mux conn is properly initialized
+// and sent to the service's listener.
 func (m *Mux) handleStream(conn ot.Conn, stream ot.Stream, idBuf []byte) (err error) {
 	if m.opts.InitTimeout > 0 {
 		err = stream.SetReadDeadline(time.Now().Add(m.opts.InitTimeout))

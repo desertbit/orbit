@@ -40,6 +40,7 @@ type qTransport struct {
 	opts Options
 }
 
+// NewTransport returns a transport.Transport using the QUIC protocol.
 func NewTransport(opts Options) (t ot.Transport, err error) {
 	// Set default values, where needed.
 	err = options.SetDefaults(&opts, DefaultOptions())

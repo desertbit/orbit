@@ -41,6 +41,7 @@ type yTransport struct {
 	opts Options
 }
 
+// NewTransport returns a transport.Transport using the yamux protocol.
 func NewTransport(opts Options) (t transport.Transport, err error) {
 	// Set default values, where needed.
 	err = options.SetDefaults(&opts, DefaultOptions())

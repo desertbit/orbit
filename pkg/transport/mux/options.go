@@ -31,12 +31,14 @@ import (
 	"time"
 )
 
+// Options allows to configure the transport.
 type Options struct {
 	// InitTimeout specifies the duration the initial exchange of the transport value may take.
 	// 0 means a default timeout is used automatically, -1 disables it.
 	InitTimeout time.Duration
 }
 
+// DefaultOptions returns an Options struct with default values set.
 func DefaultOptions() Options {
 	return Options{
 		InitTimeout: 15 * time.Second,

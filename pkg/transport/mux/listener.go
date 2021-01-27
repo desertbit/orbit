@@ -35,6 +35,8 @@ import (
 	ot "github.com/desertbit/orbit/pkg/transport"
 )
 
+// listener is a transport.Listener that accepts new connections via a
+// go channel instead of listening on a socket itself.
 type listener struct {
 	closer.Closer
 
@@ -51,6 +53,7 @@ func newListener(cl closer.Closer, connChan chan ot.Conn, addr net.Addr) ot.List
 	}
 }
 
+// Implements the transport.Listener interface.
 func (ln *listener) Accept() (conn ot.Conn, err error) {
 	select {
 	case <-ln.ClosingChan():
@@ -60,7 +63,7 @@ func (ln *listener) Accept() (conn ot.Conn, err error) {
 	return
 }
 
-// Addr returns the listener's network address.
+// Implements the transport.Listener interface.
 func (ln *listener) Addr() net.Addr {
 	return ln.addr
 }
