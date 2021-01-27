@@ -33,7 +33,7 @@ import (
 
 type Options struct {
 	// InitTimeout specifies the duration the initial exchange of the transport value may take.
-	// -1 means no timeout.
+	// 0 means a default timeout is used automatically, -1 disables it.
 	InitTimeout time.Duration
 }
 

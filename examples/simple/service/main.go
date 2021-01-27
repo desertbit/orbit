@@ -58,19 +58,17 @@ func main() {
 	}
 
 	// Multiplex transport to allow multiple services.
-	mtr, err := mux.NewTransport(qtr, mux.DefaultOptions())
+	mtr, err := mux.New(qtr, mux.DefaultOptions())
 	if err != nil {
 		return
 	}
 
 	s, err := hello.NewService(&ServiceHandler{},
 		service.Options{
-			Transport:      mtr,
-			TransportValue: mux.Value("hello"),
+			Transport: mtr.Transport("hello"),
 			Hooks: service.Hooks{
 				olog.ServiceHook(),
 			},
-			PrintPanicStackTraces: true,
 		})
 	if err != nil {
 		log.Fatalln(err)
@@ -86,8 +84,7 @@ func main() {
 
 	ws, err := world.NewService(&ServiceHandler{},
 		service.Options{
-			Transport:      mtr,
-			TransportValue: mux.Value("world"),
+			Transport: mtr.Transport("world"),
 			Hooks: service.Hooks{
 				olog.ServiceHook(),
 			},

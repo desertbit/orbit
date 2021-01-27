@@ -56,14 +56,13 @@ func main() {
 	}
 
 	// Multiplex transport to allow multiple services.
-	mtr, err := mux.NewTransport(qtr, mux.DefaultOptions())
+	mtr, err := mux.New(qtr, mux.DefaultOptions())
 	if err != nil {
 		return
 	}
 
 	c, err := hello.NewClient(client.Options{
-		Transport:      mtr,
-		TransportValue: mux.Value("hello"),
+		Transport: mtr.Transport("hello"),
 		Hooks: client.Hooks{
 			olog.ClientHook(),
 		},
@@ -72,6 +71,17 @@ func main() {
 		log.Fatalln(err)
 	}
 	defer c.Close()
+
+	wc, err := world.NewClient(client.Options{
+		Transport: mtr.Transport("world"),
+		Hooks: client.Hooks{
+			olog.ClientHook(),
+		},
+	})
+	if err != nil {
+		log.Fatalln(err)
+	}
+	defer wc.Close()
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -124,18 +134,6 @@ func main() {
 	}
 	bi.Close()
 	wg.Wait()
-
-	wc, err := world.NewClient(client.Options{
-		Transport:      mtr,
-		TransportValue: mux.Value("world"),
-		Hooks: client.Hooks{
-			olog.ClientHook(),
-		},
-	})
-	if err != nil {
-		log.Fatalln(err)
-	}
-	defer wc.Close()
 
 	err = wc.YetAnotherCall(context.Background(), world.YetAnotherCallArg{S: "Finally done"})
 	if err != nil {

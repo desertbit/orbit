@@ -96,7 +96,7 @@ func connectSession(h clientHandler, opts Options) (s *session, err error) {
 	defer cancelConnect()
 
 	// Connect to the service.
-	conn, err := opts.Transport.Dial(opts.Closer.CloserOneWay(), ctxConnect, opts.TransportValue)
+	conn, err := opts.Transport.Dial(opts.Closer.CloserOneWay(), ctxConnect)
 	if err != nil {
 		return
 	}

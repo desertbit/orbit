@@ -32,7 +32,7 @@ import (
 
 	"github.com/desertbit/closer/v3"
 	"github.com/desertbit/options"
-	"github.com/desertbit/orbit/pkg/transport"
+	ot "github.com/desertbit/orbit/pkg/transport"
 	quic "github.com/lucas-clemente/quic-go"
 )
 
@@ -40,7 +40,7 @@ type qTransport struct {
 	opts Options
 }
 
-func NewTransport(opts Options) (t transport.Transport, err error) {
+func NewTransport(opts Options) (t ot.Transport, err error) {
 	// Set default values, where needed.
 	err = options.SetDefaults(&opts, DefaultOptions())
 	if err != nil {
@@ -59,7 +59,7 @@ func NewTransport(opts Options) (t transport.Transport, err error) {
 }
 
 // Implements the transport.Transport interface.
-func (q *qTransport) Dial(cl closer.Closer, ctx context.Context, v interface{}) (transport.Conn, error) {
+func (q *qTransport) Dial(cl closer.Closer, ctx context.Context) (ot.Conn, error) {
 	// Create a quic connection.
 	qs, err := quic.DialAddrContext(ctx, q.opts.DialAddr, q.opts.TLSConfig, q.opts.Config)
 	if err != nil {
@@ -71,7 +71,7 @@ func (q *qTransport) Dial(cl closer.Closer, ctx context.Context, v interface{}) 
 }
 
 // Implements the transport.Transport interface.
-func (q *qTransport) Listen(cl closer.Closer, v interface{}) (transport.Listener, error) {
+func (q *qTransport) Listen(cl closer.Closer) (ot.Listener, error) {
 	// Create the quic listener.
 	ln, err := quic.ListenAddr(q.opts.ListenAddr, q.opts.TLSConfig, q.opts.Config)
 	if err != nil {

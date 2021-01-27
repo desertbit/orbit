@@ -46,10 +46,6 @@ type Options struct {
 	// Optional values:
 	// ################
 
-	// TransportValue can be used to pass arbitrary arguments to the transport's Dial().
-	// If supported by the transport, it should provide a Value() method to construct a correct value.
-	TransportValue interface{}
-
 	// Closer defines the closer instance. A default closer will be created if unspecified.
 	Closer closer.Closer
 

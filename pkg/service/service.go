@@ -179,7 +179,7 @@ func (s *service) Run() (err error) {
 	defer s.Close_()
 
 	// Open a listener with the transport.
-	ln, err := s.opts.Transport.Listen(s.CloserTwoWay(), s.opts.TransportValue)
+	ln, err := s.opts.Transport.Listen(s.CloserTwoWay())
 	if err != nil {
 		return
 	}
