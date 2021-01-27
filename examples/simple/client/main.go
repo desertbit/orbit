@@ -44,14 +44,13 @@ import (
 )
 
 func main() {
-	qtr, err := quic.NewTransport(quic.DefaultOptions(
-		"",
-		"127.0.0.1:1122",
-		&tls.Config{
+	qtr, err := quic.NewTransport(quic.Options{
+		DialAddr: "127.0.0.1:1122",
+		TLSConfig: &tls.Config{
 			InsecureSkipVerify: true,
 			NextProtos:         []string{"orbit-simple-example"},
 		},
-	))
+	})
 	if err != nil {
 		log.Fatalln(err)
 	}

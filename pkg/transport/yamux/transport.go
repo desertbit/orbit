@@ -43,7 +43,7 @@ type yTransport struct {
 
 func NewTransport(opts Options) (t transport.Transport, err error) {
 	// Set default values, where needed.
-	err = options.SetDefaults(&opts, DefaultOptions("", "", nil))
+	err = options.SetDefaults(&opts, DefaultOptions())
 	if err != nil {
 		return
 	}

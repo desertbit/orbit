@@ -49,7 +49,10 @@ import (
 
 func main() {
 	// Create quic transport.
-	qtr, err := quic.NewTransport(quic.DefaultOptions(":1122", "", generateTLSConfig()))
+	qtr, err := quic.NewTransport(quic.Options{
+		ListenAddr: "127.0.0.1:1122",
+		TLSConfig:  generateTLSConfig(),
+	})
 	if err != nil {
 		log.Fatalln(err)
 	}

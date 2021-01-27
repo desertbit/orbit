@@ -74,8 +74,8 @@ func NewTransport(tr ot.Transport, opts Options) (t ot.Transport, err error) {
 	t = &transport{
 		tr:       tr,
 		opts:     opts,
-		services: make(map[string]chan ot.Conn, 5),
-		streams:  make(map[uint16]chan ot.Stream, 3),
+		services: make(map[string]chan ot.Conn),
+		streams:  make(map[uint16]chan ot.Stream),
 	}
 	return
 }

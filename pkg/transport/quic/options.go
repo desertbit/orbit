@@ -49,10 +49,8 @@ type Options struct {
 	TLSConfig *tls.Config
 }
 
-func DefaultOptions(listenAddr, dialAddr string, tlsc *tls.Config) Options {
+func DefaultOptions() Options {
 	return Options{
-		ListenAddr: listenAddr,
-		DialAddr:   dialAddr,
 		Config: &quic.Config{
 			HandshakeTimeout:                      10 * time.Second,
 			MaxIdleTimeout:                        30 * time.Second,
@@ -60,7 +58,6 @@ func DefaultOptions(listenAddr, dialAddr string, tlsc *tls.Config) Options {
 			MaxReceiveConnectionFlowControlWindow: 15 * 1024 * 1024, // 15MB
 			KeepAlive:                             true,
 		},
-		TLSConfig: tlsc,
 	}
 }
 

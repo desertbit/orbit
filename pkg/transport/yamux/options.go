@@ -52,10 +52,8 @@ type Options struct {
 	TLSConfig *tls.Config
 }
 
-func DefaultOptions(listenAddr, dialAddr string, tlsc *tls.Config) Options {
+func DefaultOptions() Options {
 	return Options{
-		ListenAddr: listenAddr,
-		DialAddr:   dialAddr,
 		Config: &yamux.Config{
 			AcceptBacklog:          256,
 			EnableKeepAlive:        true,
@@ -64,7 +62,6 @@ func DefaultOptions(listenAddr, dialAddr string, tlsc *tls.Config) Options {
 			MaxStreamWindowSize:    256 * 1024,
 			LogOutput:              defaultLogger(),
 		},
-		TLSConfig: tlsc,
 	}
 }
 
