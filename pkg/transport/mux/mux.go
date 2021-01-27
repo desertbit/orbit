@@ -36,15 +36,13 @@ import (
 
 	"github.com/desertbit/closer/v3"
 	"github.com/desertbit/options"
-	"github.com/desertbit/orbit/internal/bytes"
-	"github.com/desertbit/orbit/pkg/codec/msgpack"
 	"github.com/desertbit/orbit/pkg/packet"
 	ot "github.com/desertbit/orbit/pkg/transport"
 	"github.com/rs/zerolog/log"
 )
 
 const (
-	maxPayloadSize = 128
+	maxServiceIDSize = 128
 )
 
 type Mux struct {
@@ -54,13 +52,16 @@ type Mux struct {
 
 	mx sync.Mutex
 	// Client
-	dialStreamID uint16
-	dialConn     ot.Conn
+	dialConn ot.Conn
 	// Server
 	isListening bool
 	listenAddr  net.Addr
-	services    map[string]chan ot.Conn
-	streams     map[uint16]chan ot.Stream
+	services    map[string]*service
+}
+
+type service struct {
+	connChan   chan ot.Conn
+	streamChan chan ot.Stream
 }
 
 func New(tr ot.Transport, opts Options) (*Mux, error) {
@@ -73,8 +74,7 @@ func New(tr ot.Transport, opts Options) (*Mux, error) {
 	return &Mux{
 		tr:       tr,
 		opts:     opts,
-		services: make(map[string]chan ot.Conn),
-		streams:  make(map[uint16]chan ot.Stream),
+		services: make(map[string]*service),
 	}, nil
 }
 
@@ -83,28 +83,20 @@ func (m *Mux) Transport(serviceID string) ot.Transport {
 }
 
 func (m *Mux) dial(cl closer.Closer, ctx context.Context, serviceID string) (conn ot.Conn, err error) {
-	m.mx.Lock()
-	defer m.mx.Unlock()
-
 	// Establish a basic connection, if not yet done.
+	m.mx.Lock()
 	if m.dialConn == nil {
 		m.dialConn, err = m.tr.Dial(cl, ctx)
 		if err != nil {
+			m.mx.Unlock()
 			return
 		}
 	}
+	m.mx.Unlock()
 
 	// Create a new mux.Conn with it.
-	mc := newConn(m.dialConn, m.dialStreamID, nil)
-	m.dialStreamID++
+	conn = newClientConn(m.dialConn, serviceID, m.opts.InitTimeout)
 
-	// Initialize this service.
-	err = mc.initStream(ctx, serviceID, m.opts.InitTimeout)
-	if err != nil {
-		return
-	}
-
-	conn = mc
 	return
 }
 
@@ -133,7 +125,7 @@ func (m *Mux) listen(cl closer.Closer, serviceID string) (ot.Listener, error) {
 	// Create a new service listener.
 	connChan := make(chan ot.Conn, 3)
 	ln := newListener(cl, connChan, m.listenAddr)
-	m.services[serviceID] = connChan
+	m.services[serviceID] = &service{connChan: connChan}
 
 	return ln, nil
 }
@@ -167,8 +159,7 @@ func (m *Mux) acceptStreamRoutine(ctx context.Context, conn ot.Conn) {
 		stream ot.Stream
 		err    error
 
-		typeBuf = make([]byte, 1)
-		idBuf   = make([]byte, 2)
+		idBuf = make([]byte, maxServiceIDSize)
 	)
 
 	for {
@@ -180,7 +171,7 @@ func (m *Mux) acceptStreamRoutine(ctx context.Context, conn ot.Conn) {
 			return
 		}
 
-		err = m.handleStream(conn, stream, typeBuf, idBuf)
+		err = m.handleStream(conn, stream, idBuf)
 		if err != nil {
 			log.Error().Err(err).Msg("mux.transport: failed to handle stream")
 			return
@@ -188,7 +179,7 @@ func (m *Mux) acceptStreamRoutine(ctx context.Context, conn ot.Conn) {
 	}
 }
 
-func (m *Mux) handleStream(conn ot.Conn, stream ot.Stream, typeBuf, idBuf []byte) (err error) {
+func (m *Mux) handleStream(conn ot.Conn, stream ot.Stream, idBuf []byte) (err error) {
 	if m.opts.InitTimeout > 0 {
 		err = stream.SetReadDeadline(time.Now().Add(m.opts.InitTimeout))
 		if err != nil {
@@ -196,82 +187,42 @@ func (m *Mux) handleStream(conn ot.Conn, stream ot.Stream, typeBuf, idBuf []byte
 		}
 	}
 
-	// Read the stream type.
-	data, err := packet.Read(stream, typeBuf, len(typeBuf))
+	// Read the service id.
+	data, err := packet.Read(stream, idBuf, maxServiceIDSize)
 	if err != nil {
 		return
 	}
+	serviceID := string(data)
 
-	switch data[0] {
-	case initStream:
-		// Read the stream init header.
-		var header initStreamHeader
-		err = packet.ReadDecode(stream, &header, msgpack.Codec, maxInitHeaderSize)
-		if err != nil {
-			return fmt.Errorf("failed to read init stream header: %v", err)
-		}
+	var (
+		srv *service
+		ok  bool
+	)
 
-		// Check, if the service is listening.
-		var (
-			connChan chan ot.Conn
-			ok       bool
-		)
-		m.mx.Lock()
-		connChan, ok = m.services[header.ServiceID]
-		m.mx.Unlock()
-		if !ok {
-			return fmt.Errorf("service '%s' not registered", header.ServiceID)
-		}
+	m.mx.Lock()
+	defer m.mx.Unlock()
 
-		// Create a new mux conn + a stream channel for it.
-		streamChan := make(chan ot.Stream, 3)
-		mc := newConn(conn, header.StreamID, streamChan)
-		m.mx.Lock()
-		m.streams[header.StreamID] = streamChan
-		m.mx.Unlock()
+	// Check, if the service has been registered.
+	srv, ok = m.services[serviceID]
+	if !ok {
+		return fmt.Errorf("service '%s' has not been registered", serviceID)
+	} else if srv.streamChan == nil {
+		// Create the mux conn and send it to the service once.
+		srv.streamChan = make(chan ot.Stream, 3)
+		mc := newServerConn(conn, srv.streamChan)
 
-		// Pass the mux conn to the listener that has been registered.
 		select {
 		case <-conn.ClosingChan():
 			return
-		case connChan <- mc:
+		case srv.connChan <- mc:
 		}
+	}
 
-	case openStream:
-		// Read the stream id.
-		data, err = packet.Read(stream, idBuf, len(idBuf))
-		if err != nil {
-			return
-		}
-
-		// Convert to uint16.
-		var streamID uint16
-		streamID, err = bytes.ToUint16(data)
-		if err != nil {
-			return
-		}
-
-		// Retrieve the stream channel of the associated mux conn.
-		var (
-			streamChan chan ot.Stream
-			ok         bool
-		)
-		m.mx.Lock()
-		streamChan, ok = m.streams[streamID]
-		m.mx.Unlock()
-		if !ok {
-			return fmt.Errorf("unknown stream id %d", streamID)
-		}
-
-		// Pass the new stream to this connection.
-		select {
-		case <-conn.ClosingChan():
-			return
-		case streamChan <- stream:
-		}
-
-	default:
-		return fmt.Errorf("unknown stream type %v", data[0])
+	// Pass the new stream to the service.
+	select {
+	case <-conn.ClosingChan():
+		return
+	case srv.streamChan <- stream:
 	}
 
 	return
