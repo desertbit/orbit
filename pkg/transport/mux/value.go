@@ -29,9 +29,19 @@ package mux
 
 type value struct {
 	serviceID string
+	subValue  interface{}
 }
 
 // Value constructs a value that must be passed to Dial() and Listen().
-func Value(serviceID string) *value {
-	return &value{serviceID: serviceID}
+func Value(serviceID string, subValue ...interface{}) interface{} {
+	if len(subValue) > 1 {
+		panic("mux.Value: only 1 subValue may be passed")
+	}
+
+	v := &value{serviceID: serviceID}
+	if len(subValue) == 1 {
+		v.subValue = subValue[0]
+	}
+
+	return v
 }

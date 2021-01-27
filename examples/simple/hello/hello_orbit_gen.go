@@ -6,6 +6,7 @@ import (
 	errors "errors"
 	fmt "fmt"
 	closer "github.com/desertbit/closer/v3"
+	options "github.com/desertbit/options"
 	oclient "github.com/desertbit/orbit/pkg/client"
 	codec "github.com/desertbit/orbit/pkg/codec"
 	packet "github.com/desertbit/orbit/pkg/packet"
@@ -370,6 +371,10 @@ type client struct {
 }
 
 func NewClient(opts oclient.Options) (c Client, err error) {
+	err = options.SetDefaults(&opts, oclient.DefaultOptions(nil))
+	if err != nil {
+		return
+	}
 	oc, err := oclient.New(opts)
 	if err != nil {
 		return
@@ -477,6 +482,10 @@ type service struct {
 }
 
 func NewService(h ServiceHandler, opts oservice.Options) (s Service, err error) {
+	err = options.SetDefaults(&opts, oservice.DefaultOptions(nil))
+	if err != nil {
+		return
+	}
 	os, err := oservice.New(opts)
 	if err != nil {
 		return

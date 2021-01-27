@@ -36,25 +36,35 @@ import (
 	"time"
 
 	"github.com/desertbit/orbit/examples/simple/hello"
+	"github.com/desertbit/orbit/examples/simple/world"
 	"github.com/desertbit/orbit/pkg/client"
 	olog "github.com/desertbit/orbit/pkg/hook/log"
+	"github.com/desertbit/orbit/pkg/transport/mux"
 	"github.com/desertbit/orbit/pkg/transport/quic"
 )
 
 func main() {
-	tr, err := quic.NewTransport(quic.Options{
-		DialAddr: "127.0.0.1:1122",
-		TLSConfig: &tls.Config{
+	qtr, err := quic.NewTransport(quic.DefaultOptions(
+		"",
+		"127.0.0.1:1122",
+		&tls.Config{
 			InsecureSkipVerify: true,
 			NextProtos:         []string{"orbit-simple-example"},
 		},
-	})
+	))
 	if err != nil {
 		log.Fatalln(err)
 	}
 
+	// Multiplex transport to allow multiple services.
+	mtr, err := mux.NewTransport(qtr, mux.DefaultOptions())
+	if err != nil {
+		return
+	}
+
 	c, err := hello.NewClient(client.Options{
-		Transport: tr,
+		Transport:      mtr,
+		TransportValue: mux.Value("hello"),
 		Hooks: client.Hooks{
 			olog.ClientHook(),
 		},
@@ -115,4 +125,21 @@ func main() {
 	}
 	bi.Close()
 	wg.Wait()
+
+	wc, err := world.NewClient(client.Options{
+		Transport:      mtr,
+		TransportValue: mux.Value("world"),
+		Hooks: client.Hooks{
+			olog.ClientHook(),
+		},
+	})
+	if err != nil {
+		log.Fatalln(err)
+	}
+	defer wc.Close()
+
+	err = wc.YetAnotherCall(context.Background(), world.YetAnotherCallArg{S: "Finally done"})
+	if err != nil {
+		return
+	}
 }

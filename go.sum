@@ -51,6 +51,8 @@ github.com/desertbit/grumble v1.1.1 h1:1wxy6ka1aqbtA3kZIHaPfB/DD91HSM2m4Kx2QIIGf
 github.com/desertbit/grumble v1.1.1/go.mod h1:r7j3ShNy5EmOsegRD2DzTutIaGiLiA3M5yBTXXeLwcs=
 github.com/desertbit/options v0.0.3 h1:aS3P3E3A8r2MnzJW9+FckiBFFJ/A6LHb7+UDnk8YFN0=
 github.com/desertbit/options v0.0.3/go.mod h1:Sn7JORR/i0yUZjOow9c/QwbKoYLdHtj0WrxRpse8SG4=
+github.com/desertbit/options v0.0.4 h1:t8sP95Yc36v+pxeeMG+waAEmS0BqMuVUpEVuEvd90Vk=
+github.com/desertbit/options v0.0.4/go.mod h1:Sn7JORR/i0yUZjOow9c/QwbKoYLdHtj0WrxRpse8SG4=
 github.com/desertbit/readline v0.0.0-20171208011716-f6d7a1f6fbf3 h1:PLbrJOpAtk8ros5avAt8am0GJvPuD08FVLV+ffmG0Jo=
 github.com/desertbit/readline v0.0.0-20171208011716-f6d7a1f6fbf3/go.mod h1:AayRnEOr0ttSh4kgOlHBBtJufZMMW/1BVCdV5oFs8t0=
 github.com/desertbit/readline v1.5.1 h1:/wOIZkWYl1s+IvJm/5bOknfUgs6MhS9svRNZpFM53Os=

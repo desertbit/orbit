@@ -37,6 +37,8 @@ import (
 
 	"github.com/desertbit/closer/v3"
 	"github.com/desertbit/options"
+	"github.com/desertbit/orbit/internal/bytes"
+	"github.com/desertbit/orbit/pkg/codec/msgpack"
 	"github.com/desertbit/orbit/pkg/packet"
 	ot "github.com/desertbit/orbit/pkg/transport"
 	"github.com/rs/zerolog/log"
@@ -51,29 +53,29 @@ type transport struct {
 
 	opts Options
 
-	mx          sync.Mutex
-	isListening bool
-	listenAddr  net.Addr
-	dialConn    ot.Conn
-	services    map[string]chan ot.Conn
+	mx sync.Mutex
+	// Client
+	dialStreamID uint16
+	dialConn     ot.Conn
+	// Server
+	isListening   bool
+	listenAddr    net.Addr
+	listenerChans map[string]chan ot.Conn
+	connChans     map[uint16]chan ot.Stream
 }
 
 func NewTransport(tr ot.Transport, opts Options) (t ot.Transport, err error) {
 	// Set default values, where needed.
-	err = options.SetDefaults(&opts, DefaultOptions("", ""))
-	if err != nil {
-		return
-	}
-
-	err = opts.validate()
+	err = options.SetDefaults(&opts, DefaultOptions())
 	if err != nil {
 		return
 	}
 
 	t = &transport{
-		tr:       tr,
-		opts:     opts,
-		services: make(map[string]chan ot.Conn, 5),
+		tr:            tr,
+		opts:          opts,
+		listenerChans: make(map[string]chan ot.Conn, 5),
+		connChans:     make(map[uint16]chan ot.Stream, 3),
 	}
 	return
 }
@@ -82,38 +84,31 @@ func NewTransport(tr ot.Transport, opts Options) (t ot.Transport, err error) {
 func (t *transport) Dial(cl closer.Closer, ctx context.Context, v interface{}) (conn ot.Conn, err error) {
 	vv, ok := v.(*value)
 	if !ok {
-		return nil, errors.New("could not cast v to *value; use Value() to properly pass a correct value to Dial()")
+		return nil, errors.New("could not cast v to mux value; use Value() to properly pass a correct value to Dial()")
 	}
 
 	t.mx.Lock()
 	defer t.mx.Unlock()
 
+	// Establish a basic connection, if not yet done.
 	if t.dialConn == nil {
-		t.dialConn, err = t.tr.Dial(cl, ctx, t.opts.DialAddr)
+		t.dialConn, err = t.tr.Dial(cl, ctx, vv.subValue)
 		if err != nil {
 			return
 		}
 	}
 
-	// Send the service identifier.
-	stream, err := t.dialConn.OpenStream(ctx)
+	// Create a new mux.Conn with it.
+	mc := newConn(t.dialConn, t.dialStreamID, nil)
+	t.dialStreamID++
+
+	// Initialize this service.
+	err = mc.initStream(ctx, vv.serviceID, t.opts.InitTimeout)
 	if err != nil {
 		return
 	}
 
-	if t.opts.WriteTimeout > 0 {
-		err = stream.SetWriteDeadline(time.Now().Add(t.opts.WriteTimeout))
-		if err != nil {
-			return
-		}
-	}
-
-	err = packet.Write(stream, []byte(vv.serviceID), maxPayloadSize)
-	if err != nil {
-		return
-	}
-
-	conn = t.dialConn
+	conn = mc
 	return
 }
 
@@ -121,7 +116,7 @@ func (t *transport) Dial(cl closer.Closer, ctx context.Context, v interface{}) (
 func (t *transport) Listen(cl closer.Closer, v interface{}) (ot.Listener, error) {
 	vv, ok := v.(*value)
 	if !ok {
-		return nil, errors.New("could not cast v to *value; use Value() to properly pass a correct value to Dial()")
+		return nil, errors.New("could not cast v to mux value; use Value() to properly pass a correct value to Dial()")
 	}
 
 	t.mx.Lock()
@@ -129,7 +124,7 @@ func (t *transport) Listen(cl closer.Closer, v interface{}) (ot.Listener, error)
 
 	if !t.isListening {
 		// Create our listener.
-		ln, err := t.tr.Listen(cl, t.opts.ListenAddr)
+		ln, err := t.tr.Listen(cl, vv.subValue)
 		if err != nil {
 			return nil, err
 		}
@@ -141,14 +136,14 @@ func (t *transport) Listen(cl closer.Closer, v interface{}) (ot.Listener, error)
 	}
 
 	// Check, if the service has been registered already.
-	if _, ok := t.services[vv.serviceID]; ok {
+	if _, ok := t.listenerChans[vv.serviceID]; ok {
 		return nil, fmt.Errorf("serviceID '%s' registered twice", vv.serviceID)
 	}
 
-	// Create  a new service listener.
+	// Create a new service listener.
 	connChan := make(chan ot.Conn, 3)
 	ln := newListener(cl, connChan, t.listenAddr)
-	t.services[vv.serviceID] = connChan
+	t.listenerChans[vv.serviceID] = connChan
 
 	return ln, nil
 }
@@ -157,9 +152,6 @@ func (t *transport) listenRoutine(ln ot.Listener) {
 	var (
 		conn ot.Conn
 		err  error
-
-		buf         = make([]byte, 128)
-		closingChan = ln.ClosingChan()
 	)
 
 	ctx, cancel := ln.Context()
@@ -174,57 +166,122 @@ func (t *transport) listenRoutine(ln ot.Listener) {
 			return
 		}
 
-		err = t.listenHandler(ctx, closingChan, conn, buf)
+		go t.acceptStreamRoutine(ctx, conn)
+	}
+}
+
+func (t *transport) acceptStreamRoutine(ctx context.Context, conn ot.Conn) {
+	defer conn.Close_()
+
+	var (
+		stream ot.Stream
+		err    error
+
+		typeBuf = make([]byte, 1)
+		idBuf   = make([]byte, 2)
+	)
+
+	for {
+		stream, err = conn.AcceptStream(ctx)
 		if err != nil {
-			if !ln.IsClosing() {
-				log.Error().Err(err).Msg("listenRoutine: listenHandler")
-				continue
+			if !conn.IsClosing() && !conn.IsClosedError(err) {
+				log.Error().Err(err).Msg("mux.transport: failed to accept stream")
 			}
+			return
+		}
+
+		err = t.handleStream(conn, stream, typeBuf, idBuf)
+		if err != nil {
+			log.Error().Err(err).Msg("mux.transport: failed to handle stream")
 			return
 		}
 	}
 }
 
-func (t *transport) listenHandler(ctx context.Context, closingChan <-chan struct{}, conn ot.Conn, buf []byte) (err error) {
-	// Read the service identifier off of the connection.
-	stream, err := conn.AcceptStream(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to accept stream: %v", err)
-	}
-
-	if t.opts.ReadTimeout > 0 {
-		err = stream.SetReadDeadline(time.Now().Add(t.opts.ReadTimeout))
+func (t *transport) handleStream(conn ot.Conn, stream ot.Stream, typeBuf, idBuf []byte) (err error) {
+	if t.opts.InitTimeout > 0 {
+		err = stream.SetReadDeadline(time.Now().Add(t.opts.InitTimeout))
 		if err != nil {
 			return fmt.Errorf("failed to set read deadline: %v", err)
 		}
 	}
 
-	data, err := packet.Read(stream, buf, maxPayloadSize)
+	// Read the stream type.
+	data, err := packet.Read(stream, typeBuf, len(typeBuf))
 	if err != nil {
-		return fmt.Errorf("failed to read packet: %v", err)
+		return
 	}
 
-	// Service identifier.
-	serviceID := string(data)
+	switch data[0] {
+	case initStream:
+		// Read the stream init header.
+		var header initStreamHeader
+		err = packet.ReadDecode(stream, &header, msgpack.Codec, maxInitHeaderSize)
+		if err != nil {
+			return fmt.Errorf("failed to read init stream header: %v", err)
+		}
 
-	var (
-		connChan chan ot.Conn
-		ok       bool
-	)
-	t.mx.Lock()
-	connChan, ok = t.services[serviceID]
-	t.mx.Unlock()
+		// Check, if the service is listening.
+		var (
+			connChan chan ot.Conn
+			ok       bool
+		)
+		t.mx.Lock()
+		connChan, ok = t.listenerChans[header.ServiceID]
+		t.mx.Unlock()
+		if !ok {
+			return fmt.Errorf("service '%s' not registered", header.ServiceID)
+		}
 
-	if !ok {
-		// Close the connection.
-		conn.Close_()
-		log.Warn().Str("serviceID", serviceID).Msg("service not registered, but tried to connect")
-	}
+		// Create a new mux conn + a stream channel for it.
+		streamChan := make(chan ot.Stream, 3)
+		mc := newConn(conn, header.StreamID, streamChan)
+		t.mx.Lock()
+		t.connChans[header.StreamID] = streamChan
+		t.mx.Unlock()
 
-	// Pass the new connection to the service listener.
-	select {
-	case <-closingChan:
-	case connChan <- conn:
+		// Pass the mux conn to the listener that has been registered.
+		select {
+		case <-conn.ClosingChan():
+			return
+		case connChan <- mc:
+		}
+
+	case openStream:
+		// Read the stream id.
+		data, err = packet.Read(stream, idBuf, len(idBuf))
+		if err != nil {
+			return
+		}
+
+		// Convert to uint16.
+		var streamID uint16
+		streamID, err = bytes.ToUint16(data)
+		if err != nil {
+			return
+		}
+
+		// Retrieve the stream channel of the associated mux conn.
+		var (
+			streamChan chan ot.Stream
+			ok         bool
+		)
+		t.mx.Lock()
+		streamChan, ok = t.connChans[streamID]
+		t.mx.Unlock()
+		if !ok {
+			return fmt.Errorf("unknown stream id %d", streamID)
+		}
+
+		// Pass the new stream to this connection.
+		select {
+		case <-conn.ClosingChan():
+			return
+		case streamChan <- stream:
+		}
+
+	default:
+		return fmt.Errorf("unknown stream type %v", data[0])
 	}
 
 	return

@@ -1,0 +1,9 @@
+version 1
+
+service {
+    call yetAnotherCall {
+        arg: {
+            s string
+        }
+    }
+}

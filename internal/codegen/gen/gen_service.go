@@ -123,6 +123,8 @@ func (g *generator) genClientStruct(calls []*ast.Call, streams []*ast.Stream, er
 
 	// Generate the constructor.
 	g.writeLn("func NewClient(opts oclient.Options) (c Client, err error) {")
+	g.writeLn("err = options.SetDefaults(&opts, oclient.DefaultOptions(nil))")
+	g.errIfNil()
 	g.writeLn("oc, err := oclient.New(opts)")
 	g.errIfNil()
 	g.writeLn("c = &client{Client: oc, codec: opts.Codec, callTimeout: opts.CallTimeout, streamInitTimeout: opts.StreamInitTimeout, " +
@@ -155,6 +157,8 @@ func (g *generator) genServiceStruct(calls []*ast.Call, streams []*ast.Stream, e
 
 	// Generate the constructor.
 	g.writeLn("func NewService(h ServiceHandler, opts oservice.Options) (s Service, err error) {")
+	g.writeLn("err = options.SetDefaults(&opts, oservice.DefaultOptions(nil))")
+	g.errIfNil()
 	g.writeLn("os, err := oservice.New(opts)")
 	g.errIfNil()
 	g.writeLn("srvc := &service{Service: os, h: h, codec: opts.Codec, maxArgSize: opts.MaxArgSize, maxRetSize:opts.MaxRetSize}")

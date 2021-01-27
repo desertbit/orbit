@@ -25,42 +25,10 @@
  * SOFTWARE.
  */
 
-package main
+//go:generate msgp
+package mux
 
-import (
-	"github.com/desertbit/grumble"
-	"github.com/desertbit/orbit/internal/codegen/gen"
-)
-
-const (
-	flagForce = "force"
-
-	argFiles = "files"
-)
-
-var cmdGen = &grumble.Command{
-	Name: "gen",
-	Help: "generate go code from .orbit file",
-	Run:  runGen,
-	Flags: func(f *grumble.Flags) {
-		f.Bool("f", flagForce, false, "generate all files, ignoring their last modification time")
-	},
-	Args: func(a *grumble.Args) {
-		a.StringList(argFiles, "The .orbit files the code should be generated for", grumble.Min(1))
-	},
-}
-
-func init() {
-	App.AddCommand(cmdGen)
-}
-
-func runGen(ctx *grumble.Context) (err error) {
-	// Iterate over each provided file path and generate the .orbit file.
-	for _, fp := range ctx.Args.StringList(argFiles) {
-		err = gen.Generate(fp, ctx.Flags.Bool(flagForce))
-		if err != nil {
-			return
-		}
-	}
-	return
+type initStreamHeader struct {
+	ServiceID string
+	StreamID  uint16
 }

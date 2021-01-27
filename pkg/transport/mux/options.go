@@ -28,35 +28,17 @@
 package mux
 
 import (
-	"errors"
 	"time"
 )
 
 type Options struct {
-	// TODO:
-	ListenAddr string
-
-	// TODO:
-	DialAddr string
-
-	// TODO:
-	ReadTimeout time.Duration
-	// TODO:
-	WriteTimeout time.Duration
+	// InitTimeout specifies the duration the initial exchange of the transport value may take.
+	// -1 means no timeout.
+	InitTimeout time.Duration
 }
 
-func DefaultOptions(listenAddr, dialAddr string) Options {
+func DefaultOptions() Options {
 	return Options{
-		ListenAddr:   listenAddr,
-		DialAddr:     dialAddr,
-		ReadTimeout:  30 * time.Second,
-		WriteTimeout: 15 * time.Second,
+		InitTimeout: 15 * time.Second,
 	}
-}
-
-func (o Options) validate() error {
-	if o.ListenAddr == "" && o.DialAddr == "" {
-		return errors.New("listen and dial address not set")
-	}
-	return nil
 }
