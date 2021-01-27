@@ -46,6 +46,17 @@ func TestRandomString(t *testing.T) {
 	}
 }
 
+/*func TestFirstUpper(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		val string
+		exp string
+	}{
+		{val: "", exp: ""},
+	}
+}*/
+
 func TestNoTitle(t *testing.T) {
 	t.Parallel()
 

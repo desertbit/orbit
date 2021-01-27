@@ -91,7 +91,7 @@ func (p *parser) parseVersion(f *ast.File) error {
 		return p.errorf("version must be positive")
 	}
 
-	f.Version = &ast.Version{Value: version}
+	f.Version = &ast.Version{Value: version, Pos: p.tk.Pos}
 	return nil
 }
 

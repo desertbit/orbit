@@ -28,7 +28,6 @@
 package gen
 
 import (
-	"bufio"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -39,10 +38,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/desertbit/closer/v3"
 	"github.com/desertbit/orbit/internal/codegen/ast"
-	"github.com/desertbit/orbit/internal/codegen/parse"
-	"github.com/desertbit/orbit/internal/codegen/resolve"
-	"github.com/desertbit/orbit/internal/codegen/token"
+	"github.com/desertbit/orbit/internal/codegen/lexer"
+	"github.com/desertbit/orbit/internal/codegen/parser"
+	"github.com/desertbit/orbit/internal/codegen/validate"
 )
 
 const (
@@ -59,7 +59,7 @@ const (
 	recv = "v1"
 )
 
-func Generate(orbitFile string, force bool) (err error) {
+func Generate(cl closer.Closer, orbitFile string, force bool) (err error) {
 	// Check the file suffix.
 	if !strings.HasSuffix(orbitFile, orbitSuffix) {
 		return fmt.Errorf("'%s' is not an orbit file, missing '%s' suffix", orbitFile, orbitSuffix)
@@ -77,36 +77,35 @@ func Generate(orbitFile string, force bool) (err error) {
 		return
 	}
 
-	// Open the file for reading.
-	f, err := os.Open(orbitFile)
-	if err != nil {
-		return
-	}
-	defer f.Close()
-
-	// Wrap the file in the token reader.
-	tr := token.NewReader(bufio.NewReader(f))
-
-	// Parse the file.
-	tree, err := parse.NewParser().Parse(tr)
+	// Read whole file content.
+	input, err := ioutil.ReadFile(orbitFile)
 	if err != nil {
 		return
 	}
 
-	// Resolve the whole ast.
-	err = resolve.Resolve(tree)
+	// Wrap a lexer around it.
+	lx := lexer.Lex(cl, string(input))
+
+	// Parse the lexer output and create an AST.
+	f, err := parser.Parse(lx)
+	if err != nil {
+		return
+	}
+
+	// Validate the produced AST.
+	err = validate.Validate(f)
 	if err != nil {
 		return
 	}
 
 	// The name of the generated file is the same as the orbit file,
-	// buf with a different file ending.
+	// but with a different file ending.
 	filePathNoSuffix := strings.TrimSuffix(orbitFile, orbitSuffix)
 	ofp := filePathNoSuffix + genOrbitSuffix
 
 	// Generate the code into a single file.
 	pkgName := filepath.Base(filepath.Dir(orbitFile))
-	err = ioutil.WriteFile(ofp, []byte(generate(pkgName, tree)), filePerm)
+	err = ioutil.WriteFile(ofp, []byte(generate(pkgName, f)), filePerm)
 	if err != nil {
 		return
 	}
@@ -119,7 +118,7 @@ func Generate(orbitFile string, force bool) (err error) {
 
 	// Generate msgp code for it, if at least one type has been defined.
 	mfp := filePathNoSuffix + genMsgpSuffix
-	if len(tree.Types) > 0 {
+	if len(f.Types) > 0 {
 		err = execCmd("msgp", "-file", ofp, "-o", mfp)
 		if err != nil {
 			if errors.Is(err, exec.ErrNotFound) {
@@ -153,7 +152,7 @@ type generator struct {
 	s strings.Builder
 }
 
-func generate(pkgName string, tree *ast.Tree) string {
+func generate(pkgName string, f *ast.File) string {
 	g := generator{}
 
 	// Write the preamble.
@@ -215,27 +214,27 @@ func generate(pkgName string, tree *ast.Tree) string {
 	g.writeLn("")
 
 	g.writeLn(`var ErrClosed = errors.New("closed")`)
-	g.genErrors(tree.Errs)
+	g.genErrors(f.Errs)
 
 	// Generate the type definitions.
 	g.writeLn("var validate = validator.New()")
-	if len(tree.Types) > 0 {
+	if len(f.Types) > 0 {
 		g.writeLn("//#############//")
 		g.writeLn("//### Types ###//")
 		g.writeLn("//#############//")
 		g.writeLn("")
 
-		g.genTypes(tree.Types, tree.Srvc)
+		g.genTypes(f.Types, f.Srvc)
 	}
 
 	// Generate the enum definitions.
-	if len(tree.Enums) > 0 {
+	if len(f.Enums) > 0 {
 		g.writeLn("//#############//")
 		g.writeLn("//### Enums ###//")
 		g.writeLn("//#############//")
 		g.writeLn("")
 
-		g.genEnums(tree.Enums)
+		g.genEnums(f.Enums)
 	}
 
 	// Generate the service definition.
@@ -244,7 +243,7 @@ func generate(pkgName string, tree *ast.Tree) string {
 	g.writeLn("//###############//")
 	g.writeLn("")
 
-	g.genService(tree.Srvc, tree.Errs)
+	g.genService(f.Srvc, f.Errs)
 
 	return g.s.String()
 }

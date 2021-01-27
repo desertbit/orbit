@@ -34,19 +34,20 @@ import (
 
 	"github.com/desertbit/closer/v3"
 	"github.com/desertbit/orbit/internal/codegen/ast"
+	"github.com/desertbit/orbit/internal/codegen/lexer"
 	"github.com/desertbit/orbit/internal/codegen/parser"
 	"github.com/stretchr/testify/require"
 )
 
 var (
-	version            = 1
 	c2Timeout          = 500 * time.Millisecond
 	c2MaxArgSize int64 = 154 * 1024
 	c2MaxRetSize int64 = 5 * 1024 * 1024
 )
 
 var (
-	c1 = &ast.Call{
+	version = &ast.Version{Value: 1, Pos: lexer.Pos{Line: 1, Column: 9}}
+	c1      = &ast.Call{
 		Name: "C1",
 		Arg:  &ast.StructType{NamePrv: "C1Arg"},
 		Ret:  &ast.StructType{NamePrv: "C1Ret"},
@@ -251,7 +252,7 @@ func testParseValid(t *testing.T) {
 	require.NoError(t, err)
 
 	// Parse file.
-	f, err := parser.Parse(closer.New(), string(input))
+	f, err := parser.Parse(lexer.Lex(closer.New(), string(input)))
 	require.NoError(t, err)
 
 	// Version.

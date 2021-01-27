@@ -36,8 +36,6 @@ import (
 	"code.cloudfoundry.org/bytefmt"
 	"github.com/desertbit/orbit/internal/codegen/ast"
 	"github.com/desertbit/orbit/internal/codegen/lexer"
-
-	"github.com/desertbit/closer/v3"
 )
 
 type stateFn func(p *parser, f *ast.File) stateFn
@@ -49,15 +47,11 @@ type parser struct {
 	unreadTk lexer.Token // A previous current token that has been unread.
 }
 
-// Parse parses the given input until either the provided closer
-// is closed, an error or the end is encountered.
+// Parse parses the output of the lexer until an EOF or an error is encountered.
 // If error is nil, the returned ast.File contains the parsed input.
-func Parse(cl closer.Closer, input string) (*ast.File, error) {
+func Parse(lx lexer.Lexer) (*ast.File, error) {
 	// Create the parser.
-	p := &parser{}
-
-	// Lex the input string.
-	p.lx = lexer.Lex(cl.CloserTwoWay(), input)
+	p := &parser{lx: lx}
 
 	// Run the parser.
 	return p.run()
