@@ -104,7 +104,7 @@ func (m *Mux) dial(cl closer.Closer, ctx context.Context, serviceID string) (con
 	m.mx.Unlock()
 
 	// Create a new mux.Conn with it.
-	conn = newClientConn(m.dialConn, serviceID, m.opts.InitTimeout)
+	conn = newConn(m.dialConn, serviceID, m.opts.InitTimeout, nil)
 
 	return
 }
@@ -168,8 +168,6 @@ func (m *Mux) acceptStreamRoutine(ctx context.Context, conn ot.Conn) {
 	var (
 		stream ot.Stream
 		err    error
-
-		idBuf = make([]byte, maxServiceIDSize)
 	)
 
 	// Wait for incoming streams on the connection and handle them.
@@ -182,11 +180,12 @@ func (m *Mux) acceptStreamRoutine(ctx context.Context, conn ot.Conn) {
 			return
 		}
 
-		err = m.handleStream(conn, stream, idBuf)
-		if err != nil {
-			log.Error().Err(err).Msg("mux.transport: failed to handle stream")
-			return
-		}
+		go func() {
+			err = m.handleStream(conn, stream)
+			if err != nil {
+				log.Error().Err(err).Msg("mux.transport: failed to handle stream")
+			}
+		}()
 	}
 }
 
@@ -194,7 +193,13 @@ func (m *Mux) acceptStreamRoutine(ctx context.Context, conn ot.Conn) {
 // the respective service.
 // If its the first stream of the given conn, a new mux conn is properly initialized
 // and sent to the service's listener.
-func (m *Mux) handleStream(conn ot.Conn, stream ot.Stream, idBuf []byte) (err error) {
+func (m *Mux) handleStream(conn ot.Conn, stream ot.Stream) (err error) {
+	defer func() {
+		if err != nil {
+			_ = stream.Close()
+		}
+	}()
+
 	if m.opts.InitTimeout > 0 {
 		err = stream.SetReadDeadline(time.Now().Add(m.opts.InitTimeout))
 		if err != nil {
@@ -203,11 +208,20 @@ func (m *Mux) handleStream(conn ot.Conn, stream ot.Stream, idBuf []byte) (err er
 	}
 
 	// Read the service id.
+	idBuf := make([]byte, maxServiceIDSize)
 	data, err := packet.Read(stream, idBuf, maxServiceIDSize)
 	if err != nil {
 		return
 	}
 	serviceID := string(data)
+
+	// Reset deadline.
+	if m.opts.InitTimeout > 0 {
+		err = stream.SetReadDeadline(time.Time{})
+		if err != nil {
+			return
+		}
+	}
 
 	var (
 		srv *service
@@ -224,7 +238,7 @@ func (m *Mux) handleStream(conn ot.Conn, stream ot.Stream, idBuf []byte) (err er
 	} else if srv.streamChan == nil {
 		// Create the mux conn and send it to the service once.
 		srv.streamChan = make(chan ot.Stream, 3)
-		mc := newServerConn(conn, srv.streamChan)
+		mc := newConn(conn, "", 0, srv.streamChan)
 
 		select {
 		case <-conn.ClosingChan():

@@ -49,18 +49,12 @@ type conn struct {
 	streamChan <-chan ot.Stream
 }
 
-func newClientConn(tc ot.Conn, serviceID string, initTimeout time.Duration) *conn {
+func newConn(tc ot.Conn, serviceID string, initTimeout time.Duration, streamChan <-chan ot.Stream) *conn {
 	return &conn{
 		Conn:        tc,
 		serviceID:   []byte(serviceID),
 		initTimeout: initTimeout,
-	}
-}
-
-func newServerConn(tc ot.Conn, streamChan <-chan ot.Stream) *conn {
-	return &conn{
-		Conn:       tc,
-		streamChan: streamChan,
+		streamChan:  streamChan,
 	}
 }
 
@@ -85,6 +79,14 @@ func (c *conn) OpenStream(ctx context.Context) (stream ot.Stream, err error) {
 	if err != nil {
 		err = fmt.Errorf("failed to send service id: %v", err)
 		return
+	}
+
+	// Reset deadline.
+	if c.initTimeout > 0 {
+		err = stream.SetWriteDeadline(time.Time{})
+		if err != nil {
+			return
+		}
 	}
 
 	return
