@@ -90,7 +90,7 @@ type client struct {
 }
 
 func New(opts Options) (Client, error) {
-	err := options.SetDefaults(&opts, DefaultOptions(nil))
+	err := options.SetDefaults(&opts, DefaultOptions())
 	if err != nil {
 		return nil, err
 	}

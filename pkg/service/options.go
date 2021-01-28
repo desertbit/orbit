@@ -87,9 +87,8 @@ type Options struct {
 	MaxHeaderSize int
 }
 
-func DefaultOptions(tr transport.Transport) Options {
+func DefaultOptions() Options {
 	return Options{
-		Transport:         tr,
 		Closer:            closer.New(),
 		Codec:             msgpack.Codec,
 		Log:               defaultLogger(),
