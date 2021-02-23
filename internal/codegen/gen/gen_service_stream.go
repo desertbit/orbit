@@ -125,8 +125,12 @@ func (g *generator) genServiceStream(s *ast.Stream) {
 		g.writefLn("%s.h.%s(ctx, stream)", recv, s.Name)
 	} else {
 		// Typed.
-		g.writefLn("stream oservice.%s) error {", typedStream(s, true))
-		g.writefLn("return %s.h.%s(ctx, new%sServiceStream(stream))", recv, s.Name, s.Name)
+		g.writefLn("stream oservice.%s) (err error) {", typedStream(s, true))
+		g.writefLn("err = %s.h.%s(ctx, new%sServiceStream(stream))", recv, s.Name, s.Name)
+		g.errIfNilFunc(func() {
+			g.writeLn("err = _serviceErrorCheck(err)")
+		})
+		g.writeLn("return")
 	}
 
 	g.writeLn("}")
