@@ -538,14 +538,26 @@ func (v1 *service) lul(ctx oservice.Context, stream transport.Stream) {
 	v1.h.Lul(ctx, stream)
 }
 
-func (v1 *service) timeStream(ctx oservice.Context, stream oservice.TypedRStream) error {
-	return v1.h.TimeStream(ctx, newTimeStreamServiceStream(stream))
+func (v1 *service) timeStream(ctx oservice.Context, stream oservice.TypedRStream) (err error) {
+	err = v1.h.TimeStream(ctx, newTimeStreamServiceStream(stream))
+	if err != nil {
+		err = _serviceErrorCheck(err)
+	}
+	return
 }
 
-func (v1 *service) clockTime(ctx oservice.Context, stream oservice.TypedWStream) error {
-	return v1.h.ClockTime(ctx, newClockTimeServiceStream(stream))
+func (v1 *service) clockTime(ctx oservice.Context, stream oservice.TypedWStream) (err error) {
+	err = v1.h.ClockTime(ctx, newClockTimeServiceStream(stream))
+	if err != nil {
+		err = _serviceErrorCheck(err)
+	}
+	return
 }
 
-func (v1 *service) bidirectional(ctx oservice.Context, stream oservice.TypedRWStream) error {
-	return v1.h.Bidirectional(ctx, newBidirectionalServiceStream(stream))
+func (v1 *service) bidirectional(ctx oservice.Context, stream oservice.TypedRWStream) (err error) {
+	err = v1.h.Bidirectional(ctx, newBidirectionalServiceStream(stream))
+	if err != nil {
+		err = _serviceErrorCheck(err)
+	}
+	return
 }
