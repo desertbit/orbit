@@ -334,6 +334,7 @@ const (
 
 type Client interface {
 	closer.Closer
+	StateChan() <-chan oclient.State
 	// Calls
 	SayHi(ctx context.Context, arg SayHiArg) (ret SayHiRet, err error)
 	Test(ctx context.Context, arg TestArg) (ret TestRet, err error)
@@ -376,6 +377,10 @@ func NewClient(opts *oclient.Options) (c Client, err error) {
 	}
 	c = &client{Client: oc, codec: opts.Codec, callTimeout: opts.CallTimeout, streamInitTimeout: opts.StreamInitTimeout, maxArgSize: opts.MaxArgSize, maxRetSize: opts.MaxRetSize}
 	return
+}
+
+func (v1 *client) StateChan() <-chan oclient.State {
+	return v1.StateChan()
 }
 
 func (v1 *client) SayHi(ctx context.Context, arg SayHiArg) (ret SayHiRet, err error) {
