@@ -40,5 +40,5 @@ const (
 	// codegen has been improved, but no backwards incompatible changes
 	// have been introduced. May be used to invalidate the build cache
 	// of the codegen, so that a project definitely uses its new features.
-	CacheVersion = 7
+	CacheVersion = 8
 )
