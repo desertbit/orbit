@@ -166,7 +166,7 @@ func (v1 *TimeStreamServiceStream) Read() (arg Info, err error) {
 	err = v1.stream.Read(&arg)
 	if err != nil {
 		err = _serviceErrorCheck(err)
-		if errors.Is(err, oclient.ErrClosed) {
+		if errors.Is(err, oservice.ErrClosed) {
 			err = ErrClosed
 		}
 		return
@@ -220,7 +220,7 @@ func (v1 *ClockTimeServiceStream) Write(ret ClockTimeRet) (err error) {
 	err = v1.stream.Write(ret)
 	if err != nil {
 		err = _serviceErrorCheck(err)
-		if errors.Is(err, oclient.ErrClosed) {
+		if errors.Is(err, oservice.ErrClosed) {
 			err = ErrClosed
 		}
 		return
@@ -281,7 +281,7 @@ func (v1 *BidirectionalServiceStream) Read() (arg BidirectionalArg, err error) {
 	err = v1.stream.Read(&arg)
 	if err != nil {
 		err = _serviceErrorCheck(err)
-		if errors.Is(err, oclient.ErrClosed) {
+		if errors.Is(err, oservice.ErrClosed) {
 			err = ErrClosed
 		}
 		return
@@ -298,7 +298,7 @@ func (v1 *BidirectionalServiceStream) Write(ret BidirectionalRet) (err error) {
 	err = v1.stream.Write(ret)
 	if err != nil {
 		err = _serviceErrorCheck(err)
-		if errors.Is(err, oclient.ErrClosed) {
+		if errors.Is(err, oservice.ErrClosed) {
 			err = ErrClosed
 		}
 		return
