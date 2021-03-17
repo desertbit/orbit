@@ -134,7 +134,7 @@ func (g *generator) genClientStruct(calls []*ast.Call, streams []*ast.Stream, er
 
 	// Generate the state chan forwarding.
 	g.writefLn("func (%s *client) StateChan() <-chan oclient.State {", recv)
-	g.writefLn("return %s.StateChan()", recv)
+	g.writefLn("return %s.Client.StateChan()", recv)
 	g.writeLn("}")
 	g.writeLn("")
 

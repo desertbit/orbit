@@ -380,7 +380,7 @@ func NewClient(opts *oclient.Options) (c Client, err error) {
 }
 
 func (v1 *client) StateChan() <-chan oclient.State {
-	return v1.StateChan()
+	return v1.Client.StateChan()
 }
 
 func (v1 *client) SayHi(ctx context.Context, arg SayHiArg) (ret SayHiRet, err error) {
