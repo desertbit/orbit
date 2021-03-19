@@ -54,7 +54,7 @@ service {
 		}
     }
     stream s3 {
-        ret: En1
+        ret: Ret
     }
 
     stream rs1 {

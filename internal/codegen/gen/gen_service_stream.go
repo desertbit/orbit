@@ -38,10 +38,10 @@ import (
 func (g *generator) genClientStreamSignature(s *ast.Stream) {
 	if s.Arg == nil && s.Ret == nil {
 		// Raw.
-		g.writef("%s(ctx context.Context) (stream transport.Stream, err error)", s.Name)
+		g.writef("%s(ctx context.Context) (stream transport.Stream, err error)", s.Ident())
 	} else {
 		// Typed.
-		g.writef("%s(ctx context.Context) (stream *%sClientStream, err error)", s.Name, s.Name)
+		g.writef("%s(ctx context.Context) (stream *%sClientStream, err error)", s.Ident(), s.Ident())
 	}
 }
 
@@ -61,11 +61,11 @@ func (g *generator) genClientStream(s *ast.Stream, errs []*ast.Error) {
 	// Implementation.
 	if s.Arg == nil && s.Ret == nil {
 		// Raw.
-		g.writefLn("stream, err = %s.Stream(ctx, StreamID%s)", recv, s.Name)
+		g.writefLn("stream, err = %s.Stream(ctx, StreamID%s)", recv, s.Ident())
 		g.errIfNil()
 	} else {
 		// Typed.
-		g.writef("str, err := %s.%s(ctx, StreamID%s,", recv, typedStream(s, false), s.Name)
+		g.writef("str, err := %s.%s(ctx, StreamID%s,", recv, typedStream(s, false), s.Ident())
 		if s.Arg != nil {
 			g.writeOrbitMaxSizeParam(s.MaxArgSize, false)
 		}
@@ -74,7 +74,7 @@ func (g *generator) genClientStream(s *ast.Stream, errs []*ast.Error) {
 		}
 		g.writeLn(")")
 		g.errIfNil()
-		g.writefLn("stream = new%sClientStream(str)", s.Name)
+		g.writefLn("stream = new%sClientStream(str)", s.Ident())
 	}
 
 	// End of method.
@@ -90,10 +90,10 @@ func (g *generator) genClientStream(s *ast.Stream, errs []*ast.Error) {
 func (g *generator) genServiceStreamRegister(s *ast.Stream) {
 	if s.Arg == nil && s.Ret == nil {
 		// Raw.
-		g.writefLn("os.RegisterStream(StreamID%s, srvc.%s)", s.Name, s.NamePrv())
+		g.writefLn("os.RegisterStream(StreamID%s, srvc.%s)", s.Ident(), s.IdentPrv())
 	} else {
 		// Typed.
-		g.writef("os.Register%s(StreamID%s, srvc.%s,", typedStream(s, true), s.Name, s.NamePrv())
+		g.writef("os.Register%s(StreamID%s, srvc.%s,", typedStream(s, true), s.Ident(), s.IdentPrv())
 		if s.Arg != nil {
 			g.writeOrbitMaxSizeParam(s.MaxArgSize, true)
 		}
@@ -105,28 +105,28 @@ func (g *generator) genServiceStreamRegister(s *ast.Stream) {
 }
 
 func (g *generator) genServiceHandlerStreamSignature(s *ast.Stream) {
-	g.writef("%s(ctx oservice.Context, ", s.Name)
+	g.writef("%s(ctx oservice.Context, ", s.Ident())
 
 	if s.Arg == nil && s.Ret == nil {
 		// Raw.
 		g.writeLn("stream transport.Stream)")
 	} else {
 		// Typed.
-		g.writefLn("stream *%sServiceStream) error", s.Name)
+		g.writefLn("stream *%sServiceStream) error", s.Ident())
 	}
 }
 
 func (g *generator) genServiceStream(s *ast.Stream) {
-	g.writef("func (%s *service) %s(ctx oservice.Context, ", recv, s.NamePrv())
+	g.writef("func (%s *service) %s(ctx oservice.Context, ", recv, s.IdentPrv())
 
 	if s.Arg == nil && s.Ret == nil {
 		// Raw.
 		g.writeLn("stream transport.Stream) {")
-		g.writefLn("%s.h.%s(ctx, stream)", recv, s.Name)
+		g.writefLn("%s.h.%s(ctx, stream)", recv, s.Ident())
 	} else {
 		// Typed.
 		g.writefLn("stream oservice.%s) error {", typedStream(s, true))
-		g.writefLn("return %s.h.%s(ctx, new%sServiceStream(stream))", recv, s.Name, s.Name)
+		g.writefLn("return %s.h.%s(ctx, new%sServiceStream(stream))", recv, s.Ident(), s.Ident())
 	}
 
 	g.writeLn("}")

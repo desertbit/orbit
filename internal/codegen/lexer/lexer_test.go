@@ -30,7 +30,6 @@ package lexer_test
 import (
 	"testing"
 
-	"github.com/desertbit/closer/v3"
 	"github.com/desertbit/orbit/internal/codegen/lexer"
 	"github.com/stretchr/testify/require"
 )
@@ -106,9 +105,7 @@ url
 		{val: "url", typ: lexer.IDENT, line: 12, col: 1},
 	}
 
-	l := lexer.Lex(closer.New(), input)
-	defer l.Close_()
-
+	l := lexer.Lex(input)
 	for i, c := range cases {
 		tk := l.Next()
 		if tk.Type == lexer.EOF {
@@ -140,7 +137,7 @@ func testLexerNextErr(t *testing.T) {
 	}
 
 	for i, c := range cases {
-		l := lexer.Lex(closer.New(), c.input)
+		l := lexer.Lex(c.input)
 		tk := l.Next()
 		require.Exactly(t, lexer.ILLEGAL, tk.Type, "case %d", i)
 		require.Exactly(t, c.line, tk.Pos.Line, "case %d", i)

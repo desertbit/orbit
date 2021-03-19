@@ -30,7 +30,6 @@ package parser
 import (
 	"github.com/desertbit/orbit/internal/codegen/ast"
 	"github.com/desertbit/orbit/internal/codegen/lexer"
-	"github.com/desertbit/orbit/internal/utils"
 )
 
 func (p *parser) expectTypeDefinition() ([]*ast.TypeField, error) {
@@ -47,7 +46,7 @@ func (p *parser) expectTypeDefinition() ([]*ast.TypeField, error) {
 	// Type Fields.
 	var tfs []*ast.TypeField
 	for !p.checkToken(lexer.RBRACE) {
-		tf := &ast.TypeField{}
+		tf := &ast.TypeField{Pos: p.tk.Pos}
 
 		// Identifier.
 		var err error
@@ -55,8 +54,6 @@ func (p *parser) expectTypeDefinition() ([]*ast.TypeField, error) {
 		if err != nil {
 			return nil, err
 		}
-		// Type name must be uppercase first.
-		tf.Name = utils.FirstUpper(tf.Name)
 
 		// Data type.
 		tf.DataType, err = p.expectDataType()
@@ -87,6 +84,8 @@ func (p *parser) expectDataType() (ast.DataType, error) {
 }
 
 func (p *parser) expectMapType() (*ast.MapType, error) {
+	mt := &ast.MapType{Pos: p.tk.Pos}
+
 	// '['.
 	err := p.expectToken(lexer.LBRACK)
 	if err != nil {
@@ -94,7 +93,7 @@ func (p *parser) expectMapType() (*ast.MapType, error) {
 	}
 
 	// Key type.
-	key, err := p.expectAnyType()
+	mt.Key, err = p.expectAnyType()
 	if err != nil {
 		return nil, err
 	}
@@ -106,31 +105,37 @@ func (p *parser) expectMapType() (*ast.MapType, error) {
 	}
 
 	// Value type.
-	value, err := p.expectDataType()
+	mt.Value, err = p.expectDataType()
 	if err != nil {
 		return nil, err
 	}
 
-	return &ast.MapType{Key: key, Value: value}, nil
+	return mt, nil
 }
 
 func (p *parser) expectArrType() (*ast.ArrType, error) {
+	at := &ast.ArrType{Pos: p.tk.Pos}
+
 	// Expect any type.
-	elem, err := p.expectDataType()
+	var err error
+	at.Elem, err = p.expectDataType()
 	if err != nil {
 		return nil, err
 	}
 
-	return &ast.ArrType{Elem: elem}, nil
+	return at, nil
 }
 
 func (p *parser) expectAnyType() (*ast.AnyType, error) {
+	at := &ast.AnyType{Pos: p.tk.Pos}
+
 	// Identifier.
-	namePrv, err := p.expectIdent()
+	var err error
+	at.Name, err = p.expectIdent()
 	if err != nil {
 		return nil, err
 	}
 
 	// Ensure private name is lowercase.
-	return &ast.AnyType{NamePrv: utils.FirstLower(namePrv)}, nil
+	return at, nil
 }

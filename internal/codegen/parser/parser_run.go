@@ -30,7 +30,6 @@ package parser
 import (
 	"github.com/desertbit/orbit/internal/codegen/ast"
 	"github.com/desertbit/orbit/internal/codegen/lexer"
-	"github.com/desertbit/orbit/internal/utils"
 )
 
 func (p *parser) run() (*ast.File, error) {
@@ -82,16 +81,17 @@ func (p *parser) parseVersion(f *ast.File) error {
 		// Only allowed once.
 		return p.errorf("duplicate version")
 	}
+	f.Version = &ast.Version{Pos: p.tk.Pos}
 
 	// Version is an integer and must be positive.
-	version, err := p.expectInt()
+	var err error
+	f.Version.Value, err = p.expectInt()
 	if err != nil {
 		return err
-	} else if version <= 0 {
+	} else if f.Version.Value <= 0 {
 		return p.errorf("version must be positive")
 	}
 
-	f.Version = &ast.Version{Value: version, Pos: p.tk.Pos}
 	return nil
 }
 
@@ -104,7 +104,7 @@ func (p *parser) parseEnum(f *ast.File) error {
 			...
 		}
 	*/
-	e := &ast.Enum{}
+	e := &ast.Enum{Pos: p.tk.Pos}
 
 	// Identifier.
 	var err error
@@ -112,8 +112,6 @@ func (p *parser) parseEnum(f *ast.File) error {
 	if err != nil {
 		return err
 	}
-	// Identifier must be uppercase first.
-	e.Name = utils.FirstUpper(e.Name)
 
 	// '{'.
 	err = p.expectToken(lexer.LBRACE)
@@ -130,8 +128,7 @@ func (p *parser) parseEnum(f *ast.File) error {
 		if err != nil {
 			return err
 		}
-		// Name must be uppercase first.
-		ev.Name = utils.FirstUpper(ev.Name)
+		ev.Pos = p.tk.Pos
 
 		// '='.
 		err = p.expectToken(lexer.EQUAL)
@@ -177,8 +174,7 @@ func (p *parser) parseErrors(f *ast.File) error {
 		if err != nil {
 			return err
 		}
-		// Name must be uppercase first.
-		e.Name = utils.FirstUpper(e.Name)
+		e.Pos = p.tk.Pos
 
 		// '='.
 		err = p.expectToken(lexer.EQUAL)
@@ -209,7 +205,7 @@ func (p *parser) parseTypeDeclaration(f *ast.File) error {
 			address string
 		}
 	*/
-	t := &ast.Type{}
+	t := &ast.Type{Pos: p.tk.Pos}
 
 	// Identifier.
 	var err error
@@ -217,8 +213,6 @@ func (p *parser) parseTypeDeclaration(f *ast.File) error {
 	if err != nil {
 		return err
 	}
-	// Identifier must be uppercase first.
-	t.Name = utils.FirstUpper(t.Name)
 
 	// '{'.
 	err = p.expectToken(lexer.LBRACE)
@@ -252,7 +246,7 @@ func (p *parser) parseService(f *ast.File) error {
 		// Only allowed once.
 		return p.errorf("duplicate service")
 	}
-	f.Srvc = &ast.Service{}
+	f.Srvc = &ast.Service{Pos: p.tk.Pos}
 
 	// '{'
 	err := p.expectToken(lexer.LBRACE)

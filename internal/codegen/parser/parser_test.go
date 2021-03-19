@@ -32,7 +32,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/desertbit/closer/v3"
 	"github.com/desertbit/orbit/internal/codegen/ast"
 	"github.com/desertbit/orbit/internal/codegen/lexer"
 	"github.com/desertbit/orbit/internal/codegen/parser"
@@ -46,17 +45,17 @@ var (
 )
 
 var (
-	version = &ast.Version{Value: 1, Pos: lexer.Pos{Line: 1, Column: 9}}
-	c1      = &ast.Call{
+	expVersion = &ast.Version{Value: 1, Pos: lexer.Pos{Line: 1, Column: 1}}
+	c1         = &ast.Call{
 		Name: "C1",
-		Arg:  &ast.StructType{NamePrv: "C1Arg"},
-		Ret:  &ast.StructType{NamePrv: "C1Ret"},
+		Arg:  &ast.StructType{Name: "C1Arg"},
+		Ret:  &ast.StructType{Name: "C1Ret"},
 	}
 	c2 = &ast.Call{
 		Name:       "C2",
 		Async:      true,
-		Arg:        &ast.StructType{NamePrv: "C2Arg"},
-		Ret:        &ast.StructType{NamePrv: "C2Ret"},
+		Arg:        &ast.StructType{Name: "C2Arg"},
+		Ret:        &ast.StructType{Name: "C2Ret"},
 		Timeout:    &c2Timeout,
 		MaxArgSize: &c2MaxArgSize,
 		MaxRetSize: &c2MaxRetSize,
@@ -64,13 +63,13 @@ var (
 	c3  = &ast.Call{Name: "C3"}
 	rc1 = &ast.Call{
 		Name: "Rc1",
-		Arg:  &ast.AnyType{NamePrv: "Arg"},
-		Ret:  &ast.StructType{NamePrv: "Rc1Ret"},
+		Arg:  &ast.AnyType{Name: "Arg"},
+		Ret:  &ast.StructType{Name: "Rc1Ret"},
 	}
 	rc2 = &ast.Call{
 		Name:  "Rc2",
 		Async: true,
-		Arg:   &ast.StructType{NamePrv: "Rc2Arg"},
+		Arg:   &ast.StructType{Name: "Rc2Arg"},
 	}
 	rc3 = &ast.Call{
 		Name: "Rc3",
@@ -78,16 +77,16 @@ var (
 	st1 = &ast.Stream{Name: "S1"}
 	st2 = &ast.Stream{
 		Name: "S2",
-		Arg:  &ast.StructType{NamePrv: "S2Arg"},
+		Arg:  &ast.StructType{Name: "S2Arg"},
 	}
 	st3 = &ast.Stream{
 		Name: "S3",
-		Ret:  &ast.AnyType{NamePrv: "En1"},
+		Ret:  &ast.AnyType{Name: "Ret"},
 	}
 	rst1 = &ast.Stream{
 		Name: "Rs1",
-		Arg:  &ast.AnyType{NamePrv: "Arg"},
-		Ret:  &ast.AnyType{NamePrv: "Ret"},
+		Arg:  &ast.AnyType{Name: "Arg"},
+		Ret:  &ast.AnyType{Name: "Ret"},
 	}
 	rst2 = &ast.Stream{
 		Name: "Rs2",
@@ -101,19 +100,19 @@ var (
 		{
 			Name: "C1Arg",
 			Fields: []*ast.TypeField{
-				{Name: "Id", DataType: &ast.AnyType{NamePrv: "int"}, StructTag: "json:\"ID\" yaml:\"id\""},
+				{Name: "Id", DataType: &ast.AnyType{Name: "int"}, StructTag: "json:\"ID\" yaml:\"id\""},
 			},
 		},
 		{
 			Name: "C1Ret",
 			Fields: []*ast.TypeField{
-				{Name: "Sum", DataType: &ast.AnyType{NamePrv: "float32"}},
+				{Name: "Sum", DataType: &ast.AnyType{Name: "float32"}},
 			},
 		},
 		{
 			Name: "C2Arg",
 			Fields: []*ast.TypeField{
-				{Name: "Ts", DataType: &ast.AnyType{NamePrv: "time"}},
+				{Name: "Ts", DataType: &ast.AnyType{Name: "time"}},
 			},
 		},
 		{
@@ -124,8 +123,8 @@ var (
 					// []map[string][]Ret
 					DataType: &ast.ArrType{
 						Elem: &ast.MapType{
-							Key:   &ast.AnyType{NamePrv: "string"},
-							Value: &ast.ArrType{Elem: &ast.AnyType{NamePrv: "Ret"}},
+							Key:   &ast.AnyType{Name: "string"},
+							Value: &ast.ArrType{Elem: &ast.AnyType{Name: "Ret"}},
 						},
 					},
 				},
@@ -134,26 +133,26 @@ var (
 		{
 			Name: "Rc1Ret",
 			Fields: []*ast.TypeField{
-				{Name: "S", DataType: &ast.AnyType{NamePrv: "string"}},
-				{Name: "I", DataType: &ast.AnyType{NamePrv: "int"}},
+				{Name: "S", DataType: &ast.AnyType{Name: "string"}},
+				{Name: "I", DataType: &ast.AnyType{Name: "int"}},
 				{
 					Name: "M",
 					DataType: &ast.MapType{
-						Key:   &ast.AnyType{NamePrv: "string"},
-						Value: &ast.AnyType{NamePrv: "int"},
+						Key:   &ast.AnyType{Name: "string"},
+						Value: &ast.AnyType{Name: "int"},
 					},
 				},
-				{Name: "Sl", DataType: &ast.ArrType{Elem: &ast.AnyType{NamePrv: "time"}}},
-				{Name: "St", DataType: &ast.AnyType{NamePrv: "Ret"}},
+				{Name: "Sl", DataType: &ast.ArrType{Elem: &ast.AnyType{Name: "time"}}},
+				{Name: "St", DataType: &ast.AnyType{Name: "Ret"}},
 				{
 					Name: "Crazy",
 					DataType: &ast.MapType{
-						Key: &ast.AnyType{NamePrv: "string"},
+						Key: &ast.AnyType{Name: "string"},
 						Value: &ast.ArrType{
 							Elem: &ast.ArrType{
 								Elem: &ast.MapType{
-									Key:   &ast.AnyType{NamePrv: "string"},
-									Value: &ast.AnyType{NamePrv: "En1"},
+									Key:   &ast.AnyType{Name: "string"},
+									Value: &ast.AnyType{Name: "En1"},
 								},
 							},
 						},
@@ -164,44 +163,44 @@ var (
 		{
 			Name: "Rc2Arg",
 			Fields: []*ast.TypeField{
-				{Name: "F", DataType: &ast.AnyType{NamePrv: "float64"}},
-				{Name: "B", DataType: &ast.AnyType{NamePrv: "byte"}},
-				{Name: "U8", DataType: &ast.AnyType{NamePrv: "uint8"}},
-				{Name: "U16", DataType: &ast.AnyType{NamePrv: "uint16"}},
-				{Name: "U32", DataType: &ast.AnyType{NamePrv: "uint32"}},
-				{Name: "U64", DataType: &ast.AnyType{NamePrv: "uint64"}},
+				{Name: "F", DataType: &ast.AnyType{Name: "float64"}},
+				{Name: "B", DataType: &ast.AnyType{Name: "byte"}},
+				{Name: "U8", DataType: &ast.AnyType{Name: "uint8"}},
+				{Name: "U16", DataType: &ast.AnyType{Name: "uint16"}},
+				{Name: "U32", DataType: &ast.AnyType{Name: "uint32"}},
+				{Name: "U64", DataType: &ast.AnyType{Name: "uint64"}},
 			},
 		},
 		{
 			Name: "S2Arg",
 			Fields: []*ast.TypeField{
-				{Name: "Id", DataType: &ast.AnyType{NamePrv: "string"}, StructTag: "validator:\"required\""},
+				{Name: "Id", DataType: &ast.AnyType{Name: "string"}, StructTag: "validator:\"required\""},
 			},
 		},
 		{
 			Name: "Arg",
 			Fields: []*ast.TypeField{
-				{Name: "S", DataType: &ast.AnyType{NamePrv: "string"}, StructTag: "json:\"STRING\""},
-				{Name: "I", DataType: &ast.AnyType{NamePrv: "int"}},
+				{Name: "S", DataType: &ast.AnyType{Name: "string"}, StructTag: "json:\"STRING\""},
+				{Name: "I", DataType: &ast.AnyType{Name: "int"}},
 				{
 					Name: "M",
 					DataType: &ast.MapType{
-						Key:   &ast.AnyType{NamePrv: "string"},
-						Value: &ast.AnyType{NamePrv: "int"},
+						Key:   &ast.AnyType{Name: "string"},
+						Value: &ast.AnyType{Name: "int"},
 					},
 				},
-				{Name: "Sl", DataType: &ast.ArrType{Elem: &ast.AnyType{NamePrv: "time"}}},
-				{Name: "Dur", DataType: &ast.AnyType{NamePrv: "duration"}},
-				{Name: "St", DataType: &ast.AnyType{NamePrv: "Ret"}},
+				{Name: "Sl", DataType: &ast.ArrType{Elem: &ast.AnyType{Name: "time"}}},
+				{Name: "Dur", DataType: &ast.AnyType{Name: "duration"}},
+				{Name: "St", DataType: &ast.AnyType{Name: "Ret"}},
 				{
 					Name: "Crazy",
 					DataType: &ast.MapType{
-						Key: &ast.AnyType{NamePrv: "string"},
+						Key: &ast.AnyType{Name: "string"},
 						Value: &ast.ArrType{
 							Elem: &ast.ArrType{
 								Elem: &ast.MapType{
-									Key:   &ast.AnyType{NamePrv: "string"},
-									Value: &ast.AnyType{NamePrv: "En1"},
+									Key:   &ast.AnyType{Name: "string"},
+									Value: &ast.AnyType{Name: "En1"},
 								},
 							},
 						},
@@ -212,12 +211,12 @@ var (
 		{
 			Name: "Ret",
 			Fields: []*ast.TypeField{
-				{Name: "F", DataType: &ast.AnyType{NamePrv: "float64"}},
-				{Name: "B", DataType: &ast.AnyType{NamePrv: "byte"}},
-				{Name: "U8", DataType: &ast.AnyType{NamePrv: "uint8"}},
-				{Name: "U16", DataType: &ast.AnyType{NamePrv: "uint16"}},
-				{Name: "U32", DataType: &ast.AnyType{NamePrv: "uint32"}},
-				{Name: "U64", DataType: &ast.AnyType{NamePrv: "uint64"}},
+				{Name: "F", DataType: &ast.AnyType{Name: "float64"}},
+				{Name: "B", DataType: &ast.AnyType{Name: "byte"}},
+				{Name: "U8", DataType: &ast.AnyType{Name: "uint8"}},
+				{Name: "U16", DataType: &ast.AnyType{Name: "uint16"}},
+				{Name: "U32", DataType: &ast.AnyType{Name: "uint32"}},
+				{Name: "U64", DataType: &ast.AnyType{Name: "uint64"}},
 			},
 		},
 	}
@@ -252,11 +251,11 @@ func testParseValid(t *testing.T) {
 	require.NoError(t, err)
 
 	// Parse file.
-	f, err := parser.Parse(lexer.Lex(closer.New(), string(input)))
+	f, err := parser.Parse(lexer.Lex(string(input)))
 	require.NoError(t, err)
 
 	// Version.
-	require.Exactly(t, version, f.Version)
+	require.Exactly(t, expVersion, f.Version)
 
 	// Services.
 	require.NotNil(t, f.Srvc)

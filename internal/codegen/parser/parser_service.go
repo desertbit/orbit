@@ -30,7 +30,6 @@ package parser
 import (
 	"github.com/desertbit/orbit/internal/codegen/ast"
 	"github.com/desertbit/orbit/internal/codegen/lexer"
-	"github.com/desertbit/orbit/internal/utils"
 )
 
 func (p *parser) expectServiceCall() (*ast.Call, []*ast.Type, error) {
@@ -50,7 +49,7 @@ func (p *parser) expectServiceCall() (*ast.Call, []*ast.Type, error) {
 		}
 	*/
 	var (
-		c = &ast.Call{}
+		c = &ast.Call{Pos: p.tk.Pos}
 
 		ts  []*ast.Type
 		err error
@@ -61,8 +60,6 @@ func (p *parser) expectServiceCall() (*ast.Call, []*ast.Type, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	// Call name must be uppercase first.
-	c.Name = utils.FirstUpper(c.Name)
 
 	// '{'.
 	err = p.expectToken(lexer.LBRACE)
@@ -201,7 +198,7 @@ func (p *parser) expectServiceStream() (*ast.Stream, []*ast.Type, error) {
 		}
 	*/
 	var (
-		s = &ast.Stream{}
+		s = &ast.Stream{Pos: p.tk.Pos}
 
 		ts  []*ast.Type
 		err error
@@ -212,8 +209,6 @@ func (p *parser) expectServiceStream() (*ast.Stream, []*ast.Type, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	// Stream name must be uppercase first.
-	s.Name = utils.FirstUpper(s.Name)
 
 	// '{'.
 	err = p.expectToken(lexer.LBRACE)
@@ -317,10 +312,10 @@ func (p *parser) expectServiceEntryType(name string) (ast.DataType, *ast.Type, e
 	// Check for an inline type definition.
 	if p.checkToken(lexer.LBRACE) {
 		// The struct type is a reference to the inline type.
-		dt := &ast.StructType{NamePrv: name}
+		dt := &ast.StructType{Name: name, Pos: p.tk.Pos}
 
 		// Expect the inline type definition and add it to the global types.
-		t := &ast.Type{Name: name}
+		t := &ast.Type{Name: name, Pos: p.tk.Pos}
 
 		var err error
 		t.Fields, err = p.expectTypeDefinition()

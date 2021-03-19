@@ -5,6 +5,7 @@ go 1.14
 require (
 	code.cloudfoundry.org/bytefmt v0.0.0-20200131002437-cf55d5288a48
 	github.com/cloudfoundry/bytefmt v0.0.0-20200131002437-cf55d5288a48
+	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/desertbit/closer/v3 v3.1.2
 	github.com/desertbit/grumble v1.0.6
 	github.com/desertbit/yamux v1.0.1

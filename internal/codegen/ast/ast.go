@@ -31,10 +31,8 @@ import (
 	"time"
 
 	"github.com/desertbit/orbit/internal/codegen/lexer"
-	"github.com/desertbit/orbit/internal/utils"
+	"github.com/desertbit/orbit/internal/strutil"
 )
-
-// TODO: Decide whether a single lexer.Pos is enough, or if start and end should be recorded.
 
 type File struct {
 	Version *Version
@@ -55,10 +53,18 @@ type Enum struct {
 	lexer.Pos
 }
 
+func (e Enum) Ident() string {
+	return strutil.FirstUpper(e.Name)
+}
+
 type EnumValue struct {
 	Name  string
 	Value int
 	lexer.Pos
+}
+
+func (ev EnumValue) Ident() string {
+	return strutil.FirstUpper(ev.Name)
 }
 
 type Error struct {
@@ -67,10 +73,18 @@ type Error struct {
 	lexer.Pos
 }
 
+func (e Error) Ident() string {
+	return strutil.FirstUpper(e.Name)
+}
+
 type Type struct {
 	Name   string
 	Fields []*TypeField
 	lexer.Pos
+}
+
+func (t Type) Ident() string {
+	return strutil.FirstUpper(t.Name)
 }
 
 type TypeField struct {
@@ -78,6 +92,10 @@ type TypeField struct {
 	DataType  DataType
 	StructTag string
 	lexer.Pos
+}
+
+func (tf TypeField) Ident() string {
+	return strutil.FirstUpper(tf.Name)
 }
 
 type Service struct {
@@ -97,8 +115,12 @@ type Call struct {
 	lexer.Pos
 }
 
-func (c *Call) NamePrv() string {
-	return utils.FirstLower(c.Name)
+func (c *Call) Ident() string {
+	return strutil.FirstUpper(c.Name)
+}
+
+func (c *Call) IdentPrv() string {
+	return strutil.FirstLower(c.Name)
 }
 
 type Stream struct {
@@ -110,6 +132,10 @@ type Stream struct {
 	lexer.Pos
 }
 
-func (s *Stream) NamePrv() string {
-	return utils.FirstLower(s.Name)
+func (s *Stream) Ident() string {
+	return strutil.FirstUpper(s.Name)
+}
+
+func (s *Stream) IdentPrv() string {
+	return strutil.FirstLower(s.Name)
 }

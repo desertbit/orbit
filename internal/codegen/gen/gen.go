@@ -38,7 +38,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/desertbit/closer/v3"
 	"github.com/desertbit/orbit/internal/codegen/ast"
 	"github.com/desertbit/orbit/internal/codegen/lexer"
 	"github.com/desertbit/orbit/internal/codegen/parser"
@@ -59,7 +58,7 @@ const (
 	recv = "v1"
 )
 
-func Generate(cl closer.Closer, orbitFile string, force bool) (err error) {
+func Generate(orbitFile string, force bool) (err error) {
 	// Check the file suffix.
 	if !strings.HasSuffix(orbitFile, orbitSuffix) {
 		return fmt.Errorf("'%s' is not an orbit file, missing '%s' suffix", orbitFile, orbitSuffix)
@@ -84,7 +83,7 @@ func Generate(cl closer.Closer, orbitFile string, force bool) (err error) {
 	}
 
 	// Wrap a lexer around it.
-	lx := lexer.Lex(cl, string(input))
+	lx := lexer.Lex(string(input))
 
 	// Parse the lexer output and create an AST.
 	f, err := parser.Parse(lx)

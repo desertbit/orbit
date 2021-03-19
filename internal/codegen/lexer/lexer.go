@@ -31,15 +31,11 @@ package lexer
 import (
 	"fmt"
 	"unicode/utf8"
-
-	"github.com/desertbit/closer/v3"
 )
 
 // The Lexer interface represents a lexer that lexes its input
 // into Tokens.
 type Lexer interface {
-	closer.Closer
-
 	// Next returns the next available Token from the lexer.
 	// If no more Tokens are available or the lexer was closed,
 	// the Token has type EOF.
@@ -53,10 +49,6 @@ type stateFn func(*lexer) stateFn
 // lexer holds the state of the scanner and implements the
 // Lexer interface.
 type lexer struct {
-	closer.Closer
-
-	closingChan <-chan struct{} // Cached for faster access.
-
 	input       string // the string being scanned.
 	start       int    // start position of this token.
 	startLine   int    // start line of this token.
@@ -73,20 +65,17 @@ type lexer struct {
 
 // Lex concurrently starts lexing the given input
 // and returns the associated Lexer instance.
-func Lex(cl closer.Closer, input string) Lexer {
+func Lex(input string) Lexer {
 	l := &lexer{
-		Closer:      cl,
-		closingChan: cl.ClosingChan(),
-		input:       input,
-		startLine:   1,
-		startCol:    1,
-		col:         1,
-		line:        1,
-		tokens:      make(chan Token, 2),
+		input:     input,
+		startLine: 1,
+		startCol:  1,
+		col:       1,
+		line:      1,
+		tokens:    make(chan Token, 2),
 	}
 
 	// Concurrently start lexing.
-	cl.CloserAddWait(1)
 	go l.run()
 
 	return l
@@ -94,17 +83,11 @@ func Lex(cl closer.Closer, input string) Lexer {
 
 // Implements the Lexer interface.
 func (l *lexer) Next() (tk Token) {
-	select {
-	case <-l.closingChan:
-		// Drain the token channel.
-		select {
-		case tk = <-l.tokens:
-		default:
-			tk = Token{Type: EOF}
-		}
-	case tk = <-l.tokens:
+	var ok bool
+	tk, ok = <-l.tokens
+	if !ok {
+		tk = Token{Type: EOF}
 	}
-
 	return
 }
 
@@ -112,11 +95,12 @@ func (l *lexer) Next() (tk Token) {
 // the state is nil.
 // Closes the lexer, if no more tokens are available.
 func (l *lexer) run() {
-	defer l.CloseAndDone_()
-
-	for state := lexTokenStart(l); state != nil && !l.IsClosing(); {
+	for state := lexTokenStart(l); state != nil; {
 		state = state(l)
 	}
+
+	// No more tokens left.
+	close(l.tokens)
 }
 
 // emit publishes a token to the client.
