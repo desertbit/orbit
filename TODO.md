@@ -1,5 +1,6 @@
 # TODO
 - write tests
+- complete full example
 - finish documenting
 - Include go report in readme (and fix issues that it reports beforehand)
 - add orbit fmt cmd for .orbit files
