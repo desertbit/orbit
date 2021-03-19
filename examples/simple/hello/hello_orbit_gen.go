@@ -167,7 +167,7 @@ func (v1 *TimeStreamServiceStream) Read() (arg Info, err error) {
 	err = v1.stream.Read(&arg)
 	if err != nil {
 		err = _serviceErrorCheck(err)
-		if errors.Is(err, oclient.ErrClosed) {
+		if errors.Is(err, oservice.ErrClosed) {
 			err = ErrClosed
 		}
 		return
@@ -221,7 +221,7 @@ func (v1 *ClockTimeServiceStream) Write(ret ClockTimeRet) (err error) {
 	err = v1.stream.Write(ret)
 	if err != nil {
 		err = _serviceErrorCheck(err)
-		if errors.Is(err, oclient.ErrClosed) {
+		if errors.Is(err, oservice.ErrClosed) {
 			err = ErrClosed
 		}
 		return
@@ -282,7 +282,7 @@ func (v1 *BidirectionalServiceStream) Read() (arg BidirectionalArg, err error) {
 	err = v1.stream.Read(&arg)
 	if err != nil {
 		err = _serviceErrorCheck(err)
-		if errors.Is(err, oclient.ErrClosed) {
+		if errors.Is(err, oservice.ErrClosed) {
 			err = ErrClosed
 		}
 		return
@@ -299,7 +299,7 @@ func (v1 *BidirectionalServiceStream) Write(ret BidirectionalRet) (err error) {
 	err = v1.stream.Write(ret)
 	if err != nil {
 		err = _serviceErrorCheck(err)
-		if errors.Is(err, oclient.ErrClosed) {
+		if errors.Is(err, oservice.ErrClosed) {
 			err = ErrClosed
 		}
 		return
@@ -335,6 +335,7 @@ const (
 
 type Client interface {
 	closer.Closer
+	StateChan() <-chan oclient.State
 	// Calls
 	SayHi(ctx context.Context, arg SayHiArg) (ret SayHiRet, err error)
 	Test(ctx context.Context, arg TestArg) (ret TestRet, err error)
@@ -371,7 +372,7 @@ type client struct {
 }
 
 func NewClient(opts oclient.Options) (c Client, err error) {
-	err = options.SetDefaults(&opts, oclient.DefaultOptions(nil))
+	err = options.SetDefaults(&opts, oclient.DefaultOptions())
 	if err != nil {
 		return
 	}
@@ -381,6 +382,10 @@ func NewClient(opts oclient.Options) (c Client, err error) {
 	}
 	c = &client{Client: oc, codec: opts.Codec, callTimeout: opts.CallTimeout, streamInitTimeout: opts.StreamInitTimeout, maxArgSize: opts.MaxArgSize, maxRetSize: opts.MaxRetSize}
 	return
+}
+
+func (v1 *client) StateChan() <-chan oclient.State {
+	return v1.Client.StateChan()
 }
 
 func (v1 *client) SayHi(ctx context.Context, arg SayHiArg) (ret SayHiRet, err error) {
@@ -482,7 +487,7 @@ type service struct {
 }
 
 func NewService(h ServiceHandler, opts oservice.Options) (s Service, err error) {
-	err = options.SetDefaults(&opts, oservice.DefaultOptions(nil))
+	err = options.SetDefaults(&opts, oservice.DefaultOptions())
 	if err != nil {
 		return
 	}
@@ -547,14 +552,26 @@ func (v1 *service) lul(ctx oservice.Context, stream transport.Stream) {
 	v1.h.Lul(ctx, stream)
 }
 
-func (v1 *service) timeStream(ctx oservice.Context, stream oservice.TypedRStream) error {
-	return v1.h.TimeStream(ctx, newTimeStreamServiceStream(stream))
+func (v1 *service) timeStream(ctx oservice.Context, stream oservice.TypedRStream) (err error) {
+	err = v1.h.TimeStream(ctx, newTimeStreamServiceStream(stream))
+	if err != nil {
+		err = _serviceErrorCheck(err)
+	}
+	return
 }
 
-func (v1 *service) clockTime(ctx oservice.Context, stream oservice.TypedWStream) error {
-	return v1.h.ClockTime(ctx, newClockTimeServiceStream(stream))
+func (v1 *service) clockTime(ctx oservice.Context, stream oservice.TypedWStream) (err error) {
+	err = v1.h.ClockTime(ctx, newClockTimeServiceStream(stream))
+	if err != nil {
+		err = _serviceErrorCheck(err)
+	}
+	return
 }
 
-func (v1 *service) bidirectional(ctx oservice.Context, stream oservice.TypedRWStream) error {
-	return v1.h.Bidirectional(ctx, newBidirectionalServiceStream(stream))
+func (v1 *service) bidirectional(ctx oservice.Context, stream oservice.TypedRWStream) (err error) {
+	err = v1.h.Bidirectional(ctx, newBidirectionalServiceStream(stream))
+	if err != nil {
+		err = _serviceErrorCheck(err)
+	}
+	return
 }

@@ -146,7 +146,7 @@ type service struct {
 
 func New(opts Options) (Service, error) {
 	// Set default values.
-	err := options.SetDefaults(&opts, DefaultOptions(nil))
+	err := options.SetDefaults(&opts, DefaultOptions())
 	if err != nil {
 		return nil, err
 	}

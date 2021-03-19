@@ -43,8 +43,23 @@ const (
 	DefaultMaxSize = -2
 )
 
+type State int
+
+const (
+	StateConnecting   State = 0
+	StateConnected    State = 1
+	StateReconnecting State = 2
+	StateReconnected  State = 3
+	StateDisconnected State = 4
+)
+
 type Client interface {
 	closer.Closer
+
+	// StateChan returns a read-only channel that can be listened on
+	// to get notifications about changes of the client's state.
+	// This allows to react for example to sudden disconnects.
+	StateChan() <-chan State
 
 	// Call performs a call on the shared main stream.
 	// Returns ErrConnect if a session connection attempt failed.
@@ -80,9 +95,10 @@ type Client interface {
 type client struct {
 	closer.Closer
 
-	opts  Options
-	log   *zerolog.Logger
-	hooks Hooks
+	opts      Options
+	log       *zerolog.Logger
+	hooks     Hooks
+	stateChan chan State
 
 	sessionMx          sync.Mutex
 	session            *session
@@ -105,11 +121,16 @@ func New(opts Options) (Client, error) {
 		opts:               opts,
 		log:                opts.Log,
 		hooks:              opts.Hooks,
+		stateChan:          make(chan State, 5),
 		connectSessionChan: make(chan chan interface{}),
 	}
 	c.OnClose(c.hookClose)
 	c.startSessionRoutine()
 	return c, nil
+}
+
+func (c *client) StateChan() <-chan State {
+	return c.stateChan
 }
 
 func (c *client) Call(ctx context.Context, id string, arg, ret interface{}) error {

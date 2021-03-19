@@ -85,6 +85,7 @@ const (
 
 type Client interface {
 	closer.Closer
+	StateChan() <-chan oclient.State
 	// Calls
 	YetAnotherCall(ctx context.Context, arg YetAnotherCallArg) (err error)
 }
@@ -109,7 +110,7 @@ type client struct {
 }
 
 func NewClient(opts oclient.Options) (c Client, err error) {
-	err = options.SetDefaults(&opts, oclient.DefaultOptions(nil))
+	err = options.SetDefaults(&opts, oclient.DefaultOptions())
 	if err != nil {
 		return
 	}
@@ -119,6 +120,10 @@ func NewClient(opts oclient.Options) (c Client, err error) {
 	}
 	c = &client{Client: oc, codec: opts.Codec, callTimeout: opts.CallTimeout, streamInitTimeout: opts.StreamInitTimeout, maxArgSize: opts.MaxArgSize, maxRetSize: opts.MaxRetSize}
 	return
+}
+
+func (v1 *client) StateChan() <-chan oclient.State {
+	return v1.Client.StateChan()
 }
 
 func (v1 *client) YetAnotherCall(ctx context.Context, arg YetAnotherCallArg) (err error) {
@@ -144,7 +149,7 @@ type service struct {
 }
 
 func NewService(h ServiceHandler, opts oservice.Options) (s Service, err error) {
-	err = options.SetDefaults(&opts, oservice.DefaultOptions(nil))
+	err = options.SetDefaults(&opts, oservice.DefaultOptions())
 	if err != nil {
 		return
 	}

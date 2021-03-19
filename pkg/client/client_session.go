@@ -35,6 +35,22 @@ import (
 	"github.com/desertbit/orbit/internal/throttler"
 )
 
+func (c *client) updateState(s State) {
+	// Do not block, drain old values if full and retry.
+	select {
+	case c.stateChan <- s:
+	default:
+		select {
+		case <-c.stateChan:
+		default:
+		}
+		select {
+		case c.stateChan <- s:
+		default:
+		}
+	}
+}
+
 func (c *client) getSession() (s *session) {
 	c.sessionMx.Lock()
 	s = c.session
@@ -106,6 +122,8 @@ func (c *client) sessionRoutine() {
 	defer c.Close_()
 
 	var (
+		isReconnect bool
+
 		closingChan      = c.ClosingChan()
 		connectThrottler = throttler.New(c.opts.ConnectThrottleDuration)
 	)
@@ -120,15 +138,31 @@ Loop:
 			// Throttle between connection attempts.
 			connectThrottler.ThrottleSleep(time.Now())
 
+			// Set the new state.
+			if isReconnect {
+				c.updateState(StateReconnecting)
+			} else {
+				c.updateState(StateConnecting)
+			}
+
 			// Try to connect to session.
 			s, err := connectSession(c, c.opts)
 			if err != nil {
+				c.updateState(StateDisconnected)
 				r <- fmt.Errorf("%w: %v", ErrConnect, err) // Notify.
 				continue Loop
 			}
 
 			// Publish the newly connected session.
 			c.setSession(s)
+
+			// Set the new state.
+			if isReconnect {
+				c.updateState(StateReconnected)
+			} else {
+				c.updateState(StateConnected)
+			}
+			isReconnect = true
 
 			// Notify.
 			r <- s
@@ -141,6 +175,7 @@ Loop:
 				select {
 				case <-closingChan:
 					s.Close()
+					c.updateState(StateDisconnected)
 					return
 				case <-sessionClosingChan:
 					break SubLoop
@@ -151,6 +186,9 @@ Loop:
 
 			// Reset the session again.
 			c.setSession(nil)
+
+			// Set the new state.
+			c.updateState(StateDisconnected)
 		}
 	}
 }
