@@ -234,7 +234,7 @@ func (v1 *ObserveNotificationsServiceStream) Read() (arg ObserveNotificationsArg
 	err = v1.stream.Read(&arg)
 	if err != nil {
 		err = _serviceErrorCheck(err)
-		if errors.Is(err, oclient.ErrClosed) {
+		if errors.Is(err, oservice.ErrClosed) {
 			err = ErrClosed
 		}
 		return
@@ -251,7 +251,7 @@ func (v1 *ObserveNotificationsServiceStream) Write(ret Notification) (err error)
 	err = v1.stream.Write(ret)
 	if err != nil {
 		err = _serviceErrorCheck(err)
-		if errors.Is(err, oclient.ErrClosed) {
+		if errors.Is(err, oservice.ErrClosed) {
 			err = ErrClosed
 		}
 		return
@@ -290,6 +290,7 @@ const (
 
 type Client interface {
 	closer.Closer
+	StateChan() <-chan oclient.State
 	// Calls
 	Register(ctx context.Context, arg RegisterArg) (err error)
 	Login(ctx context.Context, arg LoginArg) (err error)
@@ -340,6 +341,10 @@ func NewClient(opts *oclient.Options) (c Client, err error) {
 	}
 	c = &client{Client: oc, codec: opts.Codec, callTimeout: opts.CallTimeout, streamInitTimeout: opts.StreamInitTimeout, maxArgSize: opts.MaxArgSize, maxRetSize: opts.MaxRetSize}
 	return
+}
+
+func (v1 *client) StateChan() <-chan oclient.State {
+	return v1.Client.StateChan()
 }
 
 func (v1 *client) Register(ctx context.Context, arg RegisterArg) (err error) {
@@ -694,6 +699,10 @@ func (v1 *service) updateUserProfileImage(ctx oservice.Context, argData []byte) 
 	return
 }
 
-func (v1 *service) observeNotifications(ctx oservice.Context, stream oservice.TypedRWStream) error {
-	return v1.h.ObserveNotifications(ctx, newObserveNotificationsServiceStream(stream))
+func (v1 *service) observeNotifications(ctx oservice.Context, stream oservice.TypedRWStream) (err error) {
+	err = v1.h.ObserveNotifications(ctx, newObserveNotificationsServiceStream(stream))
+	if err != nil {
+		err = _serviceErrorCheck(err)
+	}
+	return
 }
