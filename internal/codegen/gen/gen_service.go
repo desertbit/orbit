@@ -56,6 +56,7 @@ func (g *generator) genService(srvc *ast.Service, errs []*ast.Error) {
 func (g *generator) genClientInterface(calls []*ast.Call, streams []*ast.Stream) {
 	g.writeLn("type Client interface {")
 	g.writeLn("closer.Closer")
+	g.writeLn("StateChan() <-chan oclient.State")
 
 	if len(calls) > 0 {
 		g.writeLn("// Calls")
@@ -126,6 +127,12 @@ func (g *generator) genClientStruct(calls []*ast.Call, streams []*ast.Stream, er
 	g.writeLn("c = &client{Client: oc, codec: opts.Codec, callTimeout: opts.CallTimeout, streamInitTimeout: opts.StreamInitTimeout, " +
 		"maxArgSize: opts.MaxArgSize, maxRetSize:opts.MaxRetSize}")
 	g.writeLn("return")
+	g.writeLn("}")
+	g.writeLn("")
+
+	// Generate the state chan forwarding.
+	g.writefLn("func (%s *client) StateChan() <-chan oclient.State {", recv)
+	g.writefLn("return %s.Client.StateChan()", recv)
 	g.writeLn("}")
 	g.writeLn("")
 

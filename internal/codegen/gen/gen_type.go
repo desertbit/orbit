@@ -148,7 +148,7 @@ func (g *generator) genServiceStreamType(s *ast.Stream) {
 		g.writefLn("err = %s.stream.Read(&arg)", recv)
 		g.errIfNilFunc(func() {
 			g.writefLn("err = %s(err)", serviceErrorCheck)
-			g.writeLn("if errors.Is(err, oclient.ErrClosed) {")
+			g.writeLn("if errors.Is(err, oservice.ErrClosed) {")
 			g.writeLn("err = ErrClosed")
 			g.writeLn("}")
 			g.writeLn("return")
@@ -166,7 +166,7 @@ func (g *generator) genServiceStreamType(s *ast.Stream) {
 		g.writefLn("err = %s.stream.Write(ret)", recv)
 		g.errIfNilFunc(func() {
 			g.writefLn("err = %s(err)", serviceErrorCheck)
-			g.writeLn("if errors.Is(err, oclient.ErrClosed) {")
+			g.writeLn("if errors.Is(err, oservice.ErrClosed) {")
 			g.writeLn("err = ErrClosed")
 			g.writeLn("}")
 			g.writeLn("return")

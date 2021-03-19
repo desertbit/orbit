@@ -11,10 +11,10 @@ require (
 	github.com/desertbit/yamux v1.0.1
 	github.com/fatih/color v1.9.0 // indirect
 	github.com/go-playground/validator/v10 v10.3.0
-	github.com/golang/mock v1.4.3 // indirect
+	github.com/golang/protobuf v1.4.3 // indirect
 	github.com/hashicorp/go-multierror v1.1.0 // indirect
 	github.com/kr/text v0.2.0 // indirect
-	github.com/lucas-clemente/quic-go v0.17.3
+	github.com/lucas-clemente/quic-go v0.19.3
 	github.com/marten-seemann/qtls v0.10.0 // indirect
 	github.com/mattn/go-colorable v0.1.7 // indirect
 	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect
@@ -24,9 +24,9 @@ require (
 	github.com/stretchr/testify v1.6.1
 	github.com/tinylib/msgp v1.1.2
 	github.com/vmihailenco/msgpack v4.0.4+incompatible // indirect
-	golang.org/x/crypto v0.0.0-20200709230013-948cd5f35899 // indirect
+	golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad // indirect
 	golang.org/x/net v0.0.0-20200707034311-ab3426394381 // indirect
-	golang.org/x/sys v0.0.0-20200625212154-ddb9806d33ae // indirect
+	golang.org/x/sys v0.0.0-20210124154548-22da62e12c0c // indirect
 	golang.org/x/text v0.3.3 // indirect
 	google.golang.org/appengine v1.6.6 // indirect
 	google.golang.org/protobuf v1.25.0 // indirect
