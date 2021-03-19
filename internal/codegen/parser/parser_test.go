@@ -47,49 +47,49 @@ var (
 var (
 	expVersion = &ast.Version{Value: 1, Pos: lexer.Pos{Line: 1, Column: 1}}
 	c1         = &ast.Call{
-		Name: "C1",
-		Arg:  &ast.StructType{Name: "C1Arg"},
-		Ret:  &ast.StructType{Name: "C1Ret"},
+		Name: "c1",
+		Arg:  &ast.StructType{Name: "c1Arg"},
+		Ret:  &ast.StructType{Name: "c1Ret"},
 	}
 	c2 = &ast.Call{
-		Name:       "C2",
+		Name:       "c2",
 		Async:      true,
-		Arg:        &ast.StructType{Name: "C2Arg"},
-		Ret:        &ast.StructType{Name: "C2Ret"},
+		Arg:        &ast.StructType{Name: "c2Arg"},
+		Ret:        &ast.StructType{Name: "c2Ret"},
 		Timeout:    &c2Timeout,
 		MaxArgSize: &c2MaxArgSize,
 		MaxRetSize: &c2MaxRetSize,
 	}
-	c3  = &ast.Call{Name: "C3"}
+	c3  = &ast.Call{Name: "c3"}
 	rc1 = &ast.Call{
-		Name: "Rc1",
+		Name: "rc1",
 		Arg:  &ast.AnyType{Name: "Arg"},
 		Ret:  &ast.StructType{Name: "Rc1Ret"},
 	}
 	rc2 = &ast.Call{
-		Name:  "Rc2",
+		Name:  "rc2",
 		Async: true,
-		Arg:   &ast.StructType{Name: "Rc2Arg"},
+		Arg:   &ast.StructType{Name: "rc2Arg"},
 	}
 	rc3 = &ast.Call{
-		Name: "Rc3",
+		Name: "rc3",
 	}
-	st1 = &ast.Stream{Name: "S1"}
+	st1 = &ast.Stream{Name: "s1"}
 	st2 = &ast.Stream{
-		Name: "S2",
-		Arg:  &ast.StructType{Name: "S2Arg"},
+		Name: "s2",
+		Arg:  &ast.StructType{Name: "s2Arg"},
 	}
 	st3 = &ast.Stream{
-		Name: "S3",
+		Name: "s3",
 		Ret:  &ast.AnyType{Name: "Ret"},
 	}
 	rst1 = &ast.Stream{
-		Name: "Rs1",
+		Name: "rs1",
 		Arg:  &ast.AnyType{Name: "Arg"},
 		Ret:  &ast.AnyType{Name: "Ret"},
 	}
 	rst2 = &ast.Stream{
-		Name: "Rs2",
+		Name: "rs2",
 	}
 	expSrvc = &ast.Service{
 		Calls:   []*ast.Call{c1, c2, c3, rc1, rc2, rc3},
@@ -98,28 +98,28 @@ var (
 
 	expTypes = []*ast.Type{
 		{
-			Name: "C1Arg",
+			Name: "c1Arg",
 			Fields: []*ast.TypeField{
-				{Name: "Id", DataType: &ast.AnyType{Name: "int"}, StructTag: "json:\"ID\" yaml:\"id\""},
+				{Name: "id", DataType: &ast.AnyType{Name: "int"}, StructTag: "json:\"ID\" yaml:\"id\""},
 			},
 		},
 		{
-			Name: "C1Ret",
+			Name: "c1Ret",
 			Fields: []*ast.TypeField{
-				{Name: "Sum", DataType: &ast.AnyType{Name: "float32"}},
+				{Name: "sum", DataType: &ast.AnyType{Name: "float32"}},
 			},
 		},
 		{
-			Name: "C2Arg",
+			Name: "c2Arg",
 			Fields: []*ast.TypeField{
-				{Name: "Ts", DataType: &ast.AnyType{Name: "time"}},
+				{Name: "ts", DataType: &ast.AnyType{Name: "time"}},
 			},
 		},
 		{
-			Name: "C2Ret",
+			Name: "c2Ret",
 			Fields: []*ast.TypeField{
 				{
-					Name: "Data",
+					Name: "data",
 					// []map[string][]Ret
 					DataType: &ast.ArrType{
 						Elem: &ast.MapType{
@@ -131,21 +131,21 @@ var (
 			},
 		},
 		{
-			Name: "Rc1Ret",
+			Name: "rc1Ret",
 			Fields: []*ast.TypeField{
-				{Name: "S", DataType: &ast.AnyType{Name: "string"}},
-				{Name: "I", DataType: &ast.AnyType{Name: "int"}},
+				{Name: "s", DataType: &ast.AnyType{Name: "string"}},
+				{Name: "i", DataType: &ast.AnyType{Name: "int"}},
 				{
-					Name: "M",
+					Name: "m",
 					DataType: &ast.MapType{
 						Key:   &ast.AnyType{Name: "string"},
 						Value: &ast.AnyType{Name: "int"},
 					},
 				},
-				{Name: "Sl", DataType: &ast.ArrType{Elem: &ast.AnyType{Name: "time"}}},
-				{Name: "St", DataType: &ast.AnyType{Name: "Ret"}},
+				{Name: "sl", DataType: &ast.ArrType{Elem: &ast.AnyType{Name: "time"}}},
+				{Name: "st", DataType: &ast.AnyType{Name: "Ret"}},
 				{
-					Name: "Crazy",
+					Name: "crazy",
 					DataType: &ast.MapType{
 						Key: &ast.AnyType{Name: "string"},
 						Value: &ast.ArrType{
@@ -161,39 +161,39 @@ var (
 			},
 		},
 		{
-			Name: "Rc2Arg",
+			Name: "rc2Arg",
 			Fields: []*ast.TypeField{
-				{Name: "F", DataType: &ast.AnyType{Name: "float64"}},
-				{Name: "B", DataType: &ast.AnyType{Name: "byte"}},
-				{Name: "U8", DataType: &ast.AnyType{Name: "uint8"}},
-				{Name: "U16", DataType: &ast.AnyType{Name: "uint16"}},
-				{Name: "U32", DataType: &ast.AnyType{Name: "uint32"}},
-				{Name: "U64", DataType: &ast.AnyType{Name: "uint64"}},
+				{Name: "f", DataType: &ast.AnyType{Name: "float64"}},
+				{Name: "b", DataType: &ast.AnyType{Name: "byte"}},
+				{Name: "u8", DataType: &ast.AnyType{Name: "uint8"}},
+				{Name: "u16", DataType: &ast.AnyType{Name: "uint16"}},
+				{Name: "u32", DataType: &ast.AnyType{Name: "uint32"}},
+				{Name: "u64", DataType: &ast.AnyType{Name: "uint64"}},
 			},
 		},
 		{
-			Name: "S2Arg",
+			Name: "s2Arg",
 			Fields: []*ast.TypeField{
-				{Name: "Id", DataType: &ast.AnyType{Name: "string"}, StructTag: "validator:\"required\""},
+				{Name: "id", DataType: &ast.AnyType{Name: "string"}, StructTag: "validator:\"required\""},
 			},
 		},
 		{
 			Name: "Arg",
 			Fields: []*ast.TypeField{
-				{Name: "S", DataType: &ast.AnyType{Name: "string"}, StructTag: "json:\"STRING\""},
-				{Name: "I", DataType: &ast.AnyType{Name: "int"}},
+				{Name: "s", DataType: &ast.AnyType{Name: "string"}, StructTag: "json:\"STRING\""},
+				{Name: "i", DataType: &ast.AnyType{Name: "int"}},
 				{
-					Name: "M",
+					Name: "m",
 					DataType: &ast.MapType{
 						Key:   &ast.AnyType{Name: "string"},
 						Value: &ast.AnyType{Name: "int"},
 					},
 				},
-				{Name: "Sl", DataType: &ast.ArrType{Elem: &ast.AnyType{Name: "time"}}},
-				{Name: "Dur", DataType: &ast.AnyType{Name: "duration"}},
-				{Name: "St", DataType: &ast.AnyType{Name: "Ret"}},
+				{Name: "sl", DataType: &ast.ArrType{Elem: &ast.AnyType{Name: "time"}}},
+				{Name: "dur", DataType: &ast.AnyType{Name: "duration"}},
+				{Name: "st", DataType: &ast.AnyType{Name: "Ret"}},
 				{
-					Name: "Crazy",
+					Name: "crazy",
 					DataType: &ast.MapType{
 						Key: &ast.AnyType{Name: "string"},
 						Value: &ast.ArrType{
@@ -211,12 +211,12 @@ var (
 		{
 			Name: "Ret",
 			Fields: []*ast.TypeField{
-				{Name: "F", DataType: &ast.AnyType{Name: "float64"}},
-				{Name: "B", DataType: &ast.AnyType{Name: "byte"}},
-				{Name: "U8", DataType: &ast.AnyType{Name: "uint8"}},
-				{Name: "U16", DataType: &ast.AnyType{Name: "uint16"}},
-				{Name: "U32", DataType: &ast.AnyType{Name: "uint32"}},
-				{Name: "U64", DataType: &ast.AnyType{Name: "uint64"}},
+				{Name: "f", DataType: &ast.AnyType{Name: "float64"}},
+				{Name: "b", DataType: &ast.AnyType{Name: "byte"}},
+				{Name: "u8", DataType: &ast.AnyType{Name: "uint8"}},
+				{Name: "u16", DataType: &ast.AnyType{Name: "uint16"}},
+				{Name: "u32", DataType: &ast.AnyType{Name: "uint32"}},
+				{Name: "u64", DataType: &ast.AnyType{Name: "uint64"}},
 			},
 		},
 	}
@@ -233,9 +233,9 @@ var (
 	}
 
 	expErrs = []*ast.Error{
-		{Name: "TheFirstError", ID: 1},
-		{Name: "TheSecondError", ID: 2},
-		{Name: "TheThirdError", ID: 3},
+		{Name: "theFirstError", ID: 1},
+		{Name: "theSecondError", ID: 2},
+		{Name: "theThirdError", ID: 3},
 	}
 )
 
