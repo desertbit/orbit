@@ -28,7 +28,8 @@
 package ast
 
 import (
-	"strings"
+	"github.com/desertbit/orbit/internal/codegen/lexer"
+	"github.com/desertbit/orbit/internal/strutil"
 )
 
 const (
@@ -58,13 +59,13 @@ const (
 type DataType interface {
 	// Returns go variable declaration.
 	Decl() string
-	// Returns simple name.
-	Name() string
+	// Returns identifier.
+	ID() string
 }
 
 type BaseType struct {
 	DataType string
-	Line     int
+	lexer.Pos
 }
 
 func (b *BaseType) Decl() string {
@@ -77,75 +78,72 @@ func (b *BaseType) Decl() string {
 	return b.DataType
 }
 
-func (b *BaseType) Name() string {
-	if b.DataType == TypeTime {
-		return "Time"
-	}
-	return strings.Title(b.DataType)
+func (b *BaseType) ID() string {
+	return b.DataType
 }
 
 type MapType struct {
 	Key   DataType
 	Value DataType
-	Line  int
+	lexer.Pos
 }
 
 func (m *MapType) Decl() string {
 	return "map[" + m.Key.Decl() + "]" + m.Value.Decl()
 }
 
-func (m *MapType) Name() string {
-	return "Map" + strings.Title(m.Key.Name()) + strings.Title(m.Value.Name())
+func (m *MapType) ID() string {
+	return m.Decl()
 }
 
 type ArrType struct {
 	Elem DataType
-	Line int
+	lexer.Pos
 }
 
 func (a *ArrType) Decl() string {
 	return "[]" + a.Elem.Decl()
 }
 
-func (a *ArrType) Name() string {
-	return "Arr" + strings.Title(a.Elem.Name())
+func (a *ArrType) ID() string {
+	return a.Decl()
 }
 
 type StructType struct {
-	NamePrv string
-	Line    int
+	Name string
+	lexer.Pos
 }
 
 func (s *StructType) Decl() string {
-	return s.NamePrv
+	return strutil.FirstUpper(s.Name)
 }
 
-func (s *StructType) Name() string {
-	return s.NamePrv
+func (s *StructType) ID() string {
+	return s.Name
 }
 
 type EnumType struct {
-	NamePrv string
-	Line    int
+	Name string
+	lexer.Pos
 }
 
 func (e *EnumType) Decl() string {
-	return e.NamePrv
+	return strutil.FirstUpper(e.Name)
 }
 
-func (e *EnumType) Name() string {
-	return e.NamePrv
+func (e *EnumType) ID() string {
+	return e.Name
 }
 
 type AnyType struct {
-	NamePrv string
-	Line    int
+	Name string
+	lexer.Pos
 }
 
 func (a *AnyType) Decl() string {
 	return "unresolved any type"
 }
 
-func (a *AnyType) Name() string {
-	return a.NamePrv
+func (a *AnyType) ID() string {
+	return a.Name
 }

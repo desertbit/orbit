@@ -40,9 +40,9 @@ func (g *generator) genTypes(ts []*ast.Type, srvc *ast.Service) {
 	})
 
 	for _, t := range ts {
-		g.writefLn("type %s struct {", t.Name)
+		g.writefLn("type %s struct {", t.Ident())
 		for _, f := range t.Fields {
-			g.writef("%s %s", f.Name, f.DataType.Decl())
+			g.writef("%s %s", f.Ident(), f.DataType.Decl())
 			if f.StructTag != "" {
 				g.writef(" `%s`", f.StructTag)
 			}
@@ -67,7 +67,7 @@ func (g *generator) genClientStreamType(s *ast.Stream) {
 		return
 	}
 
-	name := s.Name + "ClientStream"
+	name := s.Ident() + "ClientStream"
 	typedStream := "oclient." + typedStream(s, false)
 
 	// Type definition.
@@ -125,7 +125,7 @@ func (g *generator) genServiceStreamType(s *ast.Stream) {
 		return
 	}
 
-	name := s.Name + "ServiceStream"
+	name := s.Ident() + "ServiceStream"
 	typedStream := "oservice." + typedStream(s, true)
 
 	// Type definition.

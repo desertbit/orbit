@@ -1,0 +1,98 @@
+version 1
+
+service {
+    call c1 {
+        arg: {
+			id int `json:"ID" yaml:"id"`
+		}
+        ret: {
+			sum float32
+		}
+    }
+    call c2 {
+        async
+		arg: {
+			ts time
+		}
+        ret: {
+			data []map[string][]Ret
+		}
+		timeout: 500ms
+		maxArgSize: 154KB
+		maxRetSize: 5MiB
+    }
+    call c3 {}
+
+    call rc1 {
+        arg: Arg
+        ret: {
+            s string
+            i int
+            m map[string]int
+            sl []time
+            st Ret
+            crazy map[string][][]map[string]En1
+        }
+    }
+    call rc2 {
+        async
+        arg: {
+            f float64
+            b byte
+            u8 uint8
+            u16 uint16
+            u32 uint32
+            u64 uint64
+        }
+    }
+    call rc3 {}
+
+    stream s1 {}
+    stream s2 {
+        arg: {
+			id string `validator:"required"`
+		}
+    }
+    stream s3 {
+        ret: Ret
+    }
+
+    stream rs1 {
+        arg: Arg
+        ret: Ret
+    }
+    stream rs2 {}
+}
+
+type Arg {
+    s string `json:"STRING"`
+    i int
+    m map[string]int
+    sl []time
+	dur duration
+    st Ret
+    crazy map[string][][]map[string]En1
+}
+
+type Ret {
+    f float64
+    b byte
+    u8 uint8
+    u16 uint16
+    u32 uint32
+    u64 uint64
+}
+
+enum En1 {
+    Val1 = 1
+    Val2 = 2
+    Val3 = 3
+}
+
+errors {
+    theFirstError = 1
+    theSecondError = 2
+    theThirdError = 3
+}
+
+errors {}

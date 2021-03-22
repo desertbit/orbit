@@ -45,10 +45,10 @@ func (g *generator) genEnums(enums []*ast.Enum) {
 			return en.Values[i].Name < en.Values[j].Name
 		})
 
-		g.writefLn("type %s int", en.Name)
+		g.writefLn("type %s int", en.Ident())
 		g.writeLn("const (")
 		for _, env := range en.Values {
-			g.writefLn("%s %s = %d", env.Name, en.Name, env.Value)
+			g.writefLn("%s %s = %d", env.Ident(), en.Ident(), env.Value)
 		}
 		g.writeLn(")")
 	}
