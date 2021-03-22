@@ -49,14 +49,14 @@ func (g *generator) genErrors(errs []*ast.Error) {
 	if len(errs) > 0 {
 		g.writeLn("const (")
 		for _, e := range errs {
-			g.writefLn("ErrCode%s = %d", e.Name, e.ID)
+			g.writefLn("ErrCode%s = %d", e.Ident(), e.ID)
 		}
 		g.writeLn(")")
 
 		// Write standard error variables.
 		g.writeLn("var (")
 		for _, e := range errs {
-			g.writefLn("Err%s = errors.New(\"%s\")", e.Name, strExplode(e.Name))
+			g.writefLn("Err%s = errors.New(\"%s\")", e.Ident(), strExplode(e.Ident()))
 		}
 		g.writeLn(")")
 		g.writeLn("")
@@ -81,8 +81,8 @@ func (g *generator) genClientErrorCheckFunc(errs []*ast.Error) {
 	g.writeLn("if errors.As(err, &cErr) {")
 	g.writeLn("switch cErr.Code() {")
 	for _, e := range errs {
-		g.writefLn("case ErrCode%s:", e.Name)
-		g.writefLn("return Err%s", e.Name)
+		g.writefLn("case ErrCode%s:", e.Ident())
+		g.writefLn("return Err%s", e.Ident())
 	}
 	g.writeLn("}")
 	g.writeLn("}")
@@ -101,8 +101,8 @@ func (g *generator) genServiceErrorCheckFunc(errs []*ast.Error) {
 	}
 
 	for i, e := range errs {
-		g.writefLn("if errors.Is(err, Err%s) {", e.Name)
-		g.writefLn("return oservice.NewError(err, Err%s.Error(), ErrCode%s)", e.Name, e.Name)
+		g.writefLn("if errors.Is(err, Err%s) {", e.Ident())
+		g.writefLn("return oservice.NewError(err, Err%s.Error(), ErrCode%s)", e.Ident(), e.Ident())
 		if i < len(errs)-1 {
 			g.write("} else ")
 		} else {

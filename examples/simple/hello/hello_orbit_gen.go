@@ -45,33 +45,33 @@ var (
 var ErrClosed = errors.New("closed")
 
 const (
-	ErrCodeiAmAnError  = 2
-	ErrCodethisIsATest = 1
+	ErrCodeIAmAnError  = 2
+	ErrCodeThisIsATest = 1
 )
 
 var (
-	ErriAmAnError  = errors.New("i am an error")
-	ErrthisIsATest = errors.New("this is a test")
+	ErrIAmAnError  = errors.New("i am an error")
+	ErrThisIsATest = errors.New("this is a test")
 )
 
 func _clientErrorCheck(err error) error {
 	var cErr oclient.Error
 	if errors.As(err, &cErr) {
 		switch cErr.Code() {
-		case ErrCodeiAmAnError:
-			return ErriAmAnError
-		case ErrCodethisIsATest:
-			return ErrthisIsATest
+		case ErrCodeIAmAnError:
+			return ErrIAmAnError
+		case ErrCodeThisIsATest:
+			return ErrThisIsATest
 		}
 	}
 	return err
 }
 
 func _serviceErrorCheck(err error) error {
-	if errors.Is(err, ErriAmAnError) {
-		return oservice.NewError(err, ErriAmAnError.Error(), ErrCodeiAmAnError)
-	} else if errors.Is(err, ErrthisIsATest) {
-		return oservice.NewError(err, ErrthisIsATest.Error(), ErrCodethisIsATest)
+	if errors.Is(err, ErrIAmAnError) {
+		return oservice.NewError(err, ErrIAmAnError.Error(), ErrCodeIAmAnError)
+	} else if errors.Is(err, ErrThisIsATest) {
+		return oservice.NewError(err, ErrThisIsATest.Error(), ErrCodeThisIsATest)
 	}
 	return err
 }
@@ -310,11 +310,11 @@ func (v1 *BidirectionalServiceStream) Write(ret BidirectionalRet) (err error) {
 //### Enums ###//
 //#############//
 
-type vehicle int
+type Vehicle int
 
 const (
-	car    vehicle = 1
-	pickup vehicle = 2
+	Car    Vehicle = 1
+	Pickup Vehicle = 2
 )
 
 //###############//

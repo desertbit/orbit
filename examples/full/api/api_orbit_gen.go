@@ -45,39 +45,39 @@ var (
 var ErrClosed = errors.New("closed")
 
 const (
-	ErrCodeauthFailed        = 1
-	ErrCodenameAlreadyExists = 3
-	ErrCodenotFound          = 2
+	ErrCodeAuthFailed        = 1
+	ErrCodeNameAlreadyExists = 3
+	ErrCodeNotFound          = 2
 )
 
 var (
-	ErrauthFailed        = errors.New("auth failed")
-	ErrnameAlreadyExists = errors.New("name already exists")
-	ErrnotFound          = errors.New("not found")
+	ErrAuthFailed        = errors.New("auth failed")
+	ErrNameAlreadyExists = errors.New("name already exists")
+	ErrNotFound          = errors.New("not found")
 )
 
 func _clientErrorCheck(err error) error {
 	var cErr oclient.Error
 	if errors.As(err, &cErr) {
 		switch cErr.Code() {
-		case ErrCodeauthFailed:
-			return ErrauthFailed
-		case ErrCodenameAlreadyExists:
-			return ErrnameAlreadyExists
-		case ErrCodenotFound:
-			return ErrnotFound
+		case ErrCodeAuthFailed:
+			return ErrAuthFailed
+		case ErrCodeNameAlreadyExists:
+			return ErrNameAlreadyExists
+		case ErrCodeNotFound:
+			return ErrNotFound
 		}
 	}
 	return err
 }
 
 func _serviceErrorCheck(err error) error {
-	if errors.Is(err, ErrauthFailed) {
-		return oservice.NewError(err, ErrauthFailed.Error(), ErrCodeauthFailed)
-	} else if errors.Is(err, ErrnameAlreadyExists) {
-		return oservice.NewError(err, ErrnameAlreadyExists.Error(), ErrCodenameAlreadyExists)
-	} else if errors.Is(err, ErrnotFound) {
-		return oservice.NewError(err, ErrnotFound.Error(), ErrCodenotFound)
+	if errors.Is(err, ErrAuthFailed) {
+		return oservice.NewError(err, ErrAuthFailed.Error(), ErrCodeAuthFailed)
+	} else if errors.Is(err, ErrNameAlreadyExists) {
+		return oservice.NewError(err, ErrNameAlreadyExists.Error(), ErrCodeNameAlreadyExists)
+	} else if errors.Is(err, ErrNotFound) {
+		return oservice.NewError(err, ErrNotFound.Error(), ErrCodeNotFound)
 	}
 	return err
 }
