@@ -30,53 +30,78 @@ package ast
 import (
 	"time"
 
-	"github.com/desertbit/orbit/internal/utils"
+	"github.com/desertbit/orbit/internal/codegen/lexer"
+	"github.com/desertbit/orbit/internal/strutil"
 )
 
-type Tree struct {
-	Version int
+type File struct {
+	Version *Version
 	Srvc    *Service
 	Types   []*Type
 	Errs    []*Error
 	Enums   []*Enum
 }
 
+type Version struct {
+	Value int
+	lexer.Pos
+}
+
 type Enum struct {
 	Name   string
 	Values []*EnumValue
-	Line   int
+	lexer.Pos
+}
+
+func (e Enum) Ident() string {
+	return strutil.FirstUpper(e.Name)
 }
 
 type EnumValue struct {
 	Name  string
 	Value int
-	Line  int
+	lexer.Pos
+}
+
+func (ev EnumValue) Ident() string {
+	return strutil.FirstUpper(ev.Name)
 }
 
 type Error struct {
 	Name string
 	ID   int
-	Line int
+	lexer.Pos
+}
+
+func (e Error) Ident() string {
+	return strutil.FirstUpper(e.Name)
 }
 
 type Type struct {
 	Name   string
 	Fields []*TypeField
-	Line   int
+	lexer.Pos
+}
+
+func (t Type) Ident() string {
+	return strutil.FirstUpper(t.Name)
 }
 
 type TypeField struct {
 	Name      string
 	DataType  DataType
 	StructTag string
-	Line      int
+	lexer.Pos
+}
+
+func (tf TypeField) Ident() string {
+	return strutil.FirstUpper(tf.Name)
 }
 
 type Service struct {
-	Url     string
 	Calls   []*Call
 	Streams []*Stream
-	Line    int
+	lexer.Pos
 }
 
 type Call struct {
@@ -87,11 +112,15 @@ type Call struct {
 	Timeout    *time.Duration
 	MaxArgSize *int64
 	MaxRetSize *int64
-	Line       int
+	lexer.Pos
 }
 
-func (c *Call) NamePrv() string {
-	return utils.NoTitle(c.Name)
+func (c *Call) Ident() string {
+	return strutil.FirstUpper(c.Name)
+}
+
+func (c *Call) IdentPrv() string {
+	return strutil.FirstLower(c.Name)
 }
 
 type Stream struct {
@@ -100,9 +129,13 @@ type Stream struct {
 	Ret        DataType
 	MaxArgSize *int64
 	MaxRetSize *int64
-	Line       int
+	lexer.Pos
 }
 
-func (s *Stream) NamePrv() string {
-	return utils.NoTitle(s.Name)
+func (s *Stream) Ident() string {
+	return strutil.FirstUpper(s.Name)
+}
+
+func (s *Stream) IdentPrv() string {
+	return strutil.FirstLower(s.Name)
 }

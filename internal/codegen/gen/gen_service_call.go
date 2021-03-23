@@ -36,7 +36,7 @@ import (
 //##############//
 
 func (g *generator) genClientCallSignature(c *ast.Call) {
-	g.writef("%s(ctx context.Context", c.Name)
+	g.writef("%s(ctx context.Context", c.Ident())
 	if c.Arg != nil {
 		g.writef(", arg %s", c.Arg.Decl())
 	}
@@ -74,7 +74,7 @@ func (g *generator) genClientCall(c *ast.Call, errs []*ast.Error) {
 	}
 	g.write("Call")
 
-	g.writef("(ctx, CallID%s, ", c.Name)
+	g.writef("(ctx, CallID%s, ", c.Ident())
 	// Arg.
 	if c.Arg != nil {
 		g.write("arg,")
@@ -132,19 +132,19 @@ func (g *generator) genClientCall(c *ast.Call, errs []*ast.Error) {
 
 func (g *generator) genServiceCallRegister(c *ast.Call) {
 	if c.Async {
-		g.writef("os.RegisterAsyncCall(CallID%s, srvc.%s,", c.Name, c.NamePrv())
+		g.writef("os.RegisterAsyncCall(CallID%s, srvc.%s,", c.Ident(), c.IdentPrv())
 		g.writeTimeoutParam(c.Timeout)
 		g.writeOrbitMaxSizeParam(c.MaxArgSize, true)
 		g.writeOrbitMaxSizeParam(c.MaxRetSize, true)
 	} else {
-		g.writef("os.RegisterCall(CallID%s, srvc.%s,", c.Name, c.NamePrv())
+		g.writef("os.RegisterCall(CallID%s, srvc.%s,", c.Ident(), c.IdentPrv())
 		g.writeTimeoutParam(c.Timeout)
 	}
 	g.writeLn(")")
 }
 
 func (g *generator) genServiceHandlerCallSignature(c *ast.Call) {
-	g.writef("%s(ctx oservice.Context", c.Name)
+	g.writef("%s(ctx oservice.Context", c.Ident())
 	if c.Arg != nil {
 		g.writef(", arg %s", c.Arg.Decl())
 	}
@@ -159,7 +159,7 @@ func (g *generator) genServiceCall(c *ast.Call) {
 	// Method declaration.
 	g.writefLn(
 		"func (%s *service) %s(ctx oservice.Context, argData []byte) (retData interface{}, err error) {",
-		recv, c.NamePrv(),
+		recv, c.IdentPrv(),
 	)
 
 	// Method body.
@@ -179,9 +179,9 @@ func (g *generator) genServiceCall(c *ast.Call) {
 
 	// Call the handler.
 	if c.Ret != nil {
-		g.writefLn("ret, err := %s.h.%s(%s)", recv, c.Name, handlerArgs)
+		g.writefLn("ret, err := %s.h.%s(%s)", recv, c.Ident(), handlerArgs)
 	} else {
-		g.writefLn("err = %s.h.%s(%s)", recv, c.Name, handlerArgs)
+		g.writefLn("err = %s.h.%s(%s)", recv, c.Ident(), handlerArgs)
 	}
 
 	// Check error and convert to orbit errors.

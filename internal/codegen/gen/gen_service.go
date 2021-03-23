@@ -33,14 +33,12 @@ import (
 
 func (g *generator) genService(srvc *ast.Service, errs []*ast.Error) {
 	// Create the call ids.
-	g.writeLn("// CallIDs")
 	g.writeLn("const (")
 	for _, c := range srvc.Calls {
-		g.writefLn("CallID%s = \"%s\"", c.Name, c.Name)
+		g.writefLn("CallID%s = \"%s\"", c.Ident(), c.Ident())
 	}
-	g.writeLn("// StreamIDs")
 	for _, s := range srvc.Streams {
-		g.writefLn("StreamID%s = \"%s\"", s.Name, s.Name)
+		g.writefLn("StreamID%s = \"%s\"", s.Ident(), s.Ident())
 	}
 	g.writeLn(")")
 	g.writeLn("")

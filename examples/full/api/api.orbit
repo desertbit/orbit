@@ -1,0 +1,121 @@
+/** 
+    An example for a small service that deals with users etc.
+    It is nowhere near complete enough to represent a real application,
+    but it should give enough ideas how it could look like using orbit.
+*/
+
+version 1
+
+errors {
+    authFailed = 1
+    notFound = 2
+    nameAlreadyExists = 3
+}
+
+service {
+    call register {
+        arg: {
+            email string `validate:"email"` // Automatic email validation by go-playground/validator
+            password string `validate:"required,min=8"`
+        }
+    }
+
+    call login {
+        arg: {
+            user string `validate:"required"`
+            password string `validate:"required"`
+        }
+    }
+
+    // No parameters needed.
+    call logout {}
+
+    call getUsers {
+        arg: {
+            afterUserID string
+            count int `validate:"min=1,max=100"`
+        }
+        ret: { users []UserOverview }
+    }
+
+    call getUser {
+        arg: { userID string `validate:"required"` }
+        ret: UserDetail
+    }
+
+    call getUserProfileImage {
+        async // Prevents head-of-line blocking, since a separate stream is opened for each call.
+        arg: { userID string `validate:"required"` }
+        ret: { jpeg []byte }
+    }
+
+    call createUser {
+        arg: {
+            userName string `validate:"required,min=4"`
+            firstName string `validate:"required"`
+            lastName string  `validate:"required"`
+            email string `validate:"email"`
+        }
+        ret: UserDetail
+    }
+
+    call updateUser {
+        arg: {
+            userID string `validate:"required"`
+            userName string `validate:"required,min=4"`
+            firstName string `validate:"required"`
+            lastName string  `validate:"required"`
+            status string
+            email string  `validate:"email"`
+        }
+    }
+
+    call updateUserProfileImage {
+        async
+        arg: {
+            userID string `validate:"required"`
+            jpeg []byte
+        }
+        maxArgSize: 5MB
+        timeout: 60s
+    }
+
+    // A stream can be left open to asynchronously push new data from the server
+    // to the client.
+    stream observeNotifications {
+        arg: { userID string `validate:"required"` }
+        ret: Notification
+    }
+}
+
+type UserOverview {
+    id string
+    userName string
+    firstName string
+    lastName string
+    joinedOn time
+    status string
+    numberFollowers int
+}
+
+type UserDetail {
+    overview UserOverview
+    numberPosts int
+    numberFollowing int
+    numberFriends int
+    userStatus UserStatus
+}
+
+type Notification {
+    id string
+    title string
+    description string
+    thumbnailJpeg []byte
+    link string
+}
+
+enum UserStatus {
+    EmailNotVerified = 1
+    Active = 2
+    Blocked = 3
+}

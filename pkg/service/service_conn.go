@@ -30,7 +30,7 @@ package service
 import (
 	"fmt"
 
-	"github.com/desertbit/orbit/internal/utils"
+	"github.com/desertbit/orbit/internal/strutil"
 	"github.com/desertbit/orbit/pkg/transport"
 )
 
@@ -64,7 +64,7 @@ func (s *service) handleNewConnRoutine() {
 
 func (s *service) handleNewConn(conn transport.Conn) (err error) {
 	// Generate an id for the session.
-	id, err := utils.RandomString(s.opts.SessionIDLen)
+	id, err := strutil.RandomString(s.opts.SessionIDLen)
 	if err != nil {
 		return
 	}

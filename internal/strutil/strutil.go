@@ -26,14 +26,13 @@
  */
 
 /*
-Package utils is the common sin of every Go programmer, including functions that
-seem to be usable everywhere, but do not share the same functionality.
+Package strutil is the common sin of every Go programmer.
+It contains utility functions around strings.
 */
-package utils
+package strutil
 
 import (
 	"crypto/rand"
-	"strings"
 	"unicode"
 )
 
@@ -42,7 +41,7 @@ const (
 	// RandomString() expects only ASCII characters, therefore, no char spanning
 	// more than 1 byte in UTF-8 encoding must be used.
 	randStrChars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
-	// randStrCharsLen stores the length of randStrChars for performance reasons.
+	// randStrCharsLen stores the length of randStrChars.
 	randStrCharsLen = byte(len(randStrChars))
 )
 
@@ -61,15 +60,22 @@ func RandomString(n uint) (string, error) {
 	return string(bytes), nil
 }
 
-// NoTitle performs the opposite operation of the strings.Title() func.
-// It ensures the first char of the given string is lowercase.
-func NoTitle(s string) string {
-	done := false
-	return strings.Map(func(r rune) rune {
-		if !done {
-			done = true
-			return unicode.ToLower(r)
-		}
-		return r
-	}, s)
+// FirstUpper returns a copy of s, where the first rune is
+// guaranteed to be an uppercase letter, like unicode.ToUpper
+// suggests.
+func FirstUpper(s string) string {
+	for i, v := range s {
+		return string(unicode.ToUpper(v)) + s[i+1:]
+	}
+	return ""
+}
+
+// FirstLower returns a copy of s, where the first rune is
+// guaranteed to be a lowercase letter, like unicode.ToLower
+// suggests.
+func FirstLower(s string) string {
+	for i, v := range s {
+		return string(unicode.ToLower(v)) + s[i+1:]
+	}
+	return ""
 }

@@ -322,11 +322,9 @@ const (
 //### Service ###//
 //###############//
 
-// CallIDs
 const (
-	CallIDSayHi = "SayHi"
-	CallIDTest  = "Test"
-	// StreamIDs
+	CallIDSayHi           = "SayHi"
+	CallIDTest            = "Test"
 	StreamIDLul           = "Lul"
 	StreamIDTimeStream    = "TimeStream"
 	StreamIDClockTime     = "ClockTime"

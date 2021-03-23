@@ -25,12 +25,12 @@
  * SOFTWARE.
  */
 
-package utils_test
+package strutil_test
 
 import (
 	"testing"
 
-	"github.com/desertbit/orbit/internal/utils"
+	"github.com/desertbit/orbit/internal/strutil"
 	"github.com/stretchr/testify/require"
 )
 
@@ -40,13 +40,50 @@ func TestRandomString(t *testing.T) {
 	testCases := []uint{0, 1, 10, 100}
 
 	for i, c := range testCases {
-		s, err := utils.RandomString(c)
+		s, err := strutil.RandomString(c)
 		require.NoErrorf(t, err, "case %d", i)
 		require.Lenf(t, s, int(c), "case %d", i)
 	}
 }
 
-func TestNoTitle(t *testing.T) {
+var benchRandomStringRes string
+
+func BenchmarkRandomString(b *testing.B) {
+	var (
+		res string
+		err error
+	)
+	for i := 0; i < b.N; i++ {
+		res, err = strutil.RandomString(32)
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+	benchRandomStringRes = res
+}
+
+func TestFirstUpper(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		val string
+		exp string
+	}{
+		{val: "", exp: ""}, // 0
+		{val: "hello", exp: "Hello"},
+		{val: "Hello", exp: "Hello"},
+		{val: "HELLO", exp: "HELLO"},
+		{val: "hELLO", exp: "HELLO"},
+		{val: " Hello", exp: " Hello"}, // 5
+		{val: "He llo", exp: "He llo"},
+	}
+
+	for i, c := range testCases {
+		require.Exactly(t, c.exp, strutil.FirstUpper(c.val), "case %d", i)
+	}
+}
+
+func TestFirstLower(t *testing.T) {
 	t.Parallel()
 
 	testCases := []struct {
@@ -62,6 +99,6 @@ func TestNoTitle(t *testing.T) {
 	}
 
 	for i, c := range testCases {
-		require.Exactly(t, c.exp, utils.NoTitle(c.val), "case %d", i)
+		require.Exactly(t, c.exp, strutil.FirstLower(c.val), "case %d", i)
 	}
 }

@@ -25,38 +25,44 @@
  * SOFTWARE.
  */
 
-package resolve
+package validate
 
 import (
+	"errors"
+
 	"github.com/desertbit/orbit/internal/codegen/ast"
 )
 
-func resolveService(srvc *ast.Service, types []*ast.Type, enums []*ast.Enum) (err error) {
-	for j, c := range srvc.Calls {
-		for k := j + 1; k < len(srvc.Calls); k++ {
+func validateService(f *ast.File) (err error) {
+	if f.Srvc == nil {
+		return errors.New("no service definition found")
+	}
+
+	for j, c := range f.Srvc.Calls {
+		for k := j + 1; k < len(f.Srvc.Calls); k++ {
 			// Check for duplicate names.
-			if c.Name == srvc.Calls[k].Name {
+			if c.Name == f.Srvc.Calls[k].Name {
 				return ast.NewErr(c.Line, "call '%s' declared twice", c.Name)
 			}
 		}
 
 		// Resolve the call.
-		err = resolveCall(c, types, enums)
+		err = validateCall(c, f)
 		if err != nil {
 			return
 		}
 	}
 
-	for j, s := range srvc.Streams {
-		for k := j + 1; k < len(srvc.Streams); k++ {
+	for j, s := range f.Srvc.Streams {
+		for k := j + 1; k < len(f.Srvc.Streams); k++ {
 			// Check for duplicate names.
-			if s.Name == srvc.Streams[k].Name {
+			if s.Name == f.Srvc.Streams[k].Name {
 				return ast.NewErr(s.Line, "stream '%s' declared twice", s.Name)
 			}
 		}
 
 		// Resolve the stream.
-		err = resolveStream(s, types, enums)
+		err = validateStream(s, f)
 		if err != nil {
 			return
 		}
@@ -65,13 +71,13 @@ func resolveService(srvc *ast.Service, types []*ast.Type, enums []*ast.Enum) (er
 	return
 }
 
-func resolveCall(c *ast.Call, types []*ast.Type, enums []*ast.Enum) (err error) {
+func validateCall(c *ast.Call, f *ast.File) (err error) {
 	// Resolve all AnyTypes.
-	c.Arg, err = resolveAnyType(c.Arg, types, enums)
+	c.Arg, err = resolveAnyType(c.Arg, f)
 	if err != nil {
 		return
 	}
-	c.Ret, err = resolveAnyType(c.Ret, types, enums)
+	c.Ret, err = resolveAnyType(c.Ret, f)
 	if err != nil {
 		return
 	}
@@ -108,13 +114,13 @@ func resolveCall(c *ast.Call, types []*ast.Type, enums []*ast.Enum) (err error) 
 	return
 }
 
-func resolveStream(s *ast.Stream, types []*ast.Type, enums []*ast.Enum) (err error) {
+func validateStream(s *ast.Stream, f *ast.File) (err error) {
 	// Resolve all AnyTypes.
-	s.Arg, err = resolveAnyType(s.Arg, types, enums)
+	s.Arg, err = resolveAnyType(s.Arg, f)
 	if err != nil {
 		return
 	}
-	s.Ret, err = resolveAnyType(s.Ret, types, enums)
+	s.Ret, err = resolveAnyType(s.Ret, f)
 	if err != nil {
 		return
 	}
