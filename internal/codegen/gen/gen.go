@@ -172,6 +172,7 @@ func generate(pkgName string, f *ast.File) string {
 		{"oclient", "github.com/desertbit/orbit/pkg/client"},
 		{"closer", "github.com/desertbit/closer/v3"},
 		{"codec", "github.com/desertbit/orbit/pkg/codec"},
+		{"options", "github.com/desertbit/options"},
 		{"packet", "github.com/desertbit/orbit/pkg/packet"},
 		{"oservice", "github.com/desertbit/orbit/pkg/service"},
 		{"transport", "github.com/desertbit/orbit/pkg/transport"},

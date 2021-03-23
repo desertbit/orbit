@@ -25,58 +25,45 @@
  * SOFTWARE.
  */
 
-package transport
+package mux
 
 import (
-	"context"
+	"errors"
 	"net"
 
 	"github.com/desertbit/closer/v3"
+	ot "github.com/desertbit/orbit/pkg/transport"
 )
 
-type Transport interface {
-	Dial(cl closer.Closer, ctx context.Context) (Conn, error)
-	Listen(cl closer.Closer) (Listener, error)
-}
-
-type Conn interface {
+// listener is a transport.Listener that accepts new connections via a
+// go channel instead of listening on a socket itself.
+type listener struct {
 	closer.Closer
 
-	// AcceptStream returns the next stream opened by the peer, blocking until one is available.
-	AcceptStream(context.Context) (Stream, error)
+	connChan chan ot.Conn
 
-	// OpenStream opens a new bidirectional stream.
-	// There is no signaling to the peer about new streams.
-	// The peer can only accept the stream after data has been sent on it.
-	OpenStream(context.Context) (Stream, error)
-
-	// LocalAddr returns the local address.
-	LocalAddr() net.Addr
-
-	// RemoteAddr returns the address of the peer.
-	RemoteAddr() net.Addr
-
-	// IsClosedError checks whenever the passed error is a closed connection error.
-	IsClosedError(error) bool
+	addr net.Addr
 }
 
-type Stream interface {
-	net.Conn
-
-	// IsClosed returns true, if the stream has been closed locally or by the remote peer.
-	IsClosed() bool
-
-	// ClosedChan returns a closed channel as soon as the stream closes.
-	ClosedChan() <-chan struct{}
+func newListener(cl closer.Closer, connChan chan ot.Conn, addr net.Addr) ot.Listener {
+	return &listener{
+		Closer:   cl,
+		connChan: connChan,
+		addr:     addr,
+	}
 }
 
-type Listener interface {
-	closer.Closer
+// Implements the transport.Listener interface.
+func (ln *listener) Accept() (conn ot.Conn, err error) {
+	select {
+	case <-ln.ClosingChan():
+		err = errors.New("closed")
+	case conn = <-ln.connChan:
+	}
+	return
+}
 
-	// Accept waits for and returns the next connection to the listener.
-	// The listener must close the new connection if the listener is closed.
-	Accept() (Conn, error)
-
-	// Addr returns the listener's network address.
-	Addr() net.Addr
+// Implements the transport.Listener interface.
+func (ln *listener) Addr() net.Addr {
+	return ln.addr
 }

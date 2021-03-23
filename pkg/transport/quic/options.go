@@ -35,17 +35,14 @@ import (
 	quic "github.com/lucas-clemente/quic-go"
 )
 
-var (
-	defaultConfig = &quic.Config{
-		HandshakeTimeout:                      10 * time.Second,
-		MaxIdleTimeout:                        30 * time.Second,
-		MaxReceiveStreamFlowControlWindow:     6 * 1024 * 1024,  // 6MB
-		MaxReceiveConnectionFlowControlWindow: 15 * 1024 * 1024, // 15MB
-		KeepAlive:                             true,
-	}
-)
-
+// Options allows to configure the transport.
 type Options struct {
+	// TODO:
+	ListenAddr string
+
+	// TODO:
+	DialAddr string
+
 	// TODO:
 	Config *quic.Config
 
@@ -53,13 +50,24 @@ type Options struct {
 	TLSConfig *tls.Config
 }
 
-func (o *Options) setDefaults() {
-	if o.Config == nil {
-		o.Config = defaultConfig
+// DefaultOptions returns an Options struct with default values set.
+func DefaultOptions() Options {
+	return Options{
+		Config: &quic.Config{
+			HandshakeTimeout:                      10 * time.Second,
+			MaxIdleTimeout:                        30 * time.Second,
+			MaxReceiveStreamFlowControlWindow:     6 * 1024 * 1024,  // 6MB
+			MaxReceiveConnectionFlowControlWindow: 15 * 1024 * 1024, // 15MB
+			KeepAlive:                             true,
+		},
 	}
 }
 
-func (o *Options) validate() (err error) {
+// validate checks if o contains sane values.
+func (o Options) validate() (err error) {
+	if o.ListenAddr == "" && o.DialAddr == "" {
+		return errors.New("listen and dial address not set")
+	}
 	if o.TLSConfig == nil {
 		return errors.New("tls config must not be nil")
 	}

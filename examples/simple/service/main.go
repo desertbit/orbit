@@ -39,24 +39,33 @@ import (
 	"time"
 
 	"github.com/desertbit/orbit/examples/simple/hello"
+	"github.com/desertbit/orbit/examples/simple/world"
 	olog "github.com/desertbit/orbit/pkg/hook/log"
 	"github.com/desertbit/orbit/pkg/service"
 	"github.com/desertbit/orbit/pkg/transport"
+	"github.com/desertbit/orbit/pkg/transport/mux"
 	"github.com/desertbit/orbit/pkg/transport/quic"
 )
 
 func main() {
-	tr, err := quic.NewTransport(&quic.Options{
-		TLSConfig: generateTLSConfig(),
+	// Create quic transport.
+	qtr, err := quic.NewTransport(quic.Options{
+		ListenAddr: "127.0.0.1:1122",
+		TLSConfig:  generateTLSConfig(),
 	})
 	if err != nil {
 		log.Fatalln(err)
 	}
 
+	// Multiplex transport to allow multiple services.
+	mtr, err := mux.New(qtr, mux.DefaultOptions())
+	if err != nil {
+		return
+	}
+
 	s, err := hello.NewService(&ServiceHandler{},
-		&service.Options{
-			ListenAddr: ":1122",
-			Transport:  tr,
+		service.Options{
+			Transport: mtr.Transport("hello"),
 			Hooks: service.Hooks{
 				olog.ServiceHook(),
 			},
@@ -66,7 +75,26 @@ func main() {
 	}
 	defer s.Close()
 
-	err = s.Run()
+	go func() {
+		err = s.Run()
+		if err != nil {
+			log.Fatalln(err)
+		}
+	}()
+
+	ws, err := world.NewService(&ServiceHandler{},
+		service.Options{
+			Transport: mtr.Transport("world"),
+			Hooks: service.Hooks{
+				olog.ServiceHook(),
+			},
+		})
+	if err != nil {
+		log.Fatalln(err)
+	}
+	defer ws.Close()
+
+	err = ws.Run()
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -98,6 +126,8 @@ func generateTLSConfig() *tls.Config {
 // #############
 
 type ServiceHandler struct{}
+
+// ### hello service
 
 func (s *ServiceHandler) SayHi(ctx service.Context, arg hello.SayHiArg) (ret hello.SayHiRet, err error) {
 	fmt.Printf("handler: SayHi, %s, %s\n", arg.Name, arg.Ts.String())
@@ -148,4 +178,11 @@ func (s *ServiceHandler) Bidirectional(ctx service.Context, stream *hello.Bidire
 		}
 	}
 	return nil
+}
+
+// ### world service
+
+func (s *ServiceHandler) YetAnotherCall(ctx service.Context, arg world.YetAnotherCallArg) (err error) {
+	fmt.Printf("world: YAC -> %s\n", arg.S)
+	return
 }

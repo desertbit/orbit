@@ -25,58 +25,36 @@
  * SOFTWARE.
  */
 
-package transport
+package mux
 
 import (
 	"context"
-	"net"
 
 	"github.com/desertbit/closer/v3"
+	ot "github.com/desertbit/orbit/pkg/transport"
 )
 
-type Transport interface {
-	Dial(cl closer.Closer, ctx context.Context) (Conn, error)
-	Listen(cl closer.Closer) (Listener, error)
+// transport is a tiny transport.Transport, which simply combines the given
+// mux with the serviceID.
+// This is the actual transport being used.
+type transport struct {
+	mux       *Mux
+	serviceID string
 }
 
-type Conn interface {
-	closer.Closer
-
-	// AcceptStream returns the next stream opened by the peer, blocking until one is available.
-	AcceptStream(context.Context) (Stream, error)
-
-	// OpenStream opens a new bidirectional stream.
-	// There is no signaling to the peer about new streams.
-	// The peer can only accept the stream after data has been sent on it.
-	OpenStream(context.Context) (Stream, error)
-
-	// LocalAddr returns the local address.
-	LocalAddr() net.Addr
-
-	// RemoteAddr returns the address of the peer.
-	RemoteAddr() net.Addr
-
-	// IsClosedError checks whenever the passed error is a closed connection error.
-	IsClosedError(error) bool
+func newTransport(m *Mux, serviceID string) ot.Transport {
+	return &transport{
+		mux:       m,
+		serviceID: serviceID,
+	}
 }
 
-type Stream interface {
-	net.Conn
-
-	// IsClosed returns true, if the stream has been closed locally or by the remote peer.
-	IsClosed() bool
-
-	// ClosedChan returns a closed channel as soon as the stream closes.
-	ClosedChan() <-chan struct{}
+// Implements the transport.Transport interface.
+func (t *transport) Dial(cl closer.Closer, ctx context.Context) (ot.Conn, error) {
+	return t.mux.dial(cl, ctx, t.serviceID)
 }
 
-type Listener interface {
-	closer.Closer
-
-	// Accept waits for and returns the next connection to the listener.
-	// The listener must close the new connection if the listener is closed.
-	Accept() (Conn, error)
-
-	// Addr returns the listener's network address.
-	Addr() net.Addr
+// Implements the transport.Transport interface.
+func (t *transport) Listen(cl closer.Closer) (ot.Listener, error) {
+	return t.mux.listen(cl, t.serviceID)
 }

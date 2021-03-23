@@ -29,6 +29,7 @@ package yamux
 
 import (
 	"crypto/tls"
+	"errors"
 	"os"
 	"time"
 
@@ -36,18 +37,14 @@ import (
 	"github.com/rs/zerolog"
 )
 
-var (
-	defaultConfig = &yamux.Config{
-		AcceptBacklog:          256,
-		EnableKeepAlive:        true,
-		KeepAliveInterval:      30 * time.Second,
-		ConnectionWriteTimeout: 10 * time.Second,
-		MaxStreamWindowSize:    256 * 1024,
-		LogOutput:              defaultLogger(),
-	}
-)
-
+// Options allows to configure the transport.
 type Options struct {
+	// TODO:
+	ListenAddr string
+
+	// TODO:
+	DialAddr string
+
 	// TODO:
 	Config *yamux.Config
 
@@ -56,13 +53,24 @@ type Options struct {
 	TLSConfig *tls.Config
 }
 
-func (o *Options) setDefaults() {
-	if o.Config == nil {
-		o.Config = defaultConfig
+// DefaultOptions returns an Options struct with default values set.
+func DefaultOptions() Options {
+	return Options{
+		Config: &yamux.Config{
+			AcceptBacklog:          256,
+			EnableKeepAlive:        true,
+			KeepAliveInterval:      30 * time.Second,
+			ConnectionWriteTimeout: 10 * time.Second,
+			MaxStreamWindowSize:    256 * 1024,
+			LogOutput:              defaultLogger(),
+		},
 	}
 }
 
-func (o *Options) validate() (err error) {
+func (o Options) validate() (err error) {
+	if o.ListenAddr == "" && o.DialAddr == "" {
+		return errors.New("listen and dial address not set")
+	}
 	err = yamux.VerifyConfig(o.Config)
 	if err != nil {
 		return

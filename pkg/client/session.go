@@ -91,12 +91,12 @@ func (s *session) RemoteAddr() net.Addr {
 	return s.conn.RemoteAddr()
 }
 
-func connectSession(h clientHandler, opts *Options) (s *session, err error) {
+func connectSession(h clientHandler, opts Options) (s *session, err error) {
 	ctxConnect, cancelConnect := context.WithTimeout(context.Background(), opts.ConnectTimeout)
 	defer cancelConnect()
 
 	// Connect to the service.
-	conn, err := opts.Transport.Dial(opts.Closer.CloserOneWay(), ctxConnect, opts.Host)
+	conn, err := opts.Transport.Dial(opts.Closer.CloserOneWay(), ctxConnect)
 	if err != nil {
 		return
 	}

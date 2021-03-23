@@ -13,9 +13,9 @@ commands:
             go test -race ./pkg/... ./internal/... ./cmd/...
 
     generate:
-        help: generate all internal msgp code
+        help: generate all msgp code
         exec: |
-            go generate ./internal/...
+            go generate ./internal/... ./pkg/...
 
     run:
         help: run commands
@@ -57,7 +57,10 @@ commands:
                 deps:
                     - build.orbit
                 exec: |
-                    "${BINDIR}/orbit" gen --force "${ROOT}/examples/simple/hello/hello.orbit"
+                    "${BINDIR}/orbit" gen \
+                        --force \
+                        "${ROOT}/examples/simple/hello/hello.orbit" \
+                        "${ROOT}/examples/simple/world/world.orbit"
                     go build -o "${BINDIR}/simple-client" "${ROOT}/examples/simple/client"
                     go build -o "${BINDIR}/simple-server" "${ROOT}/examples/simple/service"
             full:

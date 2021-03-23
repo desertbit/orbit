@@ -96,7 +96,7 @@ func initSession(
 	conn transport.Conn,
 	id string,
 	h serviceHandler,
-	opts *Options,
+	opts Options,
 ) (s *session, err error) {
 	// Close connection on error.
 	defer func() {

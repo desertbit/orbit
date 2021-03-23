@@ -25,42 +25,22 @@
  * SOFTWARE.
  */
 
-package main
+package mux
 
 import (
-	"github.com/desertbit/grumble"
-	"github.com/desertbit/orbit/internal/codegen/gen"
+	"time"
 )
 
-const (
-	flagForce = "force"
-
-	argFiles = "files"
-)
-
-var cmdGen = &grumble.Command{
-	Name: "gen",
-	Help: "generate go code from .orbit file",
-	Run:  runGen,
-	Flags: func(f *grumble.Flags) {
-		f.Bool("f", flagForce, false, "generate all files, ignoring their last modification time")
-	},
-	Args: func(a *grumble.Args) {
-		a.StringList(argFiles, "The .orbit files the code should be generated for", grumble.Min(1))
-	},
+// Options allows to configure the transport.
+type Options struct {
+	// InitTimeout specifies the duration the initial exchange of the transport value may take.
+	// 0 means a default timeout is used automatically, -1 disables it.
+	InitTimeout time.Duration
 }
 
-func init() {
-	App.AddCommand(cmdGen)
-}
-
-func runGen(ctx *grumble.Context) (err error) {
-	// Iterate over each provided file path and generate the .orbit file.
-	for _, fp := range ctx.Args.StringList(argFiles) {
-		err = gen.Generate(fp, ctx.Flags.Bool(flagForce))
-		if err != nil {
-			return
-		}
+// DefaultOptions returns an Options struct with default values set.
+func DefaultOptions() Options {
+	return Options{
+		InitTimeout: 15 * time.Second,
 	}
-	return
 }
