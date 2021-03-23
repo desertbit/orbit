@@ -76,11 +76,8 @@ type YetAnotherCallArg struct {
 //### Service ###//
 //###############//
 
-// CallIDs
 const (
 	CallIDYetAnotherCall = "YetAnotherCall"
-
-// StreamIDs
 )
 
 type Client interface {
