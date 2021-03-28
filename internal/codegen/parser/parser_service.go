@@ -176,6 +176,35 @@ func (p *parser) expectServiceCall() (*ast.Call, []*ast.Type, error) {
 				return nil, nil, err
 			}
 			c.MaxRetSize = &size
+		} else if p.checkToken(lexer.ERRORS) {
+			// Check for duplicate.
+			if len(c.Errors) != 0 {
+				return nil, nil, p.errorf("duplicate errors")
+			}
+
+			// ':'.
+			err = p.expectToken(lexer.COLON)
+			if err != nil {
+				return nil, nil, err
+			}
+
+			// Expect a comma separated list of error identifiers.
+			for {
+				e := &ast.Error{Pos: p.tk.Pos}
+
+				// Error identifier.
+				e.Name, err = p.expectIdent()
+				if err != nil {
+					return nil, nil, err
+				}
+
+				c.Errors = append(c.Errors, e)
+
+				// If no comma follows, no more errors expected.
+				if !p.checkToken(lexer.COMMA) {
+					break
+				}
+			}
 		} else {
 			return nil, nil, p.errorf("unexpected token in service call '%s'", p.tk.Value)
 		}
@@ -300,6 +329,35 @@ func (p *parser) expectServiceStream() (*ast.Stream, []*ast.Type, error) {
 				return nil, nil, err
 			}
 			s.MaxRetSize = &size
+		} else if p.checkToken(lexer.ERRORS) {
+			// Check for duplicate.
+			if len(s.Errors) != 0 {
+				return nil, nil, p.errorf("duplicate errors")
+			}
+
+			// ':'.
+			err = p.expectToken(lexer.COLON)
+			if err != nil {
+				return nil, nil, err
+			}
+
+			// Expect a comma separated list of error identifiers.
+			for {
+				e := &ast.Error{Pos: p.tk.Pos}
+
+				// Error identifier.
+				e.Name, err = p.expectIdent()
+				if err != nil {
+					return nil, nil, err
+				}
+
+				s.Errors = append(s.Errors, e)
+
+				// If no comma follows, no more errors expected.
+				if !p.checkToken(lexer.COMMA) {
+					break
+				}
+			}
 		} else {
 			return nil, nil, p.errorf("unexpected token in service call '%s'", p.tk.Value)
 		}

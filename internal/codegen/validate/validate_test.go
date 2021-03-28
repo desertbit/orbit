@@ -29,6 +29,9 @@ func testValidateValid(t *testing.T) {
 			Name: "C1",
 			Arg:  &ast.StructType{Name: "C1Arg"},
 			Ret:  &ast.StructType{Name: "C1Ret"},
+			Errors: []*ast.Error{
+				{Name: "theFirstError", Pos: lexer.Pos{Line: 11, Column: 15}},
+			},
 		}
 		c2 = &ast.Call{
 			Name:       "C2",
@@ -38,6 +41,10 @@ func testValidateValid(t *testing.T) {
 			Timeout:    &c2Timeout,
 			MaxArgSize: &c2MaxArgSize,
 			MaxRetSize: &c2MaxRetSize,
+			Errors: []*ast.Error{
+				{Name: "theFirstError", Pos: lexer.Pos{Line: 24, Column: 15}},
+				{Name: "theThirdError", Pos: lexer.Pos{Line: 24, Column: 30}},
+			},
 		}
 		c3  = &ast.Call{Name: "C3"}
 		rc1 = &ast.Call{
@@ -239,4 +246,9 @@ func testValidateValid(t *testing.T) {
 	require.IsType(t, &ast.BaseType{}, rc1Ret.Fields[5].DataType.(*ast.MapType).Key)
 	require.IsType(t, &ast.BaseType{}, rc1Ret.Fields[5].DataType.(*ast.MapType).Value.(*ast.ArrType).Elem.(*ast.ArrType).Elem.(*ast.MapType).Key)
 	require.IsType(t, &ast.EnumType{}, rc1Ret.Fields[5].DataType.(*ast.MapType).Value.(*ast.ArrType).Elem.(*ast.ArrType).Elem.(*ast.MapType).Value)
+
+	// Check, if all errors have been resolved.
+	require.Exactly(t, 1, c1.Errors[0].ID)
+	require.Exactly(t, 1, c2.Errors[0].ID)
+	require.Exactly(t, 3, c2.Errors[1].ID)
 }

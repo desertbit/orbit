@@ -91,6 +91,19 @@ func (g *generator) genClientErrorCheckFunc(errs []*ast.Error) {
 	g.writeLn("")
 }
 
+func (g *generator) genClientErrorInlineCheck(errs []*ast.Error) {
+	g.writeLn("var cErr oclient.Error")
+	g.writeLn("if errors.As(err, &cErr) {")
+	g.writeLn("switch cErr.Code() {")
+	for _, e := range errs {
+		g.writefLn("case ErrCode%s:", e.Ident())
+		g.writefLn("err = Err%s", e.Ident())
+	}
+	g.writeLn("}")
+	g.writeLn("}")
+	g.writeLn("return")
+}
+
 func (g *generator) genServiceErrorCheckFunc(errs []*ast.Error) {
 	// Check, if one of our errors has been returned and convert it to a service Error.
 	g.writefLn("func %s(err error) error {", serviceErrorCheck)
@@ -112,6 +125,19 @@ func (g *generator) genServiceErrorCheckFunc(errs []*ast.Error) {
 	g.writeLn("return err")
 	g.writeLn("}")
 	g.writeLn("")
+}
+
+func (g *generator) genServiceErrorInlineCheck(errs []*ast.Error) {
+	for i, e := range errs {
+		g.writefLn("if errors.Is(err, Err%s) {", e.Ident())
+		g.writefLn("err = oservice.NewError(err, Err%s.Error(), ErrCode%s)", e.Ident(), e.Ident())
+		if i < len(errs)-1 {
+			g.write("} else ")
+		} else {
+			g.writeLn("}")
+		}
+	}
+	g.writeLn("return")
 }
 
 func (g *generator) genValErrCheckFunc() {

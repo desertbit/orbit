@@ -10,6 +10,7 @@ errors {
     authFailed = 1
     notFound = 2
     nameAlreadyExists = 3
+    emailAlreadyExists = 4
 }
 
 service {
@@ -18,6 +19,7 @@ service {
             email string `validate:"email"` // Automatic email validation by go-playground/validator
             password string `validate:"required,min=8"`
         }
+        errors: emailAlreadyExists
     }
 
     call login {
@@ -25,6 +27,7 @@ service {
             user string `validate:"required"`
             password string `validate:"required"`
         }
+        errors: authFailed
     }
 
     // No parameters needed.
@@ -41,12 +44,14 @@ service {
     call getUser {
         arg: { userID string `validate:"required"` }
         ret: UserDetail
+        errors: notFound
     }
 
     call getUserProfileImage {
         async // Prevents head-of-line blocking, since a separate stream is opened for each call.
         arg: { userID string `validate:"required"` }
         ret: { jpeg []byte }
+        errors: notFound
     }
 
     call createUser {
@@ -57,6 +62,7 @@ service {
             email string `validate:"email"`
         }
         ret: UserDetail
+        errors: nameAlreadyExists
     }
 
     call updateUser {
@@ -68,6 +74,7 @@ service {
             status string
             email string  `validate:"email"`
         }
+        errors: nameAlreadyExists, notFound
     }
 
     call updateUserProfileImage {
@@ -78,6 +85,7 @@ service {
         }
         maxArgSize: 5MB
         timeout: 60s
+        errors: notFound
     }
 
     // A stream can be left open to asynchronously push new data from the server
@@ -85,6 +93,7 @@ service {
     stream observeNotifications {
         arg: { userID string `validate:"required"` }
         ret: Notification
+        errors: notFound
     }
 }
 

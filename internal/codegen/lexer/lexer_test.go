@@ -56,7 +56,7 @@ service{ asynct async ` + "maxArgSize``:" + `
 url
 /*service // bla blub 
 999 // /**/
-*/`
+*/errors: iAmAnError, anotherError,`
 
 	cases := []struct {
 		val  string
@@ -103,6 +103,12 @@ url
 		{val: "0B", typ: lexer.BYTESIZE, line: 10, col: 21},
 		{val: "0ns", typ: lexer.DURATION, line: 10, col: 24},
 		{val: "url", typ: lexer.IDENT, line: 12, col: 1},
+		{val: "errors", typ: lexer.ERRORS, line: 15, col: 3},
+		{val: ":", typ: lexer.COLON, line: 15, col: 9}, // 40
+		{val: "iAmAnError", typ: lexer.IDENT, line: 15, col: 11},
+		{val: ",", typ: lexer.COMMA, line: 15, col: 21},
+		{val: "anotherError", typ: lexer.IDENT, line: 15, col: 23},
+		{val: ",", typ: lexer.COMMA, line: 15, col: 35},
 	}
 
 	l := lexer.Lex(input)

@@ -112,6 +112,7 @@ type Call struct {
 	Timeout    *time.Duration
 	MaxArgSize *int64
 	MaxRetSize *int64
+	Errors     []*Error
 	lexer.Pos
 }
 
@@ -129,6 +130,7 @@ type Stream struct {
 	Ret        DataType
 	MaxArgSize *int64
 	MaxRetSize *int64
+	Errors     []*Error
 	lexer.Pos
 }
 

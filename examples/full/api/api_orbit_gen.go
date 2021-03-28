@@ -45,15 +45,17 @@ var (
 var ErrClosed = errors.New("closed")
 
 const (
-	ErrCodeAuthFailed        = 1
-	ErrCodeNameAlreadyExists = 3
-	ErrCodeNotFound          = 2
+	ErrCodeAuthFailed         = 1
+	ErrCodeEmailAlreadyExists = 4
+	ErrCodeNameAlreadyExists  = 3
+	ErrCodeNotFound           = 2
 )
 
 var (
-	ErrAuthFailed        = errors.New("auth failed")
-	ErrNameAlreadyExists = errors.New("name already exists")
-	ErrNotFound          = errors.New("not found")
+	ErrAuthFailed         = errors.New("auth failed")
+	ErrEmailAlreadyExists = errors.New("email already exists")
+	ErrNameAlreadyExists  = errors.New("name already exists")
+	ErrNotFound           = errors.New("not found")
 )
 
 func _clientErrorCheck(err error) error {
@@ -62,6 +64,8 @@ func _clientErrorCheck(err error) error {
 		switch cErr.Code() {
 		case ErrCodeAuthFailed:
 			return ErrAuthFailed
+		case ErrCodeEmailAlreadyExists:
+			return ErrEmailAlreadyExists
 		case ErrCodeNameAlreadyExists:
 			return ErrNameAlreadyExists
 		case ErrCodeNotFound:
@@ -74,6 +78,8 @@ func _clientErrorCheck(err error) error {
 func _serviceErrorCheck(err error) error {
 	if errors.Is(err, ErrAuthFailed) {
 		return oservice.NewError(err, ErrAuthFailed.Error(), ErrCodeAuthFailed)
+	} else if errors.Is(err, ErrEmailAlreadyExists) {
+		return oservice.NewError(err, ErrEmailAlreadyExists.Error(), ErrCodeEmailAlreadyExists)
 	} else if errors.Is(err, ErrNameAlreadyExists) {
 		return oservice.NewError(err, ErrNameAlreadyExists.Error(), ErrCodeNameAlreadyExists)
 	} else if errors.Is(err, ErrNotFound) {
@@ -194,9 +200,16 @@ func newObserveNotificationsClientStream(s oclient.TypedRWStream) *ObserveNotifi
 func (v1 *ObserveNotificationsClientStream) Read() (ret Notification, err error) {
 	err = v1.stream.Read(&ret)
 	if err != nil {
-		err = _clientErrorCheck(err)
 		if errors.Is(err, oclient.ErrClosed) {
 			err = ErrClosed
+			return
+		}
+		var cErr oclient.Error
+		if errors.As(err, &cErr) {
+			switch cErr.Code() {
+			case ErrCodeNotFound:
+				err = ErrNotFound
+			}
 		}
 		return
 	}
@@ -211,9 +224,16 @@ func (v1 *ObserveNotificationsClientStream) Read() (ret Notification, err error)
 func (v1 *ObserveNotificationsClientStream) Write(arg ObserveNotificationsArg) (err error) {
 	err = v1.stream.Write(arg)
 	if err != nil {
-		err = _clientErrorCheck(err)
 		if errors.Is(err, oclient.ErrClosed) {
 			err = ErrClosed
+			return
+		}
+		var cErr oclient.Error
+		if errors.As(err, &cErr) {
+			switch cErr.Code() {
+			case ErrCodeNotFound:
+				err = ErrNotFound
+			}
 		}
 		return
 	}
@@ -233,9 +253,12 @@ func newObserveNotificationsServiceStream(s oservice.TypedRWStream) *ObserveNoti
 func (v1 *ObserveNotificationsServiceStream) Read() (arg ObserveNotificationsArg, err error) {
 	err = v1.stream.Read(&arg)
 	if err != nil {
-		err = _serviceErrorCheck(err)
 		if errors.Is(err, oservice.ErrClosed) {
 			err = ErrClosed
+			return
+		}
+		if errors.Is(err, ErrNotFound) {
+			err = oservice.NewError(err, ErrNotFound.Error(), ErrCodeNotFound)
 		}
 		return
 	}
@@ -250,9 +273,12 @@ func (v1 *ObserveNotificationsServiceStream) Read() (arg ObserveNotificationsArg
 func (v1 *ObserveNotificationsServiceStream) Write(ret Notification) (err error) {
 	err = v1.stream.Write(ret)
 	if err != nil {
-		err = _serviceErrorCheck(err)
 		if errors.Is(err, oservice.ErrClosed) {
 			err = ErrClosed
+			return
+		}
+		if errors.Is(err, ErrNotFound) {
+			err = oservice.NewError(err, ErrNotFound.Error(), ErrCodeNotFound)
 		}
 		return
 	}
@@ -355,7 +381,13 @@ func (v1 *client) Register(ctx context.Context, arg RegisterArg) (err error) {
 	}
 	err = v1.Call(ctx, CallIDRegister, arg, nil)
 	if err != nil {
-		err = _clientErrorCheck(err)
+		var cErr oclient.Error
+		if errors.As(err, &cErr) {
+			switch cErr.Code() {
+			case ErrCodeEmailAlreadyExists:
+				err = ErrEmailAlreadyExists
+			}
+		}
 		return
 	}
 	return
@@ -369,7 +401,13 @@ func (v1 *client) Login(ctx context.Context, arg LoginArg) (err error) {
 	}
 	err = v1.Call(ctx, CallIDLogin, arg, nil)
 	if err != nil {
-		err = _clientErrorCheck(err)
+		var cErr oclient.Error
+		if errors.As(err, &cErr) {
+			switch cErr.Code() {
+			case ErrCodeAuthFailed:
+				err = ErrAuthFailed
+			}
+		}
 		return
 	}
 	return
@@ -416,7 +454,13 @@ func (v1 *client) GetUser(ctx context.Context, arg GetUserArg) (ret UserDetail, 
 	}
 	err = v1.Call(ctx, CallIDGetUser, arg, &ret)
 	if err != nil {
-		err = _clientErrorCheck(err)
+		var cErr oclient.Error
+		if errors.As(err, &cErr) {
+			switch cErr.Code() {
+			case ErrCodeNotFound:
+				err = ErrNotFound
+			}
+		}
 		return
 	}
 	err = validate.Struct(ret)
@@ -435,7 +479,13 @@ func (v1 *client) GetUserProfileImage(ctx context.Context, arg GetUserProfileIma
 	}
 	err = v1.AsyncCall(ctx, CallIDGetUserProfileImage, arg, &ret, oclient.DefaultMaxSize, oclient.DefaultMaxSize)
 	if err != nil {
-		err = _clientErrorCheck(err)
+		var cErr oclient.Error
+		if errors.As(err, &cErr) {
+			switch cErr.Code() {
+			case ErrCodeNotFound:
+				err = ErrNotFound
+			}
+		}
 		return
 	}
 	err = validate.Struct(ret)
@@ -454,7 +504,13 @@ func (v1 *client) CreateUser(ctx context.Context, arg CreateUserArg) (ret UserDe
 	}
 	err = v1.Call(ctx, CallIDCreateUser, arg, &ret)
 	if err != nil {
-		err = _clientErrorCheck(err)
+		var cErr oclient.Error
+		if errors.As(err, &cErr) {
+			switch cErr.Code() {
+			case ErrCodeNameAlreadyExists:
+				err = ErrNameAlreadyExists
+			}
+		}
 		return
 	}
 	err = validate.Struct(ret)
@@ -473,7 +529,15 @@ func (v1 *client) UpdateUser(ctx context.Context, arg UpdateUserArg) (err error)
 	}
 	err = v1.Call(ctx, CallIDUpdateUser, arg, nil)
 	if err != nil {
-		err = _clientErrorCheck(err)
+		var cErr oclient.Error
+		if errors.As(err, &cErr) {
+			switch cErr.Code() {
+			case ErrCodeNameAlreadyExists:
+				err = ErrNameAlreadyExists
+			case ErrCodeNotFound:
+				err = ErrNotFound
+			}
+		}
 		return
 	}
 	return
@@ -484,7 +548,13 @@ func (v1 *client) UpdateUserProfileImage(ctx context.Context, arg UpdateUserProf
 	defer cancel()
 	err = v1.AsyncCall(ctx, CallIDUpdateUserProfileImage, arg, nil, 5242880, 0)
 	if err != nil {
-		err = _clientErrorCheck(err)
+		var cErr oclient.Error
+		if errors.As(err, &cErr) {
+			switch cErr.Code() {
+			case ErrCodeNotFound:
+				err = ErrNotFound
+			}
+		}
 		return
 	}
 	return
@@ -547,7 +617,9 @@ func (v1 *service) register(ctx oservice.Context, argData []byte) (retData inter
 	}
 	err = v1.h.Register(ctx, arg)
 	if err != nil {
-		err = _serviceErrorCheck(err)
+		if errors.Is(err, ErrEmailAlreadyExists) {
+			err = oservice.NewError(err, ErrEmailAlreadyExists.Error(), ErrCodeEmailAlreadyExists)
+		}
 		return
 	}
 	return
@@ -566,7 +638,9 @@ func (v1 *service) login(ctx oservice.Context, argData []byte) (retData interfac
 	}
 	err = v1.h.Login(ctx, arg)
 	if err != nil {
-		err = _serviceErrorCheck(err)
+		if errors.Is(err, ErrAuthFailed) {
+			err = oservice.NewError(err, ErrAuthFailed.Error(), ErrCodeAuthFailed)
+		}
 		return
 	}
 	return
@@ -614,7 +688,9 @@ func (v1 *service) getUser(ctx oservice.Context, argData []byte) (retData interf
 	}
 	ret, err := v1.h.GetUser(ctx, arg)
 	if err != nil {
-		err = _serviceErrorCheck(err)
+		if errors.Is(err, ErrNotFound) {
+			err = oservice.NewError(err, ErrNotFound.Error(), ErrCodeNotFound)
+		}
 		return
 	}
 	retData = &ret
@@ -634,7 +710,9 @@ func (v1 *service) getUserProfileImage(ctx oservice.Context, argData []byte) (re
 	}
 	ret, err := v1.h.GetUserProfileImage(ctx, arg)
 	if err != nil {
-		err = _serviceErrorCheck(err)
+		if errors.Is(err, ErrNotFound) {
+			err = oservice.NewError(err, ErrNotFound.Error(), ErrCodeNotFound)
+		}
 		return
 	}
 	retData = &ret
@@ -654,7 +732,9 @@ func (v1 *service) createUser(ctx oservice.Context, argData []byte) (retData int
 	}
 	ret, err := v1.h.CreateUser(ctx, arg)
 	if err != nil {
-		err = _serviceErrorCheck(err)
+		if errors.Is(err, ErrNameAlreadyExists) {
+			err = oservice.NewError(err, ErrNameAlreadyExists.Error(), ErrCodeNameAlreadyExists)
+		}
 		return
 	}
 	retData = &ret
@@ -674,7 +754,11 @@ func (v1 *service) updateUser(ctx oservice.Context, argData []byte) (retData int
 	}
 	err = v1.h.UpdateUser(ctx, arg)
 	if err != nil {
-		err = _serviceErrorCheck(err)
+		if errors.Is(err, ErrNameAlreadyExists) {
+			err = oservice.NewError(err, ErrNameAlreadyExists.Error(), ErrCodeNameAlreadyExists)
+		} else if errors.Is(err, ErrNotFound) {
+			err = oservice.NewError(err, ErrNotFound.Error(), ErrCodeNotFound)
+		}
 		return
 	}
 	return
@@ -693,7 +777,9 @@ func (v1 *service) updateUserProfileImage(ctx oservice.Context, argData []byte) 
 	}
 	err = v1.h.UpdateUserProfileImage(ctx, arg)
 	if err != nil {
-		err = _serviceErrorCheck(err)
+		if errors.Is(err, ErrNotFound) {
+			err = oservice.NewError(err, ErrNotFound.Error(), ErrCodeNotFound)
+		}
 		return
 	}
 	return

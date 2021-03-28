@@ -89,11 +89,18 @@ func (g *generator) genClientStreamType(s *ast.Stream) {
 		g.writefLn("func (%s *%s) Read() (ret %s, err error) {", recv, name, s.Ret.Decl())
 		g.writefLn("err = %s.stream.Read(&ret)", recv)
 		g.errIfNilFunc(func() {
-			g.writefLn("err = %s(err)", clientErrorCheck)
 			g.writeLn("if errors.Is(err, oclient.ErrClosed) {")
 			g.writeLn("err = ErrClosed")
-			g.writeLn("}")
 			g.writeLn("return")
+			g.writeLn("}")
+			if len(s.Errors) != 0 {
+				// Inline check for defined errors.
+				g.genClientErrorInlineCheck(s.Errors)
+			} else {
+				// Check for all errors.
+				g.writefLn("err = %s(err)", clientErrorCheck)
+				g.writeLn("return")
+			}
 		})
 		// Validate, if needed.
 		g.writeValErrCheck(s.Ret, "ret")
@@ -107,11 +114,18 @@ func (g *generator) genClientStreamType(s *ast.Stream) {
 		g.writefLn("func (%s *%s) Write(arg %s) (err error) {", recv, name, s.Arg.Decl())
 		g.writefLn("err = %s.stream.Write(arg)", recv)
 		g.errIfNilFunc(func() {
-			g.writefLn("err = %s(err)", clientErrorCheck)
 			g.writeLn("if errors.Is(err, oclient.ErrClosed) {")
 			g.writeLn("err = ErrClosed")
-			g.writeLn("}")
 			g.writeLn("return")
+			g.writeLn("}")
+			if len(s.Errors) != 0 {
+				// Inline check for defined errors.
+				g.genClientErrorInlineCheck(s.Errors)
+			} else {
+				// Check for all errors.
+				g.writefLn("err = %s(err)", clientErrorCheck)
+				g.writeLn("return")
+			}
 		})
 		g.writeLn("return")
 		g.writeLn("}")
@@ -147,11 +161,18 @@ func (g *generator) genServiceStreamType(s *ast.Stream) {
 		g.writefLn("func (%s *%s) Read() (arg %s, err error) {", recv, name, s.Arg.Decl())
 		g.writefLn("err = %s.stream.Read(&arg)", recv)
 		g.errIfNilFunc(func() {
-			g.writefLn("err = %s(err)", serviceErrorCheck)
 			g.writeLn("if errors.Is(err, oservice.ErrClosed) {")
 			g.writeLn("err = ErrClosed")
-			g.writeLn("}")
 			g.writeLn("return")
+			g.writeLn("}")
+			if len(s.Errors) != 0 {
+				// Inline check for defined errors.
+				g.genServiceErrorInlineCheck(s.Errors)
+			} else {
+				// Check for all errors.
+				g.writefLn("err = %s(err)", serviceErrorCheck)
+				g.writeLn("return")
+			}
 		})
 		// Validate, if needed.
 		g.writeValErrCheck(s.Arg, "arg")
@@ -165,11 +186,18 @@ func (g *generator) genServiceStreamType(s *ast.Stream) {
 		g.writefLn("func (%s *%s) Write(ret %s) (err error) {", recv, name, s.Ret.Decl())
 		g.writefLn("err = %s.stream.Write(ret)", recv)
 		g.errIfNilFunc(func() {
-			g.writefLn("err = %s(err)", serviceErrorCheck)
 			g.writeLn("if errors.Is(err, oservice.ErrClosed) {")
 			g.writeLn("err = ErrClosed")
-			g.writeLn("}")
 			g.writeLn("return")
+			g.writeLn("}")
+			if len(s.Errors) != 0 {
+				// Inline check for defined errors.
+				g.genServiceErrorInlineCheck(s.Errors)
+			} else {
+				// Check for all errors.
+				g.writefLn("err = %s(err)", serviceErrorCheck)
+				g.writeLn("return")
+			}
 		})
 		g.writeLn("return")
 		g.writeLn("}")
