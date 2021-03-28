@@ -52,6 +52,7 @@ service {
         ret: {
             answer string
         }
+        errors: thisIsATest
     }
 }
 

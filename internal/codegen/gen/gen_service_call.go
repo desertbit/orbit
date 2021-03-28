@@ -113,8 +113,6 @@ func (g *generator) genClientCall(c *ast.Call, errs []*ast.Error) {
 			// Inline check for defined errors.
 			g.genClientErrorInlineCheck(c.Errors)
 		} else {
-			// Check for all errors.
-			g.writefLn("err = %s(err)", clientErrorCheck)
 			g.writeLn("return")
 		}
 	})
@@ -196,8 +194,6 @@ func (g *generator) genServiceCall(c *ast.Call) {
 			// Inline check for defined errors.
 			g.genServiceErrorInlineCheck(c.Errors)
 		} else {
-			// Check for all errors.
-			g.writefLn("err = %s(err)", serviceErrorCheck)
 			g.writeLn("return")
 		}
 	})

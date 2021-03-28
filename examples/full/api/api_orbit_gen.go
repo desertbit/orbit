@@ -58,36 +58,6 @@ var (
 	ErrNotFound           = errors.New("not found")
 )
 
-func _clientErrorCheck(err error) error {
-	var cErr oclient.Error
-	if errors.As(err, &cErr) {
-		switch cErr.Code() {
-		case ErrCodeAuthFailed:
-			return ErrAuthFailed
-		case ErrCodeEmailAlreadyExists:
-			return ErrEmailAlreadyExists
-		case ErrCodeNameAlreadyExists:
-			return ErrNameAlreadyExists
-		case ErrCodeNotFound:
-			return ErrNotFound
-		}
-	}
-	return err
-}
-
-func _serviceErrorCheck(err error) error {
-	if errors.Is(err, ErrAuthFailed) {
-		return oservice.NewError(err, ErrAuthFailed.Error(), ErrCodeAuthFailed)
-	} else if errors.Is(err, ErrEmailAlreadyExists) {
-		return oservice.NewError(err, ErrEmailAlreadyExists.Error(), ErrCodeEmailAlreadyExists)
-	} else if errors.Is(err, ErrNameAlreadyExists) {
-		return oservice.NewError(err, ErrNameAlreadyExists.Error(), ErrCodeNameAlreadyExists)
-	} else if errors.Is(err, ErrNotFound) {
-		return oservice.NewError(err, ErrNotFound.Error(), ErrCodeNotFound)
-	}
-	return err
-}
-
 func _valErrCheck(err error) error {
 	if vErrs, ok := err.(validator.ValidationErrors); ok {
 		var errMsg strings.Builder
@@ -421,7 +391,6 @@ func (v1 *client) Logout(ctx context.Context) (err error) {
 	}
 	err = v1.Call(ctx, CallIDLogout, nil, nil)
 	if err != nil {
-		err = _clientErrorCheck(err)
 		return
 	}
 	return
@@ -435,7 +404,6 @@ func (v1 *client) GetUsers(ctx context.Context, arg GetUsersArg) (ret GetUsersRe
 	}
 	err = v1.Call(ctx, CallIDGetUsers, arg, &ret)
 	if err != nil {
-		err = _clientErrorCheck(err)
 		return
 	}
 	err = validate.Struct(ret)
@@ -649,7 +617,6 @@ func (v1 *service) login(ctx oservice.Context, argData []byte) (retData interfac
 func (v1 *service) logout(ctx oservice.Context, argData []byte) (retData interface{}, err error) {
 	err = v1.h.Logout(ctx)
 	if err != nil {
-		err = _serviceErrorCheck(err)
 		return
 	}
 	return
@@ -668,7 +635,6 @@ func (v1 *service) getUsers(ctx oservice.Context, argData []byte) (retData inter
 	}
 	ret, err := v1.h.GetUsers(ctx, arg)
 	if err != nil {
-		err = _serviceErrorCheck(err)
 		return
 	}
 	retData = &ret
@@ -788,7 +754,10 @@ func (v1 *service) updateUserProfileImage(ctx oservice.Context, argData []byte) 
 func (v1 *service) observeNotifications(ctx oservice.Context, stream oservice.TypedRWStream) (err error) {
 	err = v1.h.ObserveNotifications(ctx, newObserveNotificationsServiceStream(stream))
 	if err != nil {
-		err = _serviceErrorCheck(err)
+		if errors.Is(err, ErrNotFound) {
+			err = oservice.NewError(err, ErrNotFound.Error(), ErrCodeNotFound)
+		}
+		return
 	}
 	return
 }

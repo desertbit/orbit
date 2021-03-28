@@ -97,8 +97,6 @@ func (g *generator) genClientStreamType(s *ast.Stream) {
 				// Inline check for defined errors.
 				g.genClientErrorInlineCheck(s.Errors)
 			} else {
-				// Check for all errors.
-				g.writefLn("err = %s(err)", clientErrorCheck)
 				g.writeLn("return")
 			}
 		})
@@ -122,8 +120,6 @@ func (g *generator) genClientStreamType(s *ast.Stream) {
 				// Inline check for defined errors.
 				g.genClientErrorInlineCheck(s.Errors)
 			} else {
-				// Check for all errors.
-				g.writefLn("err = %s(err)", clientErrorCheck)
 				g.writeLn("return")
 			}
 		})
@@ -169,8 +165,6 @@ func (g *generator) genServiceStreamType(s *ast.Stream) {
 				// Inline check for defined errors.
 				g.genServiceErrorInlineCheck(s.Errors)
 			} else {
-				// Check for all errors.
-				g.writefLn("err = %s(err)", serviceErrorCheck)
 				g.writeLn("return")
 			}
 		})
@@ -194,8 +188,6 @@ func (g *generator) genServiceStreamType(s *ast.Stream) {
 				// Inline check for defined errors.
 				g.genServiceErrorInlineCheck(s.Errors)
 			} else {
-				// Check for all errors.
-				g.writefLn("err = %s(err)", serviceErrorCheck)
 				g.writeLn("return")
 			}
 		})

@@ -54,28 +54,6 @@ var (
 	ErrThisIsATest = errors.New("this is a test")
 )
 
-func _clientErrorCheck(err error) error {
-	var cErr oclient.Error
-	if errors.As(err, &cErr) {
-		switch cErr.Code() {
-		case ErrCodeIAmAnError:
-			return ErrIAmAnError
-		case ErrCodeThisIsATest:
-			return ErrThisIsATest
-		}
-	}
-	return err
-}
-
-func _serviceErrorCheck(err error) error {
-	if errors.Is(err, ErrIAmAnError) {
-		return oservice.NewError(err, ErrIAmAnError.Error(), ErrCodeIAmAnError)
-	} else if errors.Is(err, ErrThisIsATest) {
-		return oservice.NewError(err, ErrThisIsATest.Error(), ErrCodeThisIsATest)
-	}
-	return err
-}
-
 func _valErrCheck(err error) error {
 	if vErrs, ok := err.(validator.ValidationErrors); ok {
 		var errMsg strings.Builder
@@ -147,7 +125,6 @@ func (v1 *TimeStreamClientStream) Write(arg Info) (err error) {
 			err = ErrClosed
 			return
 		}
-		err = _clientErrorCheck(err)
 		return
 	}
 	return
@@ -170,7 +147,6 @@ func (v1 *TimeStreamServiceStream) Read() (arg Info, err error) {
 			err = ErrClosed
 			return
 		}
-		err = _serviceErrorCheck(err)
 		return
 	}
 	err = validate.Struct(arg)
@@ -261,7 +237,13 @@ func (v1 *BidirectionalClientStream) Read() (ret BidirectionalRet, err error) {
 			err = ErrClosed
 			return
 		}
-		err = _clientErrorCheck(err)
+		var cErr oclient.Error
+		if errors.As(err, &cErr) {
+			switch cErr.Code() {
+			case ErrCodeThisIsATest:
+				err = ErrThisIsATest
+			}
+		}
 		return
 	}
 	err = validate.Struct(ret)
@@ -279,7 +261,13 @@ func (v1 *BidirectionalClientStream) Write(arg BidirectionalArg) (err error) {
 			err = ErrClosed
 			return
 		}
-		err = _clientErrorCheck(err)
+		var cErr oclient.Error
+		if errors.As(err, &cErr) {
+			switch cErr.Code() {
+			case ErrCodeThisIsATest:
+				err = ErrThisIsATest
+			}
+		}
 		return
 	}
 	return
@@ -302,7 +290,9 @@ func (v1 *BidirectionalServiceStream) Read() (arg BidirectionalArg, err error) {
 			err = ErrClosed
 			return
 		}
-		err = _serviceErrorCheck(err)
+		if errors.Is(err, ErrThisIsATest) {
+			err = oservice.NewError(err, ErrThisIsATest.Error(), ErrCodeThisIsATest)
+		}
 		return
 	}
 	err = validate.Struct(arg)
@@ -320,7 +310,9 @@ func (v1 *BidirectionalServiceStream) Write(ret BidirectionalRet) (err error) {
 			err = ErrClosed
 			return
 		}
-		err = _serviceErrorCheck(err)
+		if errors.Is(err, ErrThisIsATest) {
+			err = oservice.NewError(err, ErrThisIsATest.Error(), ErrCodeThisIsATest)
+		}
 		return
 	}
 	return
@@ -584,7 +576,7 @@ func (v1 *service) lul(ctx oservice.Context, stream transport.Stream) {
 func (v1 *service) timeStream(ctx oservice.Context, stream oservice.TypedRStream) (err error) {
 	err = v1.h.TimeStream(ctx, newTimeStreamServiceStream(stream))
 	if err != nil {
-		err = _serviceErrorCheck(err)
+		return
 	}
 	return
 }
@@ -592,7 +584,12 @@ func (v1 *service) timeStream(ctx oservice.Context, stream oservice.TypedRStream
 func (v1 *service) clockTime(ctx oservice.Context, stream oservice.TypedWStream) (err error) {
 	err = v1.h.ClockTime(ctx, newClockTimeServiceStream(stream))
 	if err != nil {
-		err = _serviceErrorCheck(err)
+		if errors.Is(err, ErrThisIsATest) {
+			err = oservice.NewError(err, ErrThisIsATest.Error(), ErrCodeThisIsATest)
+		} else if errors.Is(err, ErrIAmAnError) {
+			err = oservice.NewError(err, ErrIAmAnError.Error(), ErrCodeIAmAnError)
+		}
+		return
 	}
 	return
 }
@@ -600,7 +597,10 @@ func (v1 *service) clockTime(ctx oservice.Context, stream oservice.TypedWStream)
 func (v1 *service) bidirectional(ctx oservice.Context, stream oservice.TypedRWStream) (err error) {
 	err = v1.h.Bidirectional(ctx, newBidirectionalServiceStream(stream))
 	if err != nil {
-		err = _serviceErrorCheck(err)
+		if errors.Is(err, ErrThisIsATest) {
+			err = oservice.NewError(err, ErrThisIsATest.Error(), ErrCodeThisIsATest)
+		}
+		return
 	}
 	return
 }

@@ -30,6 +30,7 @@ package main
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"log"
 	"sync"
@@ -90,7 +91,11 @@ func main() {
 		var arg hello.ClockTimeRet
 		arg, err = stream.Read()
 		if err != nil {
-			log.Fatalln(err)
+			if errors.Is(err, hello.ErrThisIsATest) {
+				println("caught hello error this is a test")
+			} else {
+				log.Fatalln(err)
+			}
 		}
 
 		fmt.Printf("ClockTime: %s\n", arg.Ts.String())
@@ -108,7 +113,11 @@ func main() {
 
 		answer, err := bi.Read()
 		if err != nil {
-			log.Fatalln(err)
+			if errors.Is(err, hello.ErrThisIsATest) {
+				println("niranetrinaetrine")
+			} else {
+				log.Fatalln(err)
+			}
 		}
 
 		fmt.Printf("Answer: %s\n", answer.Answer)
