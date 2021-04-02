@@ -60,7 +60,11 @@ func newSession(cl closer.Closer, qs quic.Session) (s *session, err error) {
 		ra:     qs.RemoteAddr(),
 	}
 	s.OnClosing(func() error {
-		return qs.CloseWithError(errorCodeClose, "closed")
+		err := qs.CloseWithError(errorCodeClose, "closed")
+		if errors.Is(err, net.ErrClosed) {
+			return nil
+		}
+		return err
 	})
 
 	// Always close on error.

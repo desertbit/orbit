@@ -52,7 +52,13 @@ func newSession(cl closer.Closer, conn net.Conn, isServer bool, conf *yamux.Conf
 		Closer: cl,
 		conn:   conn,
 	}
-	s.OnClosing(conn.Close)
+	s.OnClosing(func() error {
+		err := conn.Close()
+		if errors.Is(err, net.ErrClosed) {
+			return nil
+		}
+		return err
+	})
 
 	// Always close on error.
 	defer func() {

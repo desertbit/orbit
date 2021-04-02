@@ -1,0 +1,18 @@
+version 1
+
+service {
+    call noData {}
+    call argData {
+        arg: { data []byte }
+    }
+    call retData {
+        ret: { data map[string][]int }
+    }
+    call argRetData {
+        arg: { data float64 }
+        ret: { 
+            data1 time
+            data2 []map[string][]bool
+        }
+    }
+}

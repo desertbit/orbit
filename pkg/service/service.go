@@ -178,7 +178,10 @@ func (s *service) Run() (err error) {
 		return
 	}
 
-	s.log.Info().Str("listenAddr", s.opts.ListenAddr).Msg("service listening")
+	// Call the hooks.
+	for _, h := range s.hooks {
+		h.OnListening(ln.Addr().String())
+	}
 
 	var (
 		conn        transport.Conn

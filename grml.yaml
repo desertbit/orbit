@@ -10,6 +10,7 @@ commands:
     test:
         help: run all go tests
         exec: |
+            "${BINDIR}/orbit" gen "${ROOT}/internal/test/call/call.orbit"
             go test -race ./pkg/... ./internal/... ./cmd/...
 
     generate:

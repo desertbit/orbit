@@ -61,6 +61,12 @@ func (c *serviceHook) Close() error {
 	return nil
 }
 
+func (c *serviceHook) OnListening(listenAddr string) {
+	c.log.Info().
+		Str("listenAddr", listenAddr).
+		Msg("service listening")
+}
+
 func (c *serviceHook) OnSession(s service.Session, stream transport.Stream) error {
 	c.log.Info().
 		Str("sessionID", s.ID()).

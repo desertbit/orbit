@@ -39,6 +39,9 @@ type Hook interface {
 	// Close is called if the service closes.
 	Close() error
 
+	// OnListening is called when the service has created its listener.
+	OnListening(listenAddr string)
+
 	// OnSession is called if a new client session is connected to the service.
 	// RPC and stream routines are handled after this hook.
 	// Do not use the stream after returning from this hook.

@@ -25,12 +25,13 @@
  * SOFTWARE.
  */
 
-package testutil
+package test
 
 import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 	"testing"
 )
 
@@ -64,54 +65,87 @@ func (t *t) FailNow() {
 
 // Tester is a concurrent test helper.
 type Tester interface {
-	Go(func(context.Context, T))
+	Add(c uint)
+	Run(func(context.Context, T))
 	Wait(*testing.T)
 }
 
 type tester struct {
 	ctx    context.Context
 	cancel context.CancelFunc
-	count  int
-	tChan  chan *t
+
+	mx    *sync.Mutex
+	count int
+	cond  *sync.Cond
+
+	tChan chan *t
 }
 
 func NewTester() Tester {
 	ctx, cancel := context.WithCancel(context.Background())
-	return &tester{
+	t := &tester{
 		ctx:    ctx,
 		cancel: cancel,
-		tChan:  make(chan *t, 1),
+		mx:     &sync.Mutex{},
+		tChan:  make(chan *t, 3),
 	}
+	t.cond = sync.NewCond(t.mx)
+	return t
 }
 
-func (t *tester) Go(f func(context.Context, T)) {
-	t.count++
+func (t *tester) Add(c uint) {
+	t.mx.Lock()
+	t.count += int(c)
+	t.mx.Unlock()
+}
+
+func (t *tester) Run(f func(context.Context, T)) {
 	gt := newT()
-	go func() {
-		defer func() {
-			if err := recover(); err != nil && err != errFailed {
-				gt.Errorf("catched panic: %v", err)
-			}
-			select {
-			case t.tChan <- gt:
-			case <-t.ctx.Done():
-			}
-		}()
-		f(t.ctx, gt)
+
+	defer func() {
+		if err := recover(); err != nil && err != errFailed {
+			gt.Errorf("catched panic: %v", err)
+		}
+		select {
+		case t.tChan <- gt:
+		case <-t.ctx.Done():
+		}
+
+		// Signal that this func has ended.
+		t.mx.Lock()
+		t.count--
+		if t.count < 0 {
+			panic("tester: count is negative, maybe you forgot to call Add()?")
+		}
+		t.cond.Broadcast()
+		t.mx.Unlock()
 	}()
+	f(t.ctx, gt)
 }
 
 func (t *tester) Wait(tt *testing.T) {
-	for i := 0; i < t.count; i++ {
-		gt := <-t.tChan
-		for _, err := range gt.errors {
-			tt.Error(err)
+	t.mx.Lock()
+	defer t.mx.Unlock()
+
+Loop:
+	for {
+		select {
+		case gt := <-t.tChan:
+			for _, err := range gt.errors {
+				tt.Error(err)
+			}
+			if gt.failed {
+				t.cancel()
+				tt.FailNow()
+				return
+			}
+		default:
+			if t.count == 0 {
+				break Loop
+			}
+			t.cond.Wait()
 		}
-		if gt.failed {
-			t.cancel()
-			tt.FailNow()
-			return
-		}
+
 	}
 	t.cancel() // Always call cancel once done.
 }
