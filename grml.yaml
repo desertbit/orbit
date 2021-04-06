@@ -15,7 +15,7 @@ commands:
     generate:
         help: generate all internal msgp code
         exec: |
-            go generate ./internal/...
+            go generate ./internal/... ./pkg/...
 
     run:
         help: run commands
