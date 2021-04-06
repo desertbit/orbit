@@ -146,6 +146,12 @@ func (s serviceHook) verifyToken(ctx service.Context, id string) error {
 		return fmt.Errorf("token invalid: %w", err)
 	}
 
+	// Pass the token to the handler to verify it.
+	err = s.handler.Authenticate(tk, id)
+	if err != nil {
+		return err
+	}
+
 	// Token has been successfully verified.
 	// Add the userID and groups to the context data.
 	ctx.SetData(keyUserID, tk.UserID)
