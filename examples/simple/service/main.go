@@ -107,7 +107,7 @@ func (s *ServiceHandler) SayHi(ctx service.Context, arg hello.SayHiArg) (ret hel
 
 func (s *ServiceHandler) Test(ctx service.Context, arg hello.TestArg) (ret hello.TestRet, err error) {
 	fmt.Printf("handler: Test, %s\n", arg.S)
-	ret = hello.TestRet{Name: "horst", Ts: time.Now()}
+	ret = hello.TestRet{Name: "horst", Dur: time.Minute}
 	return
 }
 

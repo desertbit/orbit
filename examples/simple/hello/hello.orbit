@@ -23,7 +23,7 @@ service {
         }
         ret: {
             name string `validate:"required,min=1"`
-            ts time
+            dur duration
         }
         timeout: 500ms
         maxRetSize: 10K

@@ -38,6 +38,17 @@ var (
 	_ validator.StructLevel
 )
 
+//### Msgp time duration shim ###//
+// See https://github.com/desertbit/orbit/issues/50
+
+//msgp:shim time.Duration as:int64 using:_encodeTimeDuration/_decodeTimeDuration
+func _encodeTimeDuration(d time.Duration) int64 {
+	return int64(d)
+}
+func _decodeTimeDuration(i int64) time.Duration {
+	return time.Duration(i)
+}
+
 //##############//
 //### Errors ###//
 //##############//
@@ -127,7 +138,7 @@ type TestArg struct {
 
 type TestRet struct {
 	Name string `validate:"required,min=1"`
-	Ts   time.Time
+	Dur  time.Duration
 }
 
 //msgp:ignore TimeStreamClientStream

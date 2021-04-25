@@ -206,6 +206,9 @@ func generate(pkgName string, f *ast.File) string {
 	g.writeLn(")")
 	g.writeLn("")
 
+	// Generate the msgp shims.
+	g.genTimeDurationMsgp()
+
 	// Generate the errors.
 	g.writeLn("//##############//")
 	g.writeLn("//### Errors ###//")
@@ -245,6 +248,23 @@ func generate(pkgName string, f *ast.File) string {
 	g.genService(f.Srvc, f.Errs)
 
 	return g.s.String()
+}
+
+// genTimeDurationMsgp generates a shim for the tinylib/msgp tool
+// to encode/decode a time.Duration as int64.
+// This allows the msgp tool to handle time.Duration.
+func (g *generator) genTimeDurationMsgp() {
+	g.writeLn("//### Msgp time duration shim ###//")
+	g.writeLn("// See https://github.com/desertbit/orbit/issues/50")
+	g.writeLn("")
+	g.writeLn("//msgp:shim time.Duration as:int64 using:_encodeTimeDuration/_decodeTimeDuration")
+	g.writeLn("func _encodeTimeDuration(d time.Duration) int64 {")
+	g.writeLn("return int64(d)")
+	g.writeLn("}")
+	g.writeLn("func _decodeTimeDuration(i int64) time.Duration {")
+	g.writeLn("return time.Duration(i)")
+	g.writeLn("}")
+	g.writeLn("")
 }
 
 // writeTimeoutParam is a helper to determine which timeout param must be written

@@ -73,7 +73,7 @@ func main() {
 			log.Fatalln(err)
 		}
 
-		fmt.Printf("Test: %s, %s\n", ret.Name, ret.Ts.String())
+		fmt.Printf("Test: %s, %s\n", ret.Name, ret.Dur.String())
 	}()
 
 	ret, err := c.SayHi(context.Background(), hello.SayHiArg{Name: "Wastl", Ts: time.Now()})
