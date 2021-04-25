@@ -8,6 +8,7 @@ service {
         ret: {
 			sum float32
 		}
+        errors: theFirstError
     }
     call c2 {
         async
@@ -20,6 +21,7 @@ service {
 		timeout: 500ms
 		maxArgSize: 154KB
 		maxRetSize: 5MiB
+        errors: theFirstError, theThirdError
     }
     call c3 {}
 

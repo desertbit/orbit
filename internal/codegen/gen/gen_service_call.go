@@ -109,8 +109,12 @@ func (g *generator) genClientCall(c *ast.Call, errs []*ast.Error) {
 
 	// Check error and parse control.ErrorCodes.
 	g.errIfNilFunc(func() {
-		g.writefLn("err = %s(err)", clientErrorCheck)
-		g.writeLn("return")
+		if len(c.Errors) != 0 {
+			// Inline check for defined errors.
+			g.genClientErrorInlineCheck(c.Errors)
+		} else {
+			g.writeLn("return")
+		}
 	})
 
 	// If return arguments were expected, validate them.
@@ -186,8 +190,12 @@ func (g *generator) genServiceCall(c *ast.Call) {
 
 	// Check error and convert to orbit errors.
 	g.errIfNilFunc(func() {
-		g.writefLn("err = %s(err)", serviceErrorCheck)
-		g.writeLn("return")
+		if len(c.Errors) != 0 {
+			// Inline check for defined errors.
+			g.genServiceErrorInlineCheck(c.Errors)
+		} else {
+			g.writeLn("return")
+		}
 	})
 
 	// Assign return value.

@@ -50,6 +50,9 @@ var (
 		Name: "c1",
 		Arg:  &ast.StructType{Name: "c1Arg"},
 		Ret:  &ast.StructType{Name: "c1Ret"},
+		Errors: []*ast.Error{
+			{Name: "theFirstError", Pos: lexer.Pos{Line: 11, Column: 15}},
+		},
 	}
 	c2 = &ast.Call{
 		Name:       "c2",
@@ -59,6 +62,10 @@ var (
 		Timeout:    &c2Timeout,
 		MaxArgSize: &c2MaxArgSize,
 		MaxRetSize: &c2MaxRetSize,
+		Errors: []*ast.Error{
+			{Name: "theFirstError", Pos: lexer.Pos{Line: 24, Column: 15}},
+			{Name: "theThirdError", Pos: lexer.Pos{Line: 24, Column: 30}},
+		},
 	}
 	c3  = &ast.Call{Name: "c3"}
 	rc1 = &ast.Call{
@@ -301,6 +308,7 @@ func requireEqualCall(t *testing.T, exp, act *ast.Call) {
 	require.Exactly(t, exp.Timeout, act.Timeout)
 	require.Exactly(t, exp.MaxArgSize, act.MaxArgSize)
 	require.Exactly(t, exp.MaxRetSize, act.MaxRetSize)
+	require.Exactly(t, exp.Errors, act.Errors)
 	requireEqualDataType(t, exp.Arg, act.Arg)
 	requireEqualDataType(t, exp.Ret, act.Ret)
 }

@@ -76,6 +76,7 @@ const (
 	RBRACK // ]
 	COLON  // :
 	EQUAL  // =
+	COMMA  // ,
 	delimEnd
 )
 
@@ -189,6 +190,7 @@ var delimTokenTypes = map[rune]TokenType{
 	']': RBRACK,
 	':': COLON,
 	'=': EQUAL,
+	',': COMMA,
 }
 
 func isDelim(r rune) (ok bool) {

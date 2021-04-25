@@ -111,6 +111,19 @@ func validateCall(c *ast.Call, f *ast.File) (err error) {
 		}
 	}
 
+	// Resolve all errors.
+NextErr:
+	for _, e := range c.Errors {
+		for _, e2 := range f.Errs {
+			if e.Ident() == e2.Ident() {
+				e.ID = e2.ID
+				continue NextErr
+			}
+		}
+
+		return ast.NewErr(e.Line, "error %s is not defined", e.Name)
+	}
+
 	return
 }
 
@@ -139,6 +152,23 @@ func validateStream(s *ast.Stream, f *ast.File) (err error) {
 	}
 	if s.Ret == nil && s.MaxRetSize != nil {
 		return ast.NewErr(s.Line, "max ret size given, but ret not defined")
+	}
+
+	// Errors are only allowed for typed streams.
+	if s.Arg == nil && s.Ret == nil && len(s.Errors) != 0 {
+		return ast.NewErr(s.Line, "errors can only be defined for typed streams")
+	}
+	// Resolve all errors.
+NextErr:
+	for _, e := range s.Errors {
+		for _, e2 := range f.Errs {
+			if e.Name == e2.Name {
+				e.ID = e2.ID
+				continue NextErr
+			}
+		}
+
+		return ast.NewErr(e.Line, "error %s is not defined", e.Name)
 	}
 
 	return
