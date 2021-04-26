@@ -37,8 +37,17 @@ import (
 	"time"
 
 	"github.com/desertbit/orbit/internal/codegen"
-	"github.com/rs/zerolog/log"
 	yaml "gopkg.in/yaml.v3"
+)
+
+const (
+	cacheDirName = "orbit"
+	modTimesFile = "mod_times"
+)
+
+var (
+	errCacheNotFound = errors.New("gen cache not found")
+	errCacheInvalid  = errors.New("gen cache is invalid")
 )
 
 type cacheEntry struct {
@@ -46,39 +55,49 @@ type cacheEntry struct {
 	Version      int       `yaml:"version"`
 }
 
-func checkIfModified(orbitFile string, force bool) (modified bool, err error) {
-	genCache := make(map[string]cacheEntry)
+// compareWithGenCache compares the file at the given path against the gen cache
+// and returns true, if the file is newer.
+// Returns errCacheNotFound, if no cache could be found.
+// Returns errCacheInvalid, if the cache found was invalid.
+func compareWithGenCache(orbitFile string, force bool) (modified bool, err error) {
+	gc, _, err := loadGenCache()
+	if err != nil {
+		return
+	}
+	gcEntry, foundInCache := gc[orbitFile]
 
-	// Retrieve our cache dir, but only if force is not enabled.
-	var ucd string
-	if !force {
-		ucd, err = os.UserCacheDir()
-		if err != nil {
-			log.Warn().
-				Err(err).
-				Msg("unable to retrieve cache dir, all files will be generated")
+	// Retrieve the file's info.
+	fi, err := os.Lstat(orbitFile)
+	if err != nil {
+		return
+	}
+
+	// Check, if the file has been generated before.
+	genFileExists, err := fileExists(strings.Replace(orbitFile, orbitSuffix, genOrbitSuffix, 1))
+	if err != nil {
+		return
+	}
+
+	// The file counts as modified:
+	modified = !foundInCache || // if it is not found in the cache or,
+		!gcEntry.LastModified.Equal(fi.ModTime()) || // if its last modification timestamp does not match the cached modification time or,
+		!genFileExists || // if its generated file does not exist or,
+		gcEntry.Version != codegen.CacheVersion || // if its version does not match the current cache version or,
+		force // if force is enabled.
+	return
+}
+
+// updateGenCache updates the gen cache on disk for the given file.
+func updateGenCache(orbitFile string) (err error) {
+	// Load the current gen cache.
+	gc, cacheDir, err := loadGenCache()
+	if err != nil {
+		if errors.Is(err, errCacheInvalid) || errors.Is(err, errCacheNotFound) {
+			// Create/overwrite the cache.
+			gc = make(map[string]cacheEntry)
 			err = nil
 		} else {
-			// Ensure, our directory exists.
-			err = os.MkdirAll(filepath.Join(ucd, cacheDir), dirPerm)
-			if err != nil {
-				err = fmt.Errorf("failed to create orbit cache dir: %v", err)
-				return
-			}
-
-			// Read the data from the cache file.
-			var data []byte
-			data, err = ioutil.ReadFile(filepath.Join(ucd, cacheDir, modTimesFile))
-			if err != nil && !errors.Is(err, os.ErrNotExist) {
-				return
-			}
-
-			// Parse it to our struct using yaml.
-			err = yaml.Unmarshal(data, &genCache)
-			if err != nil {
-				log.Warn().Msg("found invalid old cache, generating all files and overwriting cache")
-				err = nil
-			}
+			return
 		}
 	}
 
@@ -88,34 +107,50 @@ func checkIfModified(orbitFile string, force bool) (modified bool, err error) {
 		return
 	}
 
-	// The file counts as modified, if its last modification timestamp
-	// does not match the cached modification time, if its generated file
-	// does not exist, if its version does not match the current cache version,
-	// or if force is enabled.
-	var exists bool
-	exists, err = fileExists(strings.Replace(orbitFile, orbitSuffix, genOrbitSuffix, 1))
+	// Update the cache.
+	gc[orbitFile] = cacheEntry{LastModified: fi.ModTime(), Version: codegen.CacheVersion}
+
+	data, err := yaml.Marshal(gc)
 	if err != nil {
 		return
 	}
-	entry, ok := genCache[orbitFile]
 
-	modified = !ok || !entry.LastModified.Equal(fi.ModTime()) || entry.Version != codegen.CacheVersion || force || !exists
-	if modified {
-		genCache[orbitFile] = cacheEntry{LastModified: fi.ModTime(), Version: codegen.CacheVersion}
+	return ioutil.WriteFile(filepath.Join(cacheDir, modTimesFile), data, filePerm)
+}
+
+// If one of the predefined errors is returned, the cacheDir is guaranteed to
+// be set to a valid value.
+// Returns errCacheNotFound, if no cache could be found.
+// Returns errCacheInvalid, if the cache found was invalid.
+func loadGenCache() (gc map[string]cacheEntry, cacheDir string, err error) {
+	// Get the cache dir.
+	cacheDir, err = os.UserCacheDir()
+	if err != nil {
+		return
 	}
 
-	// Save the updated gen cache to the cache dir.
-	if !force && ucd != "" {
-		var data []byte
-		data, err = yaml.Marshal(genCache)
-		if err != nil {
-			return
-		}
+	// Ensure, our directory exists.
+	cacheDir = filepath.Join(cacheDir, cacheDirName)
+	err = os.MkdirAll(cacheDir, dirPerm)
+	if err != nil {
+		return
+	}
 
-		err = ioutil.WriteFile(filepath.Join(ucd, cacheDir, modTimesFile), data, filePerm)
-		if err != nil {
-			return
+	// Read the data from the cache file.
+	data, err := ioutil.ReadFile(filepath.Join(cacheDir, modTimesFile))
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			err = errCacheNotFound
 		}
+		return
+	}
+
+	// Parse it to our struct using yaml.
+	gc = make(map[string]cacheEntry)
+	err = yaml.Unmarshal(data, &gc)
+	if err != nil {
+		err = fmt.Errorf("%w: %v", errCacheInvalid, err)
+		return
 	}
 
 	return

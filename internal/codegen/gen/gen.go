@@ -42,14 +42,13 @@ import (
 	"github.com/desertbit/orbit/internal/codegen/lexer"
 	"github.com/desertbit/orbit/internal/codegen/parser"
 	"github.com/desertbit/orbit/internal/codegen/validate"
+	"github.com/rs/zerolog/log"
 )
 
 const (
 	dirPerm  = 0755
 	filePerm = 0666
 
-	cacheDir          = "orbit"
-	modTimesFile      = "mod_times"
 	orbitSuffix       = ".orbit"
 	genOrbitSuffix    = "_orbit_gen.go"
 	genMsgpSuffix     = "_msgp_gen.go"
@@ -71,8 +70,15 @@ func Generate(orbitFile string, force bool) (err error) {
 	}
 
 	// Check, if the file has been modified.
-	modified, err := checkIfModified(orbitFile, force)
-	if err != nil || !modified {
+	modified, err := compareWithGenCache(orbitFile, force)
+	if err != nil {
+		if errors.Is(err, errCacheInvalid) {
+			log.Warn().Err(err).Msg("invalid old cache, generating all files and overwriting cache")
+		} else if !errors.Is(err, errCacheNotFound) {
+			return
+		}
+		err = nil
+	} else if !modified {
 		return
 	}
 
@@ -111,6 +117,12 @@ func Generate(orbitFile string, force bool) (err error) {
 
 	// Format the file and simplify the code, where possible.
 	err = execCmd("gofmt", "-s", "-w", ofp)
+	if err != nil {
+		return
+	}
+
+	// Update the cache for this file.
+	err = updateGenCache(orbitFile)
 	if err != nil {
 		return
 	}
