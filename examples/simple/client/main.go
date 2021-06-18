@@ -33,18 +33,20 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"sync"
-	"time"
 
-	"github.com/desertbit/orbit/examples/simple/hello"
+	"github.com/desertbit/orbit/examples/simple"
 	"github.com/desertbit/orbit/pkg/client"
 	olog "github.com/desertbit/orbit/pkg/hook/log"
 	"github.com/desertbit/orbit/pkg/transport/quic"
 )
 
 func main() {
+	// Create the transport for the client.
+	// Check pkg/transport for available transports.
 	tr, err := quic.NewTransport(&quic.Options{
 		TLSConfig: &tls.Config{
+			// This config basically disables certificate validation.
+			// Never use this in a production environment!
 			InsecureSkipVerify: true,
 			NextProtos:         []string{"orbit-simple-example"},
 		},
@@ -53,11 +55,12 @@ func main() {
 		log.Fatalln(err)
 	}
 
-	c, err := hello.NewClient(&client.Options{
+	// Create the client. It gets generated from the simple.orbit file.
+	c, err := simple.NewClient(&client.Options{
 		Host:      "127.0.0.1:1122",
 		Transport: tr,
 		Hooks: client.Hooks{
-			olog.ClientHook(),
+			olog.ClientHook(), // Pass a logging hook into it.
 		},
 	})
 	if err != nil {
@@ -65,63 +68,74 @@ func main() {
 	}
 	defer c.Close()
 
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		ret, err := c.Test(context.Background(), hello.TestArg{S: "testarg"})
-		if err != nil {
-			log.Fatalln(err)
+	// Make a call against the backend.
+	// We use a dummy context, but in a production setting you could
+	// pass a Context that cancels ongoing requests when the app closes.
+	ret, err := c.MyCall(context.Background(), simple.MyCallArg{
+		RequiredArg: "I am the required argument", // We must set this argument, otherwise the validation fails.
+		OptionalArg: 0,                            // We do not need to set this.
+	})
+	if err != nil {
+		// MyCall may return our custom application error.
+		// Check for it by simply using errors.Is.
+		if errors.Is(err, simple.ErrCustomErr1) {
+			log.Fatalln("MyCall returned our custom error 1")
 		}
+		log.Fatalln(err)
+	}
+	fmt.Printf("MyCall [SUCCESS]: returned %s\n", ret.Answer)
 
-		fmt.Printf("Test: %s, %s\n", ret.Name, ret.Dur.String())
-	}()
-
-	ret, err := c.SayHi(context.Background(), hello.SayHiArg{Name: "Wastl", Ts: time.Now()})
+	// Open our typed stream.
+	// It allows us to send specific types on a stream connection.
+	// When we are done with it, we must close the stream.
+	stream, err := c.MyTypedStream(context.Background())
 	if err != nil {
 		log.Fatalln(err)
 	}
-	fmt.Printf("SayHi: %+v\n", ret.Res)
+	defer stream.Close()
 
-	stream, err := c.ClockTime(context.Background())
+	// Send arguments over the stream.
+	err = stream.Write(simple.PersonInfo{
+		Name:        "Marcus",
+		Age:         25,
+		Locale:      "en_US",
+		Address:     "Dream Boulevard 25",
+		VehicleType: simple.Car,
+	})
 	if err != nil {
 		log.Fatalln(err)
 	}
-	for i := 0; i < 3; i++ {
-		var arg hello.ClockTimeRet
-		arg, err = stream.Read()
-		if err != nil {
-			if errors.Is(err, hello.ErrThisIsATest) {
-				println("caught hello error this is a test")
-			} else {
-				log.Fatalln(err)
-			}
+
+	// Read the answer from the service.
+	sRet, err := stream.Read()
+	if err != nil {
+		if errors.Is(err, simple.ErrCustomErr1) {
+			log.Fatalln("MyTypedStream.Read returned our custom error 1")
+		} else if errors.Is(err, simple.ErrCustomErr2) {
+			log.Fatalln("MyTypedStream.Read returned our custom error 2")
 		}
-
-		fmt.Printf("ClockTime: %s\n", arg.Ts.String())
+		log.Fatalln(err)
 	}
+	fmt.Printf("MyTypedStream [SUCCESS]: returned %v\n", sRet.Ok)
 
-	bi, err := c.Bidirectional(context.Background())
+	// Open our raw stream.
+	// You could do basically anything with it.
+	// We just send a ping pong.
+	rawStream, err := c.MyRawStream(context.Background())
 	if err != nil {
 		log.Fatalln(err)
 	}
-	for i := 0; i < 3; i++ {
-		err = bi.Write(hello.BidirectionalArg{Question: "What is the purpose of life?"})
-		if err != nil {
-			log.Fatalln(err)
-		}
 
-		answer, err := bi.Read()
-		if err != nil {
-			if errors.Is(err, hello.ErrThisIsATest) {
-				println("niranetrinaetrine")
-			} else {
-				log.Fatalln(err)
-			}
-		}
-
-		fmt.Printf("Answer: %s\n", answer.Answer)
+	_, err = rawStream.Write([]byte("ping"))
+	if err != nil {
+		log.Fatalln(err)
 	}
-	bi.Close()
-	wg.Wait()
+
+	b := make([]byte, 4)
+	n, err := rawStream.Read(b)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	fmt.Printf("MyRawStream [SUCCESS]: returned %s\n", string(b[:n]))
+	fmt.Println("Done, exiting...")
 }

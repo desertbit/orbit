@@ -36,9 +36,8 @@ import (
 	"fmt"
 	"log"
 	"math/big"
-	"time"
 
-	"github.com/desertbit/orbit/examples/simple/hello"
+	"github.com/desertbit/orbit/examples/simple"
 	olog "github.com/desertbit/orbit/pkg/hook/log"
 	"github.com/desertbit/orbit/pkg/service"
 	"github.com/desertbit/orbit/pkg/transport"
@@ -46,19 +45,21 @@ import (
 )
 
 func main() {
-	tr, err := quic.NewTransport(&quic.Options{
-		TLSConfig: generateTLSConfig(),
-	})
+	// Create the transport for the server.
+	// Check pkg/transport for available transports.
+	tr, err := quic.NewTransport(&quic.Options{TLSConfig: generateTLSConfig()})
 	if err != nil {
 		log.Fatalln(err)
 	}
 
-	s, err := hello.NewService(&ServiceHandler{},
+	// Create the service. It gets generated from the simple.orbit file.
+	// We pass in our custom service handler implementing the server side.
+	s, err := simple.NewService(&ServiceHandler{},
 		&service.Options{
 			ListenAddr: ":1122",
 			Transport:  tr,
 			Hooks: service.Hooks{
-				olog.ServiceHook(),
+				olog.ServiceHook(), // Pass a logging Hook.
 			},
 		})
 	if err != nil {
@@ -66,12 +67,52 @@ func main() {
 	}
 	defer s.Close()
 
+	// To start the service and accept incoming connections, we must call Run.
+	// This method blocks.
 	err = s.Run()
 	if err != nil {
 		log.Fatalln(err)
 	}
+
+	fmt.Println("Done, exiting...")
 }
 
+// The ServiceHandler type implements the simple.ServiceHandler interface.
+type ServiceHandler struct{}
+
+func (sh *ServiceHandler) MyCall(ctx service.Context, arg simple.MyCallArg) (ret simple.MyCallRet, err error) {
+	fmt.Printf("MyCall [SUCCESS]: received requiredArg '%s' and optionalArg '%v'\n", arg.RequiredArg, arg.OptionalArg)
+	ret.Answer = "Good job"
+	return
+}
+
+func (sh *ServiceHandler) MyRawStream(ctx service.Context, stream transport.Stream) {
+	b := make([]byte, 4)
+	n, err := stream.Read(b)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	_, err = stream.Write([]byte("pong"))
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	fmt.Printf("MyRawStream [SUCCESS]: received '%s'\n", string(b[:n]))
+}
+
+func (sh *ServiceHandler) MyTypedStream(ctx service.Context, stream *simple.MyTypedStreamServiceStream) error {
+	arg, err := stream.Read()
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("MyTypedStream [SUCCESS]: received info about '%s', age '%d'\n", arg.Name, arg.Age)
+	return stream.Write(simple.MyTypedStreamRet{Ok: true})
+}
+
+// generateTLSConfig generates a bogus tls config that includes a self signed certificate.
+// Never use this in a production environment!
 func generateTLSConfig() *tls.Config {
 	key, err := rsa.GenerateKey(rand.Reader, 1024)
 	if err != nil {
@@ -93,59 +134,4 @@ func generateTLSConfig() *tls.Config {
 		Certificates: []tls.Certificate{tlsCert},
 		NextProtos:   []string{"orbit-simple-example"},
 	}
-}
-
-// #############
-
-type ServiceHandler struct{}
-
-func (s *ServiceHandler) SayHi(ctx service.Context, arg hello.SayHiArg) (ret hello.SayHiRet, err error) {
-	fmt.Printf("handler: SayHi, %s, %s\n", arg.Name, arg.Ts.String())
-	ret = hello.SayHiRet{Res: []int{1, 2, 3}}
-	return
-}
-
-func (s *ServiceHandler) Test(ctx service.Context, arg hello.TestArg) (ret hello.TestRet, err error) {
-	fmt.Printf("handler: Test, %s\n", arg.S)
-	ret = hello.TestRet{Name: "horst", Dur: time.Minute}
-	return
-}
-
-func (s *ServiceHandler) ClockTime(ctx service.Context, ret *hello.ClockTimeServiceStream) error {
-	for i := 0; i < 3; i++ {
-		err := ret.Write(hello.ClockTimeRet{Ts: time.Now()})
-		if err != nil {
-			fmt.Printf("ERROR handler.ClockTime: %v\n", err)
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (s *ServiceHandler) Lul(ctx service.Context, stream transport.Stream) {
-	panic("implement me")
-}
-
-func (s *ServiceHandler) TimeStream(ctx service.Context, arg *hello.TimeStreamServiceStream) error {
-	panic("implement me")
-}
-
-func (s *ServiceHandler) Bidirectional(ctx service.Context, stream *hello.BidirectionalServiceStream) error {
-	for i := 0; i < 3; i++ {
-		a, err := stream.Read()
-		if err != nil {
-			fmt.Printf("ERROR handler.Bidirectional read: %v\n", err)
-			return err
-		}
-
-		fmt.Printf("Question: %s?\n", a.Question)
-
-		err = stream.Write(hello.BidirectionalRet{Answer: "42"})
-		if err != nil {
-			fmt.Printf("ERROR handler.Bidirectional write: %v\n", err)
-			return err
-		}
-	}
-	return nil
 }

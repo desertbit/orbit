@@ -70,11 +70,13 @@ func TestFirstUpper(t *testing.T) {
 		exp string
 	}{
 		{val: "", exp: ""}, // 0
+		{val: "a", exp: "A"},
+		{val: "A", exp: "A"},
 		{val: "hello", exp: "Hello"},
 		{val: "Hello", exp: "Hello"},
-		{val: "HELLO", exp: "HELLO"},
+		{val: "HELLO", exp: "HELLO"}, // 5
 		{val: "hELLO", exp: "HELLO"},
-		{val: " Hello", exp: " Hello"}, // 5
+		{val: " Hello", exp: " Hello"},
 		{val: "He llo", exp: "He llo"},
 	}
 
@@ -91,11 +93,13 @@ func TestFirstLower(t *testing.T) {
 		exp string
 	}{
 		{val: "", exp: ""}, // 0
+		{val: "a", exp: "a"},
+		{val: "A", exp: "a"},
 		{val: "hello", exp: "hello"},
 		{val: "Hello", exp: "hello"},
-		{val: "HELLO", exp: "hELLO"},
+		{val: "HELLO", exp: "hELLO"}, // 5
 		{val: " Hello", exp: " Hello"},
-		{val: "He llo", exp: "he llo"}, // 5
+		{val: "He llo", exp: "he llo"},
 	}
 
 	for i, c := range testCases {

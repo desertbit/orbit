@@ -34,7 +34,7 @@ service {
         async
         timeout: 5s
         arg: {
-            name string 'required,min=1'
+            name string `required,min=1`
         }
         maxArgSize: 50KB
         ret: someType
@@ -73,7 +73,7 @@ Per service, you can declare as many streams as you want.
 service {
     stream messages {
         arg: {
-            name string 'required,min=1'
+            name string `required,min=1`
         }
         maxArgSize: 50KB
         ret: someType
@@ -104,7 +104,7 @@ Usage: `errors: err1, err2, ...`
 Per `.orbit` file, you can declare as many types as you want.
 ```
 type someType {
-    name string 'validate:"required,min=1"'
+    name string `validate:"required,min=1"`
     ...
 }
 ```
@@ -146,7 +146,7 @@ Calls and Streams may define types inline. Such types receive a generated `ident
 service {
     call test {
         arg: {
-            name string 'required'
+            name string `validate:"required"`
         }
         ret: {
             age int
@@ -175,7 +175,7 @@ The identifier of the field, must be an unsigned integer and unique within the e
 An enum can be used similar to basic types.
 ```
 type A {
-    brand carBrand 'required'
+    brand carBrand `validate:"required"`
 }
 
 service {

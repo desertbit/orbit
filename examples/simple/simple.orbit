@@ -1,0 +1,50 @@
+version 1
+
+// This block defines errors that calls and streams can return.
+// In the application logic, you can return them in the handlers
+// and then check them on the client side.
+errors {
+    customErr1 = 1
+    customErr2 = 2
+}
+
+// Defines the service itself.
+service {
+    // A simple call that sends arguments and returns an answer.
+    // The call can return the customErr1 error.
+    call myCall {
+        arg: {
+            requiredArg string `validate:"required"` // This one must be given.
+            optionalArg int // This one is optional.
+        }
+        ret: { answer string `json:"Answer"` } // You can set any struct tag you want.
+        errors: customErr1
+    }
+    
+    // This is a raw stream that simply offers a raw net.Conn.
+    // You can do with it pretty much anything you want.
+    stream myRawStream {}
+
+    // If you want a stream and just send pre defined types over it,
+    // you can use a typed stream.
+    stream myTypedStream {
+        arg: personInfo // References the info type defined below.
+        ret: { ok bool }
+        errors: customErr1, customErr2
+    }
+}
+
+// A custom type containing some information about a person.
+type personInfo {
+    name    string `validate:"required,min=1"`
+    age     int    `validate:"required,min=1,max=155"`
+    locale  string `validate:"required,len=5"`
+    address string `validate:"omitempty"`
+    vehicleType vehicle
+}
+
+// A custom enum defining the type of a vehicle.
+enum vehicle {
+    car = 1
+    pickup = 2
+}
