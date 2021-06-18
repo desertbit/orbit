@@ -12,7 +12,7 @@ This file describes the syntax of `.orbit` files used for code generation.
 3. [Enum](#enum)
 4. [Error](#error)
 
-### Service
+## Service
 Per `.orbit` file, you must declare exactly one service.
 ```
 service {
@@ -26,7 +26,7 @@ service {
 Defines the url of the service, e.g. "127.0.0.1:4587", "examplecom/my-service:9999"  
 Usage: `url: 'example.com/my-service:9999'`
 
-#### Call
+### Call
 Per service, you can declare as many calls as you want.
 ```
 service {
@@ -67,7 +67,7 @@ Usage: `timeout: <duration>`, where _\<duration\>_ is a [go time duration format
 The [errors](#error) this call may return. A comma-separated list of error names.  
 Usage: `errors: err1, err2, ...`  
 
-#### Stream
+### Stream
 Per service, you can declare as many streams as you want.
 ```
 service {
@@ -100,7 +100,7 @@ Special value: `-1` -> no limit
 The [errors](#error) this call may return. A comma-separated list of error names.  
 Usage: `errors: err1, err2, ...`  
 
-### Type
+## Type
 Per `.orbit` file, you can declare as many types as you want.
 ```
 type someType {
@@ -116,13 +116,13 @@ The data type of the field. Can either be a basic type or a reference type.
 - **struct-tag** (optional)  
 The struct tag field. This is directly converted to a go struct-tag. Use it to define JSON formatting etc. Orbit supports the [go-playground validator](https://github.com/go-playground/validator/), so you can write validation logic directly inside the tags.
 
-#### Basic Type
+### Basic Type
 The following basic types are available.
 - `bool`, `byte`, `int`, `int8`, `int16`, `int32`, `int64`, `uint`, `uint8`, `uint16`, `uint32`, `uint64`, `float32`, `float64`, `string`
 - `time`: Equal to go's [time.Time](https://golang.org/pkg/time/#Time)
 - `duration`: Equal to go's [time.Duration](https://golang.org/pkg/time/#Duration)
 
-#### Reference Type
+### Reference Type
 A type that has been declared using the above syntax can be referenced elsewhere by its `identifier`
 ```
 type A {
@@ -140,7 +140,7 @@ service {
 }
 ```
 
-#### Inline Type
+### Inline Type
 Calls and Streams may define types inline. Such types receive a generated `identifier` of the form `<Call/Stream Name><Arg/Ret>`, but they can not be referenced elsewhere.
 ```
 service {
@@ -155,7 +155,7 @@ service {
 }
 ```
 
-### Enum
+## Enum
 Per `.orbit` file, you can declare as many enums as you want.
 ```
 enum carBrand {
@@ -187,7 +187,7 @@ service {
 }
 ```
 
-### Error
+## Error
 Per `.orbit` file, you can declare as many errors as you want.
 ```
 errors {
