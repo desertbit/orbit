@@ -27,6 +27,7 @@ service {
 
     // If you want a stream and just send pre defined types over it,
     // you can use a typed stream.
+    // Typed streams can also return pre defined errors errors.
     stream myTypedStream {
         arg: personInfo // References the info type defined below.
         ret: { ok bool }
