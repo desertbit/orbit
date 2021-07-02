@@ -40,15 +40,10 @@ func (g *generator) genEnums(enums []*ast.Enum) {
 	})
 
 	for _, en := range enums {
-		// Sort the values in lexicographical order.
-		sort.Slice(en.Values, func(i, j int) bool {
-			return en.Values[i].Name < en.Values[j].Name
-		})
-
 		g.writefLn("type %s int", en.Ident())
 		g.writeLn("const (")
 		for _, env := range en.Values {
-			g.writefLn("%s %s = %d", env.Ident(), en.Ident(), env.Value)
+			g.writefLn("%s%s %s = %d", en.Ident(), env.Ident(), en.Ident(), env.Value)
 		}
 		g.writeLn(")")
 	}

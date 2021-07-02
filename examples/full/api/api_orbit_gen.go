@@ -38,6 +38,17 @@ var (
 	_ validator.StructLevel
 )
 
+//### Msgp time duration shim ###//
+// See https://github.com/desertbit/orbit/issues/50
+
+//msgp:shim time.Duration as:int64 using:_encodeTimeDuration/_decodeTimeDuration
+func _encodeTimeDuration(d time.Duration) int64 {
+	return int64(d)
+}
+func _decodeTimeDuration(i int64) time.Duration {
+	return time.Duration(i)
+}
+
 //##############//
 //### Errors ###//
 //##############//
@@ -262,9 +273,9 @@ func (v1 *ObserveNotificationsServiceStream) Write(ret Notification) (err error)
 type UserStatus int
 
 const (
-	Active           UserStatus = 2
-	Blocked          UserStatus = 3
-	EmailNotVerified UserStatus = 1
+	UserStatusEmailNotVerified UserStatus = 1
+	UserStatusActive           UserStatus = 2
+	UserStatusBlocked          UserStatus = 3
 )
 
 //###############//
