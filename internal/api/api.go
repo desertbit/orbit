@@ -50,10 +50,12 @@ const (
 	HSInvalidVersion HandshakeCode = 1
 )
 
+//msgp:tuple HandshakeArgs
 type HandshakeArgs struct {
 	Version byte
 }
 
+//msgp:tuple HandshakeRet
 type HandshakeRet struct {
 	Code      HandshakeCode
 	SessionID string
@@ -76,6 +78,9 @@ type StreamRaw struct {
 	Data map[string][]byte
 }
 
+//ERROR! Investigate
+
+//msgp:tuple StreamAsync
 type StreamAsync struct {
 	ID string
 }

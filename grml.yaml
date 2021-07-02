@@ -46,6 +46,8 @@ commands:
         commands:
             pkg:
                 help: build the orbit package.
+                deps:
+                    - generate
                 exec: |
                     go build "${ROOT}/pkg/..."
             orbit:
