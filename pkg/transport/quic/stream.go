@@ -28,6 +28,7 @@
 package quic
 
 import (
+	"errors"
 	"io"
 	"net"
 
@@ -85,7 +86,8 @@ func (s *stream) Write(p []byte) (n int, err error) {
 	// Check for the close error code from a CancelRead peer call.
 	n, err = s.Stream.Write(p)
 	if err != nil {
-		if sErr, ok := err.(quic.StreamError); ok && sErr.ErrorCode() == errorCodeClose {
+		var sErr *quic.StreamError
+		if errors.As(err, &sErr) && sErr.ErrorCode == errorCodeClose {
 			err = io.EOF
 		}
 		return

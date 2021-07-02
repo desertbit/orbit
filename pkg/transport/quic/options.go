@@ -37,11 +37,11 @@ import (
 
 var (
 	defaultConfig = &quic.Config{
-		HandshakeTimeout:                      10 * time.Second,
-		MaxIdleTimeout:                        30 * time.Second,
-		MaxReceiveStreamFlowControlWindow:     6 * 1024 * 1024,  // 6MB
-		MaxReceiveConnectionFlowControlWindow: 15 * 1024 * 1024, // 15MB
-		KeepAlive:                             true,
+		HandshakeIdleTimeout:       5 * time.Second,
+		MaxIdleTimeout:             30 * time.Second,
+		MaxStreamReceiveWindow:     6 * 1024 * 1024,  // 6MB
+		MaxConnectionReceiveWindow: 15 * 1024 * 1024, // 15MB
+		KeepAlive:                  true,
 	}
 )
 
