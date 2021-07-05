@@ -336,8 +336,8 @@ func (v1 *BidirectionalServiceStream) Write(ret BidirectionalRet) (err error) {
 type Vehicle int
 
 const (
-	Car    Vehicle = 1
-	Pickup Vehicle = 2
+	VehicleCar    Vehicle = 1
+	VehiclePickup Vehicle = 2
 )
 
 //###############//

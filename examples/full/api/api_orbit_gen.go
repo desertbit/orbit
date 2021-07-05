@@ -273,9 +273,9 @@ func (v1 *ObserveNotificationsServiceStream) Write(ret Notification) (err error)
 type UserStatus int
 
 const (
-	Active           UserStatus = 2
-	Blocked          UserStatus = 3
-	EmailNotVerified UserStatus = 1
+	UserStatusEmailNotVerified UserStatus = 1
+	UserStatusActive           UserStatus = 2
+	UserStatusBlocked          UserStatus = 3
 )
 
 //###############//
