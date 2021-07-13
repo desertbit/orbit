@@ -57,7 +57,7 @@ import (
 )
 
 const (
-	MaxSize            = math.MaxUint32
+	MaxSize            = math.MaxInt32
 	NoPayloadSizeLimit = -1
 )
 
@@ -166,8 +166,7 @@ func WriteEncode(conn net.Conn, value interface{}, codec codec.Codec, maxPayload
 func Write(conn net.Conn, data []byte, maxPayloadSize int) error {
 	payloadLen := len(data)
 
-	// TODO: Bug: maxPayloadSize must be uint32 and NoPayloadSizeLimit must be 0
-	if int64(payloadLen) > MaxSize || maxPayloadSize != NoPayloadSizeLimit && payloadLen > maxPayloadSize {
+	if payloadLen > MaxSize || maxPayloadSize != NoPayloadSizeLimit && payloadLen > maxPayloadSize {
 		return ErrMaxPayloadSizeExceeded
 	}
 
