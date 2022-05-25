@@ -96,8 +96,7 @@ func (s *session) RemoteAddr() net.Addr {
 
 // AcceptStream returns the next stream opened by the peer, blocking until one is available.
 func (s *session) AcceptStream(ctx context.Context) (transport.Stream, error) {
-	// TODO: Fork the yamux package and implement the context cancel handling.
-	stream, err := s.ys.AcceptStream()
+	stream, err := s.ys.AcceptStream(ctx)
 	if err != nil {
 		return nil, err
 	}
