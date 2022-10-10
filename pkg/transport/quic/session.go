@@ -30,7 +30,6 @@ package quic
 import (
 	"context"
 	"errors"
-	"io"
 	"net"
 
 	"github.com/desertbit/closer/v3"
@@ -47,12 +46,12 @@ var _ transport.Conn = &session{}
 type session struct {
 	closer.Closer
 
-	qs quic.Session
+	qs quic.Connection
 	la net.Addr
 	ra net.Addr
 }
 
-func newSession(cl closer.Closer, qs quic.Session) (s *session, err error) {
+func newSession(cl closer.Closer, qs quic.Connection) (s *session, err error) {
 	s = &session{
 		Closer: cl,
 		qs:     qs,
@@ -116,7 +115,9 @@ func (s *session) RemoteAddr() net.Addr {
 }
 
 func (s *session) IsClosedError(err error) bool {
-	// TODO: remove this hack once fixed: https://github.com/lucas-clemente/quic-go/issues/2441
-	// TODO: use errorCodeClose
-	return err.Error() == "Application error 0x1: closed" || errors.Is(err, io.EOF)
+	var sErr *quic.StreamError
+	if errors.As(err, &sErr) {
+		return sErr.ErrorCode == errorCodeClose
+	}
+	return false
 }

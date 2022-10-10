@@ -41,7 +41,7 @@ var (
 		MaxIdleTimeout:             30 * time.Second,
 		MaxStreamReceiveWindow:     6 * 1024 * 1024,  // 6MB
 		MaxConnectionReceiveWindow: 15 * 1024 * 1024, // 15MB
-		KeepAlive:                  true,
+		KeepAlivePeriod:            15 * time.Second,
 	}
 )
 

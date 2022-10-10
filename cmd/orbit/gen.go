@@ -28,23 +28,25 @@
 package main
 
 import (
-	"errors"
-
 	"github.com/desertbit/grumble"
 	"github.com/desertbit/orbit/internal/codegen/gen"
 )
 
 const (
+	argOrbitFiles = "orbit-files"
+
 	flagForce = "force"
 )
 
 var cmdGen = &grumble.Command{
-	Name:      "gen",
-	Help:      "generate go code from .orbit file. Args: <files>",
-	AllowArgs: true,
-	Run:       runGen,
+	Name: "gen",
+	Help: "generate go code from .orbit file. Args: <files>",
+	Run:  runGen,
 	Flags: func(f *grumble.Flags) {
 		f.Bool("f", flagForce, false, "generate all files, ignoring their last modification time")
+	},
+	Args: func(a *grumble.Args) {
+		a.StringList(argOrbitFiles, "the paths to the orbit files", grumble.Min(1))
 	},
 }
 
@@ -53,12 +55,8 @@ func init() {
 }
 
 func runGen(ctx *grumble.Context) (err error) {
-	if len(ctx.Args) == 0 {
-		return errors.New("no file given")
-	}
-
 	// Iterate over each provided file path and generate the .orbit file.
-	for _, fp := range ctx.Args {
+	for _, fp := range ctx.Args.StringList(argOrbitFiles) {
 		err = gen.Generate(fp, ctx.Flags.Bool(flagForce))
 		if err != nil {
 			return

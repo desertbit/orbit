@@ -1,3 +1,6 @@
+version: 1
+project: orbit
+
 env:
     BINDIR: ${ROOT}/bin
 
