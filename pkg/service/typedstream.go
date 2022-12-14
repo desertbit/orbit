@@ -63,20 +63,20 @@ type TypedRWStream interface {
 }
 
 type typedRWStream struct {
-	stream     transport.Stream
-	codec      codec.Codec
-	maxArgSize int
-	maxRetSize int
-	wOnly      bool
+	stream       transport.Stream
+	codec        codec.Codec
+	maxReadSize  int
+	maxWriteSize int
+	wOnly        bool
 }
 
-func newTypedRWStream(s transport.Stream, cc codec.Codec, mas, mrs int, wOnly bool) *typedRWStream {
+func newTypedRWStream(s transport.Stream, cc codec.Codec, maxReadSize, maxWriteSize int, wOnly bool) *typedRWStream {
 	return &typedRWStream{
-		stream:     s,
-		codec:      cc,
-		maxArgSize: mas,
-		maxRetSize: mrs,
-		wOnly:      wOnly,
+		stream:       s,
+		codec:        cc,
+		maxReadSize:  maxReadSize,
+		maxWriteSize: maxWriteSize,
+		wOnly:        wOnly,
 	}
 }
 
@@ -99,7 +99,7 @@ func (s *typedRWStream) Read(data interface{}) (err error) {
 	switch ts {
 	case api.TypedStreamTypeData:
 		// Read the data packet.
-		err = packet.ReadDecode(s.stream, &data, s.codec, s.maxRetSize)
+		err = packet.ReadDecode(s.stream, &data, s.codec, s.maxReadSize)
 		if err != nil {
 			return s.checkErr(err)
 		}
@@ -133,7 +133,7 @@ func (s *typedRWStream) Write(data interface{}) (err error) {
 	}
 
 	// Now write the data packet.
-	err = packet.WriteEncode(s.stream, data, s.codec, s.maxArgSize)
+	err = packet.WriteEncode(s.stream, data, s.codec, s.maxWriteSize)
 	if err != nil {
 		// If the stream is closed, check for an error sent by the client.
 		return s.checkErr(s.checkWriteErr(err))
@@ -173,7 +173,7 @@ func (s *typedRWStream) closeWithErr(sErr api.TypedStreamError) (err error) {
 	}
 
 	// Now write the error packet.
-	err = packet.WriteEncode(s.stream, sErr, api.Codec, s.maxArgSize)
+	err = packet.WriteEncode(s.stream, sErr, api.Codec, s.maxReadSize)
 	if err != nil {
 		return s.checkErr(err)
 	}

@@ -52,7 +52,7 @@ func (s *session) OpenTypedStream(ctx context.Context, id string, maxArgSize, ma
 	}
 
 	// Create our typed stream.
-	ts = newTypedRWStream(stream, s.codec, maxArgSize, maxRetSize, wOnly)
+	ts = newTypedRWStream(stream, s.codec, maxRetSize, maxArgSize, wOnly)
 	return
 }
 

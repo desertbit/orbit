@@ -30,8 +30,6 @@ Package packet provides convenience methods to read/write packets to a net.Conn.
 A selection of different functions are available to specify timeouts and to provide
 either raw bytes or custom values that are en-/decoded with custom codec.Codecs.
 
-Packets
-
 A packet is a very simple network data format used to transmit data over
 a network. It consists of two parts, a header and the payload.
 
@@ -159,7 +157,6 @@ func WriteEncode(conn net.Conn, value interface{}, codec codec.Codec, maxPayload
 // If data is empty, an empty packet is sent that consists of
 // a header with payload size 0 and no payload.
 //
-// A maxPayloadSize of 0 specifies no limit.
 // A maxPayloadSize of -1 (NoPayloadSizeLimit) specifies no limit.
 //
 // Returns ErrMaxPayloadSizeExceeded if the payload size is exceeded.
