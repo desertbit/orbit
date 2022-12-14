@@ -195,7 +195,7 @@ func (s *session) handleRawStream(id string, data map[string][]byte, stream tran
 	}
 
 	// Create the typed stream.
-	ts := newTypedRWStream(stream, s.codec, s.maxArgSize, s.maxRetSize, str.typ == streamTypeTW)
+	ts := newTypedRWStream(stream, s.codec, str.maxArgSize, str.maxRetSize, str.typ == streamTypeTW)
 
 	// Call the handler.
 	err = s.handler.handleTypedStream(sctx, ts, str.typ, str.f)
