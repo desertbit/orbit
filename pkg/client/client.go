@@ -77,12 +77,12 @@ type Client interface {
 
 	// TypedRStream opens a new typed read stream.
 	// Returns ErrConnect if a session connection attempt failed.
-	// See AsyncCall() for the usage of maxArgSize & maxRetSize.
+	// See AsyncCall() for the usage of maxRetSize.
 	TypedRStream(ctx context.Context, id string, maxRetSize int) (TypedRStream, error)
 
 	// TypedWStream opens a new typed write stream.
 	// Returns ErrConnect if a session connection attempt failed.
-	// See AsyncCall() for the usage of maxArgSize & maxRetSize.
+	// See AsyncCall() for the usage of maxArgSize.
 	TypedWStream(ctx context.Context, id string, maxArgSize int) (TypedWStream, error)
 
 	// TypedRWStream opens a new typed read-write stream.
