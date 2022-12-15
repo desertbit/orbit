@@ -106,14 +106,14 @@ type Service interface {
 	// RegisterTypedRStream registers the callback for the incoming typed read stream
 	// specified by the id.
 	// Do not call after Run() was called.
-	// See RegisterAsyncCall() for the usage of maxRetSize.
-	RegisterTypedRStream(id string, f TypedRStreamFunc, maxRetSize int)
+	// See RegisterAsyncCall() for the usage of maxArgSize.
+	RegisterTypedRStream(id string, f TypedRStreamFunc, maxArgSize int)
 
 	// RegisterTypedWStream registers the callback for the incoming typed write stream
 	// specified by the id.
 	// Do not call after Run() was called.
-	// See RegisterAsyncCall() for the usage of maxArgSize.
-	RegisterTypedWStream(id string, f TypedWStreamFunc, maxArgSize int)
+	// See RegisterAsyncCall() for the usage of maxRetSize.
+	RegisterTypedWStream(id string, f TypedWStreamFunc, maxRetSize int)
 
 	// RegisterTypedRWStream registers the callback for the incoming typed read write stream
 	// specified by the id.
@@ -240,29 +240,29 @@ func (s *service) RegisterStream(id string, f RawStreamFunc) {
 	s.streams[id] = stream{typ: streamTypeRaw, f: f}
 }
 
-func (s *service) RegisterTypedRStream(id string, f TypedRStreamFunc, maxRetSize int) {
-	// Use default options if required.
-	if maxRetSize == DefaultMaxSize {
-		maxRetSize = s.opts.MaxRetSize
-	}
-
-	s.streams[id] = stream{
-		typ:        streamTypeTR,
-		f:          f,
-		maxRetSize: maxRetSize,
-	}
-}
-
-func (s *service) RegisterTypedWStream(id string, f TypedWStreamFunc, maxArgSize int) {
+func (s *service) RegisterTypedRStream(id string, f TypedRStreamFunc, maxArgSize int) {
 	// Use default options if required.
 	if maxArgSize == DefaultMaxSize {
 		maxArgSize = s.opts.MaxArgSize
 	}
 
 	s.streams[id] = stream{
-		typ:        streamTypeTW,
+		typ:        streamTypeTR,
 		f:          f,
 		maxArgSize: maxArgSize,
+	}
+}
+
+func (s *service) RegisterTypedWStream(id string, f TypedWStreamFunc, maxRetSize int) {
+	// Use default options if required.
+	if maxRetSize == DefaultMaxSize {
+		maxRetSize = s.opts.MaxRetSize
+	}
+
+	s.streams[id] = stream{
+		typ:        streamTypeTW,
+		f:          f,
+		maxRetSize: maxRetSize,
 	}
 }
 
