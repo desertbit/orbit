@@ -61,9 +61,9 @@ func (t *yTransport) Dial(cl closer.Closer, ctx context.Context, addr string) (t
 	if t.opts.TLSConfig != nil {
 		// TODO: Cancel is deprecated, remove once https://github.com/golang/go/issues/18482 is merged and replace with DialContext.
 		dl := &net.Dialer{Cancel: ctx.Done()}
-		conn, err = tls.DialWithDialer(dl, "tcp", addr, t.opts.TLSConfig)
+		conn, err = tls.DialWithDialer(dl, t.opts.Network, addr, t.opts.TLSConfig)
 	} else {
-		conn, err = (&net.Dialer{}).DialContext(ctx, "tcp", addr)
+		conn, err = (&net.Dialer{}).DialContext(ctx, t.opts.Network, addr)
 	}
 	if err != nil {
 		return
@@ -76,9 +76,9 @@ func (t *yTransport) Listen(cl closer.Closer, addr string) (tl transport.Listene
 	// Create the listener.
 	var ln net.Listener
 	if t.opts.TLSConfig != nil {
-		ln, err = tls.Listen("tcp", addr, t.opts.TLSConfig)
+		ln, err = tls.Listen(t.opts.Network, addr, t.opts.TLSConfig)
 	} else {
-		ln, err = net.Listen("tcp", addr)
+		ln, err = net.Listen(t.opts.Network, addr)
 	}
 	if err != nil {
 		return

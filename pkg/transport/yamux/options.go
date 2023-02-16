@@ -29,6 +29,7 @@ package yamux
 
 import (
 	"crypto/tls"
+	"fmt"
 	"os"
 	"time"
 
@@ -54,11 +55,17 @@ type Options struct {
 	// TODO:
 	// If nil, no encryption.
 	TLSConfig *tls.Config
+
+	// The network type. Defaults to 'tcp'.
+	Network string
 }
 
 func (o *Options) setDefaults() {
 	if o.Config == nil {
 		o.Config = defaultConfig
+	}
+	if o.Network == "" {
+		o.Network = "tcp"
 	}
 }
 
@@ -66,6 +73,9 @@ func (o *Options) validate() (err error) {
 	err = yamux.VerifyConfig(o.Config)
 	if err != nil {
 		return
+	}
+	if o.Network == "" {
+		return fmt.Errorf("no network type specified")
 	}
 	return
 }
