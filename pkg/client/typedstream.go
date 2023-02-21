@@ -171,7 +171,7 @@ func (s *typedRWStream) Write(data interface{}) (err error) {
 	}
 
 	// Now write the data packet.
-	err = packet.WriteEncode(s.stream, data, s.codec, s.maxReadSize)
+	err = packet.WriteEncode(s.stream, data, s.codec, s.maxWriteSize)
 	if err != nil {
 		// If the stream is closed, check for an error sent by the client.
 		return s.checkErr(s.checkWriteErr(err))
