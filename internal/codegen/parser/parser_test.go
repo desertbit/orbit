@@ -39,7 +39,7 @@ import (
 )
 
 var (
-	c2Timeout          = 500 * time.Millisecond
+	c2Timeout          = 1 * time.Minute
 	c2MaxArgSize int64 = 154 * 1024
 	c2MaxRetSize int64 = 5 * 1024 * 1024
 )

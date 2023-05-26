@@ -88,8 +88,8 @@ func (p *parser) expectDuration() (time.Duration, error) {
 	err := p.next()
 	if err != nil {
 		return 0, err
-	} else if p.tk.Type != lexer.DURATION {
-		return 0, p.errorf("expected time duration, got %s", p.tk.Value)
+	} else if p.tk.Type != lexer.IDENT {
+		return 0, p.errorf("expected time duration identifier, got %s", p.tk.Value)
 	}
 
 	dur, err := time.ParseDuration(p.tk.Value)
@@ -112,8 +112,8 @@ func (p *parser) expectByteSize() (int64, error) {
 		}
 
 		return -1, nil
-	} else if p.tk.Type != lexer.BYTESIZE {
-		return 0, p.errorf("expected byte size, got %s", p.tk.Value)
+	} else if p.tk.Type != lexer.IDENT {
+		return 0, p.errorf("expected byte size identifier, got %s", p.tk.Value)
 	}
 
 	size, err := bytefmt.ToBytes(p.tk.Value)

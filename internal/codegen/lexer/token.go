@@ -42,8 +42,6 @@ const (
 	IDENT     // sendData
 	INT       // 123
 	RAWSTRING // `rawstring`
-	BYTESIZE  // 1MB
-	DURATION  // 80ns
 	literalEnd
 
 	// Keywords
@@ -93,10 +91,6 @@ func (tt TokenType) String() string {
 			return "int"
 		case RAWSTRING:
 			return "rawstring"
-		case BYTESIZE:
-			return "bytesize"
-		case DURATION:
-			return "duration"
 		}
 	} else if keywordBegin < tt && tt < keywordEnd {
 		for k, v := range keywordTokenTypes {
