@@ -96,12 +96,12 @@ url
 		{val: "", typ: lexer.RAWSTRING, line: 9, col: 34},
 		{val: ":", typ: lexer.COLON, line: 9, col: 35}, // 30
 		{val: "-58", typ: lexer.INT, line: 10, col: 1},
-		{val: "1ms", typ: lexer.DURATION, line: 10, col: 5},
+		{val: "1ms", typ: lexer.IDENT, line: 10, col: 5},
 		{val: "0", typ: lexer.INT, line: 10, col: 9},
-		{val: "85MiB", typ: lexer.BYTESIZE, line: 10, col: 11},
+		{val: "85MiB", typ: lexer.IDENT, line: 10, col: 11},
 		{val: "999", typ: lexer.INT, line: 10, col: 17}, // 35
-		{val: "0B", typ: lexer.BYTESIZE, line: 10, col: 21},
-		{val: "0ns", typ: lexer.DURATION, line: 10, col: 24},
+		{val: "0B", typ: lexer.IDENT, line: 10, col: 21},
+		{val: "0ns", typ: lexer.IDENT, line: 10, col: 24},
 		{val: "url", typ: lexer.IDENT, line: 12, col: 1},
 		{val: "errors", typ: lexer.ERRORS, line: 15, col: 3},
 		{val: ":", typ: lexer.COLON, line: 15, col: 9}, // 40
@@ -136,10 +136,9 @@ func testLexerNextErr(t *testing.T) {
 	}{
 		{input: "`\ntest`", line: 1, col: 2}, // 0
 		{input: "`test", line: 1, col: 2},
-		{input: "-1a", line: 1, col: 1},
 		{input: "88MiB6", line: 1, col: 1},
 		{input: "-", line: 1, col: 1},
-		{input: "88.6", line: 1, col: 1}, // 5
+		{input: "88.6", line: 1, col: 1},
 	}
 
 	for i, c := range cases {

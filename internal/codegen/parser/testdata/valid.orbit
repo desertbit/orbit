@@ -18,7 +18,7 @@ service {
         ret: {
 			data []map[string][]Ret
 		}
-		timeout: 500ms
+		timeout: 1m
 		maxArgSize: 154KB
 		maxRetSize: 5MiB
         errors: theFirstError, theThirdError

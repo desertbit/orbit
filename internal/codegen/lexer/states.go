@@ -29,10 +29,7 @@ package lexer
 
 import (
 	"strconv"
-	"time"
 	"unicode"
-
-	"code.cloudfoundry.org/bytefmt"
 )
 
 func lexTokenStart(l *lexer) stateFn {
@@ -178,25 +175,9 @@ func lexNumber(l *lexer) stateFn {
 		return lexTokenStart
 	}
 
-	// If the number contains non-digits, try to convert it to a byte size / duration.
-	// Try faster byte size first.
-	_, err := bytefmt.ToBytes(ci)
-	if err == nil {
-		// Valid.
-		l.emit(BYTESIZE)
-		return lexTokenStart
-	}
-
-	// Try duration.
-	_, err = time.ParseDuration(ci)
-	if err == nil {
-		// Valid.
-		l.emit(DURATION)
-		return lexTokenStart
-	}
-
-	// Invalid.
-	return l.errorf("invalid number literal: '%s'", ci)
+	// Treat a number with digits followed by chars as ident.
+	l.emit(IDENT)
+	return lexTokenStart
 }
 
 func lexLineComment(l *lexer) stateFn {
