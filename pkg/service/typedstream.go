@@ -42,18 +42,11 @@ const (
 	maxTypedStreamErrorSize = 4096 // 4 KB
 )
 
-type TypedStreamCloser interface {
-	ClosedChan() <-chan struct{}
-	IsClosed() bool
-}
-
 type TypedRStream interface {
-	TypedStreamCloser
 	Read(data interface{}) error
 }
 
 type TypedWStream interface {
-	TypedStreamCloser
 	Write(data interface{}) error
 }
 
@@ -78,14 +71,6 @@ func newTypedRWStream(s transport.Stream, cc codec.Codec, maxReadSize, maxWriteS
 		maxWriteSize: maxWriteSize,
 		wOnly:        wOnly,
 	}
-}
-
-func (s *typedRWStream) IsClosed() bool {
-	return s.stream.IsClosed()
-}
-
-func (s *typedRWStream) ClosedChan() <-chan struct{} {
-	return s.stream.ClosedChan()
 }
 
 // Returns ErrClosed, Error or error.

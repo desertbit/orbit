@@ -142,4 +142,15 @@ func main() {
 	} else {
 		fmt.Println("ERROR(TestServerCloseClientRead): expected error, but got nil")
 	}
+
+	test2, err := c.TestServerContextClose(context.Background())
+	if err != nil {
+		fmt.Printf("ERROR(TestServerContextClose): %v\n", err)
+		return
+	}
+	err = test2.Close()
+	if err != nil {
+		fmt.Printf("ERROR(TestServerContextClose): close stream: %v", err)
+		return
+	}
 }

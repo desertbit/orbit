@@ -5,6 +5,12 @@ import (
 	context "context"
 	errors "errors"
 	fmt "fmt"
+	io "io"
+	net "net"
+	strings "strings"
+	sync "sync"
+	time "time"
+
 	closer "github.com/desertbit/closer/v3"
 	oclient "github.com/desertbit/orbit/pkg/client"
 	codec "github.com/desertbit/orbit/pkg/codec"
@@ -12,11 +18,6 @@ import (
 	oservice "github.com/desertbit/orbit/pkg/service"
 	transport "github.com/desertbit/orbit/pkg/transport"
 	validator "github.com/go-playground/validator/v10"
-	io "io"
-	net "net"
-	strings "strings"
-	sync "sync"
-	time "time"
 )
 
 // Ensure that all imports are used.
@@ -45,6 +46,7 @@ var (
 func _encodeTimeDuration(d time.Duration) int64 {
 	return int64(d)
 }
+
 func _decodeTimeDuration(i int64) time.Duration {
 	return time.Duration(i)
 }
@@ -223,12 +225,11 @@ func (v1 *ObserveNotificationsClientStream) Write(arg ObserveNotificationsArg) (
 
 //msgp:ignore ObserveNotificationsServiceStream
 type ObserveNotificationsServiceStream struct {
-	oservice.TypedStreamCloser
 	stream oservice.TypedRWStream
 }
 
 func newObserveNotificationsServiceStream(s oservice.TypedRWStream) *ObserveNotificationsServiceStream {
-	return &ObserveNotificationsServiceStream{TypedStreamCloser: s, stream: s}
+	return &ObserveNotificationsServiceStream{stream: s}
 }
 
 func (v1 *ObserveNotificationsServiceStream) Read() (arg ObserveNotificationsArg, err error) {

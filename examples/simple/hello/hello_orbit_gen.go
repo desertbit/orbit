@@ -5,12 +5,6 @@ import (
 	context "context"
 	errors "errors"
 	fmt "fmt"
-	io "io"
-	net "net"
-	strings "strings"
-	sync "sync"
-	time "time"
-
 	closer "github.com/desertbit/closer/v3"
 	oclient "github.com/desertbit/orbit/pkg/client"
 	codec "github.com/desertbit/orbit/pkg/codec"
@@ -18,6 +12,11 @@ import (
 	oservice "github.com/desertbit/orbit/pkg/service"
 	transport "github.com/desertbit/orbit/pkg/transport"
 	validator "github.com/go-playground/validator/v10"
+	io "io"
+	net "net"
+	strings "strings"
+	sync "sync"
+	time "time"
 )
 
 // Ensure that all imports are used.
@@ -46,7 +45,6 @@ var (
 func _encodeTimeDuration(d time.Duration) int64 {
 	return int64(d)
 }
-
 func _decodeTimeDuration(i int64) time.Duration {
 	return time.Duration(i)
 }
@@ -125,6 +123,10 @@ type TestServerCloseClientReadRet struct {
 	Data []byte
 }
 
+type TestServerContextCloseArg struct {
+	Data []byte
+}
+
 //msgp:ignore TimeStreamClientStream
 type TimeStreamClientStream struct {
 	oclient.TypedStreamCloser
@@ -149,12 +151,11 @@ func (v1 *TimeStreamClientStream) Write(arg Info) (err error) {
 
 //msgp:ignore TimeStreamServiceStream
 type TimeStreamServiceStream struct {
-	oservice.TypedStreamCloser
 	stream oservice.TypedRStream
 }
 
 func newTimeStreamServiceStream(s oservice.TypedRStream) *TimeStreamServiceStream {
-	return &TimeStreamServiceStream{TypedStreamCloser: s, stream: s}
+	return &TimeStreamServiceStream{stream: s}
 }
 
 func (v1 *TimeStreamServiceStream) Read() (arg Info, err error) {
@@ -212,12 +213,11 @@ func (v1 *ClockTimeClientStream) Read() (ret ClockTimeRet, err error) {
 
 //msgp:ignore ClockTimeServiceStream
 type ClockTimeServiceStream struct {
-	oservice.TypedStreamCloser
 	stream oservice.TypedWStream
 }
 
 func newClockTimeServiceStream(s oservice.TypedWStream) *ClockTimeServiceStream {
-	return &ClockTimeServiceStream{TypedStreamCloser: s, stream: s}
+	return &ClockTimeServiceStream{stream: s}
 }
 
 func (v1 *ClockTimeServiceStream) Write(ret ClockTimeRet) (err error) {
@@ -292,12 +292,11 @@ func (v1 *BidirectionalClientStream) Write(arg BidirectionalArg) (err error) {
 
 //msgp:ignore BidirectionalServiceStream
 type BidirectionalServiceStream struct {
-	oservice.TypedStreamCloser
 	stream oservice.TypedRWStream
 }
 
 func newBidirectionalServiceStream(s oservice.TypedRWStream) *BidirectionalServiceStream {
-	return &BidirectionalServiceStream{TypedStreamCloser: s, stream: s}
+	return &BidirectionalServiceStream{stream: s}
 }
 
 func (v1 *BidirectionalServiceStream) Read() (arg BidirectionalArg, err error) {
@@ -335,6 +334,54 @@ func (v1 *BidirectionalServiceStream) Write(ret BidirectionalRet) (err error) {
 	return
 }
 
+//msgp:ignore TestServerContextCloseClientStream
+type TestServerContextCloseClientStream struct {
+	oclient.TypedStreamCloser
+	stream oclient.TypedWStream
+}
+
+func newTestServerContextCloseClientStream(s oclient.TypedWStream) *TestServerContextCloseClientStream {
+	return &TestServerContextCloseClientStream{TypedStreamCloser: s, stream: s}
+}
+
+func (v1 *TestServerContextCloseClientStream) Write(arg TestServerContextCloseArg) (err error) {
+	err = v1.stream.Write(arg)
+	if err != nil {
+		if errors.Is(err, oclient.ErrClosed) {
+			err = ErrClosed
+			return
+		}
+		return
+	}
+	return
+}
+
+//msgp:ignore TestServerContextCloseServiceStream
+type TestServerContextCloseServiceStream struct {
+	stream oservice.TypedRStream
+}
+
+func newTestServerContextCloseServiceStream(s oservice.TypedRStream) *TestServerContextCloseServiceStream {
+	return &TestServerContextCloseServiceStream{stream: s}
+}
+
+func (v1 *TestServerContextCloseServiceStream) Read() (arg TestServerContextCloseArg, err error) {
+	err = v1.stream.Read(&arg)
+	if err != nil {
+		if errors.Is(err, oservice.ErrClosed) {
+			err = ErrClosed
+			return
+		}
+		return
+	}
+	err = validate.Struct(arg)
+	if err != nil {
+		err = _valErrCheck(err)
+		return
+	}
+	return
+}
+
 //msgp:ignore TestServerCloseClientReadClientStream
 type TestServerCloseClientReadClientStream struct {
 	oclient.TypedStreamCloser
@@ -364,12 +411,11 @@ func (v1 *TestServerCloseClientReadClientStream) Read() (ret TestServerCloseClie
 
 //msgp:ignore TestServerCloseClientReadServiceStream
 type TestServerCloseClientReadServiceStream struct {
-	oservice.TypedStreamCloser
 	stream oservice.TypedWStream
 }
 
 func newTestServerCloseClientReadServiceStream(s oservice.TypedWStream) *TestServerCloseClientReadServiceStream {
-	return &TestServerCloseClientReadServiceStream{TypedStreamCloser: s, stream: s}
+	return &TestServerCloseClientReadServiceStream{stream: s}
 }
 
 func (v1 *TestServerCloseClientReadServiceStream) Write(ret TestServerCloseClientReadRet) (err error) {
@@ -406,6 +452,7 @@ const (
 	StreamIDTimeStream                = "TimeStream"
 	StreamIDClockTime                 = "ClockTime"
 	StreamIDBidirectional             = "Bidirectional"
+	StreamIDTestServerContextClose    = "TestServerContextClose"
 	StreamIDTestServerCloseClientRead = "TestServerCloseClientRead"
 )
 
@@ -420,6 +467,7 @@ type Client interface {
 	TimeStream(ctx context.Context) (stream *TimeStreamClientStream, err error)
 	ClockTime(ctx context.Context) (stream *ClockTimeClientStream, err error)
 	Bidirectional(ctx context.Context) (stream *BidirectionalClientStream, err error)
+	TestServerContextClose(ctx context.Context) (stream *TestServerContextCloseClientStream, err error)
 	TestServerCloseClientRead(ctx context.Context) (stream *TestServerCloseClientReadClientStream, err error)
 }
 
@@ -437,6 +485,7 @@ type ServiceHandler interface {
 	TimeStream(ctx oservice.Context, stream *TimeStreamServiceStream) error
 	ClockTime(ctx oservice.Context, stream *ClockTimeServiceStream) error
 	Bidirectional(ctx oservice.Context, stream *BidirectionalServiceStream) error
+	TestServerContextClose(ctx oservice.Context, stream *TestServerContextCloseServiceStream) error
 	TestServerCloseClientRead(ctx oservice.Context, stream *TestServerCloseClientReadServiceStream) error
 }
 
@@ -566,6 +615,20 @@ func (v1 *client) Bidirectional(ctx context.Context) (stream *BidirectionalClien
 	return
 }
 
+func (v1 *client) TestServerContextClose(ctx context.Context) (stream *TestServerContextCloseClientStream, err error) {
+	if v1.streamInitTimeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, v1.streamInitTimeout)
+		defer cancel()
+	}
+	str, err := v1.TypedWStream(ctx, StreamIDTestServerContextClose, oclient.DefaultMaxSize)
+	if err != nil {
+		return
+	}
+	stream = newTestServerContextCloseClientStream(str)
+	return
+}
+
 func (v1 *client) TestServerCloseClientRead(ctx context.Context) (stream *TestServerCloseClientReadClientStream, err error) {
 	if v1.streamInitTimeout > 0 {
 		var cancel context.CancelFunc
@@ -602,6 +665,7 @@ func NewService(h ServiceHandler, opts *oservice.Options) (s Service, err error)
 	os.RegisterTypedRStream(StreamIDTimeStream, srvc.timeStream, oservice.DefaultMaxSize)
 	os.RegisterTypedWStream(StreamIDClockTime, srvc.clockTime, oservice.DefaultMaxSize)
 	os.RegisterTypedRWStream(StreamIDBidirectional, srvc.bidirectional, 102400, oservice.DefaultMaxSize)
+	os.RegisterTypedRStream(StreamIDTestServerContextClose, srvc.testServerContextClose, oservice.DefaultMaxSize)
 	os.RegisterTypedWStream(StreamIDTestServerCloseClientRead, srvc.testServerCloseClientRead, oservice.DefaultMaxSize)
 	s = os
 	return
@@ -684,6 +748,14 @@ func (v1 *service) bidirectional(ctx oservice.Context, stream oservice.TypedRWSt
 		if errors.Is(err, ErrThisIsATest) {
 			err = oservice.NewError(err, ErrThisIsATest.Error(), ErrCodeThisIsATest)
 		}
+		return
+	}
+	return
+}
+
+func (v1 *service) testServerContextClose(ctx oservice.Context, stream oservice.TypedRStream) (err error) {
+	err = v1.h.TestServerContextClose(ctx, newTestServerContextCloseServiceStream(stream))
+	if err != nil {
 		return
 	}
 	return
