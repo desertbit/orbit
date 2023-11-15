@@ -41,10 +41,10 @@ var _ transport.Listener = &listener{}
 type listener struct {
 	closer.Closer
 
-	ln quic.Listener
+	ln *quic.Listener
 }
 
-func newListener(cl closer.Closer, ln quic.Listener) transport.Listener {
+func newListener(cl closer.Closer, ln *quic.Listener) transport.Listener {
 	l := &listener{
 		Closer: cl,
 		ln:     ln,

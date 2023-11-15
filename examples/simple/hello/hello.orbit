@@ -54,6 +54,10 @@ service {
         }
         errors: thisIsATest
     }
+
+    stream testServerCloseClientRead {
+        ret: { Data []byte }
+    }
 }
 
 type info {

@@ -149,3 +149,10 @@ func (s *ServiceHandler) Bidirectional(ctx service.Context, stream *hello.Bidire
 	}
 	return nil
 }
+
+func (s *ServiceHandler) TestServerCloseClientRead(ctx service.Context, stream *hello.TestServerCloseClientReadServiceStream) error {
+	// We do nothing and simply return from the handler without an error.
+	// This tests whether the client, who will wait on an incoming package,
+	// correctly registers that the stream has been closed.
+	return nil
+}

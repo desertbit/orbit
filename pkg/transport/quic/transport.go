@@ -56,7 +56,7 @@ func NewTransport(opts *Options) (t transport.Transport, err error) {
 
 func (q *qTransport) Dial(cl closer.Closer, ctx context.Context, addr string) (transport.Conn, error) {
 	// Create a quic connection.
-	qs, err := quic.DialAddrContext(ctx, addr, q.opts.TLSConfig, q.opts.Config)
+	qs, err := quic.DialAddr(ctx, addr, q.opts.TLSConfig, q.opts.Config)
 	if err != nil {
 		return nil, err
 	}
