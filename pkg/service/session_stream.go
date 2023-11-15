@@ -171,13 +171,17 @@ func (s *session) handleRawStream(id string, data map[string][]byte, stream tran
 	// Create the service context.
 	// Close the context, when the stream has closed.
 	cctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	go func() {
 		select {
+		case <-cctx.Done():
+			return
 		case <-stream.ClosedChan():
 		case <-s.ClosingChan():
 		}
 		cancel()
 	}()
+
 	sctx := newContext(cctx, s, data)
 
 	// Call the OnStream hooks.

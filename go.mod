@@ -1,6 +1,6 @@
 module github.com/desertbit/orbit
 
-go 1.21
+go 1.20
 
 require (
 	code.cloudfoundry.org/bytefmt v0.0.0-20231017140541-3b893ed0421b
