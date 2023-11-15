@@ -223,12 +223,11 @@ func (v1 *ObserveNotificationsClientStream) Write(arg ObserveNotificationsArg) (
 
 //msgp:ignore ObserveNotificationsServiceStream
 type ObserveNotificationsServiceStream struct {
-	oservice.TypedStreamCloser
 	stream oservice.TypedRWStream
 }
 
 func newObserveNotificationsServiceStream(s oservice.TypedRWStream) *ObserveNotificationsServiceStream {
-	return &ObserveNotificationsServiceStream{TypedStreamCloser: s, stream: s}
+	return &ObserveNotificationsServiceStream{stream: s}
 }
 
 func (v1 *ObserveNotificationsServiceStream) Read() (arg ObserveNotificationsArg, err error) {

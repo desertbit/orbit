@@ -124,4 +124,33 @@ func main() {
 	}
 	bi.Close()
 	wg.Wait()
+
+	// Open the stream and read from it.
+	// We expect it to throw a closed error.
+	test, err := c.TestServerCloseClientRead(context.Background())
+	if err != nil {
+		fmt.Printf("ERROR(TestServerCloseClientRead): %v\n", err)
+		return
+	}
+	_, err = test.Read()
+	if err != nil {
+		if errors.Is(err, hello.ErrClosed) {
+			fmt.Println("SUCCESS(TestServerCloseClientRead)")
+		} else {
+			fmt.Printf("ERROR(TestServerCloseClientRead): %v\n", err)
+		}
+	} else {
+		fmt.Println("ERROR(TestServerCloseClientRead): expected error, but got nil")
+	}
+
+	test2, err := c.TestServerContextClose(context.Background())
+	if err != nil {
+		fmt.Printf("ERROR(TestServerContextClose): %v\n", err)
+		return
+	}
+	err = test2.Close()
+	if err != nil {
+		fmt.Printf("ERROR(TestServerContextClose): close stream: %v", err)
+		return
+	}
 }

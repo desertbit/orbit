@@ -33,6 +33,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"log"
 	"math/big"
@@ -147,5 +148,23 @@ func (s *ServiceHandler) Bidirectional(ctx service.Context, stream *hello.Bidire
 			return err
 		}
 	}
+	return nil
+}
+
+func (s *ServiceHandler) TestServerContextClose(ctx service.Context, stream *hello.TestServerContextCloseServiceStream) error {
+	// Wait until the client has closed the stream and our context has closed.
+	select {
+	case <-time.After(time.Second):
+		return errors.New("TestServerContextClose: timeout")
+	case <-ctx.Done():
+		fmt.Println("SUCCESS(TestServerContextClose)")
+		return nil
+	}
+}
+
+func (s *ServiceHandler) TestServerCloseClientRead(ctx service.Context, stream *hello.TestServerCloseClientReadServiceStream) error {
+	// We do nothing and simply return from the handler without an error.
+	// This tests whether the client, who will wait on an incoming package,
+	// correctly registers that the stream has been closed.
 	return nil
 }

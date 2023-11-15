@@ -141,14 +141,13 @@ func (g *generator) genServiceStreamType(s *ast.Stream) {
 	// Type definition.
 	g.writefLn("//msgp:ignore %s", name)
 	g.writefLn("type %s struct {", name)
-	g.writefLn("oservice.TypedStreamCloser")
 	g.writefLn("stream %s", typedStream)
 	g.writeLn("}")
 	g.writeLn("")
 
 	// Constructor.
 	g.writefLn("func new%s(s %s) *%s {", name, typedStream, name)
-	g.writefLn("return &%s{TypedStreamCloser: s, stream: s}", name)
+	g.writefLn("return &%s{stream: s}", name)
 	g.writeLn("}")
 	g.writeLn("")
 
