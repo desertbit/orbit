@@ -80,7 +80,7 @@ func (c *serviceHook) OnSessionClosed(s service.Session) {
 
 func (c *serviceHook) OnCall(ctx service.Context, id string, callKey uint32) error {
 	s := ctx.Session()
-	c.log.Info().
+	c.log.Debug().
 		Str("callID", id).
 		Uint32("callKey", callKey).
 		Str("sessionID", s.ID()).
@@ -94,7 +94,7 @@ func (c *serviceHook) OnCallDone(ctx service.Context, id string, callKey uint32,
 	s := ctx.Session()
 
 	if err == nil {
-		c.log.Info().
+		c.log.Debug().
 			Str("callID", id).
 			Uint32("callKey", callKey).
 			Str("sessionID", s.ID()).
@@ -131,7 +131,7 @@ func (c *serviceHook) OnCallDone(ctx service.Context, id string, callKey uint32,
 
 func (c *serviceHook) OnCallCanceled(ctx service.Context, id string, callKey uint32) {
 	s := ctx.Session()
-	c.log.Info().
+	c.log.Debug().
 		Str("callID", id).
 		Uint32("callKey", callKey).
 		Str("sessionID", s.ID()).
@@ -142,7 +142,7 @@ func (c *serviceHook) OnCallCanceled(ctx service.Context, id string, callKey uin
 
 func (c *serviceHook) OnStream(ctx service.Context, id string) error {
 	s := ctx.Session()
-	c.log.Info().
+	c.log.Debug().
 		Str("streamID", id).
 		Str("sessionID", s.ID()).
 		Str("localAddr", s.LocalAddr().String()).
@@ -155,7 +155,7 @@ func (c *serviceHook) OnStreamClosed(ctx service.Context, id string, err error) 
 	s := ctx.Session()
 
 	if err == nil {
-		c.log.Info().
+		c.log.Debug().
 			Str("streamID", id).
 			Str("sessionID", s.ID()).
 			Str("localAddr", s.LocalAddr().String()).
