@@ -8,7 +8,7 @@ require (
 	github.com/desertbit/grumble v1.1.3
 	github.com/desertbit/yamux v1.1.0
 	github.com/go-playground/validator/v10 v10.16.0
-	github.com/quic-go/quic-go v0.40.0
+	github.com/quic-go/quic-go v0.40.1
 	github.com/rs/zerolog v1.31.0
 	github.com/stretchr/testify v1.8.4
 	github.com/tinylib/msgp v1.1.9
