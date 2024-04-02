@@ -8,7 +8,7 @@ require (
 	github.com/desertbit/grumble v1.1.3
 	github.com/desertbit/yamux v1.1.0
 	github.com/go-playground/validator/v10 v10.16.0
-	github.com/quic-go/quic-go v0.40.0
+	github.com/quic-go/quic-go v0.42.0
 	github.com/rs/zerolog v1.31.0
 	github.com/stretchr/testify v1.8.4
 	github.com/tinylib/msgp v1.1.9
@@ -35,9 +35,8 @@ require (
 	github.com/onsi/ginkgo/v2 v2.13.1 // indirect
 	github.com/philhofer/fwd v1.1.2 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	github.com/quic-go/qtls-go1-20 v0.4.1 // indirect
 	github.com/vmihailenco/msgpack v4.0.4+incompatible // indirect
-	go.uber.org/mock v0.3.0 // indirect
+	go.uber.org/mock v0.4.0 // indirect
 	golang.org/x/crypto v0.17.0 // indirect
 	golang.org/x/exp v0.0.0-20231110203233-9a3e6036ecaa // indirect
 	golang.org/x/mod v0.14.0 // indirect
