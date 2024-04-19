@@ -96,7 +96,7 @@ func (s *session) RemoteAddr() net.Addr {
 
 // AcceptStream returns the next stream opened by the peer, blocking until one is available.
 func (s *session) AcceptStream(ctx context.Context) (transport.Stream, error) {
-	stream, err := s.ys.AcceptStream(ctx)
+	stream, err := s.ys.AcceptStreamWithContext(ctx)
 	if err != nil {
 		return nil, err
 	}
