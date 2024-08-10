@@ -74,7 +74,7 @@ func TestEncodeDecodeHandshakeArgs(t *testing.T) {
 
 	m := v.Msgsize()
 	if buf.Len() > m {
-		t.Logf("WARNING: Msgsize() for %v is inaccurate", v)
+		t.Log("WARNING: TestEncodeDecodeHandshakeArgs Msgsize() is inaccurate")
 	}
 
 	vn := HandshakeArgs{}
@@ -187,7 +187,7 @@ func TestEncodeDecodeHandshakeRet(t *testing.T) {
 
 	m := v.Msgsize()
 	if buf.Len() > m {
-		t.Logf("WARNING: Msgsize() for %v is inaccurate", v)
+		t.Log("WARNING: TestEncodeDecodeHandshakeRet Msgsize() is inaccurate")
 	}
 
 	vn := HandshakeRet{}
@@ -300,7 +300,7 @@ func TestEncodeDecodeRPCCall(t *testing.T) {
 
 	m := v.Msgsize()
 	if buf.Len() > m {
-		t.Logf("WARNING: Msgsize() for %v is inaccurate", v)
+		t.Log("WARNING: TestEncodeDecodeRPCCall Msgsize() is inaccurate")
 	}
 
 	vn := RPCCall{}
@@ -413,7 +413,7 @@ func TestEncodeDecodeRPCCancel(t *testing.T) {
 
 	m := v.Msgsize()
 	if buf.Len() > m {
-		t.Logf("WARNING: Msgsize() for %v is inaccurate", v)
+		t.Log("WARNING: TestEncodeDecodeRPCCancel Msgsize() is inaccurate")
 	}
 
 	vn := RPCCancel{}
@@ -526,7 +526,7 @@ func TestEncodeDecodeRPCReturn(t *testing.T) {
 
 	m := v.Msgsize()
 	if buf.Len() > m {
-		t.Logf("WARNING: Msgsize() for %v is inaccurate", v)
+		t.Log("WARNING: TestEncodeDecodeRPCReturn Msgsize() is inaccurate")
 	}
 
 	vn := RPCReturn{}
@@ -639,7 +639,7 @@ func TestEncodeDecodeStreamAsync(t *testing.T) {
 
 	m := v.Msgsize()
 	if buf.Len() > m {
-		t.Logf("WARNING: Msgsize() for %v is inaccurate", v)
+		t.Log("WARNING: TestEncodeDecodeStreamAsync Msgsize() is inaccurate")
 	}
 
 	vn := StreamAsync{}
@@ -752,7 +752,7 @@ func TestEncodeDecodeStreamRaw(t *testing.T) {
 
 	m := v.Msgsize()
 	if buf.Len() > m {
-		t.Logf("WARNING: Msgsize() for %v is inaccurate", v)
+		t.Log("WARNING: TestEncodeDecodeStreamRaw Msgsize() is inaccurate")
 	}
 
 	vn := StreamRaw{}
@@ -785,6 +785,119 @@ func BenchmarkEncodeStreamRaw(b *testing.B) {
 
 func BenchmarkDecodeStreamRaw(b *testing.B) {
 	v := StreamRaw{}
+	var buf bytes.Buffer
+	msgp.Encode(&buf, &v)
+	b.SetBytes(int64(buf.Len()))
+	rd := msgp.NewEndlessReader(buf.Bytes(), b)
+	dc := msgp.NewReader(rd)
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		err := v.DecodeMsg(dc)
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func TestMarshalUnmarshalTypedStreamError(t *testing.T) {
+	v := TypedStreamError{}
+	bts, err := v.MarshalMsg(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	left, err := v.UnmarshalMsg(bts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(left) > 0 {
+		t.Errorf("%d bytes left over after UnmarshalMsg(): %q", len(left), left)
+	}
+
+	left, err = msgp.Skip(bts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(left) > 0 {
+		t.Errorf("%d bytes left over after Skip(): %q", len(left), left)
+	}
+}
+
+func BenchmarkMarshalMsgTypedStreamError(b *testing.B) {
+	v := TypedStreamError{}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		v.MarshalMsg(nil)
+	}
+}
+
+func BenchmarkAppendMsgTypedStreamError(b *testing.B) {
+	v := TypedStreamError{}
+	bts := make([]byte, 0, v.Msgsize())
+	bts, _ = v.MarshalMsg(bts[0:0])
+	b.SetBytes(int64(len(bts)))
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		bts, _ = v.MarshalMsg(bts[0:0])
+	}
+}
+
+func BenchmarkUnmarshalTypedStreamError(b *testing.B) {
+	v := TypedStreamError{}
+	bts, _ := v.MarshalMsg(nil)
+	b.ReportAllocs()
+	b.SetBytes(int64(len(bts)))
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, err := v.UnmarshalMsg(bts)
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func TestEncodeDecodeTypedStreamError(t *testing.T) {
+	v := TypedStreamError{}
+	var buf bytes.Buffer
+	msgp.Encode(&buf, &v)
+
+	m := v.Msgsize()
+	if buf.Len() > m {
+		t.Log("WARNING: TestEncodeDecodeTypedStreamError Msgsize() is inaccurate")
+	}
+
+	vn := TypedStreamError{}
+	err := msgp.Decode(&buf, &vn)
+	if err != nil {
+		t.Error(err)
+	}
+
+	buf.Reset()
+	msgp.Encode(&buf, &v)
+	err = msgp.NewReader(&buf).Skip()
+	if err != nil {
+		t.Error(err)
+	}
+}
+
+func BenchmarkEncodeTypedStreamError(b *testing.B) {
+	v := TypedStreamError{}
+	var buf bytes.Buffer
+	msgp.Encode(&buf, &v)
+	b.SetBytes(int64(buf.Len()))
+	en := msgp.NewWriter(msgp.Nowhere)
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		v.EncodeMsg(en)
+	}
+	en.Flush()
+}
+
+func BenchmarkDecodeTypedStreamError(b *testing.B) {
+	v := TypedStreamError{}
 	var buf bytes.Buffer
 	msgp.Encode(&buf, &v)
 	b.SetBytes(int64(buf.Len()))

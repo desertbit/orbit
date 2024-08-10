@@ -69,7 +69,8 @@ func main() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		ret, err := c.Test(context.Background(), hello.TestArg{S: "testarg"})
+		s := "testarg"
+		ret, err := c.Test(context.Background(), hello.TestArg{S: &s})
 		if err != nil {
 			log.Fatalln(err)
 		}

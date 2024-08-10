@@ -30,7 +30,7 @@ package gen
 import (
 	"testing"
 
-	"github.com/stretchr/testify/require"
+	r "github.com/stretchr/testify/require"
 )
 
 func TestStrExplode(t *testing.T) {
@@ -77,13 +77,14 @@ func TestStrExplode(t *testing.T) {
 		{
 			src:    "HELlo",
 			expect: "he llo",
-		}, {
+		},
+		{
 			src:    "sashimI",
 			expect: "sashim i",
 		},
 	}
 
 	for i, c := range cases {
-		require.Equal(t, c.expect, strExplode(c.src), "test case %d", i)
+		r.Equal(t, c.expect, strExplode(c.src), "test case %d", i)
 	}
 }

@@ -45,7 +45,7 @@ func (g *generator) genClientStreamSignature(s *ast.Stream) {
 	}
 }
 
-func (g *generator) genClientStream(s *ast.Stream, errs []*ast.Error) {
+func (g *generator) genClientStream(s *ast.Stream) {
 	// Method declaration.
 	g.writef("func (%s *client) ", recv)
 	g.genClientStreamSignature(s)

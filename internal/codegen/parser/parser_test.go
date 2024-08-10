@@ -28,14 +28,14 @@
 package parser_test
 
 import (
-	"io/ioutil"
+	"os"
 	"testing"
 	"time"
 
 	"github.com/desertbit/orbit/internal/codegen/ast"
 	"github.com/desertbit/orbit/internal/codegen/lexer"
 	"github.com/desertbit/orbit/internal/codegen/parser"
-	"github.com/stretchr/testify/require"
+	r "github.com/stretchr/testify/require"
 )
 
 var (
@@ -141,13 +141,15 @@ var (
 			Name: "rc1Ret",
 			Fields: []*ast.TypeField{
 				{Name: "s", DataType: &ast.AnyType{Name: "string"}},
-				{Name: "i", DataType: &ast.AnyType{Name: "int"}},
+				{Name: "i", DataType: ast.NewAnyType("int", lexer.Pos{}, true)},
 				{
 					Name: "m",
-					DataType: &ast.MapType{
-						Key:   &ast.AnyType{Name: "string"},
-						Value: &ast.AnyType{Name: "int"},
-					},
+					DataType: ast.NewMapType(
+						&ast.AnyType{Name: "string"},
+						&ast.AnyType{Name: "int"},
+						lexer.Pos{},
+						true,
+					),
 				},
 				{Name: "sl", DataType: &ast.ArrType{Elem: &ast.AnyType{Name: "time"}}},
 				{Name: "st", DataType: &ast.AnyType{Name: "Ret"}},
@@ -175,7 +177,7 @@ var (
 				{Name: "u8", DataType: &ast.AnyType{Name: "uint8"}},
 				{Name: "u16", DataType: &ast.AnyType{Name: "uint16"}},
 				{Name: "u32", DataType: &ast.AnyType{Name: "uint32"}},
-				{Name: "u64", DataType: &ast.AnyType{Name: "uint64"}},
+				{Name: "u64", DataType: ast.NewAnyType("uint64", lexer.Pos{}, true)},
 			},
 		},
 		{
@@ -193,12 +195,13 @@ var (
 					Name: "m",
 					DataType: &ast.MapType{
 						Key:   &ast.AnyType{Name: "string"},
-						Value: &ast.AnyType{Name: "int"},
+						Value: ast.NewAnyType("int", lexer.Pos{}, true),
 					},
 				},
 				{Name: "sl", DataType: &ast.ArrType{Elem: &ast.AnyType{Name: "time"}}},
 				{Name: "dur", DataType: &ast.AnyType{Name: "duration"}},
 				{Name: "st", DataType: &ast.AnyType{Name: "Ret"}},
+				{Name: "stp", DataType: ast.NewAnyType("Ret", lexer.Pos{}, true)},
 				{
 					Name: "crazy",
 					DataType: &ast.MapType{
@@ -254,34 +257,34 @@ func testParseValid(t *testing.T) {
 	t.Parallel()
 
 	// Read valid .orbit file from testdata.
-	input, err := ioutil.ReadFile("./testdata/valid.orbit")
-	require.NoError(t, err)
+	input, err := os.ReadFile("./testdata/valid.orbit")
+	r.NoError(t, err)
 
 	// Parse file.
 	f, err := parser.Parse(lexer.Lex(string(input)))
-	require.NoError(t, err)
+	r.NoError(t, err)
 
 	// Version.
-	require.Exactly(t, expVersion, f.Version)
+	r.Exactly(t, expVersion, f.Version)
 
 	// Services.
-	require.NotNil(t, f.Srvc)
+	r.NotNil(t, f.Srvc)
 	requireEqualService(t, expSrvc, f.Srvc)
 
 	// Types.
-	require.Len(t, f.Types, len(expTypes))
+	r.Len(t, f.Types, len(expTypes))
 	for i, expType := range expTypes {
 		requireEqualType(t, expType, f.Types[i])
 	}
 
 	// Enums.
-	require.Len(t, f.Enums, len(expEnums))
+	r.Len(t, f.Enums, len(expEnums))
 	for i, expEn := range expEnums {
 		requireEqualEnum(t, expEn, f.Enums[i])
 	}
 
 	// Errors.
-	require.Len(t, f.Errs, len(expErrs))
+	r.Len(t, f.Errs, len(expErrs))
 	for i, expErr := range expErrs {
 		requireEqualError(t, expErr, f.Errs[i])
 	}
@@ -292,8 +295,8 @@ func testParseValid(t *testing.T) {
 //###############//
 
 func requireEqualService(t *testing.T, exp, act *ast.Service) {
-	require.Len(t, act.Calls, len(exp.Calls))
-	require.Len(t, act.Streams, len(exp.Streams))
+	r.Len(t, act.Calls, len(exp.Calls))
+	r.Len(t, act.Streams, len(exp.Streams))
 	for i, expc := range exp.Calls {
 		requireEqualCall(t, expc, act.Calls[i])
 	}
@@ -303,46 +306,46 @@ func requireEqualService(t *testing.T, exp, act *ast.Service) {
 }
 
 func requireEqualCall(t *testing.T, exp, act *ast.Call) {
-	require.Exactly(t, exp.Name, act.Name)
-	require.Exactly(t, exp.Async, act.Async)
-	require.Exactly(t, exp.Timeout, act.Timeout)
-	require.Exactly(t, exp.MaxArgSize, act.MaxArgSize)
-	require.Exactly(t, exp.MaxRetSize, act.MaxRetSize)
-	require.Exactly(t, exp.Errors, act.Errors)
+	r.Exactly(t, exp.Name, act.Name)
+	r.Exactly(t, exp.Async, act.Async)
+	r.Exactly(t, exp.Timeout, act.Timeout)
+	r.Exactly(t, exp.MaxArgSize, act.MaxArgSize)
+	r.Exactly(t, exp.MaxRetSize, act.MaxRetSize)
+	r.Exactly(t, exp.Errors, act.Errors)
 	requireEqualDataType(t, exp.Arg, act.Arg)
 	requireEqualDataType(t, exp.Ret, act.Ret)
 }
 
 func requireEqualStream(t *testing.T, exp, act *ast.Stream) {
-	require.Exactly(t, exp.Name, act.Name)
-	require.Exactly(t, exp.MaxArgSize, act.MaxArgSize)
-	require.Exactly(t, exp.MaxRetSize, act.MaxRetSize)
+	r.Exactly(t, exp.Name, act.Name)
+	r.Exactly(t, exp.MaxArgSize, act.MaxArgSize)
+	r.Exactly(t, exp.MaxRetSize, act.MaxRetSize)
 	requireEqualDataType(t, exp.Arg, act.Arg)
 	requireEqualDataType(t, exp.Ret, act.Ret)
 }
 
 func requireEqualType(t *testing.T, exp, act *ast.Type) {
-	require.Exactly(t, exp.Name, act.Name)
-	require.Len(t, exp.Fields, len(act.Fields))
+	r.Exactly(t, exp.Name, act.Name)
+	r.Len(t, exp.Fields, len(act.Fields))
 	for i, exptf := range exp.Fields {
-		require.Exactly(t, exptf.Name, act.Fields[i].Name)
-		require.Exactly(t, exptf.StructTag, act.Fields[i].StructTag)
+		r.Exactly(t, exptf.Name, act.Fields[i].Name)
+		r.Exactly(t, exptf.StructTag, act.Fields[i].StructTag)
 		requireEqualDataType(t, exptf.DataType, act.Fields[i].DataType)
 	}
 }
 
 func requireEqualEnum(t *testing.T, exp, act *ast.Enum) {
-	require.Exactly(t, exp.Name, act.Name)
-	require.Len(t, exp.Values, len(act.Values))
+	r.Exactly(t, exp.Name, act.Name)
+	r.Len(t, exp.Values, len(act.Values))
 	for i, expv := range exp.Values {
-		require.Exactly(t, expv.Name, act.Values[i].Name)
-		require.Exactly(t, expv.Value, act.Values[i].Value)
+		r.Exactly(t, expv.Name, act.Values[i].Name)
+		r.Exactly(t, expv.Value, act.Values[i].Value)
 	}
 }
 
 func requireEqualError(t *testing.T, exp, act *ast.Error) {
-	require.Exactly(t, exp.Name, act.Name)
-	require.Exactly(t, exp.ID, act.ID)
+	r.Exactly(t, exp.Name, act.Name)
+	r.Exactly(t, exp.ID, act.ID)
 }
 
 func requireEqualDataType(t *testing.T, exp, act ast.DataType) {
@@ -350,10 +353,10 @@ func requireEqualDataType(t *testing.T, exp, act ast.DataType) {
 		return
 	}
 
-	require.IsType(t, exp, act)
+	r.IsType(t, exp, act)
 	switch v := exp.(type) {
 	case *ast.StructType, *ast.EnumType, *ast.AnyType:
-		require.Exactly(t, exp.Decl(), act.Decl())
+		r.Exactly(t, exp.Decl(), act.Decl())
 	case *ast.ArrType:
 		requireEqualDataType(t, v.Elem, act.(*ast.ArrType).Elem)
 	case *ast.MapType:

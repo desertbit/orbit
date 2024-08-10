@@ -47,7 +47,7 @@ func (g *generator) genClientCallSignature(c *ast.Call) {
 	g.write("err error)")
 }
 
-func (g *generator) genClientCall(c *ast.Call, errs []*ast.Error) {
+func (g *generator) genClientCall(c *ast.Call) {
 	// Method declaration.
 	g.writef("func (%s *client) ", recv)
 	g.genClientCallSignature(c)

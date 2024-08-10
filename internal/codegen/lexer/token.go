@@ -66,15 +66,16 @@ const (
 	// Delimiters
 
 	delimBegin
-	LPAREN // (
-	RPAREN // )
-	LBRACE // {
-	RBRACE // }
-	LBRACK // [
-	RBRACK // ]
-	COLON  // :
-	EQUAL  // =
-	COMMA  // ,
+	LPAREN   // (
+	RPAREN   // )
+	LBRACE   // {
+	RBRACE   // }
+	LBRACK   // [
+	RBRACK   // ]
+	COLON    // :
+	EQUAL    // =
+	COMMA    // ,
+	ASTERISK // *
 	delimEnd
 )
 
@@ -143,11 +144,11 @@ type Pos struct {
 const (
 	// Only needed during lexing, no tokens.
 	eof      rune = -1
-	hyphen        = '-'
-	backtick      = '`'
-	newline       = '\n'
-	slash         = '/'
-	asterisk      = '*'
+	hyphen   rune = '-'
+	backtick rune = '`'
+	newline  rune = '\n'
+	slash    rune = '/'
+	asterisk rune = '*'
 )
 
 var keywordTokenTypes = map[string]TokenType{
@@ -185,6 +186,7 @@ var delimTokenTypes = map[rune]TokenType{
 	':': COLON,
 	'=': EQUAL,
 	',': COMMA,
+	'*': ASTERISK,
 }
 
 func isDelim(r rune) (ok bool) {

@@ -20,7 +20,7 @@ service {
     call test {
         async
         arg: {
-            s string
+            s *string
         }
         ret: {
             name string `validate:"required,min=1"`

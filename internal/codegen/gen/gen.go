@@ -46,8 +46,8 @@ import (
 )
 
 const (
-	dirPerm  = 0755
-	filePerm = 0666
+	dirPerm  = 0o755
+	filePerm = 0o666
 
 	orbitSuffix       = ".orbit"
 	genOrbitSuffix    = "_orbit_gen.go"
@@ -257,7 +257,7 @@ func generate(pkgName string, f *ast.File) string {
 	g.writeLn("//###############//")
 	g.writeLn("")
 
-	g.genService(f.Srvc, f.Errs)
+	g.genService(f.Srvc)
 
 	return g.s.String()
 }

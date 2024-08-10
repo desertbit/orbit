@@ -370,7 +370,8 @@ func (p *parser) expectServiceEntryType(name string) (ast.DataType, *ast.Type, e
 	// Check for an inline type definition.
 	if p.checkToken(lexer.LBRACE) {
 		// The struct type is a reference to the inline type.
-		dt := &ast.StructType{Name: name, Pos: p.tk.Pos}
+		// Inline types can not be pointers.
+		dt := ast.NewStructType(name, p.tk.Pos, false)
 
 		// Expect the inline type definition and add it to the global types.
 		t := &ast.Type{Name: name, Pos: p.tk.Pos}
@@ -385,6 +386,7 @@ func (p *parser) expectServiceEntryType(name string) (ast.DataType, *ast.Type, e
 	}
 
 	// The entry has an any type.
-	dt, err := p.expectAnyType()
+	pointer := p.checkToken(lexer.ASTERISK)
+	dt, err := p.expectAnyType(pointer)
 	return dt, nil, err
 }

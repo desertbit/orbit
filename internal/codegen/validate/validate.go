@@ -83,12 +83,12 @@ func resolveAnyType(dt ast.DataType, f *ast.File) (ast.DataType, error) {
 		// Resolve the type.
 		for _, t := range f.Types {
 			if t.Name == v.ID() {
-				return &ast.StructType{Name: v.ID(), Pos: v.Pos}, nil
+				return ast.NewStructType(v.ID(), v.Pos(), v.Pointer()), nil
 			}
 		}
 		for _, en := range f.Enums {
 			if en.Name == v.ID() {
-				return &ast.EnumType{Name: v.ID(), Pos: v.Pos}, nil
+				return ast.NewEnumType(v.ID(), v.Pos(), v.Pointer()), nil
 			}
 		}
 		switch v.ID() {
@@ -97,10 +97,10 @@ func resolveAnyType(dt ast.DataType, f *ast.File) (ast.DataType, error) {
 			ast.TypeInt, ast.TypeInt8, ast.TypeInt16, ast.TypeInt32, ast.TypeInt64,
 			ast.TypeUInt, ast.TypeUInt8, ast.TypeUInt16, ast.TypeUInt32, ast.TypeUInt64,
 			ast.TypeFloat32, ast.TypeFloat64:
-			return &ast.BaseType{DataType: v.ID(), Pos: v.Pos}, nil
+			return ast.NewBaseType(v.ID(), v.Pos(), v.Pointer()), nil
 		}
 
-		return nil, ast.NewErr(v.Line, "could not resolve unknown type '%s'", v.ID())
+		return nil, ast.NewErr(v.Pos().Line, "could not resolve unknown type '%s'", v.ID())
 	case *ast.MapType:
 		v.Key, err = resolveAnyType(v.Key, f)
 		if err != nil {
@@ -111,7 +111,7 @@ func resolveAnyType(dt ast.DataType, f *ast.File) (ast.DataType, error) {
 		switch v.Key.(type) {
 		case *ast.BaseType, *ast.EnumType:
 		default:
-			return nil, ast.NewErr(v.Line, "invalid map key type '%s'", v.Key.ID())
+			return nil, ast.NewErr(v.Pos().Line, "invalid map key type '%s'", v.Key.ID())
 		}
 
 		v.Value, err = resolveAnyType(v.Value, f)

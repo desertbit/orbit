@@ -1180,3 +1180,183 @@ func (z StreamType) Msgsize() (s int) {
 	s = msgp.ByteSize
 	return
 }
+
+// DecodeMsg implements msgp.Decodable
+func (z *TypedStreamError) DecodeMsg(dc *msgp.Reader) (err error) {
+	var field []byte
+	_ = field
+	var zb0001 uint32
+	zb0001, err = dc.ReadMapHeader()
+	if err != nil {
+		err = msgp.WrapError(err)
+		return
+	}
+	for zb0001 > 0 {
+		zb0001--
+		field, err = dc.ReadMapKeyPtr()
+		if err != nil {
+			err = msgp.WrapError(err)
+			return
+		}
+		switch msgp.UnsafeString(field) {
+		case "Err":
+			z.Err, err = dc.ReadString()
+			if err != nil {
+				err = msgp.WrapError(err, "Err")
+				return
+			}
+		case "Code":
+			z.Code, err = dc.ReadInt()
+			if err != nil {
+				err = msgp.WrapError(err, "Code")
+				return
+			}
+		default:
+			err = dc.Skip()
+			if err != nil {
+				err = msgp.WrapError(err)
+				return
+			}
+		}
+	}
+	return
+}
+
+// EncodeMsg implements msgp.Encodable
+func (z TypedStreamError) EncodeMsg(en *msgp.Writer) (err error) {
+	// map header, size 2
+	// write "Err"
+	err = en.Append(0x82, 0xa3, 0x45, 0x72, 0x72)
+	if err != nil {
+		return
+	}
+	err = en.WriteString(z.Err)
+	if err != nil {
+		err = msgp.WrapError(err, "Err")
+		return
+	}
+	// write "Code"
+	err = en.Append(0xa4, 0x43, 0x6f, 0x64, 0x65)
+	if err != nil {
+		return
+	}
+	err = en.WriteInt(z.Code)
+	if err != nil {
+		err = msgp.WrapError(err, "Code")
+		return
+	}
+	return
+}
+
+// MarshalMsg implements msgp.Marshaler
+func (z TypedStreamError) MarshalMsg(b []byte) (o []byte, err error) {
+	o = msgp.Require(b, z.Msgsize())
+	// map header, size 2
+	// string "Err"
+	o = append(o, 0x82, 0xa3, 0x45, 0x72, 0x72)
+	o = msgp.AppendString(o, z.Err)
+	// string "Code"
+	o = append(o, 0xa4, 0x43, 0x6f, 0x64, 0x65)
+	o = msgp.AppendInt(o, z.Code)
+	return
+}
+
+// UnmarshalMsg implements msgp.Unmarshaler
+func (z *TypedStreamError) UnmarshalMsg(bts []byte) (o []byte, err error) {
+	var field []byte
+	_ = field
+	var zb0001 uint32
+	zb0001, bts, err = msgp.ReadMapHeaderBytes(bts)
+	if err != nil {
+		err = msgp.WrapError(err)
+		return
+	}
+	for zb0001 > 0 {
+		zb0001--
+		field, bts, err = msgp.ReadMapKeyZC(bts)
+		if err != nil {
+			err = msgp.WrapError(err)
+			return
+		}
+		switch msgp.UnsafeString(field) {
+		case "Err":
+			z.Err, bts, err = msgp.ReadStringBytes(bts)
+			if err != nil {
+				err = msgp.WrapError(err, "Err")
+				return
+			}
+		case "Code":
+			z.Code, bts, err = msgp.ReadIntBytes(bts)
+			if err != nil {
+				err = msgp.WrapError(err, "Code")
+				return
+			}
+		default:
+			bts, err = msgp.Skip(bts)
+			if err != nil {
+				err = msgp.WrapError(err)
+				return
+			}
+		}
+	}
+	o = bts
+	return
+}
+
+// Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
+func (z TypedStreamError) Msgsize() (s int) {
+	s = 1 + 4 + msgp.StringPrefixSize + len(z.Err) + 5 + msgp.IntSize
+	return
+}
+
+// DecodeMsg implements msgp.Decodable
+func (z *TypedStreamType) DecodeMsg(dc *msgp.Reader) (err error) {
+	{
+		var zb0001 byte
+		zb0001, err = dc.ReadByte()
+		if err != nil {
+			err = msgp.WrapError(err)
+			return
+		}
+		(*z) = TypedStreamType(zb0001)
+	}
+	return
+}
+
+// EncodeMsg implements msgp.Encodable
+func (z TypedStreamType) EncodeMsg(en *msgp.Writer) (err error) {
+	err = en.WriteByte(byte(z))
+	if err != nil {
+		err = msgp.WrapError(err)
+		return
+	}
+	return
+}
+
+// MarshalMsg implements msgp.Marshaler
+func (z TypedStreamType) MarshalMsg(b []byte) (o []byte, err error) {
+	o = msgp.Require(b, z.Msgsize())
+	o = msgp.AppendByte(o, byte(z))
+	return
+}
+
+// UnmarshalMsg implements msgp.Unmarshaler
+func (z *TypedStreamType) UnmarshalMsg(bts []byte) (o []byte, err error) {
+	{
+		var zb0001 byte
+		zb0001, bts, err = msgp.ReadByteBytes(bts)
+		if err != nil {
+			err = msgp.WrapError(err)
+			return
+		}
+		(*z) = TypedStreamType(zb0001)
+	}
+	o = bts
+	return
+}
+
+// Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
+func (z TypedStreamType) Msgsize() (s int) {
+	s = msgp.ByteSize
+	return
+}

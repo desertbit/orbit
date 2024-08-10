@@ -36,10 +36,10 @@ func (p *parser) expectTypeDefinition() ([]*ast.TypeField, error) {
 	// Orbit file example:
 	/*
 		<type-declaration or inline-type>
-			name    string `validate:"required,min=1"`
-			age     int    `validate:"required,min=1,max=155"`
-			locale  string `validate:"required,len=5"`
-			address string `validate:"omitempty"`
+			name    string  `validate:"required,min=1"`
+			age     int     `validate:"required,min=1,max=155"`
+			locale  *string `validate:"required,len=5"`
+			address string  `validate:"omitempty"`
 		}
 	*/
 
@@ -74,18 +74,18 @@ func (p *parser) expectTypeDefinition() ([]*ast.TypeField, error) {
 }
 
 func (p *parser) expectDataType() (ast.DataType, error) {
+	pointer := p.checkToken(lexer.ASTERISK)
+
 	if p.checkToken(lexer.LBRACK) && p.checkToken(lexer.RBRACK) {
-		return p.expectArrType()
+		return p.expectArrType(pointer)
 	} else if p.checkToken(lexer.MAP) {
-		return p.expectMapType()
+		return p.expectMapType(pointer)
 	} else {
-		return p.expectAnyType()
+		return p.expectAnyType(pointer)
 	}
 }
 
-func (p *parser) expectMapType() (*ast.MapType, error) {
-	mt := &ast.MapType{Pos: p.tk.Pos}
-
+func (p *parser) expectMapType(pointer bool) (*ast.MapType, error) {
 	// '['.
 	err := p.expectToken(lexer.LBRACK)
 	if err != nil {
@@ -93,7 +93,8 @@ func (p *parser) expectMapType() (*ast.MapType, error) {
 	}
 
 	// Key type.
-	mt.Key, err = p.expectAnyType()
+	keyIsPointer := p.checkToken(lexer.ASTERISK)
+	key, err := p.expectAnyType(keyIsPointer)
 	if err != nil {
 		return nil, err
 	}
@@ -105,37 +106,31 @@ func (p *parser) expectMapType() (*ast.MapType, error) {
 	}
 
 	// Value type.
-	mt.Value, err = p.expectDataType()
+	value, err := p.expectDataType()
 	if err != nil {
 		return nil, err
 	}
 
-	return mt, nil
+	return ast.NewMapType(key, value, p.tk.Pos, pointer), nil
 }
 
-func (p *parser) expectArrType() (*ast.ArrType, error) {
-	at := &ast.ArrType{Pos: p.tk.Pos}
-
+func (p *parser) expectArrType(pointer bool) (*ast.ArrType, error) {
 	// Expect any type.
-	var err error
-	at.Elem, err = p.expectDataType()
+	elem, err := p.expectDataType()
 	if err != nil {
 		return nil, err
 	}
 
-	return at, nil
+	return ast.NewArrType(elem, p.tk.Pos, pointer), nil
 }
 
-func (p *parser) expectAnyType() (*ast.AnyType, error) {
-	at := &ast.AnyType{Pos: p.tk.Pos}
-
+func (p *parser) expectAnyType(pointer bool) (*ast.AnyType, error) {
 	// Identifier.
-	var err error
-	at.Name, err = p.expectIdent()
+	name, err := p.expectIdent()
 	if err != nil {
 		return nil, err
 	}
 
 	// Ensure private name is lowercase.
-	return at, nil
+	return ast.NewAnyType(name, p.tk.Pos, pointer), nil
 }

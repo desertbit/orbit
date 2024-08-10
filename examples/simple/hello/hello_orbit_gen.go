@@ -111,7 +111,7 @@ type SayHiRet struct {
 }
 
 type TestArg struct {
-	S string
+	S *string
 }
 
 type TestRet struct {

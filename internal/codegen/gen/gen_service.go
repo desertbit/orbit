@@ -31,7 +31,7 @@ import (
 	"github.com/desertbit/orbit/internal/codegen/ast"
 )
 
-func (g *generator) genService(srvc *ast.Service, errs []*ast.Error) {
+func (g *generator) genService(srvc *ast.Service) {
 	// Create the call ids.
 	g.writeLn("const (")
 	for _, c := range srvc.Calls {
@@ -49,8 +49,8 @@ func (g *generator) genService(srvc *ast.Service, errs []*ast.Error) {
 	g.genServiceHandlerInterface(srvc.Calls, srvc.Streams)
 
 	// Create the private structs implementing the interfaces.
-	g.genClientStruct(srvc.Calls, srvc.Streams, errs)
-	g.genServiceStruct(srvc.Calls, srvc.Streams, errs)
+	g.genClientStruct(srvc.Calls, srvc.Streams)
+	g.genServiceStruct(srvc.Calls, srvc.Streams)
 }
 
 func (g *generator) genClientInterface(calls []*ast.Call, streams []*ast.Stream) {
@@ -108,7 +108,7 @@ func (g *generator) genServiceHandlerInterface(calls []*ast.Call, streams []*ast
 	g.writeLn("")
 }
 
-func (g *generator) genClientStruct(calls []*ast.Call, streams []*ast.Stream, errs []*ast.Error) {
+func (g *generator) genClientStruct(calls []*ast.Call, streams []*ast.Stream) {
 	// Generate the struct definition.
 	g.writeLn("type client struct {")
 	g.writeLn("oclient.Client")
@@ -138,16 +138,16 @@ func (g *generator) genClientStruct(calls []*ast.Call, streams []*ast.Stream, er
 
 	// Generate the calls.
 	for _, c := range calls {
-		g.genClientCall(c, errs)
+		g.genClientCall(c)
 	}
 
 	// Generate the streams.
 	for _, s := range streams {
-		g.genClientStream(s, errs)
+		g.genClientStream(s)
 	}
 }
 
-func (g *generator) genServiceStruct(calls []*ast.Call, streams []*ast.Stream, errs []*ast.Error) {
+func (g *generator) genServiceStruct(calls []*ast.Call, streams []*ast.Stream) {
 	// Generate the struct definition.
 	g.writeLn("type service struct {")
 	g.writeLn("oservice.Service")

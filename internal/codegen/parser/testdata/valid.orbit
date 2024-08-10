@@ -29,8 +29,8 @@ service {
         arg: Arg
         ret: {
             s string
-            i int
-            m map[string]int
+            i *int
+            m *map[string]int
             sl []time
             st Ret
             crazy map[string][][]map[string]En1
@@ -44,7 +44,7 @@ service {
             u8 uint8
             u16 uint16
             u32 uint32
-            u64 uint64
+            u64 *uint64
         }
     }
     call rc3 {}
@@ -69,10 +69,11 @@ service {
 type Arg {
     s string `json:"STRING"`
     i int
-    m map[string]int
+    m map[string]*int
     sl []time
 	dur duration
     st Ret
+    stp *Ret
     crazy map[string][][]map[string]En1
 }
 

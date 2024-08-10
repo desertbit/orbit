@@ -7,7 +7,7 @@ import (
 	"github.com/desertbit/orbit/internal/codegen/ast"
 	"github.com/desertbit/orbit/internal/codegen/lexer"
 	"github.com/desertbit/orbit/internal/codegen/validate"
-	"github.com/stretchr/testify/require"
+	r "github.com/stretchr/testify/require"
 )
 
 func TestValidate(t *testing.T) {
@@ -129,6 +129,7 @@ func testValidateValid(t *testing.T) {
 				},
 				{Name: "Sl", DataType: &ast.ArrType{Elem: &ast.AnyType{Name: "time"}}},
 				{Name: "St", DataType: &ast.AnyType{Name: "Ret"}},
+				{Name: "Stp", DataType: ast.NewAnyType("Ret", lexer.Pos{}, true)},
 				{
 					Name: "Crazy",
 					DataType: &ast.MapType{
@@ -226,29 +227,31 @@ func testValidateValid(t *testing.T) {
 
 	// Call validate.
 	f := &ast.File{Version: expVersion, Srvc: expSrvc, Types: expTypes, Enums: expEnums, Errs: expErrs}
-	require.NoError(t, validate.Validate(f))
+	r.NoError(t, validate.Validate(f))
 
 	// Check, if all any types have been resolved.
-	require.IsType(t, &ast.StructType{}, rc1.Arg)
-	require.IsType(t, &ast.StructType{}, st3.Ret)
-	require.IsType(t, &ast.StructType{}, rst1.Arg)
-	require.IsType(t, &ast.StructType{}, rst1.Ret)
-	require.IsType(t, &ast.BaseType{}, c1Arg.Fields[0].DataType)
-	require.IsType(t, &ast.BaseType{}, c1Ret.Fields[0].DataType)
-	require.IsType(t, &ast.BaseType{}, c2Arg.Fields[0].DataType)
-	require.IsType(t, &ast.BaseType{}, c2Ret.Fields[0].DataType.(*ast.ArrType).Elem.(*ast.MapType).Key)
-	require.IsType(t, &ast.BaseType{}, rc1Ret.Fields[0].DataType)
-	require.IsType(t, &ast.BaseType{}, rc1Ret.Fields[1].DataType)
-	require.IsType(t, &ast.BaseType{}, rc1Ret.Fields[2].DataType.(*ast.MapType).Key)
-	require.IsType(t, &ast.BaseType{}, rc1Ret.Fields[2].DataType.(*ast.MapType).Value)
-	require.IsType(t, &ast.BaseType{}, rc1Ret.Fields[3].DataType.(*ast.ArrType).Elem)
-	require.IsType(t, &ast.StructType{}, rc1Ret.Fields[4].DataType)
-	require.IsType(t, &ast.BaseType{}, rc1Ret.Fields[5].DataType.(*ast.MapType).Key)
-	require.IsType(t, &ast.BaseType{}, rc1Ret.Fields[5].DataType.(*ast.MapType).Value.(*ast.ArrType).Elem.(*ast.ArrType).Elem.(*ast.MapType).Key)
-	require.IsType(t, &ast.EnumType{}, rc1Ret.Fields[5].DataType.(*ast.MapType).Value.(*ast.ArrType).Elem.(*ast.ArrType).Elem.(*ast.MapType).Value)
+	r.IsType(t, &ast.StructType{}, rc1.Arg)
+	r.IsType(t, &ast.StructType{}, st3.Ret)
+	r.IsType(t, &ast.StructType{}, rst1.Arg)
+	r.IsType(t, &ast.StructType{}, rst1.Ret)
+	r.IsType(t, &ast.BaseType{}, c1Arg.Fields[0].DataType)
+	r.IsType(t, &ast.BaseType{}, c1Ret.Fields[0].DataType)
+	r.IsType(t, &ast.BaseType{}, c2Arg.Fields[0].DataType)
+	r.IsType(t, &ast.BaseType{}, c2Ret.Fields[0].DataType.(*ast.ArrType).Elem.(*ast.MapType).Key)
+	r.IsType(t, &ast.BaseType{}, rc1Ret.Fields[0].DataType)
+	r.IsType(t, &ast.BaseType{}, rc1Ret.Fields[1].DataType)
+	r.IsType(t, &ast.BaseType{}, rc1Ret.Fields[2].DataType.(*ast.MapType).Key)
+	r.IsType(t, &ast.BaseType{}, rc1Ret.Fields[2].DataType.(*ast.MapType).Value)
+	r.IsType(t, &ast.BaseType{}, rc1Ret.Fields[3].DataType.(*ast.ArrType).Elem)
+	r.IsType(t, &ast.StructType{}, rc1Ret.Fields[4].DataType)
+	r.IsType(t, &ast.StructType{}, rc1Ret.Fields[5].DataType)
+	r.True(t, rc1Ret.Fields[5].DataType.(*ast.StructType).Pointer())
+	r.IsType(t, &ast.BaseType{}, rc1Ret.Fields[6].DataType.(*ast.MapType).Key)
+	r.IsType(t, &ast.BaseType{}, rc1Ret.Fields[6].DataType.(*ast.MapType).Value.(*ast.ArrType).Elem.(*ast.ArrType).Elem.(*ast.MapType).Key)
+	r.IsType(t, &ast.EnumType{}, rc1Ret.Fields[6].DataType.(*ast.MapType).Value.(*ast.ArrType).Elem.(*ast.ArrType).Elem.(*ast.MapType).Value)
 
 	// Check, if all errors have been resolved.
-	require.Exactly(t, 1, c1.Errors[0].ID)
-	require.Exactly(t, 1, c2.Errors[0].ID)
-	require.Exactly(t, 3, c2.Errors[1].ID)
+	r.Exactly(t, 1, c1.Errors[0].ID)
+	r.Exactly(t, 1, c2.Errors[0].ID)
+	r.Exactly(t, 3, c2.Errors[1].ID)
 }
