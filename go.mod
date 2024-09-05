@@ -6,7 +6,6 @@ require (
 	code.cloudfoundry.org/bytefmt v0.0.0-20240418163414-335139cff0b2
 	github.com/desertbit/closer/v3 v3.5.2
 	github.com/desertbit/grumble v1.1.3
-	github.com/desertbit/msgp v1.1.9
 	github.com/desertbit/yamux v1.2.0
 	github.com/go-playground/validator/v10 v10.19.0
 	github.com/quic-go/quic-go v0.42.0
@@ -36,7 +35,6 @@ require (
 	github.com/onsi/ginkgo/v2 v2.17.1 // indirect
 	github.com/philhofer/fwd v1.1.2 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	github.com/quic-go/qtls-go1-20 v0.4.1 // indirect
 	github.com/vmihailenco/msgpack v4.0.4+incompatible // indirect
 	go.uber.org/mock v0.4.0 // indirect
 	golang.org/x/crypto v0.22.0 // indirect

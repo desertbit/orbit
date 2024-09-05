@@ -30,7 +30,6 @@ package gen
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -83,7 +82,7 @@ func Generate(orbitFile string, force bool) (err error) {
 	}
 
 	// Read whole file content.
-	input, err := ioutil.ReadFile(orbitFile)
+	input, err := os.ReadFile(orbitFile)
 	if err != nil {
 		return
 	}
@@ -110,7 +109,7 @@ func Generate(orbitFile string, force bool) (err error) {
 
 	// Generate the code into a single file.
 	pkgName := filepath.Base(filepath.Dir(orbitFile))
-	err = ioutil.WriteFile(ofp, []byte(generate(pkgName, f)), filePerm)
+	err = os.WriteFile(ofp, []byte(generate(pkgName, f)), filePerm)
 	if err != nil {
 		return
 	}

@@ -30,7 +30,6 @@ package gen
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -115,7 +114,7 @@ func updateGenCache(orbitFile string) (err error) {
 		return
 	}
 
-	return ioutil.WriteFile(filepath.Join(cacheDir, modTimesFile), data, filePerm)
+	return os.WriteFile(filepath.Join(cacheDir, modTimesFile), data, filePerm)
 }
 
 // If one of the predefined errors is returned, the cacheDir is guaranteed to
@@ -137,7 +136,7 @@ func loadGenCache() (gc map[string]cacheEntry, cacheDir string, err error) {
 	}
 
 	// Read the data from the cache file.
-	data, err := ioutil.ReadFile(filepath.Join(cacheDir, modTimesFile))
+	data, err := os.ReadFile(filepath.Join(cacheDir, modTimesFile))
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			err = errCacheNotFound

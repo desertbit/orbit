@@ -38,7 +38,7 @@ import (
 func (g *generator) genClientCallSignature(c *ast.Call) {
 	g.writef("%s(ctx context.Context", c.Ident())
 	if c.Arg != nil {
-		g.writef(", arg %s", c.Arg.Decl())
+		g.writef(", arg *%s", c.Arg.Decl())
 	}
 	g.write(") (")
 	if c.Ret != nil {
@@ -154,7 +154,7 @@ func (g *generator) genServiceHandlerCallSignature(c *ast.Call) {
 	}
 	g.write(") (")
 	if c.Ret != nil {
-		g.writef("ret %s, ", c.Ret.Decl())
+		g.writef("ret *%s, ", c.Ret.Decl())
 	}
 	g.writeLn("err error)")
 }
@@ -162,7 +162,7 @@ func (g *generator) genServiceHandlerCallSignature(c *ast.Call) {
 func (g *generator) genServiceCall(c *ast.Call) {
 	// Method declaration.
 	g.writefLn(
-		"func (%s *service) %s(ctx oservice.Context, argData []byte) (retData interface{}, err error) {",
+		"func (%s *service) %s(ctx oservice.Context, argData []byte) (ret any, err error) {",
 		recv, c.IdentPrv(),
 	)
 
@@ -173,6 +173,7 @@ func (g *generator) genServiceCall(c *ast.Call) {
 		handlerArgs += "arg,"
 
 		// Parse.
+		// Must be pointers, so code generated through tools like msgp is used.
 		g.writefLn("var arg %s", c.Arg.Decl())
 		g.writefLn("err = %s.codec.Decode(argData, &arg)", recv)
 		g.errIfNil()
@@ -183,7 +184,7 @@ func (g *generator) genServiceCall(c *ast.Call) {
 
 	// Call the handler.
 	if c.Ret != nil {
-		g.writefLn("ret, err := %s.h.%s(%s)", recv, c.Ident(), handlerArgs)
+		g.writefLn("ret, err = %s.h.%s(%s)", recv, c.Ident(), handlerArgs)
 	} else {
 		g.writefLn("err = %s.h.%s(%s)", recv, c.Ident(), handlerArgs)
 	}
@@ -197,11 +198,6 @@ func (g *generator) genServiceCall(c *ast.Call) {
 			g.writeLn("return")
 		}
 	})
-
-	// Assign return value.
-	if c.Ret != nil {
-		g.writeLn("retData = &ret")
-	}
 
 	// Return.
 	g.writeLn("return")

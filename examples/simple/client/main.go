@@ -70,7 +70,7 @@ func main() {
 	go func() {
 		defer wg.Done()
 		s := "testarg"
-		ret, err := c.Test(context.Background(), hello.TestArg{S: &s})
+		ret, err := c.Test(context.Background(), &hello.TestArg{S: &s})
 		if err != nil {
 			log.Fatalln(err)
 		}
@@ -78,7 +78,7 @@ func main() {
 		fmt.Printf("Test: %s, %s\n", ret.Name, ret.Dur.String())
 	}()
 
-	ret, err := c.SayHi(context.Background(), hello.SayHiArg{Name: "Wastl", Ts: time.Now()})
+	ret, err := c.SayHi(context.Background(), &hello.SayHiArg{Name: "Wastl", Ts: time.Now()})
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -107,7 +107,7 @@ func main() {
 		log.Fatalln(err)
 	}
 	for i := 0; i < 3; i++ {
-		err = bi.Write(hello.BidirectionalArg{Question: "What is the purpose of life?"})
+		err = bi.Write(&hello.BidirectionalArg{Question: "What is the purpose of life?"})
 		if err != nil {
 			log.Fatalln(err)
 		}

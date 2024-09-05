@@ -202,7 +202,7 @@ func (v1 *ObserveNotificationsClientStream) Read() (ret Notification, err error)
 	return
 }
 
-func (v1 *ObserveNotificationsClientStream) Write(arg ObserveNotificationsArg) (err error) {
+func (v1 *ObserveNotificationsClientStream) Write(arg *ObserveNotificationsArg) (err error) {
 	err = v1.stream.Write(arg)
 	if err != nil {
 		if errors.Is(err, oclient.ErrClosed) {
@@ -250,7 +250,7 @@ func (v1 *ObserveNotificationsServiceStream) Read() (arg ObserveNotificationsArg
 	return
 }
 
-func (v1 *ObserveNotificationsServiceStream) Write(ret Notification) (err error) {
+func (v1 *ObserveNotificationsServiceStream) Write(ret *Notification) (err error) {
 	err = v1.stream.Write(ret)
 	if err != nil {
 		if errors.Is(err, oservice.ErrClosed) {
@@ -298,15 +298,15 @@ type Client interface {
 	closer.Closer
 	StateChan() <-chan oclient.State
 	// Calls
-	Register(ctx context.Context, arg RegisterArg) (err error)
-	Login(ctx context.Context, arg LoginArg) (err error)
+	Register(ctx context.Context, arg *RegisterArg) (err error)
+	Login(ctx context.Context, arg *LoginArg) (err error)
 	Logout(ctx context.Context) (err error)
-	GetUsers(ctx context.Context, arg GetUsersArg) (ret GetUsersRet, err error)
-	GetUser(ctx context.Context, arg GetUserArg) (ret UserDetail, err error)
-	GetUserProfileImage(ctx context.Context, arg GetUserProfileImageArg) (ret GetUserProfileImageRet, err error)
-	CreateUser(ctx context.Context, arg CreateUserArg) (ret UserDetail, err error)
-	UpdateUser(ctx context.Context, arg UpdateUserArg) (err error)
-	UpdateUserProfileImage(ctx context.Context, arg UpdateUserProfileImageArg) (err error)
+	GetUsers(ctx context.Context, arg *GetUsersArg) (ret GetUsersRet, err error)
+	GetUser(ctx context.Context, arg *GetUserArg) (ret UserDetail, err error)
+	GetUserProfileImage(ctx context.Context, arg *GetUserProfileImageArg) (ret GetUserProfileImageRet, err error)
+	CreateUser(ctx context.Context, arg *CreateUserArg) (ret UserDetail, err error)
+	UpdateUser(ctx context.Context, arg *UpdateUserArg) (err error)
+	UpdateUserProfileImage(ctx context.Context, arg *UpdateUserProfileImageArg) (err error)
 	// Streams
 	ObserveNotifications(ctx context.Context) (stream *ObserveNotificationsClientStream, err error)
 }
@@ -321,10 +321,10 @@ type ServiceHandler interface {
 	Register(ctx oservice.Context, arg RegisterArg) (err error)
 	Login(ctx oservice.Context, arg LoginArg) (err error)
 	Logout(ctx oservice.Context) (err error)
-	GetUsers(ctx oservice.Context, arg GetUsersArg) (ret GetUsersRet, err error)
-	GetUser(ctx oservice.Context, arg GetUserArg) (ret UserDetail, err error)
-	GetUserProfileImage(ctx oservice.Context, arg GetUserProfileImageArg) (ret GetUserProfileImageRet, err error)
-	CreateUser(ctx oservice.Context, arg CreateUserArg) (ret UserDetail, err error)
+	GetUsers(ctx oservice.Context, arg GetUsersArg) (ret *GetUsersRet, err error)
+	GetUser(ctx oservice.Context, arg GetUserArg) (ret *UserDetail, err error)
+	GetUserProfileImage(ctx oservice.Context, arg GetUserProfileImageArg) (ret *GetUserProfileImageRet, err error)
+	CreateUser(ctx oservice.Context, arg CreateUserArg) (ret *UserDetail, err error)
 	UpdateUser(ctx oservice.Context, arg UpdateUserArg) (err error)
 	UpdateUserProfileImage(ctx oservice.Context, arg UpdateUserProfileImageArg) (err error)
 	// Streams
@@ -353,7 +353,7 @@ func (v1 *client) StateChan() <-chan oclient.State {
 	return v1.Client.StateChan()
 }
 
-func (v1 *client) Register(ctx context.Context, arg RegisterArg) (err error) {
+func (v1 *client) Register(ctx context.Context, arg *RegisterArg) (err error) {
 	if v1.callTimeout > 0 {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, v1.callTimeout)
@@ -373,7 +373,7 @@ func (v1 *client) Register(ctx context.Context, arg RegisterArg) (err error) {
 	return
 }
 
-func (v1 *client) Login(ctx context.Context, arg LoginArg) (err error) {
+func (v1 *client) Login(ctx context.Context, arg *LoginArg) (err error) {
 	if v1.callTimeout > 0 {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, v1.callTimeout)
@@ -406,7 +406,7 @@ func (v1 *client) Logout(ctx context.Context) (err error) {
 	return
 }
 
-func (v1 *client) GetUsers(ctx context.Context, arg GetUsersArg) (ret GetUsersRet, err error) {
+func (v1 *client) GetUsers(ctx context.Context, arg *GetUsersArg) (ret GetUsersRet, err error) {
 	if v1.callTimeout > 0 {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, v1.callTimeout)
@@ -424,7 +424,7 @@ func (v1 *client) GetUsers(ctx context.Context, arg GetUsersArg) (ret GetUsersRe
 	return
 }
 
-func (v1 *client) GetUser(ctx context.Context, arg GetUserArg) (ret UserDetail, err error) {
+func (v1 *client) GetUser(ctx context.Context, arg *GetUserArg) (ret UserDetail, err error) {
 	if v1.callTimeout > 0 {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, v1.callTimeout)
@@ -449,7 +449,7 @@ func (v1 *client) GetUser(ctx context.Context, arg GetUserArg) (ret UserDetail, 
 	return
 }
 
-func (v1 *client) GetUserProfileImage(ctx context.Context, arg GetUserProfileImageArg) (ret GetUserProfileImageRet, err error) {
+func (v1 *client) GetUserProfileImage(ctx context.Context, arg *GetUserProfileImageArg) (ret GetUserProfileImageRet, err error) {
 	if v1.callTimeout > 0 {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, v1.callTimeout)
@@ -474,7 +474,7 @@ func (v1 *client) GetUserProfileImage(ctx context.Context, arg GetUserProfileIma
 	return
 }
 
-func (v1 *client) CreateUser(ctx context.Context, arg CreateUserArg) (ret UserDetail, err error) {
+func (v1 *client) CreateUser(ctx context.Context, arg *CreateUserArg) (ret UserDetail, err error) {
 	if v1.callTimeout > 0 {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, v1.callTimeout)
@@ -499,7 +499,7 @@ func (v1 *client) CreateUser(ctx context.Context, arg CreateUserArg) (ret UserDe
 	return
 }
 
-func (v1 *client) UpdateUser(ctx context.Context, arg UpdateUserArg) (err error) {
+func (v1 *client) UpdateUser(ctx context.Context, arg *UpdateUserArg) (err error) {
 	if v1.callTimeout > 0 {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, v1.callTimeout)
@@ -521,7 +521,7 @@ func (v1 *client) UpdateUser(ctx context.Context, arg UpdateUserArg) (err error)
 	return
 }
 
-func (v1 *client) UpdateUserProfileImage(ctx context.Context, arg UpdateUserProfileImageArg) (err error) {
+func (v1 *client) UpdateUserProfileImage(ctx context.Context, arg *UpdateUserProfileImageArg) (err error) {
 	ctx, cancel := context.WithTimeout(ctx, 60000000000*time.Nanosecond)
 	defer cancel()
 	err = v1.AsyncCall(ctx, CallIDUpdateUserProfileImage, arg, nil, 5242880, 0)
@@ -582,7 +582,7 @@ func NewService(h ServiceHandler, opts *oservice.Options) (s Service, err error)
 	return
 }
 
-func (v1 *service) register(ctx oservice.Context, argData []byte) (retData interface{}, err error) {
+func (v1 *service) register(ctx oservice.Context, argData []byte) (ret any, err error) {
 	var arg RegisterArg
 	err = v1.codec.Decode(argData, &arg)
 	if err != nil {
@@ -603,7 +603,7 @@ func (v1 *service) register(ctx oservice.Context, argData []byte) (retData inter
 	return
 }
 
-func (v1 *service) login(ctx oservice.Context, argData []byte) (retData interface{}, err error) {
+func (v1 *service) login(ctx oservice.Context, argData []byte) (ret any, err error) {
 	var arg LoginArg
 	err = v1.codec.Decode(argData, &arg)
 	if err != nil {
@@ -624,7 +624,7 @@ func (v1 *service) login(ctx oservice.Context, argData []byte) (retData interfac
 	return
 }
 
-func (v1 *service) logout(ctx oservice.Context, argData []byte) (retData interface{}, err error) {
+func (v1 *service) logout(ctx oservice.Context, argData []byte) (ret any, err error) {
 	err = v1.h.Logout(ctx)
 	if err != nil {
 		return
@@ -632,7 +632,7 @@ func (v1 *service) logout(ctx oservice.Context, argData []byte) (retData interfa
 	return
 }
 
-func (v1 *service) getUsers(ctx oservice.Context, argData []byte) (retData interface{}, err error) {
+func (v1 *service) getUsers(ctx oservice.Context, argData []byte) (ret any, err error) {
 	var arg GetUsersArg
 	err = v1.codec.Decode(argData, &arg)
 	if err != nil {
@@ -643,15 +643,14 @@ func (v1 *service) getUsers(ctx oservice.Context, argData []byte) (retData inter
 		err = _valErrCheck(err)
 		return
 	}
-	ret, err := v1.h.GetUsers(ctx, arg)
+	ret, err = v1.h.GetUsers(ctx, arg)
 	if err != nil {
 		return
 	}
-	retData = &ret
 	return
 }
 
-func (v1 *service) getUser(ctx oservice.Context, argData []byte) (retData interface{}, err error) {
+func (v1 *service) getUser(ctx oservice.Context, argData []byte) (ret any, err error) {
 	var arg GetUserArg
 	err = v1.codec.Decode(argData, &arg)
 	if err != nil {
@@ -662,18 +661,17 @@ func (v1 *service) getUser(ctx oservice.Context, argData []byte) (retData interf
 		err = _valErrCheck(err)
 		return
 	}
-	ret, err := v1.h.GetUser(ctx, arg)
+	ret, err = v1.h.GetUser(ctx, arg)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			err = oservice.NewError(err, ErrNotFound.Error(), ErrCodeNotFound)
 		}
 		return
 	}
-	retData = &ret
 	return
 }
 
-func (v1 *service) getUserProfileImage(ctx oservice.Context, argData []byte) (retData interface{}, err error) {
+func (v1 *service) getUserProfileImage(ctx oservice.Context, argData []byte) (ret any, err error) {
 	var arg GetUserProfileImageArg
 	err = v1.codec.Decode(argData, &arg)
 	if err != nil {
@@ -684,18 +682,17 @@ func (v1 *service) getUserProfileImage(ctx oservice.Context, argData []byte) (re
 		err = _valErrCheck(err)
 		return
 	}
-	ret, err := v1.h.GetUserProfileImage(ctx, arg)
+	ret, err = v1.h.GetUserProfileImage(ctx, arg)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			err = oservice.NewError(err, ErrNotFound.Error(), ErrCodeNotFound)
 		}
 		return
 	}
-	retData = &ret
 	return
 }
 
-func (v1 *service) createUser(ctx oservice.Context, argData []byte) (retData interface{}, err error) {
+func (v1 *service) createUser(ctx oservice.Context, argData []byte) (ret any, err error) {
 	var arg CreateUserArg
 	err = v1.codec.Decode(argData, &arg)
 	if err != nil {
@@ -706,18 +703,17 @@ func (v1 *service) createUser(ctx oservice.Context, argData []byte) (retData int
 		err = _valErrCheck(err)
 		return
 	}
-	ret, err := v1.h.CreateUser(ctx, arg)
+	ret, err = v1.h.CreateUser(ctx, arg)
 	if err != nil {
 		if errors.Is(err, ErrNameAlreadyExists) {
 			err = oservice.NewError(err, ErrNameAlreadyExists.Error(), ErrCodeNameAlreadyExists)
 		}
 		return
 	}
-	retData = &ret
 	return
 }
 
-func (v1 *service) updateUser(ctx oservice.Context, argData []byte) (retData interface{}, err error) {
+func (v1 *service) updateUser(ctx oservice.Context, argData []byte) (ret any, err error) {
 	var arg UpdateUserArg
 	err = v1.codec.Decode(argData, &arg)
 	if err != nil {
@@ -740,7 +736,7 @@ func (v1 *service) updateUser(ctx oservice.Context, argData []byte) (retData int
 	return
 }
 
-func (v1 *service) updateUserProfileImage(ctx oservice.Context, argData []byte) (retData interface{}, err error) {
+func (v1 *service) updateUserProfileImage(ctx oservice.Context, argData []byte) (ret any, err error) {
 	var arg UpdateUserProfileImageArg
 	err = v1.codec.Decode(argData, &arg)
 	if err != nil {
