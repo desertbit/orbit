@@ -77,7 +77,7 @@ func (g *generator) genClientCall(c *ast.Call) {
 	g.writef("(ctx, CallID%s, ", c.Ident())
 	// Arg.
 	if c.Arg != nil {
-		g.write("arg,")
+		g.write("&arg,")
 	} else {
 		g.write("nil,")
 	}
@@ -162,7 +162,7 @@ func (g *generator) genServiceHandlerCallSignature(c *ast.Call) {
 func (g *generator) genServiceCall(c *ast.Call) {
 	// Method declaration.
 	g.writefLn(
-		"func (%s *service) %s(ctx oservice.Context, argData []byte) (retData interface{}, err error) {",
+		"func (%s *service) %s(ctx oservice.Context, argData []byte) (retData any, err error) {",
 		recv, c.IdentPrv(),
 	)
 
