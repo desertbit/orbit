@@ -138,7 +138,7 @@ func newTimeStreamClientStream(s oclient.TypedWStream) *TimeStreamClientStream {
 }
 
 func (v1 *TimeStreamClientStream) Write(arg Info) (err error) {
-	err = v1.stream.Write(arg)
+	err = v1.stream.Write(&arg)
 	if err != nil {
 		if errors.Is(err, oclient.ErrClosed) {
 			err = ErrClosed
@@ -221,7 +221,7 @@ func newClockTimeServiceStream(s oservice.TypedWStream) *ClockTimeServiceStream 
 }
 
 func (v1 *ClockTimeServiceStream) Write(ret ClockTimeRet) (err error) {
-	err = v1.stream.Write(ret)
+	err = v1.stream.Write(&ret)
 	if err != nil {
 		if errors.Is(err, oservice.ErrClosed) {
 			err = ErrClosed
@@ -272,7 +272,7 @@ func (v1 *BidirectionalClientStream) Read() (ret BidirectionalRet, err error) {
 }
 
 func (v1 *BidirectionalClientStream) Write(arg BidirectionalArg) (err error) {
-	err = v1.stream.Write(arg)
+	err = v1.stream.Write(&arg)
 	if err != nil {
 		if errors.Is(err, oclient.ErrClosed) {
 			err = ErrClosed
@@ -320,7 +320,7 @@ func (v1 *BidirectionalServiceStream) Read() (arg BidirectionalArg, err error) {
 }
 
 func (v1 *BidirectionalServiceStream) Write(ret BidirectionalRet) (err error) {
-	err = v1.stream.Write(ret)
+	err = v1.stream.Write(&ret)
 	if err != nil {
 		if errors.Is(err, oservice.ErrClosed) {
 			err = ErrClosed
@@ -345,7 +345,7 @@ func newTestServerContextCloseClientStream(s oclient.TypedWStream) *TestServerCo
 }
 
 func (v1 *TestServerContextCloseClientStream) Write(arg TestServerContextCloseArg) (err error) {
-	err = v1.stream.Write(arg)
+	err = v1.stream.Write(&arg)
 	if err != nil {
 		if errors.Is(err, oclient.ErrClosed) {
 			err = ErrClosed
@@ -419,7 +419,7 @@ func newTestServerCloseClientReadServiceStream(s oservice.TypedWStream) *TestSer
 }
 
 func (v1 *TestServerCloseClientReadServiceStream) Write(ret TestServerCloseClientReadRet) (err error) {
-	err = v1.stream.Write(ret)
+	err = v1.stream.Write(&ret)
 	if err != nil {
 		if errors.Is(err, oservice.ErrClosed) {
 			err = ErrClosed
@@ -517,7 +517,7 @@ func (v1 *client) SayHi(ctx context.Context, arg SayHiArg) (ret SayHiRet, err er
 		ctx, cancel = context.WithTimeout(ctx, v1.callTimeout)
 		defer cancel()
 	}
-	err = v1.Call(ctx, CallIDSayHi, arg, &ret)
+	err = v1.Call(ctx, CallIDSayHi, &arg, &ret)
 	if err != nil {
 		var cErr oclient.Error
 		if errors.As(err, &cErr) {
@@ -539,7 +539,7 @@ func (v1 *client) SayHi(ctx context.Context, arg SayHiArg) (ret SayHiRet, err er
 func (v1 *client) Test(ctx context.Context, arg TestArg) (ret TestRet, err error) {
 	ctx, cancel := context.WithTimeout(ctx, 500000000*time.Nanosecond)
 	defer cancel()
-	err = v1.AsyncCall(ctx, CallIDTest, arg, &ret, oclient.DefaultMaxSize, 10240)
+	err = v1.AsyncCall(ctx, CallIDTest, &arg, &ret, oclient.DefaultMaxSize, 10240)
 	if err != nil {
 		var cErr oclient.Error
 		if errors.As(err, &cErr) {
@@ -671,7 +671,7 @@ func NewService(h ServiceHandler, opts *oservice.Options) (s Service, err error)
 	return
 }
 
-func (v1 *service) sayHi(ctx oservice.Context, argData []byte) (retData interface{}, err error) {
+func (v1 *service) sayHi(ctx oservice.Context, argData []byte) (retData any, err error) {
 	var arg SayHiArg
 	err = v1.codec.Decode(argData, &arg)
 	if err != nil {
@@ -693,7 +693,7 @@ func (v1 *service) sayHi(ctx oservice.Context, argData []byte) (retData interfac
 	return
 }
 
-func (v1 *service) test(ctx oservice.Context, argData []byte) (retData interface{}, err error) {
+func (v1 *service) test(ctx oservice.Context, argData []byte) (retData any, err error) {
 	var arg TestArg
 	err = v1.codec.Decode(argData, &arg)
 	if err != nil {
