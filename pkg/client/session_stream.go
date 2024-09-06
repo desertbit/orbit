@@ -129,7 +129,7 @@ func (s *session) openStream(
 
 	// Write the header if set.
 	if header != nil {
-		err = packet.WriteEncode(stream, &header, api.Codec, maxHeaderSize)
+		err = packet.WriteEncode(stream, header, api.Codec, maxHeaderSize)
 		if err != nil {
 			return
 		}

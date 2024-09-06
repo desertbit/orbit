@@ -84,7 +84,7 @@ func (s *typedRWStream) Read(data interface{}) (err error) {
 	switch ts {
 	case api.TypedStreamTypeData:
 		// Read the data packet.
-		err = packet.ReadDecode(s.stream, &data, s.codec, s.maxReadSize)
+		err = packet.ReadDecode(s.stream, data, s.codec, s.maxReadSize)
 		if err != nil {
 			return s.checkErr(err)
 		}
@@ -158,7 +158,7 @@ func (s *typedRWStream) closeWithErr(sErr api.TypedStreamError) (err error) {
 	}
 
 	// Now write the error packet.
-	err = packet.WriteEncode(s.stream, sErr, api.Codec, s.maxReadSize)
+	err = packet.WriteEncode(s.stream, &sErr, api.Codec, s.maxReadSize)
 	if err != nil {
 		return s.checkErr(err)
 	}

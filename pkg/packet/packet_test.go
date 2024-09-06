@@ -58,7 +58,7 @@ func TestReadWriteEncode(t *testing.T) {
 		errChan <- packet.ReadDecode(connR, &ret, msgpack.Codec, packet.NoPayloadSizeLimit)
 	}()
 
-	err := packet.WriteEncode(connW, data, msgpack.Codec, packet.NoPayloadSizeLimit)
+	err := packet.WriteEncode(connW, &data, msgpack.Codec, packet.NoPayloadSizeLimit)
 	require.NoError(t, err)
 
 	// Wait for the read to finish.
