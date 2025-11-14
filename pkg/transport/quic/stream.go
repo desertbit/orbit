@@ -41,14 +41,14 @@ var _ transport.Stream = &stream{}
 // Type stream wraps a quic.Stream and implements the
 // two missing methods so it can be used as a net.Conn.
 type stream struct {
-	quic.Stream
+	*quic.Stream
 
 	la net.Addr
 	ra net.Addr
 }
 
 // newStream creates a new stream.
-func newStream(qs quic.Stream, la, ra net.Addr) *stream {
+func newStream(qs *quic.Stream, la, ra net.Addr) *stream {
 	return &stream{
 		Stream: qs,
 		la:     la,

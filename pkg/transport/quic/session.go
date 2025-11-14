@@ -46,12 +46,12 @@ var _ transport.Conn = &session{}
 type session struct {
 	closer.Closer
 
-	qs quic.Connection
+	qs *quic.Conn
 	la net.Addr
 	ra net.Addr
 }
 
-func newSession(cl closer.Closer, qs quic.Connection) (s *session, err error) {
+func newSession(cl closer.Closer, qs *quic.Conn) (s *session, err error) {
 	s = &session{
 		Closer: cl,
 		qs:     qs,
@@ -114,10 +114,16 @@ func (s *session) RemoteAddr() net.Addr {
 	return s.ra
 }
 
+// Implements the transport.Conn interface.
 func (s *session) IsClosedError(err error) bool {
 	var sErr *quic.StreamError
 	if errors.As(err, &sErr) {
 		return sErr.ErrorCode == errorCodeClose
+	}
+
+	var aErr *quic.ApplicationError
+	if errors.As(err, &aErr) {
+		return aErr.ErrorCode == errorCodeClose
 	}
 	return false
 }
