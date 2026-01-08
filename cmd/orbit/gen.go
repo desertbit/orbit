@@ -35,14 +35,16 @@ import (
 const (
 	argOrbitFiles = "orbit-files"
 
-	flagForce = "force"
+	flagQMLDir = "qml-dir"
+	flagForce  = "force"
 )
 
 var cmdGen = &grumble.Command{
 	Name: "gen",
-	Help: "generate go code from .orbit file. Args: <files>",
+	Help: "generate go code from .orbit file.",
 	Run:  runGen,
 	Flags: func(f *grumble.Flags) {
+		f.StringL(flagQMLDir, "", "if not empty, path to a directory into which QML types are generated")
 		f.Bool("f", flagForce, false, "generate all files, ignoring their last modification time")
 	},
 	Args: func(a *grumble.Args) {
@@ -57,7 +59,7 @@ func init() {
 func runGen(ctx *grumble.Context) (err error) {
 	// Iterate over each provided file path and generate the .orbit file.
 	for _, fp := range ctx.Args.StringList(argOrbitFiles) {
-		err = gen.Generate(fp, ctx.Flags.Bool(flagForce))
+		err = gen.Generate(fp, ctx.Flags.String(flagQMLDir), ctx.Flags.Bool(flagForce))
 		if err != nil {
 			return
 		}
