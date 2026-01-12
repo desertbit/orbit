@@ -46,12 +46,12 @@ var _ transport.Conn = &session{}
 type session struct {
 	closer.Closer
 
-	qs quic.Connection
+	qs *quic.Conn
 	la net.Addr
 	ra net.Addr
 }
 
-func newSession(cl closer.Closer, qs quic.Connection) (s *session, err error) {
+func newSession(cl closer.Closer, qs *quic.Conn) (s *session, err error) {
 	s = &session{
 		Closer: cl,
 		qs:     qs,

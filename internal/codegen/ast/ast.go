@@ -94,8 +94,12 @@ type TypeField struct {
 	lexer.Pos
 }
 
-func (tf TypeField) Ident() string {
+func (tf *TypeField) Ident() string {
 	return strutil.FirstUpper(tf.Name)
+}
+
+func (tf *TypeField) IdentPrv() string {
+	return strutil.FirstLower(tf.Name)
 }
 
 type Service struct {

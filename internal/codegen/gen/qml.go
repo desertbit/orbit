@@ -27,12 +27,37 @@
 
 package gen
 
-import "github.com/desertbit/orbit/internal/codegen/ast"
+import (
+	"fmt"
+	"io/fs"
+	"os"
+	"path/filepath"
+	"strings"
 
-func qmlGenerate(dir string, f *ast.File) error {
+	"github.com/desertbit/orbit/internal/codegen/ast"
+)
+
+func qmlGenerate(dir string, skipTypeNames []string, f *ast.File) error {
 	g := qmlGenerator{dir: dir}
 
-	return g.genTypes(f.Types)
+	// Clear the directory first.
+	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+		if path == dir {
+			return nil
+		}
+		if d.IsDir() {
+			return os.RemoveAll(path)
+		}
+		if strings.HasSuffix(path, ".qml") {
+			return os.Remove(path)
+		}
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("clean directory before generating: %v", err)
+	}
+
+	return g.genTypes(f.Types, skipTypeNames)
 }
 
 type qmlGenerator struct {

@@ -28,6 +28,8 @@
 package main
 
 import (
+	"strings"
+
 	"github.com/desertbit/grumble"
 	"github.com/desertbit/orbit/internal/codegen/gen"
 )
@@ -35,8 +37,9 @@ import (
 const (
 	argOrbitFiles = "orbit-files"
 
-	flagQMLDir = "qml-dir"
-	flagForce  = "force"
+	flagQMLDir       = "qml-dir"
+	flagQMLSkipTypes = "qml-skip-types"
+	flagForce        = "force"
 )
 
 var cmdGen = &grumble.Command{
@@ -45,6 +48,7 @@ var cmdGen = &grumble.Command{
 	Run:  runGen,
 	Flags: func(f *grumble.Flags) {
 		f.StringL(flagQMLDir, "", "if not empty, path to a directory into which QML types are generated")
+		f.StringL(flagQMLSkipTypes, "", "comma separated list of orbit type names that should be ignored for the QML type generation")
 		f.Bool("f", flagForce, false, "generate all files, ignoring their last modification time")
 	},
 	Args: func(a *grumble.Args) {
@@ -59,7 +63,11 @@ func init() {
 func runGen(ctx *grumble.Context) (err error) {
 	// Iterate over each provided file path and generate the .orbit file.
 	for _, fp := range ctx.Args.StringList(argOrbitFiles) {
-		err = gen.Generate(fp, ctx.Flags.String(flagQMLDir), ctx.Flags.Bool(flagForce))
+		err = gen.Generate(fp, gen.Config{
+			QMLDir:       ctx.Flags.String(flagQMLDir),
+			QMLSkipTypes: strings.FieldsFunc(ctx.Flags.String(flagQMLSkipTypes), func(r rune) bool { return r == ',' }),
+			Force:        ctx.Flags.Bool(flagForce),
+		})
 		if err != nil {
 			return
 		}
