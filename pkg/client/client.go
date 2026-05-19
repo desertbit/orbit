@@ -32,7 +32,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/desertbit/closer/v3"
+	"github.com/desertbit/closer/v4"
 	"github.com/desertbit/orbit/pkg/transport"
 	"github.com/rs/zerolog"
 )
@@ -119,7 +119,9 @@ func New(opts *Options) (Client, error) {
 		stateChan:          make(chan State, 5),
 		connectSessionChan: make(chan chan interface{}),
 	}
-	c.OnClose(c.hookClose)
+	closer.Hook(c.Closer, func(h closer.H) {
+		h.OnCloseWithErr(c.hookClose)
+	})
 	c.startSessionRoutine()
 	return c, nil
 }

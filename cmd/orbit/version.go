@@ -28,23 +28,28 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 
-	"github.com/desertbit/grumble"
 	"github.com/desertbit/orbit/internal/codegen"
 )
 
-var cmdVersion = &grumble.Command{
-	Name: "version",
-	Help: "print the version and exit",
-	Run:  runVersion,
-}
-
 func init() {
-	App.AddCommand(cmdVersion)
+	register(&command{
+		name: "version",
+		help: "print the version and exit",
+		run:  runVersion,
+	})
 }
 
-func runVersion(ctx *grumble.Context) (err error) {
+func runVersion(args []string) error {
+	fs := flag.NewFlagSet("version", flag.ContinueOnError)
+	fs.Usage = func() {
+		fmt.Fprintln(fs.Output(), "Usage: orbit version")
+	}
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
 	fmt.Printf("version: %d.%d\n", codegen.OrbitFileVersion, codegen.CacheVersion)
-	return
+	return nil
 }

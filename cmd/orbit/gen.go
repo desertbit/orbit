@@ -28,39 +28,42 @@
 package main
 
 import (
-	"github.com/desertbit/grumble"
+	"errors"
+	"flag"
+	"fmt"
+
 	"github.com/desertbit/orbit/internal/codegen/gen"
 )
 
-const (
-	argOrbitFiles = "orbit-files"
-
-	flagForce = "force"
-)
-
-var cmdGen = &grumble.Command{
-	Name: "gen",
-	Help: "generate go code from .orbit file. Args: <files>",
-	Run:  runGen,
-	Flags: func(f *grumble.Flags) {
-		f.Bool("f", flagForce, false, "generate all files, ignoring their last modification time")
-	},
-	Args: func(a *grumble.Args) {
-		a.StringList(argOrbitFiles, "the paths to the orbit files", grumble.Min(1))
-	},
-}
-
 func init() {
-	App.AddCommand(cmdGen)
+	register(&command{
+		name: "gen",
+		help: "generate go code from .orbit files",
+		run:  runGen,
+	})
 }
 
-func runGen(ctx *grumble.Context) (err error) {
-	// Iterate over each provided file path and generate the .orbit file.
-	for _, fp := range ctx.Args.StringList(argOrbitFiles) {
-		err = gen.Generate(fp, ctx.Flags.Bool(flagForce))
-		if err != nil {
-			return
+func runGen(args []string) error {
+	fs := flag.NewFlagSet("gen", flag.ContinueOnError)
+	fs.Usage = func() {
+		fmt.Fprintln(fs.Output(), "Usage: orbit gen [-f] <orbit-file>...")
+		fmt.Fprintln(fs.Output())
+		fmt.Fprintln(fs.Output(), "Flags:")
+		fs.PrintDefaults()
+	}
+	force := fs.Bool("f", false, "generate all files, ignoring their last modification time")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if fs.NArg() < 1 {
+		fs.Usage()
+		return errors.New("at least one orbit file path is required")
+	}
+
+	for _, fp := range fs.Args() {
+		if err := gen.Generate(fp, *force); err != nil {
+			return err
 		}
 	}
-	return
+	return nil
 }

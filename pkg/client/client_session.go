@@ -119,7 +119,7 @@ func (c *client) startSessionRoutine() {
 }
 
 func (c *client) sessionRoutine() {
-	defer c.Close_()
+	defer c.Close()
 
 	var (
 		isReconnect bool

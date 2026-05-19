@@ -31,7 +31,7 @@ import (
 	"context"
 	"net"
 
-	"github.com/desertbit/closer/v3"
+	"github.com/desertbit/closer/v4"
 )
 
 type Transport interface {
@@ -41,6 +41,12 @@ type Transport interface {
 
 type Conn interface {
 	closer.Closer
+
+	// CloserRaw returns the underlying raw closer.
+	// Use this when interacting with closer/v4 free functions (Hook, OneWay, TwoWay,
+	// Block, Routine), which type-assert to the closer package's private concrete
+	// type and panic on wrapper closers.
+	CloserRaw() closer.Closer
 
 	// AcceptStream returns the next stream opened by the peer, blocking until one is available.
 	AcceptStream(context.Context) (Stream, error)

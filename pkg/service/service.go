@@ -31,7 +31,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/desertbit/closer/v3"
+	"github.com/desertbit/closer/v4"
 	"github.com/desertbit/orbit/pkg/codec"
 	"github.com/desertbit/orbit/pkg/transport"
 	"github.com/rs/zerolog"
@@ -162,7 +162,9 @@ func New(opts *Options) (Service, error) {
 		calls:         make(map[string]call),
 		asyncCallOpts: make(map[string]asyncCallOptions),
 	}
-	s.OnClose(s.hookClose)
+	closer.Hook(s.Closer, func(h closer.H) {
+		h.OnCloseWithErr(s.hookClose)
+	})
 	s.startAcceptConnRoutines()
 	return s, nil
 }
@@ -170,10 +172,10 @@ func New(opts *Options) (Service, error) {
 // Run the service and start listening for requests.
 // This method is blocking.
 func (s *service) Run() (err error) {
-	defer s.Close_()
+	defer s.Close()
 
 	// Open a listener with the transport.
-	ln, err := s.opts.Transport.Listen(s.CloserTwoWay(), s.opts.ListenAddr)
+	ln, err := s.opts.Transport.Listen(closer.TwoWay(s.Closer), s.opts.ListenAddr)
 	if err != nil {
 		return
 	}

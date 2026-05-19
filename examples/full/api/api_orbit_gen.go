@@ -5,7 +5,7 @@ import (
 	context "context"
 	errors "errors"
 	fmt "fmt"
-	closer "github.com/desertbit/closer/v3"
+	closer "github.com/desertbit/closer/v4"
 	oclient "github.com/desertbit/orbit/pkg/client"
 	codec "github.com/desertbit/orbit/pkg/codec"
 	packet "github.com/desertbit/orbit/pkg/packet"

@@ -40,14 +40,14 @@ const (
 )
 
 func (s *session) startRPCRoutines() {
-	for i := 0; i < numRPCReadRoutines; i++ {
+	for range numRPCReadRoutines {
 		go s.rpcReadRoutine()
 	}
 }
 
 func (s *session) rpcReadRoutine() {
 	// Close the session on exit.
-	defer s.Close_()
+	defer s.Close()
 
 	var (
 		err     error

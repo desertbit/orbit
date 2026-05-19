@@ -34,7 +34,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/desertbit/closer/v3"
+	"github.com/desertbit/closer/v4"
 	"github.com/desertbit/orbit/internal/api"
 	"github.com/desertbit/orbit/pkg/codec"
 	"github.com/desertbit/orbit/pkg/packet"
@@ -101,7 +101,7 @@ func initSession(
 	// Close connection on error.
 	defer func() {
 		if err != nil {
-			conn.Close_()
+			conn.Close()
 		}
 	}()
 
@@ -163,7 +163,7 @@ func initSession(
 
 	// Create the session.
 	s = &session{
-		Closer: conn,
+		Closer: conn.CloserRaw(),
 
 		id:                 id,
 		conn:               conn,
@@ -198,9 +198,11 @@ func initSession(
 	s.startAcceptStreamRoutine()
 
 	// Call the OnSessionClosed hooks as soon as the session closes.
-	s.OnClose(func() error {
-		h.hookOnSessionClosed(s)
-		return nil
+	closer.Hook(s.Closer, func(hk closer.H) {
+		hk.OnCloseWithErr(func() error {
+			h.hookOnSessionClosed(s)
+			return nil
+		})
 	})
 
 	return

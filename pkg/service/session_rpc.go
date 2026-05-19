@@ -107,7 +107,7 @@ func (s *session) startRPCReadRoutine() {
 
 func (s *session) rpcReadRoutine() {
 	// Close the session on exit.
-	defer s.Close_()
+	defer s.Close()
 
 	for {
 		reqType, header, payload, err := rpc.Read(s.stream, nil, nil, s.maxHeaderSize, s.maxArgSize)

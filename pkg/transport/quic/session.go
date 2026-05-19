@@ -32,7 +32,7 @@ import (
 	"errors"
 	"net"
 
-	"github.com/desertbit/closer/v3"
+	"github.com/desertbit/closer/v4"
 	"github.com/desertbit/orbit/pkg/transport"
 	quic "github.com/quic-go/quic-go"
 )
@@ -58,15 +58,17 @@ func newSession(cl closer.Closer, qs *quic.Conn) (s *session, err error) {
 		la:     qs.LocalAddr(),
 		ra:     qs.RemoteAddr(),
 	}
-	s.OnClosing(func() error {
-		return qs.CloseWithError(errorCodeClose, "closed")
+	closer.Hook(s.Closer, func(h closer.H) {
+		h.OnClosingWithErr(func() error {
+			return qs.CloseWithError(errorCodeClose, "closed")
+		})
 	})
 
 	// Always close on error.
 	// Uncomment this, if code with errors is added!
 	/*defer func() {
 		if err != nil {
-			s.Close_()
+			s.AsyncClose()
 		}
 	}()*/
 
@@ -76,10 +78,15 @@ func newSession(cl closer.Closer, qs *quic.Conn) (s *session, err error) {
 		case <-s.ClosingChan():
 		case <-qs.Context().Done():
 		}
-		s.Close_()
+		s.AsyncClose()
 	}()
 
 	return
+}
+
+// Implements the transport.Conn interface.
+func (s *session) CloserRaw() closer.Closer {
+	return s.Closer
 }
 
 // Implements the transport.Conn interface.

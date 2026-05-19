@@ -30,7 +30,7 @@ package quic
 import (
 	"context"
 
-	"github.com/desertbit/closer/v3"
+	"github.com/desertbit/closer/v4"
 	"github.com/desertbit/orbit/pkg/transport"
 	quic "github.com/quic-go/quic-go"
 )

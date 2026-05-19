@@ -30,7 +30,7 @@ package yamux
 import (
 	"net"
 
-	"github.com/desertbit/closer/v3"
+	"github.com/desertbit/closer/v4"
 	"github.com/desertbit/orbit/pkg/transport"
 	"github.com/desertbit/yamux"
 )
@@ -50,7 +50,9 @@ func newListener(cl closer.Closer, ln net.Listener, conf *yamux.Config) transpor
 		ln:     ln,
 		conf:   conf,
 	}
-	l.OnClosing(ln.Close)
+	closer.Hook(l.Closer, func(h closer.H) {
+		h.OnClosingWithErr(ln.Close)
+	})
 	return l
 }
 
@@ -61,7 +63,7 @@ func (l *listener) Accept() (transport.Conn, error) {
 		return nil, err
 	}
 
-	return newSession(l.CloserOneWay(), c, true, l.conf)
+	return newSession(closer.OneWay(l.Closer), c, true, l.conf)
 }
 
 // Addr returns the listener's network address.

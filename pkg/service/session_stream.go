@@ -33,6 +33,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/desertbit/closer/v4"
 	"github.com/desertbit/orbit/internal/api"
 	"github.com/desertbit/orbit/pkg/packet"
 	"github.com/desertbit/orbit/pkg/transport"
@@ -48,10 +49,10 @@ func (s *session) startAcceptStreamRoutine() {
 }
 
 func (s *session) acceptStreamRoutine() {
-	defer s.Close_()
+	defer s.Close()
 
 	// Create a new context from the closer.
-	ctx, cancel := s.Closer.Context()
+	ctx, cancel := closer.ContextWithCancel(s.Closer)
 	defer cancel()
 
 	for {

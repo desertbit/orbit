@@ -34,7 +34,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/desertbit/closer/v3"
+	"github.com/desertbit/closer/v4"
 	"github.com/desertbit/orbit/internal/api"
 	"github.com/desertbit/orbit/pkg/codec"
 	"github.com/desertbit/orbit/pkg/packet"
@@ -96,7 +96,7 @@ func connectSession(h clientHandler, opts *Options) (s *session, err error) {
 	defer cancelConnect()
 
 	// Connect to the service.
-	conn, err := opts.Transport.Dial(opts.Closer.CloserOneWay(), ctxConnect, opts.Host)
+	conn, err := opts.Transport.Dial(closer.OneWay(opts.Closer), ctxConnect, opts.Host)
 	if err != nil {
 		return
 	}
@@ -104,7 +104,7 @@ func connectSession(h clientHandler, opts *Options) (s *session, err error) {
 	// Always close the conn on error.
 	defer func() {
 		if err != nil {
-			conn.Close_()
+			conn.Close()
 		}
 	}()
 
@@ -152,7 +152,7 @@ func connectSession(h clientHandler, opts *Options) (s *session, err error) {
 
 	// Finally, create the orbit session.
 	s = &session{
-		Closer: conn,
+		Closer: conn.CloserRaw(),
 
 		id:      ret.SessionID,
 		conn:    conn,
@@ -184,9 +184,11 @@ func connectSession(h clientHandler, opts *Options) (s *session, err error) {
 	s.startRPCRoutines()
 
 	// Call the OnSessionClosed hooks as soon as the session closes.
-	s.OnClose(func() error {
-		h.hookOnSessionClosed(s)
-		return nil
+	closer.Hook(s.Closer, func(hk closer.H) {
+		hk.OnCloseWithErr(func() error {
+			h.hookOnSessionClosed(s)
+			return nil
+		})
 	})
 
 	return

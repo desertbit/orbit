@@ -30,6 +30,7 @@ package service
 import (
 	"fmt"
 
+	"github.com/desertbit/closer/v4"
 	"github.com/desertbit/orbit/internal/strutil"
 	"github.com/desertbit/orbit/pkg/transport"
 )
@@ -88,21 +89,23 @@ func (s *service) handleNewConn(conn transport.Conn) (err error) {
 
 	// Close the new session, if its id is already taken.
 	if idExists {
-		sn.Close_()
+		sn.Close()
 		return fmt.Errorf("closed new session with duplicate session ID: %s", id)
 	}
 
 	// Remove the session from the session map, once it closes.
-	sn.OnClosing(func() error {
-		// Speed up the closing process if the server closes.
-		if s.IsClosing() {
-			return nil
-		}
+	closer.Hook(sn.Closer, func(h closer.H) {
+		h.OnClosingWithErr(func() error {
+			// Speed up the closing process if the server closes.
+			if s.IsClosing() {
+				return nil
+			}
 
-		s.sessionsMx.Lock()
-		delete(s.sessions, sn.id)
-		s.sessionsMx.Unlock()
-		return nil
+			s.sessionsMx.Lock()
+			delete(s.sessions, sn.id)
+			s.sessionsMx.Unlock()
+			return nil
+		})
 	})
 	return
 }

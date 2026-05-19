@@ -34,7 +34,6 @@ import (
 	"time"
 
 	"github.com/desertbit/orbit/internal/api"
-
 	"github.com/desertbit/orbit/internal/rpc"
 	"github.com/desertbit/orbit/pkg/transport"
 )
@@ -70,7 +69,7 @@ func (s *session) handleCancelStream(stream transport.Stream) (err error) {
 func (s *session) rpcCancelReadRoutine(stream transport.Stream) {
 	// Close the session on exit.
 	// Currently only one cancel stream is supported.
-	defer s.Close_()
+	defer s.Close()
 
 	var (
 		err     error

@@ -32,7 +32,7 @@ import (
 	"crypto/tls"
 	"net"
 
-	"github.com/desertbit/closer/v3"
+	"github.com/desertbit/closer/v4"
 	"github.com/desertbit/orbit/pkg/transport"
 )
 

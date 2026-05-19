@@ -33,7 +33,7 @@ import (
 	"io"
 	"net"
 
-	"github.com/desertbit/closer/v3"
+	"github.com/desertbit/closer/v4"
 	"github.com/desertbit/orbit/pkg/transport"
 	"github.com/desertbit/yamux"
 )
@@ -52,12 +52,14 @@ func newSession(cl closer.Closer, conn net.Conn, isServer bool, conf *yamux.Conf
 		Closer: cl,
 		conn:   conn,
 	}
-	s.OnClosing(conn.Close)
+	closer.Hook(s.Closer, func(h closer.H) {
+		h.OnClosingWithErr(conn.Close)
+	})
 
 	// Always close on error.
 	defer func() {
 		if err != nil {
-			s.Close_()
+			s.AsyncClose()
 		}
 	}()
 
@@ -70,7 +72,9 @@ func newSession(cl closer.Closer, conn net.Conn, isServer bool, conf *yamux.Conf
 	if err != nil {
 		return
 	}
-	s.OnClosing(s.ys.Close)
+	closer.Hook(s.Closer, func(h closer.H) {
+		h.OnClosingWithErr(s.ys.Close)
+	})
 
 	// Always close if the yamux session closes.
 	go func() {
@@ -78,10 +82,15 @@ func newSession(cl closer.Closer, conn net.Conn, isServer bool, conf *yamux.Conf
 		case <-s.ClosingChan():
 		case <-s.ys.ClosedChan():
 		}
-		s.Close_()
+		s.AsyncClose()
 	}()
 
 	return s, nil
+}
+
+// CloserRaw returns the underlying raw closer.
+func (s *session) CloserRaw() closer.Closer {
+	return s.Closer
 }
 
 // LocalAddr returns the local address.

@@ -32,7 +32,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/desertbit/closer/v3"
+	"github.com/desertbit/closer/v4"
 	"github.com/desertbit/orbit/pkg/codec"
 	"github.com/desertbit/orbit/pkg/codec/msgpack"
 	"github.com/desertbit/orbit/pkg/transport"

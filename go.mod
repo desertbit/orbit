@@ -4,8 +4,7 @@ go 1.24.0
 
 require (
 	code.cloudfoundry.org/bytefmt v0.0.0-20240418163414-335139cff0b2
-	github.com/desertbit/closer/v3 v3.7.5
-	github.com/desertbit/grumble v1.2.0
+	github.com/desertbit/closer/v4 v4.0.2
 	github.com/desertbit/yamux v1.2.0
 	github.com/go-playground/validator/v10 v10.28.0
 	github.com/quic-go/quic-go v0.56.0
@@ -18,10 +17,6 @@ require (
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/desertbit/columnize v2.1.0+incompatible // indirect
-	github.com/desertbit/go-shlex v0.1.1 // indirect
-	github.com/desertbit/readline v1.5.1 // indirect
-	github.com/fatih/color v1.18.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.11 // indirect
 	github.com/go-playground/locales v0.14.1 // indirect
 	github.com/go-playground/universal-translator v0.18.1 // indirect

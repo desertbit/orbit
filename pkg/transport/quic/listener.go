@@ -31,7 +31,7 @@ import (
 	"context"
 	"net"
 
-	"github.com/desertbit/closer/v3"
+	"github.com/desertbit/closer/v4"
 	"github.com/desertbit/orbit/pkg/transport"
 	quic "github.com/quic-go/quic-go"
 )
@@ -49,7 +49,9 @@ func newListener(cl closer.Closer, ln *quic.Listener) transport.Listener {
 		Closer: cl,
 		ln:     ln,
 	}
-	l.OnClosing(ln.Close)
+	closer.Hook(l.Closer, func(h closer.H) {
+		h.OnClosingWithErr(ln.Close)
+	})
 	return l
 }
 
@@ -61,7 +63,7 @@ func (l *listener) Accept() (transport.Conn, error) {
 		return nil, err
 	}
 
-	return newSession(l.CloserOneWay(), qs)
+	return newSession(closer.OneWay(l.Closer), qs)
 }
 
 // Implements the transport.Listener interface.
